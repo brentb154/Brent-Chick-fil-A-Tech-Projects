@@ -1,6 +1,6 @@
-# 🍗 Payroll System - Complete Setup Guide
+# Payroll System - Complete Setup Guide
 
-**For Chick-fil-A Locations (or any restaurant!)**
+**For Chick-fil-A Locations**
 
 This guide is written for someone with **zero technical experience**. Follow each step exactly and you'll have a working payroll system in about 30-45 minutes.
 
@@ -23,7 +23,7 @@ This guide is written for someone with **zero technical experience**. Follow eac
 
 ## 🤔 Can Other Restaurants Use This?
 
-**YES!** This system can be copied and used by any restaurant or business that needs to:
+**NO ONLY CHICKFILA!** This system can be copied and used by any restaurant or business that needs to:
 - Track overtime hours
 - Manage uniform orders and payroll deductions
 - Handle PTO requests
