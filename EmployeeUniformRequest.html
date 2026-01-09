@@ -1,0 +1,5439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Request Uniforms / Solicitar Uniformes</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cfa-red: #E51636;
+      --cfa-red-dark: #C41230;
+      --cfa-red-light: #FFE8EC;
+      --success: #22C55E;
+      --success-light: #DCFCE7;
+      --warning: #F59E0B;
+      --error: #EF4444;
+      --gray-50: #F9FAFB;
+      --gray-100: #F3F4F6;
+      --gray-200: #E5E7EB;
+      --gray-300: #D1D5DB;
+      --gray-400: #9CA3AF;
+      --gray-500: #6B7280;
+      --gray-600: #4B5563;
+      --gray-700: #374151;
+      --gray-800: #1F2937;
+      --gray-900: #111827;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, var(--cfa-red) 0%, var(--cfa-red-dark) 100%);
+      min-height: 100vh;
+      padding: 16px;
+      color: var(--gray-800);
+    }
+
+    .container {
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, var(--cfa-red) 0%, var(--cfa-red-dark) 100%);
+      color: white;
+      padding: 24px 20px;
+      text-align: center;
+    }
+
+    .header-icon {
+      font-size: 48px;
+      margin-bottom: 8px;
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .header h2 {
+      font-size: 1.1rem;
+      font-weight: 400;
+      opacity: 0.9;
+    }
+
+    .form-content {
+      padding: 24px 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: 4px;
+      font-size: 0.95rem;
+    }
+
+    .form-label-spanish {
+      display: block;
+      font-weight: 400;
+      color: var(--gray-500);
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid var(--gray-200);
+      border-radius: 12px;
+      font-size: 1rem;
+      font-family: inherit;
+      transition: all 0.2s ease;
+      background: white;
+      -webkit-appearance: none;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--cfa-red);
+      box-shadow: 0 0 0 4px var(--cfa-red-light);
+    }
+
+    select.form-control {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 20px;
+      padding-right: 44px;
+    }
+
+    textarea.form-control {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+    }
+
+    .required {
+      color: var(--cfa-red);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--cfa-red) 0%, var(--cfa-red-dark) 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(229, 22, 54, 0.4);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      background: var(--gray-100);
+      color: var(--gray-700);
+      padding: 10px 16px;
+      font-size: 0.9rem;
+    }
+
+    .btn-secondary:hover {
+      background: var(--gray-200);
+    }
+
+    .btn-add {
+      background: var(--success);
+      color: white;
+      padding: 14px 20px;
+    }
+
+    .btn-add:hover {
+      background: #16A34A;
+    }
+
+    /* Item Selection Section */
+    .item-selection {
+      background: var(--gray-50);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+      border: 2px dashed var(--gray-200);
+    }
+
+    .item-selection-title {
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .item-selection-title .material-icons-round {
+      font-size: 20px;
+      color: var(--cfa-red);
+    }
+
+    .item-selection-subtitle {
+      color: var(--gray-500);
+      font-size: 0.85rem;
+      margin-bottom: 16px;
+    }
+
+    /* Cart Section */
+    .cart-section {
+      margin-bottom: 20px;
+    }
+
+    .cart-title {
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .cart-count {
+      background: var(--cfa-red);
+      color: white;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+    }
+
+    .cart-empty {
+      text-align: center;
+      padding: 24px;
+      color: var(--gray-500);
+      background: var(--gray-50);
+      border-radius: 12px;
+      border: 2px dashed var(--gray-200);
+    }
+
+    .cart-empty-icon {
+      font-size: 48px;
+      margin-bottom: 8px;
+      opacity: 0.5;
+    }
+
+    .cart-items {
+      border: 2px solid var(--gray-200);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .cart-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      background: white;
+      border-bottom: 1px solid var(--gray-100);
+    }
+
+    .cart-item:last-child {
+      border-bottom: none;
+    }
+
+    .cart-item-info {
+      flex: 1;
+    }
+
+    .cart-item-name {
+      font-weight: 600;
+      color: var(--gray-800);
+      font-size: 0.95rem;
+    }
+
+    .cart-item-details {
+      color: var(--gray-500);
+      font-size: 0.85rem;
+      margin-top: 2px;
+    }
+
+    .cart-item-qty {
+      background: var(--gray-100);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      margin-right: 12px;
+    }
+
+    .cart-item-remove {
+      background: none;
+      border: none;
+      color: var(--gray-400);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .cart-item-remove:hover {
+      color: var(--error);
+      background: var(--cfa-red-light);
+    }
+
+    .replacement-badge {
+      background: var(--warning);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
+    /* Payment Options Section */
+    .payment-options-section {
+      background: var(--gray-50);
+      border: 2px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .payment-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .payment-header .material-icons-round {
+      color: var(--cfa-red);
+      font-size: 24px;
+    }
+
+    .payment-checkbox-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      cursor: pointer;
+      padding: 12px;
+      background: white;
+      border: 2px solid var(--gray-200);
+      border-radius: 10px;
+      transition: all 0.2s;
+    }
+
+    .payment-checkbox-label:hover {
+      border-color: var(--cfa-red);
+    }
+
+    .payment-checkbox-label input[type="checkbox"] {
+      display: none;
+    }
+
+    .checkbox-custom {
+      width: 22px;
+      height: 22px;
+      min-width: 22px;
+      border: 2px solid var(--gray-300);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      margin-top: 2px;
+    }
+
+    .payment-checkbox-label input:checked + .checkbox-custom {
+      background: var(--success);
+      border-color: var(--success);
+    }
+
+    .payment-checkbox-label input:checked + .checkbox-custom::after {
+      content: '✓';
+      color: white;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .payment-preview {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 12px;
+    }
+
+    .payment-preview-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.95rem;
+    }
+
+    .payment-preview-row strong {
+      color: var(--cfa-red);
+      font-size: 1.1rem;
+    }
+
+    .payment-notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 12px;
+      padding: 12px;
+      background: #FEF3C7;
+      border: 1px solid #FCD34D;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: var(--gray-700);
+    }
+
+    .payment-notice .material-icons-round {
+      color: #D97706;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    #deductionOptions.hidden {
+      display: none;
+    }
+
+    /* Checkbox styling */
+    .checkbox-group {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--gray-50);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .checkbox-group:hover {
+      background: var(--gray-100);
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: 22px;
+      height: 22px;
+      margin-top: 2px;
+      accent-color: var(--cfa-red);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .checkbox-label {
+      flex: 1;
+    }
+
+    .checkbox-label-en {
+      font-weight: 500;
+      color: var(--gray-700);
+      font-size: 0.95rem;
+    }
+
+    .checkbox-label-es {
+      color: var(--gray-500);
+      font-size: 0.85rem;
+      margin-top: 2px;
+    }
+
+    /* Error message */
+    .error-message {
+      display: none;
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
+      color: #DC2626;
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+    }
+
+    .error-message.show {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .required-note {
+      text-align: center;
+      color: var(--gray-500);
+      font-size: 0.85rem;
+      margin-top: 16px;
+    }
+
+    /* Success Screen */
+    .success-screen {
+      display: none;
+      padding: 32px 24px;
+      text-align: center;
+    }
+
+    .success-screen.show {
+      display: block;
+    }
+
+    .success-icon {
+      color: var(--success);
+      margin-bottom: 16px;
+    }
+
+    .success-icon .material-icons-round {
+      font-size: 72px;
+    }
+
+    .success-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin-bottom: 8px;
+    }
+
+    .success-subtitle {
+      color: var(--gray-600);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .success-orderId {
+      display: inline-block;
+      background: var(--gray-100);
+      padding: 8px 24px;
+      border-radius: 8px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--cfa-red);
+      margin-bottom: 24px;
+    }
+
+    .success-details {
+      background: var(--gray-50);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    .success-detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .success-detail-row:last-child {
+      border-bottom: none;
+    }
+
+    .success-detail-label {
+      color: var(--gray-600);
+      font-size: 0.9rem;
+    }
+
+    .success-detail-value {
+      font-weight: 600;
+      color: var(--gray-800);
+      font-size: 0.9rem;
+    }
+
+    .success-items-list {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      margin-top: 12px;
+      font-size: 0.85rem;
+    }
+
+    .success-item {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--gray-100);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .success-item:last-child {
+      border-bottom: none;
+    }
+
+    .success-note {
+      background: var(--cfa-red-light);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 24px;
+      text-align: left;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .success-note p {
+      margin-bottom: 12px;
+    }
+
+    .success-note p:last-child {
+      margin-bottom: 0;
+    }
+
+    .success-buttons {
+      margin-top: 24px;
+    }
+
+    /* Hidden form content when success shows */
+    .form-content.hidden {
+      display: none;
+    }
+
+    /* Loading overlay */
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .loading-overlay.show {
+      display: flex;
+    }
+
+    .loading-content {
+      background: white;
+      padding: 32px;
+      border-radius: 16px;
+      text-align: center;
+    }
+
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid var(--gray-200);
+      border-radius: 50%;
+      border-top-color: var(--cfa-red);
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-weight: 500;
+      color: var(--gray-600);
+    }
+
+    /* Max items warning */
+    .max-items-warning {
+      display: none;
+      background: var(--warning);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .max-items-warning.show {
+      display: block;
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      .form-row {
+        flex-direction: column;
+        gap: 0;
+      }
+      
+      .header h1 {
+        font-size: 1.3rem;
+      }
+      
+      .header h2 {
+        font-size: 1rem;
+      }
+    }
+
+    /* =====================================================
+       MANAGER RECEIVING SECTION STYLES
+       ===================================================== */
+    .manager-divider {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 32px 0 24px;
+      color: var(--gray-400);
+    }
+
+    .manager-divider::before,
+    .manager-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--gray-200);
+    }
+
+    .manager-access-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 14px 24px;
+      background: var(--gray-100);
+      border: 2px dashed var(--gray-300);
+      border-radius: 12px;
+      color: var(--gray-600);
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .manager-access-btn:hover {
+      background: var(--gray-200);
+      border-color: var(--gray-400);
+      color: var(--gray-700);
+    }
+
+    .manager-passcode-section {
+      display: none;
+      background: var(--gray-50);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 16px;
+    }
+
+    .manager-passcode-section.show {
+      display: block;
+    }
+
+    .passcode-input-group {
+      display: flex;
+      gap: 12px;
+    }
+
+    .passcode-input-group input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid var(--gray-200);
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: 'SF Mono', Monaco, monospace;
+      letter-spacing: 4px;
+      text-align: center;
+    }
+
+    .passcode-input-group input:focus {
+      outline: none;
+      border-color: var(--cfa-red);
+    }
+
+    .passcode-input-group button {
+      padding: 12px 24px;
+      background: var(--cfa-red);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .passcode-input-group button:hover {
+      background: var(--cfa-red-dark);
+    }
+
+    .passcode-error {
+      color: var(--error);
+      font-size: 0.85rem;
+      margin-top: 8px;
+      display: none;
+    }
+
+    .passcode-error.show {
+      display: block;
+    }
+
+    /* Manager Receiving Panel */
+    .manager-receiving-panel {
+      display: none;
+      margin-top: 24px;
+    }
+
+    .manager-receiving-panel.show {
+      display: block;
+    }
+
+    .receiving-header {
+      background: linear-gradient(135deg, #1F2937 0%, #374151 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 12px 12px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .receiving-header h3 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      font-size: 1.1rem;
+    }
+
+    .receiving-header .close-btn {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: white;
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .receiving-header .close-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+
+    .receiving-body {
+      background: white;
+      border: 2px solid var(--gray-200);
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      padding: 20px;
+    }
+
+    .location-filter {
+      margin-bottom: 20px;
+    }
+
+    .location-filter label {
+      display: block;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: 8px;
+    }
+
+    /* Order Cards */
+    .receiving-orders {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .receiving-order-card {
+      border: 2px solid var(--gray-200);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .receiving-order-card:hover {
+      border-color: var(--gray-300);
+    }
+
+    .order-card-header {
+      background: var(--gray-50);
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      cursor: pointer;
+    }
+
+    .order-card-header:hover {
+      background: var(--gray-100);
+    }
+
+    .order-info h4 {
+      margin: 0 0 4px;
+      font-size: 1rem;
+      color: var(--gray-800);
+    }
+
+    .order-meta {
+      font-size: 0.85rem;
+      color: var(--gray-500);
+    }
+
+    .order-stats {
+      text-align: right;
+    }
+
+    .order-progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--gray-600);
+      margin-bottom: 4px;
+    }
+
+    .progress-badge {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 0.75rem;
+    }
+
+    .progress-badge.none {
+      background: var(--gray-200);
+      color: var(--gray-600);
+    }
+
+    .progress-badge.partial {
+      background: #FEF3C7;
+      color: #D97706;
+    }
+
+    .progress-badge.complete {
+      background: var(--success-light);
+      color: #059669;
+    }
+
+    .order-total {
+      font-weight: 600;
+      color: var(--gray-800);
+    }
+
+    .order-card-body {
+      display: none;
+      padding: 16px;
+      border-top: 1px solid var(--gray-200);
+    }
+
+    .order-card-body.expanded {
+      display: block;
+    }
+
+    /* Item rows */
+    .receiving-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--gray-50);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+
+    .receiving-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .receiving-item.received {
+      background: var(--success-light);
+    }
+
+    .receiving-item.cancelled {
+      background: var(--gray-100);
+      opacity: 0.6;
+      text-decoration: line-through;
+    }
+
+    .receiving-item input[type="checkbox"] {
+      width: 22px;
+      height: 22px;
+      accent-color: var(--success);
+      cursor: pointer;
+    }
+
+    .receiving-item-info {
+      flex: 1;
+    }
+
+    .receiving-item-name {
+      font-weight: 600;
+      color: var(--gray-800);
+    }
+
+    .receiving-item-details {
+      font-size: 0.85rem;
+      color: var(--gray-500);
+    }
+
+    .receiving-item-price {
+      font-weight: 600;
+      color: var(--gray-700);
+      text-align: right;
+      min-width: 70px;
+    }
+    
+    .receiving-item-price .price-received {
+      display: block;
+      color: var(--success);
+      font-weight: 700;
+    }
+    
+    .receiving-item-price .price-ordered {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--gray-500);
+      font-weight: 400;
+    }
+    
+    .qty-received-wrapper {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .qty-received-select {
+      padding: 2px 6px;
+      border: 1px solid var(--gray-300);
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      background: white;
+      cursor: pointer;
+      min-width: 45px;
+    }
+    
+    .qty-received-select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(229, 22, 54, 0.1);
+    }
+    
+    .receiving-item.received .qty-received-select {
+      border-color: var(--success);
+      background: rgba(34, 197, 94, 0.05);
+    }
+    
+    .qty-single {
+      color: var(--gray-600);
+    }
+
+    .receiving-item-cancel {
+      background: none;
+      border: none;
+      color: var(--gray-400);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .receiving-item-cancel:hover {
+      color: var(--error);
+      background: var(--cfa-red-light);
+    }
+
+    /* Order Actions */
+    .order-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--gray-200);
+    }
+
+    .order-actions .btn-save-activate {
+      width: 100%;
+      background: var(--success);
+      color: white;
+      padding: 12px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .order-actions .btn-save-activate:hover:not(:disabled) {
+      background: #16A34A;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+    }
+
+    .order-actions .btn-save-activate:disabled {
+      background: var(--gray-300);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .order-action-buttons {
+      display: flex;
+      gap: 12px;
+    }
+
+    .order-action-buttons .btn-save-activate {
+      flex: 1;
+    }
+
+    .order-action-buttons .btn-paid-cash {
+      flex: 1;
+      background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+      color: white;
+      padding: 12px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .order-action-buttons .btn-paid-cash:hover:not(:disabled) {
+      background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    }
+
+    .order-action-buttons .btn-paid-cash:disabled {
+      background: var(--gray-300);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Responsive: stack buttons on small screens */
+    @media (max-width: 480px) {
+      .order-action-buttons {
+        flex-direction: column;
+      }
+    }
+
+    .activate-hint {
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--gray-500);
+      padding: 8px 12px;
+      background: var(--gray-50);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .activate-hint.warning {
+      background: #FEF3C7;
+      color: #92400E;
+    }
+
+    .activate-hint .material-icons-round {
+      font-size: 16px;
+    }
+
+    .receiving-empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--gray-500);
+    }
+
+    .receiving-empty .material-icons-round {
+      font-size: 48px;
+      color: var(--gray-300);
+      margin-bottom: 12px;
+    }
+
+    .receiving-summary {
+      background: var(--gray-50);
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .receiving-summary-label {
+      color: var(--gray-600);
+      font-size: 0.9rem;
+    }
+
+    .receiving-summary-value {
+      font-weight: 700;
+      color: var(--success);
+      font-size: 1.1rem;
+    }
+
+    /* ========== BULK MODE STYLES ========== */
+    .mode-toggle {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid var(--gray-200);
+      background: white;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .mode-btn:hover {
+      border-color: var(--gray-300);
+      background: var(--gray-50);
+    }
+
+    .mode-btn.active {
+      border-color: var(--cfa-red);
+      background: var(--cfa-red-light);
+      color: var(--cfa-red);
+    }
+
+    .mode-btn .material-icons-round {
+      font-size: 18px;
+    }
+
+    .bulk-mode-container {
+      display: none;
+    }
+
+    .bulk-mode-container.show {
+      display: block;
+    }
+
+    .standard-mode-container {
+      display: block;
+    }
+
+    .standard-mode-container.hidden {
+      display: none;
+    }
+
+    .bulk-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--gray-200);
+    }
+
+    .bulk-table th {
+      background: var(--gray-100);
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--gray-700);
+      border-bottom: 2px solid var(--gray-200);
+    }
+
+    .bulk-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--gray-100);
+      vertical-align: middle;
+    }
+
+    .bulk-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .bulk-table tr:hover {
+      background: var(--gray-50);
+    }
+
+    .bulk-table tr.old-order {
+      background: #F0FDF4;
+    }
+
+    .bulk-table tr.old-order:hover {
+      background: #DCFCE7;
+    }
+
+    .bulk-table tr.recent-order {
+      opacity: 0.7;
+    }
+
+    .bulk-table tr.cash-order {
+      background: #FEF3C7;
+    }
+
+    .bulk-table tr.cash-order:hover {
+      background: #FDE68A;
+    }
+
+    .bulk-checkbox {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: var(--cfa-red);
+    }
+
+    .bulk-employee {
+      font-weight: 600;
+      color: var(--gray-800);
+    }
+
+    .bulk-items {
+      font-size: 0.8rem;
+      color: var(--gray-500);
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bulk-total {
+      font-weight: 600;
+      color: var(--gray-800);
+    }
+
+    .bulk-age {
+      font-size: 0.85rem;
+    }
+
+    .bulk-age.old {
+      color: var(--success);
+      font-weight: 500;
+    }
+
+    .bulk-age.recent {
+      color: var(--gray-400);
+    }
+
+    .cash-badge {
+      background: #F59E0B;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+
+    .bulk-summary-bar {
+      background: var(--gray-800);
+      color: white;
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin-top: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .bulk-summary-stats {
+      display: flex;
+      gap: 24px;
+    }
+
+    .bulk-summary-stat {
+      text-align: center;
+    }
+
+    .bulk-summary-stat .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .bulk-summary-stat .label {
+      font-size: 0.75rem;
+      opacity: 0.8;
+    }
+
+    .btn-bulk-activate {
+      background: var(--success);
+      color: white;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .btn-bulk-activate:hover:not(:disabled) {
+      background: #16A34A;
+      transform: translateY(-1px);
+    }
+
+    .btn-bulk-activate:disabled {
+      background: var(--gray-500);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .bulk-progress-bar {
+      width: 100%;
+      height: 8px;
+      background: var(--gray-200);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 12px 0;
+    }
+
+    .bulk-progress-fill {
+      height: 100%;
+      background: var(--success);
+      transition: width 0.3s ease;
+    }
+
+    .bulk-result-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin: 12px 0;
+    }
+
+    .bulk-result-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--gray-50);
+      border-radius: 6px;
+      margin-bottom: 4px;
+      font-size: 0.9rem;
+    }
+
+    .bulk-result-item .name {
+      font-weight: 500;
+    }
+
+    .bulk-result-item .amount {
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    /* Confirmation Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1001;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 400px;
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--gray-200);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .modal-footer {
+      padding: 16px 20px;
+      border-top: 1px solid var(--gray-200);
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .modal-footer .btn {
+      width: auto;
+    }
+    
+    /* CHUNK 19: Undo Toast */
+    .undo-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #1F2937;
+      color: white;
+      padding: 14px 20px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      z-index: 2000;
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      max-width: 90%;
+      pointer-events: none; /* Prevent blocking clicks when hidden */
+    }
+    
+    .undo-toast.show {
+      transform: translateX(-50%) translateY(0);
+      pointer-events: auto; /* Allow clicks when visible */
+      opacity: 1;
+    }
+    
+    .undo-toast-message {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+    }
+    
+    .undo-toast-message .material-icons-round {
+      color: var(--success);
+      font-size: 22px;
+    }
+    
+    .undo-toast-text {
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+    
+    .undo-toast-btn {
+      background: white;
+      color: #1F2937;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+    
+    .undo-toast-btn:hover {
+      background: #E5E7EB;
+    }
+    
+    .undo-toast-countdown {
+      font-size: 0.8rem;
+      color: #9CA3AF;
+      margin-left: -8px;
+    }
+    
+    .undo-toast-close {
+      background: transparent;
+      border: none;
+      color: #9CA3AF;
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .undo-toast-close:hover {
+      color: white;
+    }
+    
+    /* ===== New Employee Panel Styles ===== */
+    .new-employee-panel {
+      margin-top: 12px;
+      padding: 16px;
+      background: #F3F4F6;
+      border: 2px solid #D1D5DB;
+      border-radius: 12px;
+    }
+    
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      font-weight: 600;
+      color: #374151;
+      font-size: 0.95rem;
+    }
+    
+    .step-number {
+      width: 28px;
+      height: 28px;
+      background: #E21A23;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    
+    .search-input-group {
+      position: relative;
+    }
+    
+    .search-input-group input {
+      width: 100%;
+      padding-right: 40px;
+    }
+    
+    .search-input-group .search-icon {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #9CA3AF;
+      pointer-events: none;
+    }
+    
+    .search-results {
+      margin-top: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #D1D5DB;
+      border-radius: 8px;
+      background: white;
+    }
+    
+    .result-section-header {
+      padding: 8px 12px;
+      background: #F3F4F6;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #6B7280;
+      text-transform: uppercase;
+    }
+    
+    .search-result-item {
+      padding: 12px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid #E5E7EB;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .search-result-item:last-child {
+      border-bottom: none;
+    }
+    
+    .search-result-item:hover {
+      background: #F9FAFB;
+    }
+    
+    .search-result-item strong {
+      color: #1F2937;
+    }
+    
+    .result-location {
+      font-size: 0.8rem;
+      color: #6B7280;
+      margin-left: 8px;
+    }
+    
+    .similarity-badge {
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      background: #FEF3C7;
+      color: #92400E;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+    
+    .search-result-empty {
+      padding: 24px;
+      text-align: center;
+      color: #6B7280;
+    }
+    
+    .search-result-empty .material-icons-round {
+      font-size: 32px;
+      margin-bottom: 8px;
+      opacity: 0.5;
+    }
+    
+    .create-new-option {
+      margin-top: 16px;
+      padding: 14px;
+      background: #E5E7EB;
+      border-radius: 8px;
+    }
+    
+    .create-new-label {
+      display: flex;
+      gap: 10px;
+      cursor: pointer;
+      font-weight: 500;
+      color: #374151;
+    }
+    
+    .create-new-label input {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      accent-color: #E21A23;
+    }
+    
+    .warning-text {
+      margin: 10px 0 0 30px;
+      font-size: 0.8rem;
+      color: #6B7280;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .warning-text .material-icons-round {
+      color: #D97706;
+    }
+    
+    .name-step, .confirm-step {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px dashed #9CA3AF;
+    }
+    
+    .name-help {
+      margin-top: 8px;
+      font-size: 0.8rem;
+      color: #6B7280;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .name-preview {
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: #D1FAE5;
+      border: 1px solid #10B981;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      color: #065F46;
+    }
+    
+    .similar-warning {
+      margin-top: 14px;
+      padding: 14px;
+      background: #FEF3C7;
+      border: 1px solid #F59E0B;
+      border-radius: 8px;
+    }
+    
+    .similar-warning h4 {
+      color: #92400E;
+      margin: 0 0 10px 0;
+      font-size: 0.9rem;
+    }
+    
+    .similar-warning ul {
+      margin: 0;
+      padding: 0 0 0 20px;
+    }
+    
+    .similar-warning li {
+      margin: 8px 0;
+    }
+    
+    .verification-checkbox {
+      display: flex;
+      gap: 12px;
+      padding: 14px;
+      background: #FEE2E2;
+      border: 2px solid #DC2626;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    
+    .verification-checkbox input {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      accent-color: #DC2626;
+      margin-top: 2px;
+    }
+    
+    .verification-checkbox span {
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: #7F1D1D;
+    }
+    
+    .new-employee-actions {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid #D1D5DB;
+      display: flex;
+      justify-content: flex-end;
+    }
+    
+    .btn-outline-small {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: white;
+      border: 1px solid #D1D5DB;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      color: #374151;
+      cursor: pointer;
+    }
+    
+    .btn-outline-small:hover {
+      background: #F3F4F6;
+    }
+    
+    .btn-use-instead {
+      padding: 4px 10px;
+      background: white;
+      border: 1px solid #D1D5DB;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      color: #374151;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+    
+    .btn-use-instead:hover {
+      background: #F3F4F6;
+    }
+    
+    /* Passcode Step Styles */
+    .passcode-step {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px dashed #9CA3AF;
+    }
+    
+    .passcode-info {
+      font-size: 0.85rem;
+      color: #6B7280;
+      margin: 0 0 12px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .passcode-input-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    
+    .passcode-input-row input {
+      flex: 1;
+      max-width: 180px;
+    }
+    
+    .verify-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 10px 16px;
+      background: #E21A23;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    
+    .verify-btn:hover {
+      background: #C41820;
+    }
+    
+    .passcode-error-msg {
+      color: #DC2626;
+      font-size: 0.85rem;
+      margin-top: 8px;
+    }
+    
+    .passcode-success-msg {
+      color: #059669;
+      font-size: 0.9rem;
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: #D1FAE5;
+      border: 1px solid #10B981;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <!-- Header -->
+      <div class="header">
+        <div class="header-icon">👕</div>
+        <h1>Request Uniforms</h1>
+        <h2>Solicitar Uniformes</h2>
+      </div>
+
+      <!-- Form Content -->
+      <div class="form-content" id="formContent">
+        <!-- Error Message -->
+        <div class="error-message" id="errorMessage">
+          <span class="material-icons-round">error</span>
+          <span id="errorText"></span>
+        </div>
+
+        <!-- Employee Selection -->
+        <div class="form-group">
+          <label class="form-label">Employee Name <span class="required">*</span>
+            <span class="tooltip-icon" tabindex="0">
+              <span class="material-icons-round">help_outline</span>
+              <span class="tooltip-text">Select your name from the list. If new, click "Not in list". / Selecciona tu nombre. Si eres nuevo, haz clic en "No estoy en la lista".</span>
+            </span>
+          </label>
+          <label class="form-label-spanish">Nombre del Empleado</label>
+          <select id="employeeSelect" class="form-control" required onchange="handleEmployeeSelectChange()">
+            <option value="">Select employee / Selecciona empleado</option>
+            <!-- Populated dynamically -->
+          </select>
+          
+          <!-- New Employee Panel (hidden by default) -->
+          <div id="newEmployeePanel" class="new-employee-panel" style="display: none;">
+            
+            <!-- Step 1: Search -->
+            <div class="search-step" id="searchStep">
+              <div class="step-header">
+                <span class="step-number">1</span>
+                <span>Search for your name / Busca tu nombre</span>
+              </div>
+              <div class="search-input-group">
+                <input type="text" id="employeeSearchInput" class="form-control"
+                       placeholder="Type your name... / Escribe tu nombre..."
+                       oninput="handleEmployeeSearch()">
+                <span class="search-icon material-icons-round">search</span>
+              </div>
+              
+              <!-- Search Results -->
+              <div id="searchResults" class="search-results" style="display: none;"></div>
+              
+              <!-- "I'm not in list" option -->
+              <div id="createNewOption" class="create-new-option" style="display: none;">
+                <label class="create-new-label">
+                  <input type="checkbox" id="confirmNotInList" onchange="handleConfirmNotInList()">
+                  <span>I'm not in the list - I'm a new employee / No estoy en la lista - Soy empleado nuevo</span>
+                </label>
+                <p class="warning-text">
+                  <span class="material-icons-round" style="font-size: 14px;">warning</span>
+                  Only select if you haven't worked here yet / Solo selecciona si aún no has trabajado aquí
+                </p>
+              </div>
+            </div>
+            
+            <!-- Step 2: Enter Name -->
+            <div class="name-step" id="nameStep" style="display: none;">
+              <div class="step-header">
+                <span class="step-number">2</span>
+                <span>Enter your full name / Ingresa tu nombre completo</span>
+              </div>
+              
+              <input type="text" id="newEmployeeName" class="form-control"
+                     placeholder="First Last (e.g., John Smith)"
+                     oninput="handleNewNameInput()">
+              
+              <div class="name-help">
+                <span class="material-icons-round" style="font-size: 14px;">info</span>
+                Enter name EXACTLY as on your paycheck / Ingresa tu nombre EXACTAMENTE como aparece en tu cheque
+              </div>
+              
+              <div class="name-preview" id="namePreview" style="display: none;">
+                <span>Will be saved as / Se guardará como: </span>
+                <strong id="normalizedNamePreview"></strong>
+              </div>
+              
+              <!-- Similar name warning -->
+              <div id="similarNameWarning" class="similar-warning" style="display: none;"></div>
+            </div>
+            
+            <!-- Step 3: Confirm -->
+            <div class="confirm-step" id="confirmStep" style="display: none;">
+              <div class="step-header">
+                <span class="step-number">3</span>
+                <span>Verify spelling / Verifica la ortografía</span>
+              </div>
+              
+              <label class="verification-checkbox">
+                <input type="checkbox" id="spellingVerified" onchange="handleSpellingVerified()">
+                <span>I verify my name is spelled correctly. Wrong spelling will cause problems. / Verifico que mi nombre está escrito correctamente. La ortografía incorrecta causará problemas.</span>
+              </label>
+            </div>
+            
+            <!-- Step 4: Manager Passcode -->
+            <div class="passcode-step" id="passcodeStep" style="display: none;">
+              <div class="step-header">
+                <span class="step-number">4</span>
+                <span>Manager Approval / Aprobación del Gerente</span>
+              </div>
+              
+              <p class="passcode-info">
+                <span class="material-icons-round" style="font-size: 14px;">lock</span>
+                Ask your manager to enter the passcode / Pide a tu gerente que ingrese el código
+              </p>
+              
+              <div class="passcode-input-row">
+                <input type="password" id="newEmployeePasscode" class="form-control" 
+                       placeholder="Passcode / Código"
+                       maxlength="10"
+                       onkeypress="if(event.key==='Enter') verifyNewEmployeePasscode()">
+                <button type="button" class="verify-btn" onclick="verifyNewEmployeePasscode()">
+                  <span class="material-icons-round" style="font-size: 16px;">check</span>
+                  Verify
+                </button>
+              </div>
+              <div id="newEmployeePasscodeError" class="passcode-error-msg" style="display: none;">
+                Incorrect passcode / Código incorrecto
+              </div>
+              <div id="newEmployeePasscodeSuccess" class="passcode-success-msg" style="display: none;">
+                <span class="material-icons-round" style="font-size: 16px;">check_circle</span>
+                Verified! / ¡Verificado!
+              </div>
+            </div>
+            
+            <!-- Cancel button -->
+            <div class="new-employee-actions">
+              <button type="button" class="btn-outline-small" onclick="cancelNewEmployee()">
+                <span class="material-icons-round" style="font-size: 16px;">close</span>
+                Cancel / Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Location Selection -->
+        <div class="form-group">
+          <label class="form-label">Location <span class="required">*</span>
+            <span class="tooltip-icon" tabindex="0">
+              <span class="material-icons-round">help_outline</span>
+              <span class="tooltip-text">Select the store location where you work. / Selecciona la ubicación donde trabajas.</span>
+            </span>
+          </label>
+          <label class="form-label-spanish">Ubicación</label>
+          <select id="locationSelect" class="form-control" required>
+            <option value="">Select location / Selecciona ubicación</option>
+          </select>
+        </div>
+
+        <!-- Item Selection Box -->
+        <div class="item-selection">
+          <div class="item-selection-title">
+            <span class="material-icons-round">add_shopping_cart</span>
+            Add Items / Agregar Artículos
+          </div>
+          <div class="item-selection-subtitle">
+            Select items below and click "Add" / Selecciona artículos y haz clic en "Agregar"
+          </div>
+
+          <!-- Category -->
+          <div class="form-group">
+            <label class="form-label">Category / Categoría</label>
+            <select id="categorySelect" class="form-control" onchange="onCategoryChange()">
+              <option value="">Select category / Selecciona categoría</option>
+            </select>
+          </div>
+
+          <!-- Item -->
+          <div class="form-group">
+            <label class="form-label">Item / Artículo</label>
+            <select id="itemSelect" class="form-control" onchange="onItemChange()" disabled>
+              <option value="">Select item / Selecciona artículo</option>
+            </select>
+          </div>
+
+          <!-- Gender (shown for pants) -->
+          <div class="form-group" id="genderGroup" style="display: none;">
+            <label class="form-label">Gender / Género</label>
+            <select id="genderSelect" class="form-control" onchange="onGenderChange()">
+              <option value="">Select / Selecciona</option>
+              <option value="male">Male / Hombre</option>
+              <option value="female">Female / Mujer</option>
+            </select>
+          </div>
+
+          <!-- Size and Inseam Row -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" id="sizeLabel">Size / Talla</label>
+              <select id="sizeSelect" class="form-control" onchange="updateAddButton()" disabled>
+                <option value="">Select size / Selecciona talla</option>
+              </select>
+            </div>
+            <div class="form-group" id="inseamGroup" style="display: none;">
+              <label class="form-label">Inseam / Entrepierna</label>
+              <select id="inseamSelect" class="form-control" onchange="updateAddButton()">
+                <option value="">Select / Selecciona</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Quantity -->
+          <div class="form-group">
+            <label class="form-label">Quantity / Cantidad</label>
+            <select id="qtySelect" class="form-control">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          </div>
+
+          <!-- Replacement checkbox -->
+          <div class="checkbox-group" onclick="handleReplacementClick(event)">
+            <input type="checkbox" id="replacementCheck">
+            <div class="checkbox-label">
+              <div class="checkbox-label-en">Replacement (wrong size/wrong item)</div>
+              <div class="checkbox-label-es">Reemplazo (talla incorrecta/artículo incorrecto)</div>
+            </div>
+          </div>
+
+          <!-- Add Button -->
+          <div style="margin-top: 16px;">
+            <button type="button" class="btn btn-add" onclick="addItemToCart()" id="addItemBtn" disabled>
+              <span class="material-icons-round">add</span>
+              Add Item / Agregar
+            </button>
+          </div>
+        </div>
+
+        <!-- Max Items Warning -->
+        <div class="max-items-warning" id="maxItemsWarning">
+          Maximum 5 items per request / Máximo 5 artículos por solicitud
+        </div>
+
+        <!-- Cart Section -->
+        <div class="cart-section">
+          <div class="cart-title">
+            <span>Your Items / Tus Artículos</span>
+            <span class="cart-count" id="cartCount">0</span>
+          </div>
+          
+          <div class="cart-empty" id="cartEmpty">
+            <div class="cart-empty-icon">🛒</div>
+            <div>No items added yet</div>
+            <div style="font-size: 0.85rem;">No hay artículos agregados</div>
+          </div>
+
+          <div class="cart-items" id="cartItems" style="display: none;">
+            <!-- Cart items will be rendered here -->
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="form-group">
+          <label class="form-label">Notes (optional)</label>
+          <label class="form-label-spanish">Notas (opcional)</label>
+          <textarea id="notesInput" class="form-control" placeholder="Special requests, etc. / Solicitudes especiales, etc." maxlength="500"></textarea>
+        </div>
+
+        <!-- Payment Options Section -->
+        <div class="payment-options-section" id="paymentOptionsSection" style="display: none;">
+          <div class="payment-header">
+            <span class="material-icons-round">payment</span>
+            <div>
+              <div style="font-weight: 600; color: var(--gray-800);">Payment Options / Opciones de Pago</div>
+            </div>
+          </div>
+          
+          <!-- Cash Payment Option -->
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="payment-checkbox-label">
+              <input type="checkbox" id="payCashCheckbox" onchange="togglePaymentOptions()">
+              <span class="checkbox-custom"></span>
+              <div>
+                <span style="font-weight: 600;">Pay with Cash / Pagar en Efectivo</span>
+                <span class="tooltip-icon" tabindex="0" style="display: inline-flex; vertical-align: middle;">
+                  <span class="material-icons-round">help_outline</span>
+                  <span class="tooltip-text">Check this box to pay cash when you pick up your items. No paycheck deductions. / Marca esta casilla para pagar en efectivo.</span>
+                </span>
+                <span class="form-label-spanish" style="display: block; margin: 2px 0 0 0;">No paycheck deductions will be made / No se harán deducciones del cheque</span>
+              </div>
+            </label>
+          </div>
+          
+          <!-- Paycheck Deduction Options (shown when NOT paying cash) -->
+          <div id="deductionOptions">
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label class="form-label">Number of Paychecks <span class="required">*</span>
+                <span class="tooltip-icon" tabindex="0">
+                  <span class="material-icons-round">help_outline</span>
+                  <span class="tooltip-text">Choose how many paychecks to spread the cost across. More paychecks = smaller deductions each time. / Elige en cuántos cheques dividir el costo.</span>
+                </span>
+              </label>
+              <label class="form-label-spanish">Número de Cheques de Pago</label>
+              <select id="paymentPlanSelect" class="form-control" onchange="updatePaymentPreview()">
+                <option value="1" selected>1 Paycheck / 1 Cheque (Full amount deducted at once / Monto completo deducido)</option>
+                <option value="2">2 Paychecks / 2 Cheques (Split into 2 payments / Dividido en 2 pagos)</option>
+                <option value="3">3 Paychecks / 3 Cheques (Split into 3 payments / Dividido en 3 pagos)</option>
+              </select>
+            </div>
+            
+            <!-- Payment Preview -->
+            <div class="payment-preview" id="paymentPreview">
+              <div class="payment-preview-row">
+                <span>Amount per paycheck / Monto por cheque:</span>
+                <strong id="amountPerPaycheck">$0.00</strong>
+              </div>
+            </div>
+            
+            <!-- Auto-deduction Notice -->
+            <div class="payment-notice">
+              <span class="material-icons-round">info</span>
+              <div>
+                <strong>Important / Importante:</strong><br>
+                When you receive your items, the amount will be automatically deducted from your paycheck(s).<br>
+                <span style="color: var(--gray-500);">Cuando reciba sus artículos, el monto se deducirá automáticamente de su(s) cheque(s) de pago.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="button" id="submitBtn" class="btn btn-primary" onclick="submitForm()" disabled>
+          <span class="material-icons-round">check_circle</span>
+          Submit Request / Enviar Solicitud
+        </button>
+
+        <div class="required-note">
+          <span class="required">*</span> Required / Requerido
+        </div>
+
+        <!-- Manager Access Section -->
+        <div class="manager-divider">
+          <span class="material-icons-round" style="font-size: 16px;">lock</span>
+        </div>
+
+        <button type="button" class="manager-access-btn" onclick="togglePasscodeSection()">
+          <span class="material-icons-round">admin_panel_settings</span>
+          Manager Access
+        </button>
+
+        <div class="manager-passcode-section" id="passcodeSection">
+          <div class="passcode-input-group">
+            <input type="password" id="passcodeInput" placeholder="Enter passcode" maxlength="10" onkeypress="handlePasscodeKeypress(event)">
+            <button type="button" onclick="validatePasscode()">Unlock</button>
+          </div>
+          <div class="passcode-error" id="passcodeError">Incorrect passcode</div>
+        </div>
+
+        <!-- Manager Receiving Panel (shown after correct passcode) -->
+        <div class="manager-receiving-panel" id="receivingPanel">
+          <div class="receiving-header">
+            <h3>
+              <span class="material-icons-round">inventory_2</span>
+              Uniform Receiving
+            </h3>
+            <button class="close-btn" onclick="closeReceivingPanel()">
+              <span class="material-icons-round">close</span>
+            </button>
+          </div>
+          <div class="receiving-body">
+            <!-- Mode Toggle -->
+            <div class="mode-toggle">
+              <button class="mode-btn active" id="standardModeBtn" onclick="switchReceivingMode('standard')">
+                <span class="material-icons-round">checklist</span>
+                Standard Mode
+              </button>
+              <button class="mode-btn" id="bulkModeBtn" onclick="switchReceivingMode('bulk')">
+                <span class="material-icons-round">playlist_add_check</span>
+                Bulk Mode
+              </button>
+            </div>
+
+            <div class="location-filter">
+              <label>Filter by Location</label>
+              <select id="receivingLocationFilter" class="form-control" onchange="loadPendingOrders()">
+                <option value="All">All Locations</option>
+              </select>
+            </div>
+
+            <!-- Standard Mode Container -->
+            <div id="receivingOrdersContainer" class="standard-mode-container">
+              <div class="receiving-empty">
+                <span class="material-icons-round">hourglass_empty</span>
+                <div>Loading orders...</div>
+              </div>
+            </div>
+
+            <!-- Bulk Mode Container -->
+            <div id="bulkModeContainer" class="bulk-mode-container">
+              <div id="bulkOrdersTable">
+                <div class="receiving-empty">
+                  <span class="material-icons-round">hourglass_empty</span>
+                  <div>Loading orders...</div>
+                </div>
+              </div>
+              
+              <!-- Bulk Summary Bar -->
+              <div class="bulk-summary-bar" id="bulkSummaryBar" style="display: none;">
+                <div class="bulk-summary-stats">
+                  <div class="bulk-summary-stat">
+                    <div class="value" id="bulkSelectedCount">0</div>
+                    <div class="label">Orders Selected</div>
+                  </div>
+                  <div class="bulk-summary-stat">
+                    <div class="value" id="bulkSelectedTotal">$0</div>
+                    <div class="label">Total Amount</div>
+                  </div>
+                </div>
+                <button class="btn-bulk-activate" id="bulkActivateBtn" onclick="startBulkActivation()" disabled>
+                  <span class="material-icons-round">check_circle</span>
+                  Activate Selected Orders
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bulk Cash Warning Modal -->
+        <div class="modal-overlay" id="bulkCashWarningModal">
+          <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header" style="background: #FEF3C7;">
+              <h3 style="display: flex; align-items: center; gap: 8px;">
+                <span class="material-icons-round" style="color: #D97706;">warning</span>
+                Cash Payment Orders
+              </h3>
+              <button class="close-btn" onclick="closeBulkCashWarning()" style="background: rgba(0,0,0,0.1);">
+                <span class="material-icons-round">close</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <p style="margin-bottom: 12px; color: var(--gray-700);">
+                <strong id="cashOrderCount">0</strong> of the selected orders are marked as <strong>Cash Payment</strong>:
+              </p>
+              <div id="cashOrdersList" style="background: var(--gray-50); padding: 12px; border-radius: 8px; max-height: 150px; overflow-y: auto; margin-bottom: 16px;">
+                <!-- Cash orders listed here -->
+              </div>
+              <div style="background: #FEF3C7; border: 1px solid #FCD34D; padding: 12px; border-radius: 8px; font-size: 0.9rem;">
+                <strong>⚠️ Important:</strong> Ensure these employees have paid cash BEFORE releasing their items.
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="closeBulkCashWarning()">Cancel</button>
+              <button class="btn btn-primary" onclick="proceedWithBulkActivation()">
+                I've Collected Payment - Proceed
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bulk Confirmation Modal -->
+        <div class="modal-overlay" id="bulkConfirmModal">
+          <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+              <h3>Confirm Bulk Activation</h3>
+              <button class="close-btn" onclick="closeBulkConfirmModal()">
+                <span class="material-icons-round">close</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <p style="margin-bottom: 16px;">You're about to activate <strong id="confirmOrderCount">0</strong> orders totaling <strong id="confirmTotalAmount">$0</strong>.</p>
+              <div style="background: var(--gray-50); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                <div style="font-weight: 600; margin-bottom: 8px;">This will:</div>
+                <ul style="margin: 0; padding-left: 20px; color: var(--gray-600); font-size: 0.9rem;">
+                  <li>Mark all items as received</li>
+                  <li>Start paycheck deductions for non-cash orders</li>
+                  <li>Send confirmation email to admin</li>
+                </ul>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="closeBulkConfirmModal()">Cancel</button>
+              <button class="btn btn-primary" id="confirmBulkBtn" onclick="executeBulkActivation()">
+                <span class="material-icons-round">check_circle</span>
+                Confirm & Activate
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bulk Progress Modal -->
+        <div class="modal-overlay" id="bulkProgressModal">
+          <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-body" style="text-align: center; padding: 32px;">
+              <div class="loading-spinner" style="width: 48px; height: 48px; margin: 0 auto 16px;"></div>
+              <h3 style="margin-bottom: 8px;">Activating Orders...</h3>
+              <p id="bulkProgressText" style="color: var(--gray-600);">Processing 0 of 0</p>
+              <div class="bulk-progress-bar">
+                <div class="bulk-progress-fill" id="bulkProgressFill" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bulk Success Modal -->
+        <div class="modal-overlay" id="bulkSuccessModal">
+          <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-body" style="text-align: center; padding: 24px;">
+              <div style="width: 64px; height: 64px; background: var(--success-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                <span class="material-icons-round" style="font-size: 36px; color: var(--success);">check_circle</span>
+              </div>
+              <h3 style="margin-bottom: 8px;">Bulk Activation Complete!</h3>
+              <p style="color: var(--gray-600); margin-bottom: 16px;">Successfully activated <strong id="successOrderCount">0</strong> orders</p>
+              
+              <div style="background: var(--success-light); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                <div style="font-size: 0.9rem; color: var(--gray-600);">Total deductions starting next payroll:</div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: var(--success);" id="successTotalAmount">$0.00</div>
+              </div>
+              
+              <div class="bulk-result-list" id="bulkResultList">
+                <!-- Results listed here -->
+              </div>
+              
+              <div style="display: flex; gap: 12px; justify-content: center; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeBulkSuccessModal()">Close</button>
+              </div>
+              
+              <p style="font-size: 0.85rem; color: var(--gray-500); margin-top: 16px;">
+                <span class="material-icons-round" style="font-size: 14px; vertical-align: middle;">email</span>
+                Confirmation email sent to admin
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Success Screen -->
+      <div class="success-screen" id="successScreen">
+        <div class="success-icon">
+          <span class="material-icons-round">check_circle</span>
+        </div>
+        <div class="success-title">Success! / ¡Éxito!</div>
+        <div class="success-subtitle">Your uniform request has been submitted<br>Tu solicitud de uniformes ha sido enviada</div>
+        
+        <div class="success-orderId" id="successOrderId">ORD-00000</div>
+        
+        <div class="success-details">
+          <div class="success-detail-row">
+            <span class="success-detail-label">Employee / Empleado</span>
+            <span class="success-detail-value" id="successEmployee">-</span>
+          </div>
+          <div class="success-detail-row">
+            <span class="success-detail-label">Location / Ubicación</span>
+            <span class="success-detail-value" id="successLocation">-</span>
+          </div>
+          <div class="success-detail-row">
+            <span class="success-detail-label">Items / Artículos</span>
+            <span class="success-detail-value" id="successItemCount">-</span>
+          </div>
+          <div class="success-detail-row">
+            <span class="success-detail-label">Payment / Pago</span>
+            <span class="success-detail-value" id="successPayment">-</span>
+          </div>
+          <div id="successItemsList" class="success-items-list">
+            <!-- Items will be listed here -->
+          </div>
+        </div>
+
+        <div class="success-note" id="successPaymentNote">
+          <p><strong>What's Next:</strong> Your order has been submitted. The team will review and process it. You'll receive your items when they arrive.</p>
+          <p><strong>Próximos Pasos:</strong> Tu pedido ha sido enviado. El equipo lo revisará y procesará. Recibirás tus artículos cuando lleguen.</p>
+        </div>
+
+        <div class="success-buttons">
+          <button type="button" class="btn btn-primary" onclick="submitAnother()">
+            Submit Another Request / Enviar Otra Solicitud
+          </button>
+          <p style="color: var(--gray-500); font-size: 0.9rem; margin-top: 8px;">
+            You can close this page now / Puedes cerrar esta página ahora
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <div class="loading-text" id="loadingText">Loading... / Cargando...</div>
+    </div>
+  </div>
+
+  <!-- Cancel Item Confirmation Modal -->
+  <div class="modal-overlay" id="cancelItemModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Cancel Item?</h3>
+        <button class="close-btn" onclick="closeCancelModal()" style="background: var(--gray-100); color: var(--gray-600);">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to cancel this item?</p>
+        <p id="cancelItemDetails" style="background: var(--gray-50); padding: 12px; border-radius: 8px; margin-top: 12px;"></p>
+        <p style="color: var(--warning); font-size: 0.9rem; margin-top: 12px;">
+          <span class="material-icons-round" style="font-size: 16px; vertical-align: middle;">warning</span>
+          This cannot be undone.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeCancelModal()">Keep Item</button>
+        <button class="btn" onclick="confirmCancelItem()" style="background: var(--error); color: white;">Cancel Item</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Activate Order Confirmation Modal -->
+  <div class="modal-overlay" id="activateOrderModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Confirm Activation</h3>
+        <button class="close-btn" onclick="closeActivateModal()" style="background: var(--gray-100); color: var(--gray-600);">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 12px;">This will save your changes and start payroll deductions.</p>
+        <div id="activateOrderDetails" style="background: var(--gray-50); padding: 12px; border-radius: 8px;"></div>
+        <p id="splitOrderNote" style="color: var(--warning); font-size: 0.9rem; margin-top: 12px; display: none;">
+          <span class="material-icons-round" style="font-size: 16px; vertical-align: middle;">info</span>
+          Unreceived items will be moved to a new pending order.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeActivateModal()">Cancel</button>
+        <button class="btn" id="confirmActivateBtn" onclick="confirmActivateOrder()" style="background: var(--success); color: white;">
+          <span class="material-icons-round" style="font-size: 18px; vertical-align: middle; margin-right: 4px;">check_circle</span>
+          Confirm & Activate
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cash Payment Confirmation Modal -->
+  <div class="modal-overlay" id="cashPaymentModal">
+    <div class="modal-content" style="max-width: 450px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: white;">
+        <h3 style="display: flex; align-items: center; gap: 8px;">
+          <span class="material-icons-round">payments</span>
+          Mark as Paid Cash?
+        </h3>
+        <button class="close-btn" onclick="closeCashPaymentModal()" style="background: rgba(255,255,255,0.2); color: white;">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div style="background: #FEF3C7; border: 1px solid #FCD34D; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: flex-start; gap: 12px;">
+            <span class="material-icons-round" style="color: #D97706; font-size: 24px;">warning</span>
+            <div>
+              <strong style="color: #92400E;">Important!</strong>
+              <p style="margin: 8px 0 0 0; color: #78350F; font-size: 0.9rem;">
+                This will mark the order as <strong>Paid Cash</strong>. No payroll deductions will be made.
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div id="cashPaymentDetails" style="background: var(--gray-50); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+          <!-- Order details will be populated here -->
+        </div>
+        
+        <p style="font-size: 0.9rem; color: var(--gray-600); text-align: center;">
+          <strong>Have you collected the cash payment?</strong>
+        </p>
+      </div>
+      <div class="modal-footer" style="flex-direction: column; gap: 8px;">
+        <button class="btn" id="confirmCashPaymentBtn" onclick="confirmCashPayment()" style="background: #D97706; color: white; width: 100%; justify-content: center;">
+          <span class="material-icons-round" style="font-size: 18px;">attach_money</span>
+          Yes, Cash Has Been Collected
+        </button>
+        <button class="btn btn-secondary" onclick="closeCashPaymentModal()" style="width: 100%; justify-content: center;">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========================================
+    // STATE
+    // ========================================
+    let catalogItems = [];
+    let cartItems = [];
+    const MAX_ITEMS = 5;
+
+    // Size definitions - defaults that will be overwritten by server config
+    let SIZES = {
+      shirts: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+      hats: ['S/M', 'L/XL'],
+      pants_male: ['28', '30', '32', '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60'],
+      pants_female: ['00', '0', '2', '4', '6', '8', '10', '12', '14', '16', '18', '20', '22', '24', '26', '28', '30', '32', '34', '36'],
+      inseams_male: ['28', '30', '32', '34', '36'],
+      inseams_female: ['29', '31', '33', '35']
+    };
+
+    // ========================================
+    // INITIALIZATION
+    // ========================================
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initial state - disable form until name selected
+      toggleFormState(false);
+      
+      // Add listener to employee select
+      document.getElementById('employeeSelect').addEventListener('change', function() {
+        const hasName = this.value && this.value !== '';
+        toggleFormState(hasName);
+      });
+
+      // Load size configuration from server (updates SIZES dynamically)
+      loadSizeConfiguration();
+
+      loadEmployees();
+      loadLocations();
+      loadCatalog();
+    });
+    
+    /**
+     * Load size configuration from server settings
+     * Updates SIZES object with configured values
+     */
+    function loadSizeConfiguration() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success && result.config) {
+            const c = result.config;
+            // Update SIZES with server config
+            if (c.pants_male_waist && c.pants_male_waist.length > 0) {
+              SIZES.pants_male = c.pants_male_waist;
+            }
+            if (c.pants_female_waist && c.pants_female_waist.length > 0) {
+              SIZES.pants_female = c.pants_female_waist;
+            }
+            if (c.pants_male_inseam && c.pants_male_inseam.length > 0) {
+              SIZES.inseams_male = c.pants_male_inseam;
+            }
+            if (c.pants_female_inseam && c.pants_female_inseam.length > 0) {
+              SIZES.inseams_female = c.pants_female_inseam;
+            }
+            console.log('Size configuration loaded from settings');
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.log('Using default sizes (could not load config):', error);
+        })
+        .getSizeConfiguration();
+    }
+
+    /**
+     * Enable/Disable form fields based on name selection
+     */
+    function toggleFormState(enabled) {
+      const locationSelect = document.getElementById('locationSelect');
+      const categorySelect = document.getElementById('categorySelect');
+      const itemSelection = document.querySelector('.item-selection');
+      const notesInput = document.getElementById('notesInput');
+      
+      locationSelect.disabled = !enabled;
+      categorySelect.disabled = !enabled;
+      notesInput.disabled = !enabled;
+      
+      // Add visual feedback
+      if (enabled) {
+        itemSelection.style.opacity = '1';
+        itemSelection.style.pointerEvents = 'auto';
+      } else {
+        itemSelection.style.opacity = '0.5';
+        itemSelection.style.pointerEvents = 'none';
+      }
+    }
+
+    /**
+     * Load employees into dropdown
+     */
+    function loadEmployees() {
+      const select = document.getElementById('employeeSelect');
+      select.innerHTML = '<option value="">Loading... / Cargando...</option>';
+      
+      google.script.run
+        .withSuccessHandler(function(employees) {
+          select.innerHTML = '<option value="">Select employee / Selecciona empleado</option>';
+          
+          if (employees && employees.length > 0) {
+            employees.forEach(function(emp) {
+              const name = emp.fullName || emp.displayName || emp.employeeName || emp;
+              const matchKey = emp.matchKey || name.toLowerCase().replace(/\s+/g, ' ');
+              if (name) {
+                const option = document.createElement('option');
+                option.value = matchKey;
+                option.textContent = name;
+                option.dataset.name = name;
+                option.dataset.location = emp.location || '';
+                select.appendChild(option);
+              }
+            });
+          }
+          
+          // Add "New Employee" option
+          const newOption = document.createElement('option');
+          newOption.value = '__new__';
+          newOption.textContent = '🆕 Not in list / No estoy en la lista';
+          select.appendChild(newOption);
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to load employees:', error);
+          select.innerHTML = '<option value="">Error loading / Error al cargar</option>';
+          showToast(getUserFriendlyError(error, 'load employees'), 'error');
+        })
+        .getAllEmployeesForUniform();
+    }
+    
+    // ========================================
+    // NEW EMPLOYEE CREATION FLOW
+    // ========================================
+    
+    // State for new employee creation
+    const NewEmpState = {
+      isNewEmployee: false,
+      newEmployeeName: '',
+      normalizedName: '',
+      matchKey: '',
+      spellingVerified: false,
+      passcodeVerified: false,
+      similarWarnings: []
+    };
+    
+    /**
+     * Normalize name (same as backend)
+     */
+    function normalizeNameClient(name) {
+      if (!name) return '';
+      let normalized = name.trim();
+      if (normalized.includes(',')) {
+        const parts = normalized.split(',').map(p => p.trim());
+        if (parts.length >= 2) {
+          normalized = parts[1] + ' ' + parts[0];
+        }
+      }
+      normalized = normalized.replace(/\s+/g, ' ');
+      normalized = normalized.split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+      return normalized;
+    }
+    
+    /**
+     * Handle employee dropdown change
+     */
+    function handleEmployeeSelectChange() {
+      const select = document.getElementById('employeeSelect');
+      const panel = document.getElementById('newEmployeePanel');
+      
+      if (select.value === '__new__') {
+        panel.style.display = 'block';
+        resetNewEmployeeState();
+        document.getElementById('employeeSearchInput').focus();
+        NewEmpState.isNewEmployee = true;
+        toggleFormState(false);
+      } else if (select.value) {
+        panel.style.display = 'none';
+        NewEmpState.isNewEmployee = false;
+        toggleFormState(true);
+      } else {
+        panel.style.display = 'none';
+        NewEmpState.isNewEmployee = false;
+        toggleFormState(false);
+      }
+      
+      updateSubmitButton();
+    }
+    
+    /**
+     * Handle search input with debounce
+     */
+    let empSearchTimer = null;
+    function handleEmployeeSearch() {
+      const input = document.getElementById('employeeSearchInput');
+      const query = input.value.trim();
+      
+      clearTimeout(empSearchTimer);
+      
+      if (query.length < 2) {
+        document.getElementById('searchResults').style.display = 'none';
+        document.getElementById('createNewOption').style.display = 'none';
+        return;
+      }
+      
+      empSearchTimer = setTimeout(function() {
+        google.script.run
+          .withSuccessHandler(renderSearchResults)
+          .withFailureHandler(function(err) { console.error(err); })
+          .searchEmployeesFuzzy(query);
+      }, 300);
+    }
+    
+    /**
+     * Render search results
+     */
+    function renderSearchResults(results) {
+      const container = document.getElementById('searchResults');
+      const createNew = document.getElementById('createNewOption');
+      const query = document.getElementById('employeeSearchInput').value;
+      
+      if (results.exact.length === 0 && results.similar.length === 0) {
+        container.innerHTML = '<div class="search-result-empty"><span class="material-icons-round">person_off</span><p>No employees found / No se encontraron empleados</p></div>';
+        container.style.display = 'block';
+        createNew.style.display = 'block';
+        return;
+      }
+      
+      let html = '';
+      
+      if (results.exact.length > 0) {
+        html += '<div class="result-section-header">Found / Encontrados</div>';
+        results.exact.forEach(function(emp) {
+          html += '<div class="search-result-item" onclick="selectSearchResult(\'' + 
+            emp.matchKey.replace(/'/g, "\\'") + '\', \'' + 
+            emp.fullName.replace(/'/g, "\\'") + '\')">' +
+            '<div><strong>' + emp.fullName + '</strong><span class="result-location">' + (emp.location || '') + '</span></div>' +
+            '<span class="material-icons-round" style="color: #9CA3AF;">chevron_right</span></div>';
+        });
+      }
+      
+      if (results.similar.length > 0) {
+        html += '<div class="result-section-header">Similar</div>';
+        results.similar.forEach(function(emp) {
+          html += '<div class="search-result-item" onclick="selectSearchResult(\'' + 
+            emp.matchKey.replace(/'/g, "\\'") + '\', \'' + 
+            emp.fullName.replace(/'/g, "\\'") + '\')">' +
+            '<div><strong>' + emp.fullName + '</strong><span class="similarity-badge">' + emp.similarity + '%</span></div>' +
+            '<span class="material-icons-round" style="color: #9CA3AF;">chevron_right</span></div>';
+        });
+      }
+      
+      container.innerHTML = html;
+      container.style.display = 'block';
+      createNew.style.display = 'block';
+    }
+    
+    /**
+     * Select an existing employee from search
+     */
+    function selectSearchResult(matchKey, fullName) {
+      const select = document.getElementById('employeeSelect');
+      
+      // Find or add option
+      let found = false;
+      for (let i = 0; i < select.options.length; i++) {
+        if (select.options[i].value === matchKey) {
+          select.selectedIndex = i;
+          found = true;
+          break;
+        }
+      }
+      
+      if (!found) {
+        const newOpt = document.createElement('option');
+        newOpt.value = matchKey;
+        newOpt.textContent = fullName;
+        const lastOpt = select.querySelector('option[value="__new__"]');
+        select.insertBefore(newOpt, lastOpt);
+        select.value = matchKey;
+      }
+      
+      document.getElementById('newEmployeePanel').style.display = 'none';
+      NewEmpState.isNewEmployee = false;
+      toggleFormState(true);
+      updateSubmitButton();
+      showToast('Selected: ' + fullName + ' / Seleccionado: ' + fullName, 'success');
+    }
+    
+    /**
+     * User confirms not in list
+     */
+    function handleConfirmNotInList() {
+      const checked = document.getElementById('confirmNotInList').checked;
+      document.getElementById('nameStep').style.display = checked ? 'block' : 'none';
+      if (!checked) {
+        document.getElementById('confirmStep').style.display = 'none';
+        NewEmpState.spellingVerified = false;
+      }
+      if (checked) {
+        document.getElementById('newEmployeeName').focus();
+      }
+    }
+    
+    /**
+     * Handle name input with preview
+     */
+    function handleNewNameInput() {
+      const name = document.getElementById('newEmployeeName').value.trim();
+      const preview = document.getElementById('namePreview');
+      const previewText = document.getElementById('normalizedNamePreview');
+      
+      if (name.length < 2) {
+        preview.style.display = 'none';
+        document.getElementById('confirmStep').style.display = 'none';
+        return;
+      }
+      
+      const normalized = normalizeNameClient(name);
+      NewEmpState.normalizedName = normalized;
+      NewEmpState.matchKey = normalized.toLowerCase().replace(/\s+/g, ' ');
+      
+      previewText.textContent = normalized;
+      preview.style.display = 'block';
+      
+      // Check for similar names
+      google.script.run
+        .withSuccessHandler(function(results) {
+          NewEmpState.similarWarnings = results.similar || [];
+          renderSimilarWarning(results);
+          if (!results.exactMatch) {
+            document.getElementById('confirmStep').style.display = 'block';
+          } else {
+            showToast('Employee exists! Select from list / ¡Empleado existe! Selecciona de la lista', 'warning');
+          }
+        })
+        .searchEmployeesFuzzy(normalized);
+    }
+    
+    /**
+     * Render similar name warning
+     */
+    function renderSimilarWarning(results) {
+      const container = document.getElementById('similarNameWarning');
+      
+      if (results.similar && results.similar.length > 0) {
+        let html = '<h4>⚠️ Similar names / Nombres similares:</h4><ul>';
+        results.similar.forEach(function(emp) {
+          html += '<li><strong>' + emp.fullName + '</strong> (' + emp.similarity + '%) ' +
+            '<button type="button" class="btn-use-instead" onclick="selectSearchResult(\'' + 
+            emp.matchKey.replace(/'/g, "\\'") + '\', \'' + emp.fullName.replace(/'/g, "\\'") + '\')">Use / Usar</button></li>';
+        });
+        html += '</ul>';
+        container.innerHTML = html;
+        container.style.display = 'block';
+      } else {
+        container.style.display = 'none';
+      }
+    }
+    
+    /**
+     * Handle spelling verification
+     */
+    function handleSpellingVerified() {
+      NewEmpState.spellingVerified = document.getElementById('spellingVerified').checked;
+      
+      // Show passcode step when spelling is verified
+      const passcodeStep = document.getElementById('passcodeStep');
+      if (passcodeStep) {
+        passcodeStep.style.display = NewEmpState.spellingVerified ? 'block' : 'none';
+      }
+      
+      // Reset passcode verification if spelling is unchecked
+      if (!NewEmpState.spellingVerified) {
+        NewEmpState.passcodeVerified = false;
+        const successMsg = document.getElementById('newEmployeePasscodeSuccess');
+        if (successMsg) successMsg.style.display = 'none';
+        toggleFormState(false);
+      }
+      
+      updateSubmitButton();
+    }
+    
+    /**
+     * Verify manager passcode for new employee creation
+     */
+    function verifyNewEmployeePasscode() {
+      const input = document.getElementById('newEmployeePasscode');
+      const errorEl = document.getElementById('newEmployeePasscodeError');
+      const successEl = document.getElementById('newEmployeePasscodeSuccess');
+      const code = input.value.trim();
+      
+      if (!code) {
+        errorEl.textContent = 'Please enter a passcode / Por favor ingresa un código';
+        errorEl.style.display = 'block';
+        successEl.style.display = 'none';
+        return;
+      }
+      
+      showLoading(true, 'Verifying... / Verificando...');
+      
+      // Validate against backend
+      google.script.run
+        .withSuccessHandler(function(isValid) {
+          showLoading(false);
+          if (isValid) {
+            NewEmpState.passcodeVerified = true;
+            errorEl.style.display = 'none';
+            successEl.style.display = 'flex';
+            input.disabled = true;
+            toggleFormState(true);
+            updateSubmitButton();
+            showToast('Manager verified! / ¡Gerente verificado!', 'success');
+          } else {
+            NewEmpState.passcodeVerified = false;
+            errorEl.textContent = 'Incorrect passcode / Código incorrecto';
+            errorEl.style.display = 'block';
+            successEl.style.display = 'none';
+            input.value = '';
+            input.focus();
+          }
+        })
+        .withFailureHandler(function(error) {
+          showLoading(false);
+          errorEl.textContent = 'Error: ' + error.message;
+          errorEl.style.display = 'block';
+          successEl.style.display = 'none';
+        })
+        .validateManagerPasscode(code);
+    }
+    
+    /**
+     * Cancel new employee creation
+     */
+    function cancelNewEmployee() {
+      document.getElementById('employeeSelect').value = '';
+      document.getElementById('newEmployeePanel').style.display = 'none';
+      resetNewEmployeeState();
+      toggleFormState(false);
+      updateSubmitButton();
+    }
+    
+    /**
+     * Reset new employee state
+     */
+    function resetNewEmployeeState() {
+      NewEmpState.isNewEmployee = false;
+      NewEmpState.normalizedName = '';
+      NewEmpState.matchKey = '';
+      NewEmpState.spellingVerified = false;
+      NewEmpState.passcodeVerified = false;
+      NewEmpState.similarWarnings = [];
+      
+      document.getElementById('employeeSearchInput').value = '';
+      document.getElementById('searchResults').style.display = 'none';
+      document.getElementById('createNewOption').style.display = 'none';
+      document.getElementById('confirmNotInList').checked = false;
+      document.getElementById('nameStep').style.display = 'none';
+      document.getElementById('newEmployeeName').value = '';
+      document.getElementById('namePreview').style.display = 'none';
+      document.getElementById('similarNameWarning').style.display = 'none';
+      document.getElementById('confirmStep').style.display = 'none';
+      document.getElementById('spellingVerified').checked = false;
+      
+      // Reset passcode step
+      const passcodeStep = document.getElementById('passcodeStep');
+      if (passcodeStep) passcodeStep.style.display = 'none';
+      
+      const passcodeInput = document.getElementById('newEmployeePasscode');
+      if (passcodeInput) {
+        passcodeInput.value = '';
+        passcodeInput.disabled = false;
+      }
+      
+      const passcodeError = document.getElementById('newEmployeePasscodeError');
+      if (passcodeError) passcodeError.style.display = 'none';
+      
+      const passcodeSuccess = document.getElementById('newEmployeePasscodeSuccess');
+      if (passcodeSuccess) passcodeSuccess.style.display = 'none';
+    }
+    
+    /**
+     * Get employee data for submission
+     */
+    function getEmployeeDataForSubmit() {
+      if (NewEmpState.isNewEmployee && NewEmpState.spellingVerified && NewEmpState.passcodeVerified && NewEmpState.normalizedName) {
+        return {
+          isNewEmployee: true,
+          employeeName: NewEmpState.normalizedName,
+          matchKey: NewEmpState.matchKey
+        };
+      }
+      const select = document.getElementById('employeeSelect');
+      if (!select.value || select.value === '__new__') return null;
+      return {
+        isNewEmployee: false,
+        employeeName: select.options[select.selectedIndex].textContent,
+        matchKey: select.value
+      };
+    }
+
+    /**
+     * Load locations into dropdown
+     */
+    function loadLocations() {
+      const select = document.getElementById('locationSelect');
+      
+      google.script.run
+        .withSuccessHandler(function(locations) {
+          select.innerHTML = '<option value="">Select location / Selecciona ubicación</option>';
+          
+          if (locations && locations.length > 0) {
+            locations.forEach(function(loc) {
+              // Handle both string and object formats
+              const locName = typeof loc === 'string' ? loc : (loc.name || loc.locationName || String(loc));
+              const option = document.createElement('option');
+              option.value = locName;
+              option.textContent = locName;
+              select.appendChild(option);
+            });
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to load locations:', error);
+          // Fallback to default locations
+          select.innerHTML = `
+            <option value="">Select location / Selecciona ubicación</option>
+            <option value="Cockrell Hill DTO">Cockrell Hill DTO</option>
+            <option value="DBU">DBU</option>
+          `;
+        })
+        .getActiveLocations();
+    }
+
+    /**
+     * Load uniform catalog
+     */
+    function loadCatalog() {
+      google.script.run
+        .withSuccessHandler(function(items) {
+          catalogItems = items || [];
+          populateCategories();
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to load catalog:', error);
+          showError('⚠️ Could not load uniform items. Please refresh the page or contact Jeff.');
+        })
+        .getUniformCatalog();
+    }
+
+    /**
+     * Populate category dropdown from catalog
+     */
+    function populateCategories() {
+      const select = document.getElementById('categorySelect');
+      const categories = [...new Set(catalogItems.map(item => item.category))];
+      
+      select.innerHTML = '<option value="">Select category / Selecciona categoría</option>';
+      categories.forEach(function(cat) {
+        const option = document.createElement('option');
+        option.value = cat;
+        option.textContent = cat;
+        select.appendChild(option);
+      });
+    }
+
+    // ========================================
+    // ITEM SELECTION HANDLERS
+    // ========================================
+    
+    /**
+     * When category changes, filter items
+     */
+    function onCategoryChange() {
+      const category = document.getElementById('categorySelect').value;
+      const itemSelect = document.getElementById('itemSelect');
+      const genderGroup = document.getElementById('genderGroup');
+      const inseamGroup = document.getElementById('inseamGroup');
+      const sizeSelect = document.getElementById('sizeSelect');
+      
+      // Reset downstream fields
+      itemSelect.innerHTML = '<option value="">Select item / Selecciona artículo</option>';
+      itemSelect.disabled = !category;
+      genderGroup.style.display = 'none';
+      inseamGroup.style.display = 'none';
+      sizeSelect.innerHTML = '<option value="">Select size / Selecciona talla</option>';
+      sizeSelect.disabled = true;
+      document.getElementById('genderSelect').value = '';
+      updateAddButton();
+      
+      if (!category) return;
+      
+      // Filter items by category
+      const filteredItems = catalogItems.filter(item => item.category === category);
+      filteredItems.forEach(function(item) {
+        const option = document.createElement('option');
+        option.value = item.itemName;
+        // Display price next to item name
+        const priceDisplay = item.price ? ` - $${parseFloat(item.price).toFixed(2)}` : '';
+        option.textContent = item.itemName + priceDisplay;
+        option.dataset.category = item.category;
+        itemSelect.appendChild(option);
+      });
+    }
+
+    /**
+     * When item changes, show appropriate size options
+     */
+    function onItemChange() {
+      const itemName = document.getElementById('itemSelect').value;
+      const category = document.getElementById('categorySelect').value;
+      const genderGroup = document.getElementById('genderGroup');
+      const inseamGroup = document.getElementById('inseamGroup');
+      const sizeSelect = document.getElementById('sizeSelect');
+      const sizeLabel = document.getElementById('sizeLabel');
+      const sizeGroup = sizeSelect.closest('.form-group');
+      
+      // Reset
+      genderGroup.style.display = 'none';
+      inseamGroup.style.display = 'none';
+      document.getElementById('genderSelect').value = '';
+      sizeSelect.innerHTML = '<option value="">Select size / Selecciona talla</option>';
+      sizeSelect.disabled = true;
+      sizeGroup.style.display = 'block'; // Show by default
+      
+      if (!itemName) {
+        updateAddButton();
+        return;
+      }
+      
+      const itemLower = itemName.toLowerCase();
+      
+      // Check if it's a one-size item (no size selection needed)
+      const isOneSize = category === 'Bundles' || 
+                        itemLower.includes('bundle') ||
+                        itemLower.includes('beanie') || 
+                        itemLower.includes('headband') ||
+                        itemLower.includes('hat') ||
+                        itemLower.includes('visor');
+      
+      // Check if it's pants (need gender and inseam)
+      const isPants = category === 'PANTS' || itemLower.includes('pant');
+      
+      if (isOneSize) {
+        // No size selection needed - hide the size dropdown and set a default value
+        sizeGroup.style.display = 'none';
+        sizeSelect.innerHTML = '<option value="One Size" selected>One Size</option>';
+        sizeSelect.disabled = false;
+      } else if (isPants) {
+        genderGroup.style.display = 'block';
+        inseamGroup.style.display = 'block';
+        sizeLabel.textContent = 'Waist Size / Talla de Cintura';
+        // Clear inseam - will be populated when gender is selected
+        document.getElementById('inseamSelect').innerHTML = '<option value="">Select gender first / Selecciona género primero</option>';
+        // Size populated after gender selection
+      } else {
+        // Regular shirt sizes
+        sizeLabel.textContent = 'Size / Talla';
+        populateSizes(SIZES.shirts);
+        sizeSelect.disabled = false;
+      }
+      
+      updateAddButton();
+    }
+
+    /**
+     * When gender changes for pants, update sizes AND inseams
+     * Checks for per-item overrides, falls back to global SIZES
+     */
+    function onGenderChange() {
+      const gender = document.getElementById('genderSelect').value;
+      const sizeSelect = document.getElementById('sizeSelect');
+      const itemName = document.getElementById('itemSelect').value;
+      
+      sizeSelect.innerHTML = '<option value="">Select size / Selecciona talla</option>';
+      
+      // Check if selected item has custom waist/inseam overrides
+      let itemWaistSizes = null;
+      let itemInseamSizes = null;
+      
+      if (itemName && catalogItems) {
+        const selectedItem = catalogItems.find(function(i) {
+          return i.itemName === itemName;
+        });
+        if (selectedItem) {
+          if (selectedItem.waistSizes && selectedItem.waistSizes.length > 0) {
+            itemWaistSizes = selectedItem.waistSizes;
+          }
+          if (selectedItem.inseamSizes && selectedItem.inseamSizes.length > 0) {
+            itemInseamSizes = selectedItem.inseamSizes;
+          }
+        }
+      }
+      
+      // Use per-item overrides or fall back to global SIZES
+      if (gender === 'male') {
+        populateSizes(itemWaistSizes || SIZES.pants_male);
+        populateInseams(itemInseamSizes || SIZES.inseams_male);
+      } else if (gender === 'female') {
+        populateSizes(itemWaistSizes || SIZES.pants_female);
+        populateInseams(itemInseamSizes || SIZES.inseams_female);
+      }
+      
+      sizeSelect.disabled = !gender;
+      updateAddButton();
+    }
+
+    /**
+     * Populate size dropdown
+     */
+    function populateSizes(sizes) {
+      const select = document.getElementById('sizeSelect');
+      select.innerHTML = '<option value="">Select size / Selecciona talla</option>';
+      sizes.forEach(function(size) {
+        const option = document.createElement('option');
+        option.value = size;
+        option.textContent = size;
+        select.appendChild(option);
+      });
+    }
+
+    /**
+     * Populate inseam dropdown
+     * @param {Array} inseams - Array of inseam sizes (defaults to male inseams if not provided)
+     */
+    function populateInseams(inseams) {
+      const select = document.getElementById('inseamSelect');
+      select.innerHTML = '<option value="">Select / Selecciona</option>';
+      // Default to male inseams if none provided (for backwards compatibility)
+      const inseamList = inseams || SIZES.inseams_male;
+      inseamList.forEach(function(inseam) {
+        const option = document.createElement('option');
+        option.value = inseam;
+        option.textContent = inseam + '"';
+        select.appendChild(option);
+      });
+    }
+
+    /**
+     * Handle click on replacement checkbox or container
+     * REQUIRES MANAGER PASSWORD (3177) TO ENABLE
+     */
+    function handleReplacementClick(event) {
+      const checkbox = document.getElementById('replacementCheck');
+      const isDirectClick = event.target === checkbox;
+      
+      // Determine the action: are we trying to check it?
+      // If direct click: if it IS checked now, it WAS unchecked before -> trying to check
+      // If container click: if it is NOT checked now, we want to check it -> trying to check
+      
+      let tryingToCheck = false;
+      if (isDirectClick) {
+        tryingToCheck = checkbox.checked;
+      } else {
+        tryingToCheck = !checkbox.checked;
+      }
+      
+      if (tryingToCheck) {
+        // If clicking directly, the browser already toggled it. We might need to revert.
+        // If clicking container, we haven't toggled it yet.
+        
+        const password = prompt("Manager authorization required. Please enter password:");
+        
+        if (password === '3177') {
+          // Success - ensure it is checked
+          checkbox.checked = true;
+        } else {
+          // Failed
+          if (password !== null) { 
+            alert("Incorrect password. Access denied.");
+          }
+          
+          // Revert/Ensure unchecked
+          checkbox.checked = false;
+          
+          // If it was a direct click, the browser already checked it, so unchecking creates a visual flicker 
+          // but ensures security.
+        }
+      } else {
+        // Trying to uncheck - allow freely
+        checkbox.checked = false;
+      }
+    }
+
+    /**
+     * Update Add button state
+     */
+    function updateAddButton() {
+      const btn = document.getElementById('addItemBtn');
+      const item = document.getElementById('itemSelect').value;
+      const size = document.getElementById('sizeSelect').value;
+      const category = document.getElementById('categorySelect').value;
+      
+      if (!item) {
+        btn.disabled = true;
+        return;
+      }
+      
+      const itemLower = item.toLowerCase();
+      const isPants = category === 'PANTS' || itemLower.includes('pant');
+      const isOneSize = category === 'Bundles' || 
+                        itemLower.includes('bundle') ||
+                        itemLower.includes('beanie') || 
+                        itemLower.includes('headband') ||
+                        itemLower.includes('hat') ||
+                        itemLower.includes('visor');
+      
+      let canAdd = item && cartItems.length < MAX_ITEMS;
+      
+      // One-size items don't need size selection
+      if (!isOneSize) {
+        canAdd = canAdd && size;
+      }
+      
+      // For pants, also need gender and inseam
+      if (isPants) {
+        const gender = document.getElementById('genderSelect').value;
+        const inseam = document.getElementById('inseamSelect').value;
+        canAdd = canAdd && gender && inseam;
+      }
+      
+      btn.disabled = !canAdd;
+    }
+
+    // ========================================
+    // CART MANAGEMENT
+    // ========================================
+
+    /**
+     * Add item to cart
+     */
+    function addItemToCart() {
+      if (cartItems.length >= MAX_ITEMS) {
+        showError('Maximum 5 items per request / Máximo 5 artículos por solicitud');
+        return;
+      }
+      
+      const category = document.getElementById('categorySelect').value;
+      const item = document.getElementById('itemSelect').value;
+      const size = document.getElementById('sizeSelect').value;
+      const qty = parseInt(document.getElementById('qtySelect').value) || 1;
+      const isReplacement = document.getElementById('replacementCheck').checked;
+      
+      const isPants = category === 'PANTS' || item.toLowerCase().includes('pant');
+      let gender = '';
+      let inseam = '';
+      
+      if (isPants) {
+        gender = document.getElementById('genderSelect').value;
+        inseam = document.getElementById('inseamSelect').value;
+      }
+      
+      // Create cart item
+      const cartItem = {
+        id: Date.now(), // Unique ID for removal
+        category: category,
+        itemName: item,
+        size: size,
+        gender: gender,
+        inseam: inseam,
+        quantity: qty,
+        isReplacement: isReplacement
+      };
+      
+      cartItems.push(cartItem);
+      renderCart();
+      resetItemSelection();
+      updateSubmitButton();
+      
+      // Show max warning if at limit
+      if (cartItems.length >= MAX_ITEMS) {
+        document.getElementById('maxItemsWarning').classList.add('show');
+      }
+    }
+
+    /**
+     * Remove item from cart
+     */
+    function removeFromCart(itemId) {
+      cartItems = cartItems.filter(item => item.id !== itemId);
+      renderCart();
+      updateSubmitButton();
+      
+      // Hide max warning
+      if (cartItems.length < MAX_ITEMS) {
+        document.getElementById('maxItemsWarning').classList.remove('show');
+      }
+      updateAddButton();
+    }
+
+    /**
+     * Render cart items
+     */
+    function renderCart() {
+      const cartEmpty = document.getElementById('cartEmpty');
+      const cartItemsEl = document.getElementById('cartItems');
+      const cartCount = document.getElementById('cartCount');
+      const paymentSection = document.getElementById('paymentOptionsSection');
+      
+      cartCount.textContent = cartItems.length;
+      
+      if (cartItems.length === 0) {
+        cartEmpty.style.display = 'block';
+        cartItemsEl.style.display = 'none';
+        if (paymentSection) paymentSection.style.display = 'none';
+        return;
+      }
+      
+      cartEmpty.style.display = 'none';
+      cartItemsEl.style.display = 'block';
+      
+      // Show payment options when cart has items
+      if (paymentSection) {
+        paymentSection.style.display = 'block';
+        updatePaymentPreview();
+      }
+      
+      cartItemsEl.innerHTML = cartItems.map(item => {
+        let details = `Size: ${item.size}`;
+        if (item.gender) details += ` • ${item.gender === 'male' ? 'M' : 'F'}`;
+        if (item.inseam) details += ` • Inseam: ${item.inseam}"`;
+        
+        return `
+          <div class="cart-item">
+            <div class="cart-item-info">
+              <div class="cart-item-name">
+                ${item.itemName}
+                ${item.isReplacement ? '<span class="replacement-badge">REPLACEMENT</span>' : ''}
+              </div>
+              <div class="cart-item-details">${details}</div>
+            </div>
+            <div class="cart-item-qty">×${item.quantity}</div>
+            <button type="button" class="cart-item-remove" onclick="removeFromCart(${item.id})">
+              <span class="material-icons-round">close</span>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /**
+     * Toggle payment options based on cash checkbox
+     */
+    function togglePaymentOptions() {
+      const payCash = document.getElementById('payCashCheckbox').checked;
+      const deductionOptions = document.getElementById('deductionOptions');
+      
+      if (payCash) {
+        deductionOptions.classList.add('hidden');
+        deductionOptions.style.display = 'none';
+      } else {
+        deductionOptions.classList.remove('hidden');
+        deductionOptions.style.display = 'block';
+        updatePaymentPreview();
+      }
+    }
+
+    /**
+     * Update payment preview based on cart total and selected plan
+     */
+    function updatePaymentPreview() {
+      const paymentPlan = parseInt(document.getElementById('paymentPlanSelect').value) || 1;
+      const amountEl = document.getElementById('amountPerPaycheck');
+      
+      // Calculate cart total (need to look up prices from catalog)
+      let total = 0;
+      cartItems.forEach(item => {
+        const catalogItem = catalogItems.find(c => c.itemName === item.itemName);
+        if (catalogItem && catalogItem.price) {
+          total += catalogItem.price * item.quantity;
+        }
+      });
+      
+      const perPaycheck = paymentPlan > 0 ? total / paymentPlan : total;
+      
+      if (amountEl) {
+        amountEl.textContent = '$' + perPaycheck.toFixed(2);
+      }
+    }
+
+    /**
+     * Reset item selection fields
+     */
+    function resetItemSelection() {
+      document.getElementById('categorySelect').value = '';
+      document.getElementById('itemSelect').value = '';
+      document.getElementById('itemSelect').disabled = true;
+      document.getElementById('sizeSelect').value = '';
+      document.getElementById('sizeSelect').disabled = true;
+      document.getElementById('genderSelect').value = '';
+      document.getElementById('genderGroup').style.display = 'none';
+      document.getElementById('inseamSelect').value = '';
+      document.getElementById('inseamGroup').style.display = 'none';
+      document.getElementById('qtySelect').value = '1';
+      document.getElementById('replacementCheck').checked = false;
+      updateAddButton();
+    }
+
+    // ========================================
+    // FORM SUBMISSION
+    // ========================================
+
+    /**
+     * Update submit button state
+     */
+    function updateSubmitButton() {
+      const btn = document.getElementById('submitBtn');
+      const employee = document.getElementById('employeeSelect').value;
+      const location = document.getElementById('locationSelect').value;
+      const hasItems = cartItems.length > 0;
+      
+      btn.disabled = !(employee && location && hasItems);
+    }
+
+    // Add change listeners for employee and location
+    document.getElementById('employeeSelect').addEventListener('change', updateSubmitButton);
+    document.getElementById('locationSelect').addEventListener('change', updateSubmitButton);
+
+    /**
+     * Submit the form
+     */
+    function submitForm() {
+      // Get employee data (handles both existing and new employees)
+      const employeeData = getEmployeeDataForSubmit();
+      const location = document.getElementById('locationSelect').value;
+      const notes = document.getElementById('notesInput').value.trim();
+      
+      // Validate
+      if (!employeeData) {
+        if (NewEmpState.isNewEmployee && !NewEmpState.spellingVerified) {
+          showError('Please verify the spelling is correct / Por favor verifica que la ortografía es correcta');
+        } else if (NewEmpState.isNewEmployee && !NewEmpState.passcodeVerified) {
+          showError('Please ask your manager to enter the passcode / Por favor pide a tu gerente que ingrese el código');
+        } else {
+          showError('Please select an employee / Por favor selecciona un empleado');
+        }
+        return;
+      }
+      
+      if (!location || cartItems.length === 0) {
+        showError('Please fill in all required fields / Por favor completa todos los campos requeridos');
+        return;
+      }
+      
+      showLoading(true, 'Submitting request... / Enviando solicitud...');
+      hideError();
+      
+      // Get payment options
+      const payCash = document.getElementById('payCashCheckbox').checked;
+      const paymentPlan = payCash ? 0 : parseInt(document.getElementById('paymentPlanSelect').value) || 1;
+      
+      const orderData = {
+        employeeId: employeeData.matchKey,
+        employeeName: employeeData.employeeName,
+        location: location,
+        items: cartItems.map(item => ({
+          itemName: item.itemName,
+          category: item.category,
+          size: item.size,
+          gender: item.gender || '',
+          inseam: item.inseam || '',
+          quantity: item.quantity,
+          isReplacement: item.isReplacement
+        })),
+        notes: notes,
+        paymentPlan: paymentPlan,
+        payCash: payCash,
+        source: 'employee_form',
+        // New employee creation flag
+        isNewEmployee: employeeData.isNewEmployee
+      };
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          showLoading(false);
+          if (result.success) {
+            const displayName = employeeData.employeeName;
+            showSuccess(result.orderId, displayName, location);
+            
+            // Show undo toast for employee to cancel if submitted by mistake
+            // Calculate total from catalog prices
+            let total = 0;
+            cartItems.forEach(item => {
+              const catalogItem = catalogItems.find(c => c.itemName === item.itemName);
+              if (catalogItem && catalogItem.price) {
+                total += catalogItem.price * item.quantity;
+              }
+            });
+            
+            let toastMsg = `Order ${result.orderId} submitted ($${total.toFixed(2)})`;
+            if (orderData.isNewEmployee) {
+              toastMsg += ' - Welcome! / ¡Bienvenido!';
+            }
+            showSubmissionUndoToast(toastMsg, result.orderId, 'uniform');
+            
+            // Reset new employee panel
+            document.getElementById('newEmployeePanel').style.display = 'none';
+            resetNewEmployeeState();
+            
+            // Reload employees to include new employee
+            if (orderData.isNewEmployee) {
+              loadEmployees();
+            }
+          } else {
+            showError('⚠️ ' + (result.error || 'Could not submit request. Please try again.'));
+          }
+        })
+        .withFailureHandler(function(error) {
+          showLoading(false);
+          showError(getUserFriendlyError(error, 'submit your request'));
+        })
+        .submitEmployeeUniformRequest(orderData);
+    }
+
+    /**
+     * Show success screen
+     */
+    function showSuccess(orderId, employee, location) {
+      document.getElementById('formContent').classList.add('hidden');
+      document.getElementById('successScreen').classList.add('show');
+      
+      document.getElementById('successOrderId').textContent = orderId;
+      document.getElementById('successEmployee').textContent = employee;
+      document.getElementById('successLocation').textContent = location;
+      document.getElementById('successItemCount').textContent = cartItems.length + ' item(s)';
+      
+      // Show payment info
+      const payCash = document.getElementById('payCashCheckbox').checked;
+      const paymentPlan = parseInt(document.getElementById('paymentPlanSelect').value) || 2;
+      const successPaymentEl = document.getElementById('successPayment');
+      const successNoteEl = document.getElementById('successPaymentNote');
+      
+      if (payCash) {
+        successPaymentEl.textContent = 'Cash / Efectivo';
+        successNoteEl.innerHTML = `
+          <p><strong>What's Next:</strong> Your order has been submitted. <span style="color: var(--cfa-red); font-weight: 600;">Please pay cash when you receive your items.</span></p>
+          <p><strong>Próximos Pasos:</strong> Tu pedido ha sido enviado. <span style="color: var(--cfa-red); font-weight: 600;">Por favor paga en efectivo cuando recibas tus artículos.</span></p>
+        `;
+      } else {
+        successPaymentEl.textContent = paymentPlan + ' Paycheck(s) / ' + paymentPlan + ' Cheque(s)';
+        successNoteEl.innerHTML = `
+          <p><strong>What's Next:</strong> Your order has been submitted. When you receive your items, the cost will be deducted from your next ${paymentPlan} paycheck(s).</p>
+          <p><strong>Próximos Pasos:</strong> Tu pedido ha sido enviado. Cuando recibas tus artículos, el costo se deducirá de tu(s) próximo(s) ${paymentPlan} cheque(s) de pago.</p>
+        `;
+      }
+      
+      // List items
+      const itemsList = document.getElementById('successItemsList');
+      itemsList.innerHTML = cartItems.map(item => {
+        let details = item.size;
+        if (item.inseam) details += ` / ${item.inseam}"`;
+        return `
+          <div class="success-item">
+            <span>${item.itemName}</span>
+            <span>${details} × ${item.quantity}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /**
+     * Submit another request
+     */
+    function submitAnother() {
+      // Remove cancelled overlay if present
+      const overlay = document.getElementById('cancelledOverlay');
+      if (overlay) overlay.remove();
+      
+      // Reset everything
+      cartItems = [];
+      document.getElementById('employeeSelect').value = '';
+      document.getElementById('locationSelect').value = '';
+      document.getElementById('notesInput').value = '';
+      
+      // Reset payment options
+      document.getElementById('payCashCheckbox').checked = false;
+      document.getElementById('paymentPlanSelect').value = '1';
+      document.getElementById('deductionOptions').style.display = 'block';
+      document.getElementById('deductionOptions').classList.remove('hidden');
+      
+      resetItemSelection();
+      renderCart();
+      updateSubmitButton();
+      
+      document.getElementById('formContent').classList.remove('hidden');
+      document.getElementById('successScreen').classList.remove('show');
+      document.getElementById('maxItemsWarning').classList.remove('show');
+    }
+
+    // ========================================
+    // UI HELPERS
+    // ========================================
+
+    function showError(message) {
+      const errorEl = document.getElementById('errorMessage');
+      document.getElementById('errorText').textContent = message;
+      errorEl.classList.add('show');
+    }
+
+    function hideError() {
+      document.getElementById('errorMessage').classList.remove('show');
+    }
+
+    function showLoading(show, message) {
+      const overlay = document.getElementById('loadingOverlay');
+      const textEl = document.getElementById('loadingText');
+      
+      if (show) {
+        if (textEl && message) {
+          textEl.textContent = message;
+        } else if (textEl) {
+          textEl.textContent = 'Loading... / Cargando...';
+        }
+        overlay.classList.add('show');
+      } else {
+        overlay.classList.remove('show');
+      }
+    }
+
+    /**
+     * Converts technical errors to user-friendly messages
+     * @param {Error|string} error - The error object or message
+     * @param {string} context - What the user was trying to do
+     * @returns {string} User-friendly error message
+     */
+    function getUserFriendlyError(error, context) {
+      const errorMsg = (error && error.message) ? error.message.toLowerCase() : String(error).toLowerCase();
+      
+      // Network/connection errors
+      if (errorMsg.includes('failed to fetch') || errorMsg.includes('network') || 
+          errorMsg.includes('timeout') || errorMsg.includes('connection')) {
+        return '⚠️ Connection issue. Check your internet and try again.';
+      }
+      
+      // Permission errors
+      if (errorMsg.includes('permission') || errorMsg.includes('access denied') || 
+          errorMsg.includes('unauthorized')) {
+        return '⚠️ You don\'t have permission to do this. Contact Jeff.';
+      }
+      
+      // Sheet/data not found errors
+      if (errorMsg.includes('sheet not found') || errorMsg.includes('sheets not found') ||
+          errorMsg.includes('required sheets')) {
+        return '⚠️ System data is missing. Contact Jeff to check the spreadsheet setup.';
+      }
+      
+      // Validation errors (pass through - these are usually already user-friendly)
+      if (errorMsg.includes('required') || errorMsg.includes('invalid') || 
+          errorMsg.includes('cannot') || errorMsg.includes('must be')) {
+        return '⚠️ ' + (error.message || error);
+      }
+      
+      // Item/Order not found
+      if (errorMsg.includes('not found') || errorMsg.includes('no items') || 
+          errorMsg.includes('no orders')) {
+        return '⚠️ ' + (error.message || 'The requested item was not found.');
+      }
+      
+      // Context-specific fallbacks
+      if (context) {
+        return `⚠️ Could not ${context}. Please try again or contact Jeff if the problem continues.`;
+      }
+      
+      // Generic fallback
+      return '⚠️ Something went wrong. Please try again or contact Jeff.';
+    }
+
+    // ========================================
+    // MANAGER RECEIVING SECTION
+    // ========================================
+    
+    let pendingOrders = [];
+    let currentCancelItem = null;
+    let currentActivateOrder = null;
+    let isActivating = false; // Prevent double-clicks
+
+    /**
+     * Toggle passcode input section
+     */
+    function togglePasscodeSection() {
+      const section = document.getElementById('passcodeSection');
+      section.classList.toggle('show');
+      if (section.classList.contains('show')) {
+        document.getElementById('passcodeInput').focus();
+      }
+    }
+
+    /**
+     * Handle enter key in passcode input
+     */
+    function handlePasscodeKeypress(event) {
+      if (event.key === 'Enter') {
+        validatePasscode();
+      }
+    }
+
+    /**
+     * Validate the manager passcode
+     */
+    function validatePasscode() {
+      const input = document.getElementById('passcodeInput');
+      const errorEl = document.getElementById('passcodeError');
+      const code = input.value.trim();
+      
+      if (!code) {
+        errorEl.textContent = 'Please enter a passcode';
+        errorEl.classList.add('show');
+        return;
+      }
+      
+      showLoading(true, 'Verifying... / Verificando...');
+      
+      google.script.run
+        .withSuccessHandler(function(isValid) {
+          showLoading(false);
+          if (isValid) {
+            errorEl.classList.remove('show');
+            input.value = '';
+            document.getElementById('passcodeSection').classList.remove('show');
+            openReceivingPanel();
+          } else {
+            errorEl.textContent = '❌ Incorrect passcode. Please try again.';
+            errorEl.classList.add('show');
+            input.value = '';
+            input.focus();
+          }
+        })
+        .withFailureHandler(function(error) {
+          showLoading(false);
+          errorEl.textContent = '⚠️ Could not verify passcode. Check your connection.';
+          errorEl.classList.add('show');
+        })
+        .validateManagerPasscode(code);
+    }
+
+    /**
+     * Open the receiving panel
+     */
+    function openReceivingPanel() {
+      document.getElementById('receivingPanel').classList.add('show');
+      populateLocationFilter();
+      loadPendingOrders();
+    }
+
+    /**
+     * Close the receiving panel
+     */
+    function closeReceivingPanel() {
+      document.getElementById('receivingPanel').classList.remove('show');
+    }
+
+    // ========================================
+    // BULK MODE FUNCTIONS
+    // ========================================
+    
+    let currentReceivingMode = 'standard';
+    let bulkSelectedOrders = new Set();
+
+    /**
+     * Switch between standard and bulk receiving modes
+     */
+    function switchReceivingMode(mode) {
+      currentReceivingMode = mode;
+      
+      // Update toggle buttons
+      document.getElementById('standardModeBtn').classList.toggle('active', mode === 'standard');
+      document.getElementById('bulkModeBtn').classList.toggle('active', mode === 'bulk');
+      
+      // Show/hide containers
+      document.getElementById('receivingOrdersContainer').classList.toggle('hidden', mode === 'bulk');
+      document.getElementById('bulkModeContainer').classList.toggle('show', mode === 'bulk');
+      
+      if (mode === 'bulk') {
+        renderBulkModeTable();
+      }
+    }
+
+    /**
+     * Render the bulk mode table with all pending orders
+     */
+    function renderBulkModeTable() {
+      const container = document.getElementById('bulkOrdersTable');
+      const summaryBar = document.getElementById('bulkSummaryBar');
+      
+      if (pendingOrders.length === 0) {
+        container.innerHTML = `
+          <div class="receiving-empty">
+            <span class="material-icons-round">check_circle</span>
+            <div>No pending orders</div>
+            <div style="font-size: 0.85rem;">All orders have been received</div>
+          </div>
+        `;
+        summaryBar.style.display = 'none';
+        return;
+      }
+      
+      // Calculate ages and sort by oldest first
+      const now = new Date();
+      const ordersWithAge = pendingOrders.map(order => {
+        const orderDate = new Date(order.orderDate);
+        const ageInDays = Math.floor((now - orderDate) / (1000 * 60 * 60 * 24));
+        return { ...order, ageInDays };
+      }).sort((a, b) => b.ageInDays - a.ageInDays);
+      
+      // Auto-select orders > 7 days old
+      bulkSelectedOrders.clear();
+      ordersWithAge.forEach(order => {
+        if (order.ageInDays >= 7) {
+          bulkSelectedOrders.add(order.orderId);
+        }
+      });
+      
+      // Build table HTML
+      let html = `
+        <table class="bulk-table">
+          <thead>
+            <tr>
+              <th style="width: 40px;">
+                <input type="checkbox" class="bulk-checkbox" id="bulkSelectAll" onchange="toggleBulkSelectAll(this.checked)">
+              </th>
+              <th>Employee</th>
+              <th>Items</th>
+              <th>Total</th>
+              <th>Age</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      ordersWithAge.forEach(order => {
+        const isOld = order.ageInDays >= 7;
+        const isRecent = order.ageInDays < 2;
+        const isCash = order.status === 'Pending - Cash';
+        const isSelected = bulkSelectedOrders.has(order.orderId);
+        
+        // Get item summary
+        const activeItems = order.items.filter(i => i.itemStatus !== 'Cancelled');
+        const itemSummary = activeItems.map(i => i.itemName).join(', ');
+        
+        let rowClass = '';
+        if (isCash) rowClass = 'cash-order';
+        else if (isOld) rowClass = 'old-order';
+        else if (isRecent) rowClass = 'recent-order';
+        
+        html += `
+          <tr class="${rowClass}" data-order-id="${order.orderId}">
+            <td>
+              <input type="checkbox" class="bulk-checkbox" 
+                     id="bulk-${order.orderId}" 
+                     ${isSelected ? 'checked' : ''}
+                     onchange="toggleBulkOrder('${order.orderId}', this.checked)">
+            </td>
+            <td>
+              <div class="bulk-employee">
+                ${order.employeeName}
+                ${isCash ? '<span class="cash-badge">CASH</span>' : ''}
+              </div>
+              <div style="font-size: 0.8rem; color: var(--gray-500);">${order.orderId} • ${order.location}</div>
+            </td>
+            <td>
+              <div class="bulk-items" title="${itemSummary}">${activeItems.length} item${activeItems.length > 1 ? 's' : ''}</div>
+            </td>
+            <td class="bulk-total">$${order.totalAmount.toFixed(2)}</td>
+            <td class="bulk-age ${isOld ? 'old' : isRecent ? 'recent' : ''}">
+              ${order.ageInDays} day${order.ageInDays !== 1 ? 's' : ''}
+              ${isRecent ? '<div style="font-size: 0.7rem;">(may not have arrived)</div>' : ''}
+            </td>
+          </tr>
+        `;
+      });
+      
+      html += '</tbody></table>';
+      container.innerHTML = html;
+      
+      // Show summary bar and update counts
+      summaryBar.style.display = 'flex';
+      updateBulkSummary();
+    }
+
+    /**
+     * Toggle select all checkbox
+     */
+    function toggleBulkSelectAll(checked) {
+      pendingOrders.forEach(order => {
+        const checkbox = document.getElementById('bulk-' + order.orderId);
+        if (checkbox) {
+          checkbox.checked = checked;
+          if (checked) {
+            bulkSelectedOrders.add(order.orderId);
+          } else {
+            bulkSelectedOrders.delete(order.orderId);
+          }
+        }
+      });
+      updateBulkSummary();
+    }
+
+    /**
+     * Toggle individual order selection
+     */
+    function toggleBulkOrder(orderId, checked) {
+      if (checked) {
+        bulkSelectedOrders.add(orderId);
+      } else {
+        bulkSelectedOrders.delete(orderId);
+      }
+      updateBulkSummary();
+      
+      // Update select all checkbox
+      const selectAll = document.getElementById('bulkSelectAll');
+      if (selectAll) {
+        selectAll.checked = bulkSelectedOrders.size === pendingOrders.length;
+      }
+    }
+
+    /**
+     * Update bulk summary stats
+     */
+    function updateBulkSummary() {
+      const selectedCount = bulkSelectedOrders.size;
+      let selectedTotal = 0;
+      
+      pendingOrders.forEach(order => {
+        if (bulkSelectedOrders.has(order.orderId)) {
+          selectedTotal += order.totalAmount;
+        }
+      });
+      
+      document.getElementById('bulkSelectedCount').textContent = selectedCount;
+      document.getElementById('bulkSelectedTotal').textContent = '$' + selectedTotal.toFixed(2);
+      document.getElementById('bulkActivateBtn').disabled = selectedCount === 0;
+    }
+
+    /**
+     * Start bulk activation process
+     */
+    function startBulkActivation() {
+      if (bulkSelectedOrders.size === 0) return;
+      
+      // Check for cash orders
+      const cashOrders = pendingOrders.filter(o => 
+        bulkSelectedOrders.has(o.orderId) && o.status === 'Pending - Cash'
+      );
+      
+      if (cashOrders.length > 0) {
+        // Show cash warning modal
+        document.getElementById('cashOrderCount').textContent = cashOrders.length;
+        document.getElementById('cashOrdersList').innerHTML = cashOrders.map(o => `
+          <div style="padding: 6px 0; border-bottom: 1px solid var(--gray-200);">
+            <strong>${o.employeeName}</strong> - $${o.totalAmount.toFixed(2)}
+          </div>
+        `).join('');
+        document.getElementById('bulkCashWarningModal').classList.add('show');
+      } else {
+        showBulkConfirmModal();
+      }
+    }
+
+    /**
+     * Close cash warning modal
+     */
+    function closeBulkCashWarning() {
+      document.getElementById('bulkCashWarningModal').classList.remove('show');
+    }
+
+    /**
+     * Proceed after acknowledging cash payments
+     */
+    function proceedWithBulkActivation() {
+      closeBulkCashWarning();
+      showBulkConfirmModal();
+    }
+
+    /**
+     * Show bulk confirmation modal
+     */
+    function showBulkConfirmModal() {
+      let selectedTotal = 0;
+      pendingOrders.forEach(order => {
+        if (bulkSelectedOrders.has(order.orderId)) {
+          selectedTotal += order.totalAmount;
+        }
+      });
+      
+      document.getElementById('confirmOrderCount').textContent = bulkSelectedOrders.size;
+      document.getElementById('confirmTotalAmount').textContent = '$' + selectedTotal.toFixed(2);
+      document.getElementById('bulkConfirmModal').classList.add('show');
+    }
+
+    /**
+     * Close bulk confirm modal
+     */
+    function closeBulkConfirmModal() {
+      document.getElementById('bulkConfirmModal').classList.remove('show');
+    }
+
+    /**
+     * Execute the bulk activation
+     */
+    function executeBulkActivation() {
+      closeBulkConfirmModal();
+      
+      // Show progress modal
+      document.getElementById('bulkProgressModal').classList.add('show');
+      document.getElementById('bulkProgressText').textContent = 'Processing 0 of ' + bulkSelectedOrders.size;
+      document.getElementById('bulkProgressFill').style.width = '0%';
+      
+      const orderIds = Array.from(bulkSelectedOrders);
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          document.getElementById('bulkProgressModal').classList.remove('show');
+          
+          if (result.success) {
+            showBulkSuccessModal(result);
+            
+            // Show undo toast if action was saved (CHUNK 19)
+            if (result.actionId) {
+              const undoMsg = `Bulk activated ${result.activatedCount} orders - $${result.totalAmount.toFixed(2)} total`;
+              showUndoToast(undoMsg, result.actionId);
+            }
+            
+            // Refresh the orders list
+            loadPendingOrders();
+          } else {
+            showError('⚠️ Bulk activation failed: ' + (result.error || 'Unknown error'));
+          }
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('bulkProgressModal').classList.remove('show');
+          showError(getUserFriendlyError(error, 'activate orders'));
+        })
+        .bulkActivateOrders(orderIds);
+    }
+
+    /**
+     * Show bulk success modal
+     */
+    function showBulkSuccessModal(result) {
+      document.getElementById('successOrderCount').textContent = result.activatedCount;
+      document.getElementById('successTotalAmount').textContent = '$' + result.totalAmount.toFixed(2);
+      
+      // Build result list
+      const resultList = document.getElementById('bulkResultList');
+      resultList.innerHTML = result.activatedOrders.map(o => `
+        <div class="bulk-result-item">
+          <span class="name">${o.employeeName}</span>
+          <span class="amount">$${o.amount.toFixed(2)}</span>
+        </div>
+      `).join('');
+      
+      document.getElementById('bulkSuccessModal').classList.add('show');
+    }
+
+    /**
+     * Close bulk success modal
+     */
+    function closeBulkSuccessModal() {
+      document.getElementById('bulkSuccessModal').classList.remove('show');
+      bulkSelectedOrders.clear();
+      switchReceivingMode('standard');
+    }
+
+    /**
+     * Populate location filter dropdown
+     */
+    function populateLocationFilter() {
+      const select = document.getElementById('receivingLocationFilter');
+      
+      google.script.run
+        .withSuccessHandler(function(locations) {
+          select.innerHTML = '<option value="All">All Locations</option>';
+          if (locations && locations.length > 0) {
+            locations.forEach(function(loc) {
+              const locName = typeof loc === 'string' ? loc : (loc.name || loc.locationName || String(loc));
+              const option = document.createElement('option');
+              option.value = locName;
+              option.textContent = locName;
+              select.appendChild(option);
+            });
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to load locations:', error);
+        })
+        .getActiveLocations();
+    }
+
+    /**
+     * Load pending orders for receiving
+     */
+    function loadPendingOrders() {
+      const container = document.getElementById('receivingOrdersContainer');
+      const location = document.getElementById('receivingLocationFilter').value;
+      
+      console.log('Loading pending orders for location:', location);
+      
+      container.innerHTML = `
+        <div class="receiving-empty">
+          <div class="loading-spinner" style="width: 32px; height: 32px; margin: 0 auto 12px;"></div>
+          <div>Loading orders...</div>
+        </div>
+      `;
+      
+      google.script.run
+        .withSuccessHandler(function(orders) {
+          console.log('Received orders:', orders);
+          console.log('Orders count:', orders ? orders.length : 0);
+          pendingOrders = orders || [];
+          renderPendingOrders();
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to load orders:', error);
+          const friendlyError = getUserFriendlyError(error, 'load orders');
+          container.innerHTML = `
+            <div class="receiving-empty">
+              <span class="material-icons-round">error</span>
+              <div>Could not load orders</div>
+              <div style="font-size: 0.85rem;">${friendlyError}</div>
+              <button class="btn btn-secondary" style="margin-top: 12px;" onclick="loadPendingOrders()">
+                Try Again
+              </button>
+            </div>
+          `;
+        })
+        .getPendingOrdersForReceiving(location === 'All' ? '' : location);
+    }
+
+    /**
+     * Render the pending orders list
+     */
+    function renderPendingOrders() {
+      const container = document.getElementById('receivingOrdersContainer');
+      
+      if (pendingOrders.length === 0) {
+        container.innerHTML = `
+          <div class="receiving-empty">
+            <span class="material-icons-round">check_circle</span>
+            <div>No pending orders</div>
+            <div style="font-size: 0.85rem;">All orders have been received</div>
+          </div>
+        `;
+        return;
+      }
+      
+      container.innerHTML = '<div class="receiving-orders">' + 
+        pendingOrders.map((order, orderIndex) => {
+          const activeItems = order.items.filter(i => i.itemStatus !== 'Cancelled');
+          const receivedItems = activeItems.filter(i => i.itemReceived);
+          const progressClass = receivedItems.length === 0 ? 'none' : 
+                               receivedItems.length < activeItems.length ? 'partial' : 'complete';
+          const progressText = `${receivedItems.length}/${activeItems.length}`;
+          
+          return `
+            <div class="receiving-order-card" data-order-id="${order.orderId}">
+              <div class="order-card-header" onclick="toggleOrderCard('${order.orderId}')">
+                <div class="order-info">
+                  <h4>${order.employeeName}</h4>
+                  <div class="order-meta">
+                    ${order.orderId} • ${order.location} • ${formatDate(order.orderDate)}
+                  </div>
+                </div>
+                <div class="order-stats">
+                  <div class="order-progress">
+                    <span class="progress-badge ${progressClass}">${progressText}</span>
+                    received
+                  </div>
+                  <div class="order-total">$${order.receivedTotal.toFixed(2)} / $${order.totalAmount.toFixed(2)}</div>
+                </div>
+              </div>
+              <div class="order-card-body" id="orderBody-${order.orderId}">
+                ${renderOrderItems(order, orderIndex)}
+                
+                <div class="receiving-summary">
+                  <span class="receiving-summary-label">Received Total:</span>
+                  <span class="receiving-summary-value" id="receivedTotal-${order.orderId}">$${order.receivedTotal.toFixed(2)}</span>
+                </div>
+                
+                <div class="order-actions">
+                  <div class="activate-hint ${receivedItems.length === 0 ? 'warning' : ''}" id="activateHint-${order.orderId}">
+                    <span class="material-icons-round">${receivedItems.length === 0 ? 'info' : 'check_circle'}</span>
+                    ${receivedItems.length === 0 
+                      ? 'Check off received items above, then activate to start deductions' 
+                      : `${receivedItems.length} item${receivedItems.length > 1 ? 's' : ''} ready for deduction`}
+                  </div>
+                  <div class="order-action-buttons">
+                    <button class="btn btn-save-activate" 
+                            onclick="saveAndActivateOrder('${order.orderId}')" 
+                            id="activateBtn-${order.orderId}"
+                            ${receivedItems.length === 0 ? 'disabled' : ''}>
+                      <span class="material-icons-round">check_circle</span>
+                      Activate for Payroll
+                    </button>
+                    <button class="btn btn-paid-cash" 
+                            onclick="showCashPaymentModal('${order.orderId}')" 
+                            id="cashBtn-${order.orderId}"
+                            ${receivedItems.length === 0 ? 'disabled' : ''}>
+                      <span class="material-icons-round">payments</span>
+                      Paid Cash
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('') + '</div>';
+    }
+
+    /**
+     * Render items for an order
+     */
+    function renderOrderItems(order, orderIndex) {
+      return order.items.map((item, itemIndex) => {
+        const isCancelled = item.itemStatus === 'Cancelled';
+        const isReceived = item.itemReceived;
+        const orderedQty = item.quantity || 1;
+        // Initialize receivedQuantity if not set - defaults to ordered quantity when checked
+        const receivedQty = item.receivedQuantity !== undefined ? item.receivedQuantity : (isReceived ? orderedQty : 0);
+        const unitPrice = item.lineTotal / orderedQty;
+        const receivedTotal = (receivedQty * unitPrice).toFixed(2);
+        
+        // Build quantity options (0 to orderedQty)
+        let qtyOptions = '';
+        for (let q = 0; q <= orderedQty; q++) {
+          qtyOptions += `<option value="${q}" ${receivedQty === q ? 'selected' : ''}>${q}</option>`;
+        }
+        
+        return `
+          <div class="receiving-item ${receivedQty > 0 ? 'received' : ''} ${isCancelled ? 'cancelled' : ''}" 
+               data-line-id="${item.lineId}">
+            <input type="checkbox" 
+                   id="item-${item.lineId}" 
+                   ${receivedQty > 0 ? 'checked' : ''} 
+                   ${isCancelled ? 'disabled' : ''}
+                   onchange="toggleItemReceived('${order.orderId}', '${item.lineId}', this.checked)">
+            <div class="receiving-item-info">
+              <div class="receiving-item-name">
+                ${item.itemName}
+                ${item.isReplacement ? '<span style="background: var(--warning); color: white; padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 6px;">REPL</span>' : ''}
+                ${isCancelled ? '<span style="background: var(--gray-400); color: white; padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 6px;">CANCELLED</span>' : ''}
+              </div>
+              <div class="receiving-item-details">
+                Size: ${item.size} • Ordered: ${orderedQty}
+                ${!isCancelled && orderedQty > 1 ? `
+                  <span class="qty-received-wrapper">
+                    • Received: 
+                    <select class="qty-received-select" 
+                            onchange="updateReceivedQuantity('${order.orderId}', '${item.lineId}', parseInt(this.value))"
+                            ${isCancelled ? 'disabled' : ''}>
+                      ${qtyOptions}
+                    </select>
+                  </span>
+                ` : `
+                  <span class="qty-single">• Qty: ${orderedQty}</span>
+                `}
+              </div>
+            </div>
+            <div class="receiving-item-price">
+              ${!isCancelled && orderedQty > 1 ? `
+                <span class="price-received" id="price-${item.lineId}">$${receivedTotal}</span>
+                <span class="price-ordered">of $${item.lineTotal.toFixed(2)}</span>
+              ` : `
+                $${item.lineTotal.toFixed(2)}
+              `}
+            </div>
+            ${!isCancelled ? `
+              <button class="receiving-item-cancel" onclick="showCancelModal('${order.orderId}', '${item.lineId}')" title="Cancel item">
+                <span class="material-icons-round">cancel</span>
+              </button>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    /**
+     * Toggle order card expansion
+     */
+    function toggleOrderCard(orderId) {
+      const body = document.getElementById('orderBody-' + orderId);
+      body.classList.toggle('expanded');
+    }
+
+    /**
+     * Toggle item received status (in local state)
+     * For single-quantity items or checkbox toggle
+     */
+    function toggleItemReceived(orderId, lineId, received) {
+      const order = pendingOrders.find(o => o.orderId === orderId);
+      if (!order) return;
+      
+      const item = order.items.find(i => i.lineId === lineId);
+      if (!item) return;
+      
+      const orderedQty = item.quantity || 1;
+      
+      // Update received status and quantity
+      item.itemReceived = received;
+      item.receivedQuantity = received ? orderedQty : 0;
+      
+      // Update the item row styling
+      const itemRow = document.querySelector(`[data-line-id="${lineId}"]`);
+      if (itemRow) {
+        if (received) {
+          itemRow.classList.add('received');
+        } else {
+          itemRow.classList.remove('received');
+        }
+      }
+      
+      // Update quantity dropdown if exists (for multi-qty items)
+      const qtySelect = itemRow?.querySelector('.qty-received-select');
+      if (qtySelect) {
+        qtySelect.value = item.receivedQuantity;
+      }
+      
+      // Update price display for multi-qty items
+      updateItemPriceDisplay(item);
+      
+      // Recalculate and update totals
+      updateOrderTotals(orderId);
+    }
+
+    /**
+     * Update received quantity for an item (called from quantity dropdown)
+     */
+    function updateReceivedQuantity(orderId, lineId, newQuantity) {
+      const order = pendingOrders.find(o => o.orderId === orderId);
+      if (!order) return;
+      
+      const item = order.items.find(i => i.lineId === lineId);
+      if (!item) return;
+      
+      // Update the received quantity
+      item.receivedQuantity = newQuantity;
+      item.itemReceived = newQuantity > 0;
+      
+      // Update checkbox to match
+      const checkbox = document.getElementById('item-' + lineId);
+      if (checkbox) {
+        checkbox.checked = newQuantity > 0;
+      }
+      
+      // Update item row styling
+      const itemRow = document.querySelector(`[data-line-id="${lineId}"]`);
+      if (itemRow) {
+        if (newQuantity > 0) {
+          itemRow.classList.add('received');
+        } else {
+          itemRow.classList.remove('received');
+        }
+      }
+      
+      // Update price display
+      updateItemPriceDisplay(item);
+      
+      // Recalculate and update totals
+      updateOrderTotals(orderId);
+    }
+
+    /**
+     * Update the price display for an item based on received quantity
+     */
+    function updateItemPriceDisplay(item) {
+      const priceEl = document.getElementById('price-' + item.lineId);
+      if (priceEl && item.quantity > 1) {
+        const unitPrice = item.lineTotal / item.quantity;
+        const receivedTotal = (item.receivedQuantity || 0) * unitPrice;
+        priceEl.textContent = '$' + receivedTotal.toFixed(2);
+      }
+    }
+
+    /**
+     * Update order totals display (supports partial quantities)
+     */
+    function updateOrderTotals(orderId) {
+      const order = pendingOrders.find(o => o.orderId === orderId);
+      if (!order) return;
+      
+      const activeItems = order.items.filter(i => i.itemStatus !== 'Cancelled');
+      
+      // Calculate received total based on partial quantities
+      let receivedTotal = 0;
+      let receivedItemCount = 0;
+      
+      activeItems.forEach(item => {
+        const orderedQty = item.quantity || 1;
+        const receivedQty = item.receivedQuantity !== undefined ? item.receivedQuantity : (item.itemReceived ? orderedQty : 0);
+        
+        if (receivedQty > 0) {
+          receivedItemCount++;
+          const unitPrice = item.lineTotal / orderedQty;
+          receivedTotal += receivedQty * unitPrice;
+        }
+      });
+      
+      order.receivedCount = receivedItemCount;
+      order.receivedTotal = parseFloat(receivedTotal.toFixed(2));
+      
+      // Update displayed total
+      const totalEl = document.getElementById('receivedTotal-' + orderId);
+      if (totalEl) {
+        totalEl.textContent = '$' + receivedTotal.toFixed(2);
+      }
+      
+      const card = document.querySelector(`[data-order-id="${orderId}"]`);
+      if (card) {
+        // Update Save & Activate button state
+        const activateBtn = document.getElementById('activateBtn-' + orderId);
+        if (activateBtn) {
+          activateBtn.disabled = receivedItemCount === 0;
+        }
+        
+        // Update Paid Cash button state
+        const cashBtn = document.getElementById('cashBtn-' + orderId);
+        if (cashBtn) {
+          cashBtn.disabled = receivedItemCount === 0;
+        }
+        
+        // Update hint text
+        const hintEl = document.getElementById('activateHint-' + orderId);
+        if (hintEl) {
+          if (receivedItemCount === 0) {
+            hintEl.className = 'activate-hint warning';
+            hintEl.innerHTML = `
+              <span class="material-icons-round">info</span>
+              Check off received items above, then activate to start deductions
+            `;
+          } else {
+            hintEl.className = 'activate-hint';
+            hintEl.innerHTML = `
+              <span class="material-icons-round">check_circle</span>
+              ${receivedItemCount} item${receivedItemCount > 1 ? 's' : ''} ready for deduction
+            `;
+          }
+        }
+        
+        // Update progress badge
+        const progressBadge = card.querySelector('.progress-badge');
+        if (progressBadge) {
+          progressBadge.textContent = `${receivedItemCount}/${activeItems.length}`;
+          progressBadge.className = 'progress-badge ' + 
+            (receivedItemCount === 0 ? 'none' : 
+             receivedItemCount < activeItems.length ? 'partial' : 'complete');
+        }
+        
+        // Update header total
+        const headerTotal = card.querySelector('.order-total');
+        if (headerTotal) {
+          headerTotal.textContent = `$${receivedTotal.toFixed(2)} / $${order.totalAmount.toFixed(2)}`;
+        }
+      }
+    }
+
+    /**
+     * Save changes to item received status (internal helper)
+     * @returns {Promise} Resolves with result object
+     */
+    function saveOrderChangesAsync(orderId) {
+      return new Promise((resolve, reject) => {
+        const order = pendingOrders.find(o => o.orderId === orderId);
+        if (!order) {
+          reject(new Error('Order not found'));
+          return;
+        }
+        
+        // Build updates array with received quantities
+        const updates = order.items
+          .filter(i => i.itemStatus !== 'Cancelled')
+          .map(item => {
+            const orderedQty = item.quantity || 1;
+            const receivedQty = item.receivedQuantity !== undefined ? item.receivedQuantity : (item.itemReceived ? orderedQty : 0);
+            
+            return {
+              lineId: item.lineId,
+              received: receivedQty > 0,
+              receivedQuantity: receivedQty,
+              orderedQuantity: orderedQty
+            };
+          });
+        
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .updateItemsReceivedStatus(updates, 'Manager');
+      });
+    }
+
+    /**
+     * Combined Save and Activate workflow
+     * Saves checkbox states, then shows confirmation modal
+     */
+    function saveAndActivateOrder(orderId) {
+      // Prevent double-clicks
+      if (isActivating) {
+        console.log('Already processing, ignoring click');
+        return;
+      }
+      
+      const order = pendingOrders.find(o => o.orderId === orderId);
+      if (!order) return;
+      
+      const activeItems = order.items.filter(i => i.itemStatus !== 'Cancelled');
+      const receivedItems = activeItems.filter(i => i.itemReceived);
+      
+      // Validate at least one item is checked
+      if (receivedItems.length === 0) {
+        showToast('⚠️ Please check off at least one received item first.', 'error');
+        return;
+      }
+      
+      // Show the confirmation modal
+      showActivateModal(orderId);
+    }
+
+    // ========================================
+    // CASH PAYMENT FUNCTIONS
+    // ========================================
+    
+    let currentCashPaymentOrderId = null;
+
+    /**
+     * Show cash payment confirmation modal
+     */
+    function showCashPaymentModal(orderId) {
+      const order = pendingOrders.find(o => o.orderId === orderId);
+      if (!order) return;
+      
+      const activeItems = order.items.filter(i => i.itemStatus !== 'Cancelled');
+      const receivedItems = activeItems.filter(i => i.itemReceived);
+      
+      // Validate at least one item is checked
+      if (receivedItems.length === 0) {
+        showToast('⚠️ Please check off at least one received item first.', 'error');
+        return;
+      }
+      
+      currentCashPaymentOrderId = orderId;
+      
+      // Calculate received total (respecting partial quantities)
+      let receivedTotal = 0;
+      receivedItems.forEach(item => {
+        const orderedQty = item.quantity || 1;
+        const receivedQty = item.receivedQuantity !== undefined ? item.receivedQuantity : orderedQty;
+        const unitPrice = item.lineTotal / orderedQty;
+        receivedTotal += receivedQty * unitPrice;
+      });
+      
+      // Populate modal details
+      document.getElementById('cashPaymentDetails').innerHTML = `
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--gray-600);">Employee:</span>
+          <strong>${order.employeeName}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--gray-600);">Order:</span>
+          <strong>${order.orderId}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--gray-600);">Items:</span>
+          <strong>${receivedItems.length} of ${activeItems.length} received</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px dashed var(--gray-300);">
+          <span style="color: var(--gray-600); font-size: 1.1rem;">Cash Amount:</span>
+          <strong style="font-size: 1.25rem; color: #D97706;">$${receivedTotal.toFixed(2)}</strong>
+        </div>
+      `;
+      
+      document.getElementById('cashPaymentModal').classList.add('show');
+    }
+
+    /**
+     * Close cash payment modal
+     */
+    function closeCashPaymentModal() {
+      document.getElementById('cashPaymentModal').classList.remove('show');
+      currentCashPaymentOrderId = null;
+    }
+
+    /**
+     * Confirm cash payment - activates order as "Store Paid"
+     */
+    function confirmCashPayment() {
+      if (!currentCashPaymentOrderId) return;
+      
+      const orderId = currentCashPaymentOrderId;
+      closeCashPaymentModal();
+      
+      const order = pendingOrders.find(o => o.orderId === orderId);
+      if (!order) return;
+      
+      // Build received items data
+      const activeItems = order.items.filter(i => i.itemStatus !== 'Cancelled');
+      const receivedItems = activeItems.filter(i => i.itemReceived);
+      
+      const receivedData = receivedItems.map(item => ({
+        lineId: item.lineId,
+        receivedQuantity: item.receivedQuantity !== undefined ? item.receivedQuantity : (item.quantity || 1)
+      }));
+      
+      showLoading(true, 'Processing cash payment...');
+      
+      // Call backend to activate as Store Paid
+      google.script.run
+        .withSuccessHandler(function(result) {
+          showLoading(false);
+          if (result.success) {
+            showToast('✅ Order marked as Paid Cash! No payroll deductions will be made.', 'success');
+            loadPendingOrders();
+          } else {
+            showToast('⚠️ ' + (result.error || 'Could not process cash payment.'), 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showLoading(false);
+          showToast(getUserFriendlyError(error, 'process cash payment'), 'error');
+        })
+        .activateOrderAsCashPayment(orderId, receivedData);
+    }
+
+    /**
+     * Show cancel item modal
+     */
+    function showCancelModal(orderId, lineId) {
+      const order = pendingOrders.find(o => o.orderId === orderId);
+      if (!order) return;
+      
+      const item = order.items.find(i => i.lineId === lineId);
+      if (!item) return;
+      
+      currentCancelItem = { orderId, lineId, item };
+      
+      document.getElementById('cancelItemDetails').innerHTML = `
+        <strong>${item.itemName}</strong><br>
+        Size: ${item.size} • Qty: ${item.quantity}<br>
+        Price: $${item.lineTotal.toFixed(2)}
+      `;
+      
+      document.getElementById('cancelItemModal').classList.add('show');
+    }
+
+    /**
+     * Close cancel modal
+     */
+    function closeCancelModal() {
+      document.getElementById('cancelItemModal').classList.remove('show');
+      currentCancelItem = null;
+    }
+
+    /**
+     * Confirm cancel item
+     */
+    function confirmCancelItem() {
+      if (!currentCancelItem) return;
+      
+      const { orderId, lineId } = currentCancelItem;
+      
+      closeCancelModal();
+      showLoading(true, 'Cancelling item... / Cancelando artículo...');
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          showLoading(false);
+          if (result.success) {
+            showToast('✅ Item cancelled successfully!', 'success');
+            loadPendingOrders(); // Reload to get fresh data
+          } else {
+            showToast('⚠️ ' + (result.error || 'Could not cancel item.'), 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showLoading(false);
+          showToast(getUserFriendlyError(error, 'cancel this item'), 'error');
+        })
+        .cancelUniformItem(lineId);
+    }
+
+    /**
+     * Show activate order modal (supports partial quantities)
+     */
+    function showActivateModal(orderId) {
+      const order = pendingOrders.find(o => o.orderId === orderId);
+      if (!order) return;
+      
+      const activeItems = order.items.filter(i => i.itemStatus !== 'Cancelled');
+      
+      // Calculate totals with partial quantity support
+      let receivedTotal = 0;
+      let totalUnreceivedUnits = 0;
+      let hasPartialItems = false;
+      let itemsWithSomeReceived = 0;
+      
+      activeItems.forEach(item => {
+        const orderedQty = item.quantity || 1;
+        const receivedQty = item.receivedQuantity !== undefined ? item.receivedQuantity : (item.itemReceived ? orderedQty : 0);
+        const unitPrice = item.lineTotal / orderedQty;
+        
+        if (receivedQty > 0) {
+          receivedTotal += receivedQty * unitPrice;
+          itemsWithSomeReceived++;
+        }
+        
+        const unreceivedQty = orderedQty - receivedQty;
+        if (unreceivedQty > 0) {
+          totalUnreceivedUnits += unreceivedQty;
+        }
+        
+        if (receivedQty > 0 && receivedQty < orderedQty) {
+          hasPartialItems = true;
+        }
+      });
+      
+      if (itemsWithSomeReceived === 0) {
+        showToast('⚠️ Please mark at least one item as received first.', 'error');
+        return;
+      }
+      
+      // Filter for display purposes
+      const receivedItems = activeItems.filter(i => {
+        const receivedQty = i.receivedQuantity !== undefined ? i.receivedQuantity : (i.itemReceived ? (i.quantity || 1) : 0);
+        return receivedQty > 0;
+      });
+      const unreceivedItems = activeItems.filter(i => !i.itemReceived);
+      
+      currentActivateOrder = { orderId, order, receivedItems, unreceivedItems, totalUnreceivedUnits, hasPartialItems };
+      
+      // Build summary HTML
+      let summaryHtml = `
+        <div style="margin-bottom: 8px;"><strong>Employee:</strong> ${order.employeeName}</div>
+        <div style="margin-bottom: 8px;"><strong>Items received:</strong> ${itemsWithSomeReceived} of ${activeItems.length}</div>
+      `;
+      
+      // Show partial quantity details if applicable
+      if (hasPartialItems) {
+        summaryHtml += `<div style="margin-bottom: 8px; color: var(--warning);"><strong>Note:</strong> Some items have partial quantities received</div>`;
+      }
+      
+      summaryHtml += `<div><strong>Deduction amount:</strong> <span style="color: var(--success); font-weight: 700;">$${receivedTotal.toFixed(2)}</span></div>`;
+      
+      document.getElementById('activateOrderDetails').innerHTML = summaryHtml;
+      
+      const splitNote = document.getElementById('splitOrderNote');
+      if (totalUnreceivedUnits > 0) {
+        const unitText = totalUnreceivedUnits === 1 ? 'unit' : 'units';
+        splitNote.innerHTML = `
+          <span class="material-icons-round" style="font-size: 16px; vertical-align: middle;">info</span>
+          ${totalUnreceivedUnits} unreceived ${unitText} will be moved to a new pending order.
+        `;
+        splitNote.style.display = 'block';
+      } else {
+        splitNote.style.display = 'none';
+      }
+      
+      document.getElementById('activateOrderModal').classList.add('show');
+    }
+
+    /**
+     * Close activate modal
+     */
+    function closeActivateModal() {
+      document.getElementById('activateOrderModal').classList.remove('show');
+      currentActivateOrder = null;
+    }
+
+    /**
+     * Reset the confirm activate button to its original state
+     */
+    function resetActivateButton() {
+      const confirmBtn = document.getElementById('confirmActivateBtn');
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<span class="material-icons-round" style="font-size: 18px; vertical-align: middle; margin-right: 4px;">check_circle</span> Confirm & Activate';
+      }
+    }
+
+    /**
+     * Confirm activate order - saves changes then activates
+     */
+    function confirmActivateOrder() {
+      if (!currentActivateOrder) return;
+      
+      // Prevent double-clicks
+      if (isActivating) {
+        console.log('Already activating, ignoring');
+        return;
+      }
+      
+      isActivating = true;
+      const { orderId } = currentActivateOrder;
+      
+      // Disable button to prevent double-clicks
+      const confirmBtn = document.getElementById('confirmActivateBtn');
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<span class="material-icons-round" style="font-size: 18px; animation: spin 1s linear infinite;">sync</span> Processing...';
+      }
+      
+      closeActivateModal();
+      showLoading(true, 'Activating order... / Activando pedido...');
+      
+      // Step 1: Save checkbox states first
+      saveOrderChangesAsync(orderId)
+        .then(function(saveResult) {
+          if (!saveResult.success) {
+            throw new Error(saveResult.error || 'Failed to save changes');
+          }
+          
+          // Step 2: Activate the order
+          return new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject)
+              .activateOrderWithReceivedItems(orderId);
+          });
+        })
+        .then(function(result) {
+          showLoading(false);
+          isActivating = false;
+          resetActivateButton(); // Reset button state
+          
+          if (result.success) {
+            let toastMessage = `Order activated! $${result.newTotal.toFixed(2)} deductions start next payroll.`;
+            if (result.newOrderId) {
+              toastMessage += ` Unreceived items moved to new order.`;
+            }
+            
+            // Show undo toast if action was saved (CHUNK 19)
+            if (result.actionId) {
+              showUndoToast(toastMessage, result.actionId);
+            } else {
+              showToast('✅ ' + toastMessage, 'success');
+            }
+            
+            loadPendingOrders(); // Reload to get fresh data
+          } else {
+            showToast('⚠️ ' + (result.error || 'Could not activate order.'), 'error');
+          }
+        })
+        .catch(function(error) {
+          showLoading(false);
+          isActivating = false;
+          resetActivateButton(); // Reset button state on error too
+          showToast(getUserFriendlyError(error, 'activate this order'), 'error');
+        });
+    }
+
+    /**
+     * Format date for display
+     */
+    function formatDate(date) {
+      if (!date) return '';
+      const d = new Date(date);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    /**
+     * Show toast notification
+     */
+    function showToast(message, type) {
+      // Create toast element if it doesn't exist
+      let toast = document.getElementById('toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.style.cssText = `
+          position: fixed;
+          bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          padding: 12px 24px;
+          border-radius: 8px;
+          color: white;
+          font-weight: 500;
+          z-index: 1002;
+          opacity: 0;
+          transition: opacity 0.3s;
+          max-width: 90%;
+          text-align: center;
+        `;
+        document.body.appendChild(toast);
+      }
+      
+      toast.textContent = message;
+      toast.style.background = type === 'success' ? '#22C55E' : type === 'error' ? '#EF4444' : '#6B7280';
+      toast.style.opacity = '1';
+      
+      setTimeout(() => {
+        toast.style.opacity = '0';
+      }, 4000);
+    }
+    
+    // ============================================================
+    // CHUNK 19: UNDO TOAST FUNCTIONALITY
+    // ============================================================
+    
+    let currentUndoActionId = null;
+    let undoCountdownInterval = null;
+    const UNDO_DISPLAY_SECONDS = 15; // Show toast for 15 seconds
+    
+    /**
+     * Show undo toast after activation
+     */
+    function showUndoToast(message, actionId) {
+      currentUndoActionId = actionId;
+      
+      // Create toast if doesn't exist
+      let toast = document.getElementById('undoToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'undoToast';
+        toast.className = 'undo-toast';
+        toast.innerHTML = `
+          <div class="undo-toast-message">
+            <span class="material-icons-round">check_circle</span>
+            <span class="undo-toast-text"></span>
+          </div>
+          <button class="undo-toast-btn" onclick="performUndo()">Undo</button>
+          <span class="undo-toast-countdown"></span>
+          <button class="undo-toast-close" onclick="hideUndoToast()">
+            <span class="material-icons-round" style="font-size: 18px;">close</span>
+          </button>
+        `;
+        document.body.appendChild(toast);
+      }
+      
+      // Set message
+      toast.querySelector('.undo-toast-text').textContent = message;
+      
+      // Clear any existing countdown
+      if (undoCountdownInterval) {
+        clearInterval(undoCountdownInterval);
+      }
+      
+      // Start countdown
+      let secondsLeft = UNDO_DISPLAY_SECONDS;
+      updateUndoCountdown(secondsLeft);
+      
+      undoCountdownInterval = setInterval(() => {
+        secondsLeft--;
+        updateUndoCountdown(secondsLeft);
+        
+        if (secondsLeft <= 0) {
+          hideUndoToast();
+        }
+      }, 1000);
+      
+      // Show toast
+      setTimeout(() => toast.classList.add('show'), 10);
+    }
+    
+    /**
+     * Update countdown display
+     */
+    function updateUndoCountdown(seconds) {
+      const countdown = document.querySelector('.undo-toast-countdown');
+      if (countdown) {
+        countdown.textContent = `(${seconds}s)`;
+      }
+    }
+    
+    /**
+     * Hide undo toast
+     */
+    function hideUndoToast() {
+      const toast = document.getElementById('undoToast');
+      if (toast) {
+        toast.classList.remove('show');
+      }
+      if (undoCountdownInterval) {
+        clearInterval(undoCountdownInterval);
+        undoCountdownInterval = null;
+      }
+      currentUndoActionId = null;
+    }
+    
+    /**
+     * Perform undo action
+     */
+    function performUndo() {
+      if (!currentUndoActionId) {
+        showToast('No action to undo', 'error');
+        return;
+      }
+      
+      const actionId = currentUndoActionId;
+      hideUndoToast();
+      showLoading(true, 'Undoing...');
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          showLoading(false);
+          if (result.success) {
+            showToast('✅ ' + result.message, 'success');
+            loadPendingOrders(); // Refresh the list
+          } else {
+            showToast('⚠️ ' + (result.error || 'Could not undo action'), 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showLoading(false);
+          showToast('⚠️ ' + getUserFriendlyError(error, 'undo this action'), 'error');
+        })
+        .undoAction(actionId);
+    }
+    
+    // ============================================================
+    // EMPLOYEE SUBMISSION UNDO (for order/PTO submissions)
+    // ============================================================
+    
+    let currentSubmissionId = null;
+    let currentSubmissionType = null; // 'uniform' or 'pto'
+    let submissionUndoCountdownInterval = null;
+    const SUBMISSION_UNDO_SECONDS = 30; // 30 seconds for employee undo
+    
+    /**
+     * Show undo toast after employee submission
+     */
+    function showSubmissionUndoToast(message, submissionId, type) {
+      currentSubmissionId = submissionId;
+      currentSubmissionType = type;
+      
+      // Create toast if doesn't exist
+      let toast = document.getElementById('submissionUndoToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'submissionUndoToast';
+        toast.className = 'undo-toast';
+        toast.innerHTML = `
+          <div class="undo-toast-message">
+            <span class="material-icons-round">check_circle</span>
+            <div>
+              <span class="undo-toast-text"></span>
+              <div style="font-size: 0.8rem; color: #9CA3AF; margin-top: 2px;">
+                Submitted by mistake? / ¿Enviado por error?
+              </div>
+            </div>
+          </div>
+          <button class="undo-toast-btn" onclick="undoSubmission()">
+            Cancel Order<br><span style="font-size: 0.7rem;">Cancelar Pedido</span>
+          </button>
+          <span class="submission-undo-countdown"></span>
+          <button class="undo-toast-close" onclick="hideSubmissionUndoToast()">
+            <span class="material-icons-round" style="font-size: 18px;">close</span>
+          </button>
+        `;
+        document.body.appendChild(toast);
+      }
+      
+      // Set message
+      toast.querySelector('.undo-toast-text').textContent = message;
+      
+      // Update button text based on type
+      const btn = toast.querySelector('.undo-toast-btn');
+      if (type === 'uniform') {
+        btn.innerHTML = 'Cancel Order<br><span style="font-size: 0.7rem;">Cancelar Pedido</span>';
+      } else {
+        btn.innerHTML = 'Cancel Request<br><span style="font-size: 0.7rem;">Cancelar Solicitud</span>';
+      }
+      
+      // Clear any existing countdown
+      if (submissionUndoCountdownInterval) {
+        clearInterval(submissionUndoCountdownInterval);
+      }
+      
+      // Start countdown
+      let secondsLeft = SUBMISSION_UNDO_SECONDS;
+      updateSubmissionUndoCountdown(secondsLeft);
+      
+      submissionUndoCountdownInterval = setInterval(() => {
+        secondsLeft--;
+        updateSubmissionUndoCountdown(secondsLeft);
+        
+        if (secondsLeft <= 0) {
+          hideSubmissionUndoToast();
+        }
+      }, 1000);
+      
+      // Show toast
+      setTimeout(() => toast.classList.add('show'), 10);
+    }
+    
+    /**
+     * Update countdown display
+     */
+    function updateSubmissionUndoCountdown(seconds) {
+      const countdown = document.querySelector('.submission-undo-countdown');
+      if (countdown) {
+        countdown.textContent = `(${seconds}s)`;
+      }
+    }
+    
+    /**
+     * Hide submission undo toast
+     */
+    function hideSubmissionUndoToast() {
+      const toast = document.getElementById('submissionUndoToast');
+      if (toast) {
+        toast.classList.remove('show');
+      }
+      if (submissionUndoCountdownInterval) {
+        clearInterval(submissionUndoCountdownInterval);
+        submissionUndoCountdownInterval = null;
+      }
+      currentSubmissionId = null;
+      currentSubmissionType = null;
+    }
+    
+    /**
+     * Undo/cancel employee submission
+     */
+    function undoSubmission() {
+      if (!currentSubmissionId || !currentSubmissionType) {
+        showToast('Nothing to cancel', 'error');
+        return;
+      }
+      
+      const submissionId = currentSubmissionId;
+      const type = currentSubmissionType;
+      hideSubmissionUndoToast();
+      showLoading(true, 'Cancelling... / Cancelando...');
+      
+      if (type === 'uniform') {
+        google.script.run
+          .withSuccessHandler(handleSubmissionUndoResult)
+          .withFailureHandler(handleSubmissionUndoError)
+          .cancelUniformOrder(submissionId);
+      } else if (type === 'pto') {
+        google.script.run
+          .withSuccessHandler(handleSubmissionUndoResult)
+          .withFailureHandler(handleSubmissionUndoError)
+          .cancelPTORequest(submissionId);
+      }
+    }
+    
+    function handleSubmissionUndoResult(result) {
+      showLoading(false);
+      if (result.success) {
+        showCancelledSuccess();
+        // Wait a moment then go back to form
+        setTimeout(function() {
+          submitAnother();
+        }, 2500);
+      } else {
+        showToast('⚠️ ' + (result.error || 'Could not cancel'), 'error');
+      }
+    }
+    
+    function handleSubmissionUndoError(error) {
+      showLoading(false);
+      showToast('⚠️ ' + getUserFriendlyError(error, 'cancel this submission'), 'error');
+    }
+    
+    /**
+     * Show cancelled success overlay
+     */
+    function showCancelledSuccess() {
+      // Create success overlay
+      let overlay = document.getElementById('cancelledOverlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'cancelledOverlay';
+        overlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 3000;
+          opacity: 0;
+          transition: opacity 0.3s;
+        `;
+        overlay.innerHTML = `
+          <div style="
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            max-width: 320px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+          ">
+            <div style="
+              width: 64px;
+              height: 64px;
+              background: #DCFCE7;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin: 0 auto 16px;
+            ">
+              <span class="material-icons-round" style="font-size: 36px; color: #22C55E;">check_circle</span>
+            </div>
+            <h3 style="margin: 0 0 8px; color: #1F2937; font-size: 1.2rem;">Order Cancelled</h3>
+            <p style="margin: 0 0 4px; color: #6B7280; font-size: 0.95rem;">Pedido Cancelado</p>
+            <p style="margin: 16px 0 0; color: #9CA3AF; font-size: 0.85rem;">Returning to form... / Volviendo al formulario...</p>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+      }
+      
+      // Show with animation
+      setTimeout(() => overlay.style.opacity = '1', 10);
+    }
+  </script>
+</body>
+</html>
+

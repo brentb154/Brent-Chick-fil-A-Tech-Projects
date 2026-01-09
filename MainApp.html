@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payroll Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <?!= include('Styles'); ?>
+  <?!= include('MainAppStyles'); ?>
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay hidden">
+    <div class="spinner"></div>
+  </div>
+
+  <div class="main-app-container">
+    <!-- ==================== SIDEBAR ==================== -->
+    <aside class="sidebar">
+      <!-- Logo/Title -->
+      <div class="sidebar-header">
+        <span class="material-icons-round sidebar-logo">restaurant</span>
+        <span class="sidebar-title">Payroll Review</span>
+      </div>
+
+      <!-- Navigation Menu -->
+      <nav class="sidebar-nav">
+        <!-- Home -->
+        <a href="#home" class="nav-item active" data-view="home">
+          <span class="material-icons-round">home</span>
+          <span>Home</span>
+        </a>
+
+        <div class="nav-divider"></div>
+
+        <!-- OVERTIME Section -->
+        <div class="nav-section" data-section="overtime">
+          <button class="nav-section-header" onclick="toggleSection('overtime')">
+            <span class="material-icons-round">schedule</span>
+            <span>OVERTIME</span>
+            <span class="material-icons-round section-arrow">expand_more</span>
+          </button>
+          <div class="nav-section-items expanded">
+            <a href="#ot-upload" class="nav-item sub-item" data-view="ot-upload">
+              <span class="material-icons-round">cloud_upload</span>
+              <span>Upload Data</span>
+            </a>
+            <a href="#ot-history" class="nav-item sub-item" data-view="ot-history">
+              <span class="material-icons-round">history</span>
+              <span>History</span>
+            </a>
+            <a href="#ot-employee" class="nav-item sub-item" data-view="ot-employee">
+              <span class="material-icons-round">person_search</span>
+              <span>Employee Lookup</span>
+            </a>
+            <a href="#ot-trends" class="nav-item sub-item" data-view="ot-trends">
+              <span class="material-icons-round">trending_up</span>
+              <span>Trends</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- UNIFORMS Section -->
+        <div class="nav-section" data-section="uniforms">
+          <button class="nav-section-header" onclick="toggleSection('uniforms')">
+            <span class="material-icons-round">checkroom</span>
+            <span>UNIFORMS</span>
+            <span class="material-icons-round section-arrow">chevron_right</span>
+          </button>
+          <div class="nav-section-items">
+            <a href="#uniforms-orders" class="nav-item sub-item" data-view="uniforms-orders">
+              <span class="material-icons-round">add_shopping_cart</span>
+              <span>Orders</span>
+            </a>
+            <a href="#uniforms-deductions" class="nav-item sub-item" data-view="uniforms-deductions">
+              <span class="material-icons-round">receipt_long</span>
+              <span>Deductions</span>
+            </a>
+            <a href="#uniforms-catalog" class="nav-item sub-item" data-view="uniforms-catalog">
+              <span class="material-icons-round">inventory_2</span>
+              <span>Catalog</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- PTO Section -->
+        <div class="nav-section" data-section="pto">
+          <button class="nav-section-header" onclick="toggleSection('pto')">
+            <span class="material-icons-round">beach_access</span>
+            <span>PTO</span>
+            <span class="material-icons-round section-arrow">chevron_right</span>
+          </button>
+          <div class="nav-section-items">
+            <a href="#pto-records" class="nav-item" data-view="pto-records">
+              <span class="material-icons-round">list_alt</span>
+              <span>PTO Records</span>
+            </a>
+            <a href="#pto-summary" class="nav-item" data-view="pto-summary">
+              <span class="material-icons-round">analytics</span>
+              <span>Summary</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="nav-divider"></div>
+
+        <!-- Payroll Processing - Top Level -->
+        <a href="#payroll-processing" class="nav-item" data-view="payroll-processing">
+          <span class="material-icons-round">payments</span>
+          <span>Payroll Processing</span>
+        </a>
+
+        <div class="nav-divider"></div>
+
+        <!-- REPORTS Section -->
+        <div class="nav-section" data-section="reports">
+          <button class="nav-section-header" onclick="toggleSection('reports')">
+            <span class="material-icons-round">assessment</span>
+            <span>REPORTS</span>
+            <span class="material-icons-round section-arrow">chevron_right</span>
+          </button>
+          <div class="nav-section-items">
+            <a href="#payroll-calendar" class="nav-item" data-view="payroll-calendar">
+              <span class="material-icons-round">event</span>
+              <span>Payroll Calendar</span>
+            </a>
+            <a href="#uniform-summary" class="nav-item" data-view="uniform-summary">
+              <span class="material-icons-round">checkroom</span>
+              <span>Uniform Summary</span>
+            </a>
+            <a href="#ot-trends-report" class="nav-item" data-view="ot-trends">
+              <span class="material-icons-round">trending_up</span>
+              <span>OT Trends</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="nav-divider"></div>
+
+        <!-- Settings -->
+        <a href="#settings" class="nav-item" data-view="settings">
+          <span class="material-icons-round">settings</span>
+          <span>Settings</span>
+        </a>
+        
+        <!-- Help -->
+        <a href="#help" class="nav-item" data-view="help">
+          <span class="material-icons-round">help_outline</span>
+          <span>Help & Docs</span>
+        </a>
+
+        <div class="nav-divider"></div>
+
+        <!-- Employee Request Forms (External Links) -->
+        <div class="nav-section-label">Employee Forms</div>
+        <a href="https://script.google.com/macros/s/AKfycbx0q-TUhgXBm64vfZDtNYtBD2bfrTsU7iXA4hfAqwShNzSfyj4xi4bgh0InfZh-KI04/exec?view=pto-request" 
+           class="nav-item external-link" target="_blank" rel="noopener">
+          <span class="material-icons-round">beach_access</span>
+          <span>PTO Request Form</span>
+          <span class="material-icons-round external-icon">open_in_new</span>
+        </a>
+        <a href="https://script.google.com/macros/s/AKfycbx0q-TUhgXBm64vfZDtNYtBD2bfrTsU7iXA4hfAqwShNzSfyj4xi4bgh0InfZh-KI04/exec?view=uniform-request" 
+           class="nav-item external-link" target="_blank" rel="noopener">
+          <span class="material-icons-round">checkroom</span>
+          <span>Uniform Request Form</span>
+          <span class="material-icons-round external-icon">open_in_new</span>
+        </a>
+      </nav>
+
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <span class="version-text">v2.0</span>
+      </div>
+    </aside>
+
+    <!-- ==================== MAIN CONTENT AREA ==================== -->
+    <main class="main-content">
+      <!-- Content Header -->
+      <header class="content-header">
+        <h1 id="viewTitle">Dashboard</h1>
+        <div class="header-actions">
+          <!-- Year-End Wizard Button (shows Dec 1 - Jan 15) -->
+          <button class="year-end-wizard-btn" id="yearEndWizardBtn" onclick="loadView('year-end-wizard')" title="Year-End Closing Wizard" style="display: none;">
+            <span class="material-icons-round">celebration</span>
+            <span class="year-end-btn-text">Year-End Closing</span>
+          </button>
+          <!-- Search Trigger -->
+          <button class="search-trigger" onclick="openQuickSearch()" title="Search (⌘K)">
+            <span class="material-icons-round">search</span>
+            <span class="search-trigger-text">Search...</span>
+            <span class="search-shortcut">⌘K</span>
+          </button>
+          <!-- Theme Toggle -->
+          <button class="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">
+            <span class="material-icons-round" id="themeIcon">dark_mode</span>
+          </button>
+          <!-- View-specific actions -->
+          <div id="viewActions"></div>
+        </div>
+      </header>
+
+      <!-- Contextual Banner (Easter Eggs) -->
+      <div id="contextualBanner" class="contextual-banner" style="display: none;">
+        <div class="banner-content">
+          <span class="banner-icon" id="bannerIcon"></span>
+          <span class="banner-message" id="bannerMessage"></span>
+        </div>
+        <button class="banner-close" onclick="dismissBanner()" title="Dismiss">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+
+      <!-- Content Area - Views load here -->
+      <div id="viewContainer" class="view-container">
+        <!-- Views are dynamically loaded here -->
+        <div class="view-loading">
+          <div class="spinner"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Quick Search Modal (⌘K) -->
+  <div id="searchOverlay" class="search-overlay" onclick="closeQuickSearch(event)">
+    <div class="search-modal" onclick="event.stopPropagation()">
+      <div class="search-input-wrapper">
+        <span class="material-icons-round">search</span>
+        <input type="text" id="searchInput" class="search-input" 
+               placeholder="Search employees, orders, pages..." 
+               oninput="handleSearchInput(this.value)"
+               onkeydown="handleSearchKeydown(event)">
+        <div class="search-shortcut">ESC</div>
+      </div>
+      <div id="searchResults" class="search-results">
+        <!-- Results populated dynamically -->
+      </div>
+      <div class="search-footer">
+        <div>
+          <kbd>↑</kbd><kbd>↓</kbd> to navigate
+          <kbd>↵</kbd> to select
+        </div>
+        <div>
+          <kbd>ESC</kbd> to close
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Undo Toast -->
+  <div id="undoToast" class="undo-toast">
+    <div class="undo-toast-icon">
+      <span class="material-icons-round">undo</span>
+    </div>
+    <div class="undo-toast-content">
+      <div class="undo-toast-title" id="undoTitle">Action completed</div>
+      <div class="undo-toast-subtitle" id="undoSubtitle">Click undo to reverse</div>
+    </div>
+    <button class="undo-toast-btn" onclick="performUndo()">Undo</button>
+    <button class="undo-toast-close" onclick="hideUndoToast()">
+      <span class="material-icons-round">close</span>
+    </button>
+    <div class="undo-progress" id="undoProgress"></div>
+  </div>
+
+  <!-- Comments Modal -->
+  <div id="commentsModal" class="modal-overlay" style="display: none;" onclick="closeCommentsModal(event)">
+    <div class="modal comments-modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3><span class="material-icons-round" style="vertical-align: middle; margin-right: 8px;">chat</span>Comments</h3>
+        <button class="btn-icon" onclick="closeCommentsModal()">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 0;">
+        <div id="commentsList" class="comments-list">
+          <!-- Comments loaded dynamically -->
+        </div>
+      </div>
+      <div class="comment-input-wrapper">
+        <textarea id="commentInput" class="comment-input" placeholder="Add a comment..." rows="2"></textarea>
+        <button class="btn btn-primary" onclick="addComment()">
+          <span class="material-icons-round">send</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New User Onboarding Modal -->
+  <div id="onboardingModal" class="onboarding-overlay" style="display: none;">
+    <div class="onboarding-modal">
+      <div class="onboarding-progress">
+        <div class="onboarding-progress-bar" id="onboardingProgressBar"></div>
+        <span class="onboarding-step-indicator" id="onboardingStepIndicator">1 / 5</span>
+      </div>
+      
+      <!-- Screen 1: Welcome -->
+      <div class="onboarding-screen" id="onboardingScreen1">
+        <div class="onboarding-icon">&#128075;</div>
+        <h2>Welcome to the Payroll System!</h2>
+        <p class="onboarding-desc">
+          This system manages uniform orders, PTO tracking, and overtime 
+          for Cockrell Hill DTO and Dallas Baptist University OCV.
+        </p>
+        <p class="onboarding-desc">
+          Let's take a quick tour so you know where everything is.
+          <br><strong>This will take about 5 minutes.</strong>
+        </p>
+        <div class="onboarding-actions">
+          <button class="btn btn-secondary" onclick="skipOnboarding()">Skip for Now</button>
+          <button class="btn btn-primary" onclick="nextOnboardingScreen()">Start Tour</button>
+        </div>
+      </div>
+      
+      <!-- Screen 2: Dashboard Overview -->
+      <div class="onboarding-screen" id="onboardingScreen2" style="display: none;">
+        <div class="onboarding-icon">&#128202;</div>
+        <h2>This is your Dashboard</h2>
+        <p class="onboarding-desc">Your home base for everything payroll-related.</p>
+        <div class="onboarding-features">
+          <div class="onboarding-feature">
+            <span class="feature-icon">&#9989;</span>
+            <div><strong>System Health</strong> - Shows if anything needs attention</div>
+          </div>
+          <div class="onboarding-feature">
+            <span class="feature-icon">&#128230;</span>
+            <div><strong>Pending Orders</strong> - Uniforms waiting to be processed</div>
+          </div>
+          <div class="onboarding-feature">
+            <span class="feature-icon">&#128197;</span>
+            <div><strong>Payroll Calendar</strong> - Upcoming payroll dates</div>
+          </div>
+          <div class="onboarding-feature">
+            <span class="feature-icon">&#9889;</span>
+            <div><strong>Quick Actions</strong> - Common tasks at your fingertips</div>
+          </div>
+        </div>
+        <div class="onboarding-actions">
+          <button class="btn btn-secondary" onclick="prevOnboardingScreen()">Back</button>
+          <button class="btn btn-primary" onclick="nextOnboardingScreen()">Next</button>
+        </div>
+      </div>
+      
+      <!-- Screen 3: Weekly Workflow -->
+      <div class="onboarding-screen" id="onboardingScreen3" style="display: none;">
+        <div class="onboarding-icon">&#128197;</div>
+        <h2>Your Weekly Routine</h2>
+        <div class="onboarding-workflow">
+          <div class="workflow-item">
+            <div class="workflow-day">MONDAYS (Bi-weekly payroll weeks)</div>
+            <ul>
+              <li>Upload time punch data (via OT Tracker page)</li>
+              <li>Review pending uniform orders</li>
+              <li>Process payroll deductions</li>
+              <li>Review System Health before processing</li>
+            </ul>
+          </div>
+        </div>
+        <p class="onboarding-note">The system will remind you via email when action is needed.</p>
+        <div class="onboarding-actions">
+          <button class="btn btn-secondary" onclick="prevOnboardingScreen()">Back</button>
+          <button class="btn btn-primary" onclick="nextOnboardingScreen()">Next</button>
+        </div>
+      </div>
+      
+      <!-- Screen 4: Uniform Orders -->
+      <div class="onboarding-screen" id="onboardingScreen4" style="display: none;">
+        <div class="onboarding-icon">&#128085;</div>
+        <h2>How Uniform Orders Work</h2>
+        <div class="onboarding-steps-list">
+          <div class="step-item"><span class="step-num">1</span> Employee or admin creates order</div>
+          <div class="step-item"><span class="step-num">2</span> Order goes to "Pending" status</div>
+          <div class="step-item"><span class="step-num">3</span> When items arrive, mark them received</div>
+          <div class="step-item"><span class="step-num">4</span> Click "Save and Activate Order"</div>
+          <div class="step-item"><span class="step-num">5</span> Deductions start next payroll cycle</div>
+        </div>
+        <div class="onboarding-actions">
+          <button class="btn btn-secondary" onclick="prevOnboardingScreen()">Back</button>
+          <button class="btn btn-primary" onclick="nextOnboardingScreen()">Next</button>
+        </div>
+      </div>
+      
+      <!-- Screen 5: Getting Help -->
+      <div class="onboarding-screen" id="onboardingScreen5" style="display: none;">
+        <div class="onboarding-icon">&#10067;</div>
+        <h2>If You Get Stuck</h2>
+        <div class="onboarding-help-tips">
+          <div class="help-tip">
+            <span class="material-icons-round">help_outline</span>
+            <div>Every page has a <strong>Help</strong> link in the sidebar - click it for guidance</div>
+          </div>
+          <div class="help-tip">
+            <span class="material-icons-round">monitor_heart</span>
+            <div><strong>System Health Dashboard</strong> shows warnings and errors</div>
+          </div>
+          <div class="help-tip">
+            <span class="material-icons-round">build</span>
+            <div>Emergency recovery: <strong>Settings &rarr; System Health</strong></div>
+          </div>
+        </div>
+        <div class="onboarding-completion">
+          <p>You're all set! You can replay this tour anytime from <strong>Help &rarr; Replay Tutorial</strong></p>
+        </div>
+        <div class="onboarding-actions">
+          <button class="btn btn-secondary" onclick="prevOnboardingScreen()">Back</button>
+          <button class="btn btn-primary" onclick="completeOnboarding()">Finish Tour</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Easter Egg: About the Builder Modal (Konami Code) -->
+  <div id="aboutBuilderModal" class="easter-egg-modal" style="display: none;">
+    <div class="easter-egg-modal-content about-builder">
+      <div class="easter-egg-header">
+        <span class="achievement-badge">🎮 ACHIEVEMENT UNLOCKED</span>
+        <h2>Code Archaeologist</h2>
+      </div>
+      <div class="easter-egg-body">
+        <h3>ABOUT THIS SYSTEM</h3>
+        <p>
+          This payroll management system was built with care by <strong>Brent</strong> 
+          during 2024-2025 as Chief of Staff at Cockrell Hill DTO and 
+          Dallas Baptist University OCV. He saw the need for a more centralized 
+          system for payroll processing and wanted to leave a lasting system for Jeff.
+        </p>
+        
+        <div class="builder-section">
+          <h4>🎯 The Goal</h4>
+          <p>
+            Build a system that would run for years after its creator moved on.
+            Every feature was designed to solve real problems and make 
+            payroll less painful for everyone involved.
+          </p>
+        </div>
+        
+        <div class="builder-section">
+          <h4>📊 Fun Facts</h4>
+          <ul class="fun-facts-list">
+            <li><span class="fact-icon">📝</span> Over 22,000 lines of code</li>
+            <li><span class="fact-icon">📁</span> 27+ files working together</li>
+            <li><span class="fact-icon">🛠️</span> Built with: Google Apps Script, JavaScript, determination, and approximately too many cups of coffee to count</li>
+            <li><span class="fact-icon">👥</span> Designed for ~100 employees across 2 locations</li>
+            <li><span class="fact-icon">🚀</span> First launched: December 2024</li>
+          </ul>
+        </div>
+        
+        <div class="builder-message">
+          <p>
+            If you're reading this, you're probably the person keeping it running. 
+            <strong>Thank you for taking care of it.</strong>
+          </p>
+          <p class="signature">— Brent</p>
+          <p class="ps">P.S. There might be other easter eggs hiding in here... 🎮</p>
+        </div>
+      </div>
+      <div class="easter-egg-footer">
+        <button class="btn btn-primary" onclick="closeEasterEggModal('aboutBuilderModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Easter Egg: Design History Modal (10 Clicks) -->
+  <div id="designHistoryModal" class="easter-egg-modal" style="display: none;">
+    <div class="easter-egg-modal-content design-history">
+      <div class="easter-egg-header">
+        <span class="achievement-badge">📜 ACHIEVEMENT UNLOCKED</span>
+        <h2>System Historian</h2>
+      </div>
+      <div class="easter-egg-body">
+        <h3>DESIGN HISTORY</h3>
+        
+        <div class="history-section before">
+          <h4>🗂️ How It Started</h4>
+          <div class="history-card old-system">
+            <p class="history-quote">
+              "Before this app existed, payroll was managed through a 
+              complicated web of spreadsheets, manual calculations, and 
+              crossed fingers. It worked, but was clunky, took hours of time and was inefficient."
+            </p>
+            <div class="old-problems">
+              <h5>Common problems:</h5>
+              <ul>
+                <li>❌ Orders tracked in multiple places</li>
+                <li>❌ Manual deduction calculations</li>
+                <li>❌ No audit trail</li>
+                <li>❌ Easy to make mistakes</li>
+                <li>❌ Hard to train new people</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        
+        <div class="history-arrow">⬇️</div>
+        
+        <div class="history-section after">
+          <h4>✨ How It's Going</h4>
+          <div class="history-card new-system">
+            <p class="history-quote">
+              "Now it's a comprehensive web application that handles everything 
+              automatically, tracks every change, and guides users through 
+              each step."
+            </p>
+            <div class="new-features">
+              <ul>
+                <li>✅ Centralized order management</li>
+                <li>✅ Automatic deduction calculations</li>
+                <li>✅ Complete audit trail</li>
+                <li>✅ Validation & error prevention</li>
+                <li>✅ In-app help & documentation</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        
+        <div class="history-celebration">
+          <p>Look how far we've come! 🎉</p>
+          <div class="history-stats">
+            <div class="stat"><span class="stat-value">2024-2025</span><span class="stat-label">Built</span></div>
+            <div class="stat"><span class="stat-value">22,000+</span><span class="stat-label">Lines of Code</span></div>
+            <div class="stat"><span class="stat-value">A Lot</span><span class="stat-label">Hours Invested</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="easter-egg-footer">
+        <button class="btn btn-primary" onclick="closeEasterEggModal('designHistoryModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Easter Egg Discovery List Modal -->
+  <div id="easterEggListModal" class="easter-egg-modal" style="display: none;">
+    <div class="easter-egg-modal-content discovery-list">
+      <div class="easter-egg-header">
+        <span class="achievement-badge">🥚 Easter Eggs</span>
+        <h2>Discovery Progress</h2>
+      </div>
+      <div class="easter-egg-body" id="easterEggListBody">
+        <!-- Filled dynamically -->
+      </div>
+      <div class="easter-egg-footer">
+        <button class="btn btn-primary" onclick="closeEasterEggModal('easterEggListModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tip Calculator Modal -->
+  <div id="tipCalculatorModal" class="easter-egg-modal" style="display: none;">
+    <div class="easter-egg-modal-content tip-calculator">
+      <div class="easter-egg-header">
+        <span class="achievement-badge">🧮 SECRET TOOL</span>
+        <h2>Brent's Tip Calculator</h2>
+        <p style="color: #9CA3AF; font-size: 0.9rem; margin-top: 8px;">(Because math is hard after a long shift)</p>
+      </div>
+      <div class="easter-egg-body">
+        <div class="calc-section">
+          <label>Bill Amount</label>
+          <div class="calc-input-group">
+            <span class="input-prefix">$</span>
+            <input type="number" id="calcBillAmount" placeholder="0.00" step="0.01" oninput="calculateTip()">
+          </div>
+        </div>
+        
+        <div class="calc-section">
+          <label>Tip Percentage</label>
+          <div class="tip-presets">
+            <button class="tip-btn" onclick="setTipPercent(15)">15%</button>
+            <button class="tip-btn active" onclick="setTipPercent(18)">18%</button>
+            <button class="tip-btn" onclick="setTipPercent(20)">20%</button>
+            <button class="tip-btn" onclick="setTipPercent(25)">25%</button>
+          </div>
+          <div class="calc-input-group custom-tip">
+            <span>Custom:</span>
+            <input type="number" id="calcTipPercent" value="18" min="0" max="100" oninput="calculateTip()">
+            <span>%</span>
+          </div>
+        </div>
+        
+        <div class="calc-results">
+          <div class="calc-result-row">
+            <span>Tip Amount:</span>
+            <span class="result-value" id="calcTipAmount">$0.00</span>
+          </div>
+          <div class="calc-result-row total">
+            <span>Total:</span>
+            <span class="result-value" id="calcTotal">$0.00</span>
+          </div>
+        </div>
+        
+        <div class="calc-section split-section">
+          <label>Split the bill?</label>
+          <div class="split-controls">
+            <button class="split-btn" onclick="adjustSplit(-1)">−</button>
+            <input type="number" id="calcSplitCount" value="1" min="1" max="20" oninput="calculateTip()">
+            <button class="split-btn" onclick="adjustSplit(1)">+</button>
+            <span>people</span>
+          </div>
+          <div class="calc-result-row per-person">
+            <span>Per person:</span>
+            <span class="result-value" id="calcPerPerson">$0.00</span>
+          </div>
+        </div>
+        
+        <p class="calc-hint">💡 This calculator won't appear in your browser history. Your secret is safe with us.</p>
+      </div>
+      <div class="easter-egg-footer">
+        <button class="btn btn-secondary" onclick="clearCalculator()">Clear</button>
+        <button class="btn btn-primary" onclick="closeEasterEggModal('tipCalculatorModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1000th Order Celebration Modal -->
+  <div id="milestoneModal" class="easter-egg-modal" style="display: none;">
+    <div class="easter-egg-modal-content milestone-celebration">
+      <div class="easter-egg-header milestone-header">
+        <div class="milestone-confetti-bg"></div>
+        <span class="achievement-badge">🎉 MILESTONE REACHED</span>
+        <h2>ORDER #<span id="milestoneNumber">1000</span>!</h2>
+      </div>
+      <div class="easter-egg-body">
+        <p class="milestone-message">
+          This system has processed <strong><span id="milestoneCount">1,000</span> uniform orders!</strong>
+        </p>
+        
+        <div class="milestone-details">
+          <h4>Order #<span id="milestoneOrderNum">1000</span> Details</h4>
+          <div id="milestoneOrderDetails">
+            <!-- Filled dynamically -->
+          </div>
+        </div>
+        
+        <div class="milestone-stats">
+          <p>This milestone represents:</p>
+          <ul>
+            <li>💵 Thousands of dollars managed</li>
+            <li>👥 Hundreds of employees served</li>
+            <li>⏰ Countless hours saved</li>
+          </ul>
+        </div>
+        
+        <div class="milestone-footer-text">
+          <p>Built by: Brent, 2024-2025</p>
+          <p>Maintained by: <strong>You!</strong></p>
+        </div>
+      </div>
+      <div class="easter-egg-footer">
+        <button class="btn btn-secondary" onclick="downloadMilestoneCertificate()">
+          <span class="material-icons-round" style="font-size: 18px; vertical-align: middle;">download</span> Download Certificate
+        </button>
+        <button class="btn btn-primary" onclick="closeEasterEggModal('milestoneModal')">Keep Up the Great Work!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Time Capsule Modal -->
+  <div id="timeCapsuleModal" class="easter-egg-modal" style="display: none;">
+    <div class="easter-egg-modal-content time-capsule">
+      <div class="easter-egg-header">
+        <span class="achievement-badge">📦 TIME CAPSULE</span>
+        <h2 id="timeCapsuleTitle">Locked</h2>
+      </div>
+      <div class="easter-egg-body" id="timeCapsuleBody">
+        <!-- Content filled dynamically based on date -->
+      </div>
+      <div class="easter-egg-footer">
+        <button class="btn btn-primary" onclick="closeEasterEggModal('timeCapsuleModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Credits Roll Modal -->
+  <div id="creditsModal" class="credits-overlay" style="display: none;">
+    <div class="credits-container">
+      <button class="credits-skip" onclick="closeCredits()">Skip Credits</button>
+      <div class="credits-scroll" id="creditsScroll">
+        <div class="credits-content">
+          <h1 class="credits-title">PAYROLL SYSTEM</h1>
+          <div class="credits-divider">═══════════════════════════</div>
+          
+          <div class="credits-section">
+            <p class="credits-label">Conceived, Designed &amp; Built by</p>
+            <p class="credits-name">BRENT</p>
+          </div>
+          
+          <div class="credits-section">
+            <p class="credits-label">Development Assistance</p>
+            <p class="credits-name">Claude (Anthropic)</p>
+            <p class="credits-name">Opus (Anthropic)</p>
+            <p class="credits-name">Cursor AI</p>
+          </div>
+          
+          <div class="credits-divider">═══════════════════════════</div>
+          
+          <div class="credits-section">
+            <p class="credits-label">SPECIAL THANKS</p>
+            <p class="credits-text">The managers who tested features</p>
+            <p class="credits-text">The employees who provided feedback</p>
+            <p class="credits-text">Everyone who asked "can it do...?"</p>
+            <p class="credits-text highlight">The person reading these credits right now</p>
+          </div>
+          
+          <div class="credits-divider">═══════════════════════════</div>
+          
+          <div class="credits-section">
+            <p class="credits-label">DEDICATED TO</p>
+            <p class="credits-dedication">The future manager reading this documentation at 2am trying to figure out why something broke.</p>
+            <p class="credits-dedication highlight">You've got this.</p>
+          </div>
+          
+          <div class="credits-divider">═══════════════════════════</div>
+          
+          <div class="credits-section">
+            <p class="credits-label">BUILT WITH</p>
+            <p class="credits-text">Google Apps Script</p>
+            <p class="credits-text">JavaScript</p>
+            <p class="credits-text">HTML &amp; CSS</p>
+            <p class="credits-text">Coffee ☕</p>
+            <p class="credits-text">Determination</p>
+            <p class="credits-text">~22,000 lines of code</p>
+            <p class="credits-text">A lot of testing</p>
+            <p class="credits-text">Even more debugging</p>
+          </div>
+          
+          <div class="credits-divider">═══════════════════════════</div>
+          
+          <div class="credits-section">
+            <p class="credits-label">PRODUCTION DATES</p>
+            <p class="credits-text">Development: November 2024 - January 2025</p>
+            <p class="credits-text">Launch: December 2024</p>
+            <p class="credits-text">Current Version: 2.0</p>
+          </div>
+          
+          <div class="credits-divider">═══════════════════════════</div>
+          
+          <div class="credits-section legacy">
+            <p class="credits-legacy">This system will continue to run<br>long after its creator moves on.</p>
+            <p class="credits-legacy-sub">That was always the goal.</p>
+          </div>
+          
+          <div class="credits-divider">═══════════════════════════</div>
+          
+          <div class="credits-section final">
+            <p class="credits-thank-you">THANK YOU FOR USING</p>
+            <h2>PAYROLL SYSTEM</h2>
+            <p class="credits-final-message">Now get back to work. 😊<br>Those uniforms won't process themselves.</p>
+          </div>
+          
+          <div class="credits-divider">═══════════════════════════</div>
+          
+          <div class="credits-footer">
+            <p>© 2024-2025 | Built by Brent</p>
+            <p>For Cockrell Hill DTO &amp; Dallas Baptist University OCV</p>
+            <p class="credits-eggs">🎮 Easter Eggs: <span id="creditsEggCount">0</span>/5 Found</p>
+          </div>
+          
+          <div class="credits-the-end">
+            <h1>THE END</h1>
+            <p>...or is it? 🎮</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer with Easter Egg Hint -->
+  <footer class="app-footer">
+    <span>© 2024-2025 Payroll System | Built by Brent | </span>
+    <span class="footer-game-hint" title="For those who remember the classics...">🎮</span>
+    <span class="easter-egg-counter" id="easterEggCounter" onclick="showEasterEggList()">
+      🥚 <span id="eggCountDisplay">0</span>/6
+    </span>
+  </footer>
+
+  <?!= include('JavaScript'); ?>
+  <?!= include('MainAppJS'); ?>
+</body>
+</html>
+

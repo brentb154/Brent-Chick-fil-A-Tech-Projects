@@ -1,0 +1,2286 @@
+<script>
+/**
+ * Main App Navigation Controller
+ * Handles sidebar accordion, view loading, and routing
+ */
+
+// ==================== STATE ====================
+const NavState = {
+  currentView: null, // Starts null so first load always triggers
+  expandedSection: 'overtime', // Default expanded section
+  viewCache: {}, // Cache loaded views for performance
+  isLoading: false,
+  loadStartTime: null // Track when loading started for stuck detection
+};
+
+// View configurations
+const VIEW_CONFIG = {
+  'home': { title: 'Dashboard', section: null, template: 'Dashboard' },
+  'ot-upload': { title: 'Upload Data', section: 'overtime', template: 'OTUpload' },
+  'ot-history': { title: 'History', section: 'overtime', template: 'OTHistory' },
+  'ot-employee': { title: 'Employee Lookup', section: 'overtime', template: 'OTEmployee' },
+  'ot-trends': { title: 'Trends & Analytics', section: 'overtime', template: 'OTTrends' },
+  'uniforms-orders': { title: 'Uniform Orders', section: 'uniforms', template: 'UniformOrders' },
+  'uniforms-deductions': { title: 'Payroll Deductions', section: 'uniforms', template: 'UniformDeductions' },
+  'uniforms-catalog': { title: 'Uniform Catalog', section: 'uniforms', template: 'UniformCatalog' },
+  'pto-records': { title: 'PTO Records', section: 'pto', template: 'PTORecords' },
+  'pto-summary': { title: 'PTO Summary', section: 'pto', template: 'PTOSummary' },
+  'payroll-processing': { title: 'Payroll Processing', section: null, template: 'PayrollProcessing' },
+  'payroll-calendar': { title: 'Payroll Calendar', section: 'reports', template: 'PayrollCalendar' },
+  'uniform-summary': { title: 'Uniform Summary', section: 'reports', template: 'UniformSummary' },
+  'settings': { title: 'Settings', section: null, template: 'SettingsPage' },
+  'system-health': { title: 'System Health', section: null, template: 'SystemHealth' },
+  'help': { title: 'Help & Documentation', section: null, template: 'Help' },
+  'year-end-wizard': { title: 'Year-End Closing', section: null, template: 'YearEndWizard' }
+};
+
+// ==================== INITIALIZATION ====================
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize navigation
+  initNavigation();
+  
+  // Check if Year-End Wizard button should be shown
+  checkYearEndWizardButton();
+  
+  // Check and show onboarding for new users
+  checkAndShowOnboarding();
+  
+  // Check and display contextual banner (easter eggs)
+  checkContextualBanner();
+  
+  // Load initial view based on URL hash or default to home
+  const hash = window.location.hash.slice(1) || 'home';
+  loadView(hash);
+  
+  // Listen for hash changes (browser back/forward)
+  window.addEventListener('hashchange', function() {
+    const newHash = window.location.hash.slice(1) || 'home';
+    loadView(newHash);
+  });
+});
+
+/**
+ * Check if Year-End Wizard button should be shown (Jan 1 - Jan 31)
+ */
+function checkYearEndWizardButton() {
+  const now = new Date();
+  const month = now.getMonth(); // 0-11
+  
+  // Show only during January (month 0)
+  const shouldShow = (month === 0);
+  
+  const btn = document.getElementById('yearEndWizardBtn');
+  if (btn) {
+    btn.style.display = shouldShow ? 'flex' : 'none';
+  }
+}
+
+/**
+ * Initialize navigation event listeners
+ */
+function initNavigation() {
+  // Add click handlers to all nav items (except external links)
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', function(e) {
+      // Allow external links to work normally (open in new tab)
+      if (this.classList.contains('external-link') || this.getAttribute('target') === '_blank') {
+        // Force open in new tab for external links
+        const href = this.getAttribute('href');
+        if (href && href.startsWith('http')) {
+          e.preventDefault();
+          window.open(href, '_blank');
+        }
+        return;
+      }
+      
+      e.preventDefault();
+      const view = this.dataset.view;
+      if (view) {
+        loadView(view);
+      }
+    });
+  });
+  
+  // Set initial expanded section
+  const initialSection = document.querySelector('[data-section="overtime"]');
+  if (initialSection) {
+    initialSection.classList.add('expanded');
+    const items = initialSection.querySelector('.nav-section-items');
+    if (items) items.classList.add('expanded');
+  }
+}
+
+// ==================== SECTION ACCORDION ====================
+/**
+ * Toggle a navigation section (accordion behavior)
+ * @param {string} sectionName - Name of the section to toggle
+ */
+function toggleSection(sectionName) {
+  const section = document.querySelector(`[data-section="${sectionName}"]`);
+  if (!section || section.classList.contains('disabled')) return;
+  
+  const isExpanded = section.classList.contains('expanded');
+  
+  // Collapse all sections first (accordion behavior)
+  document.querySelectorAll('.nav-section').forEach(s => {
+    s.classList.remove('expanded');
+    const items = s.querySelector('.nav-section-items');
+    if (items) items.classList.remove('expanded');
+    
+    // Update arrow icon
+    const arrow = s.querySelector('.section-arrow');
+    if (arrow) arrow.textContent = 'chevron_right';
+  });
+  
+  // If was collapsed, expand this one
+  if (!isExpanded) {
+    section.classList.add('expanded');
+    const items = section.querySelector('.nav-section-items');
+    if (items) items.classList.add('expanded');
+    
+    // Update arrow icon
+    const arrow = section.querySelector('.section-arrow');
+    if (arrow) arrow.textContent = 'expand_more';
+    
+    NavState.expandedSection = sectionName;
+  } else {
+    NavState.expandedSection = null;
+  }
+}
+
+/**
+ * Show coming soon toast for disabled features
+ * @param {string} featureName - Name of the feature
+ */
+function showComingSoon(featureName) {
+  showToast(`${featureName} is coming soon!`, 'info');
+}
+
+// ==================== VIEW LOADING ====================
+/**
+ * Load a view into the main content area
+ * @param {string} viewName - Name of the view to load
+ */
+function loadView(viewName) {
+  // Validate view exists
+  const config = VIEW_CONFIG[viewName];
+  if (!config) {
+    console.warn('Unknown view:', viewName);
+    viewName = 'home';
+  }
+  
+  // Prevent double-loading while a load is in progress
+  // But add a safety timeout - if stuck for more than 10 seconds, force reset
+  if (NavState.isLoading) {
+    const now = Date.now();
+    if (NavState.loadStartTime && (now - NavState.loadStartTime) > 10000) {
+      console.warn('Loading state stuck for >10s, force resetting');
+      NavState.isLoading = false;
+    } else {
+      console.log('Already loading, skipping:', viewName);
+      return;
+    }
+  }
+  
+  // Stop dashboard auto-refresh when navigating away from home
+  if (NavState.currentView === 'home' && viewName !== 'home') {
+    if (typeof stopDashboardAutoRefresh === 'function') {
+      stopDashboardAutoRefresh();
+    }
+  }
+  
+  NavState.isLoading = true;
+  NavState.loadStartTime = Date.now();
+  
+  // Update URL hash
+  window.location.hash = viewName;
+  
+  // Update active states in navigation
+  updateActiveNav(viewName);
+  
+  // Update content header
+  updateContentHeader(viewName);
+  
+  // Show loading state
+  const container = document.getElementById('viewContainer');
+  container.innerHTML = `
+    <div class="view-loading">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>
+  `;
+  
+  // Load the view content from server
+  const templateName = VIEW_CONFIG[viewName]?.template || 'Dashboard';
+  
+  google.script.run
+    .withSuccessHandler(function(html) {
+      // Inject the HTML
+      container.innerHTML = html;
+      
+      // Initialize view-specific JavaScript
+      initializeView(viewName);
+      
+      // Update state
+      NavState.currentView = viewName;
+      NavState.isLoading = false;
+      NavState.loadStartTime = null;
+      
+      // Cache the view (optional - for faster switching)
+      // NavState.viewCache[viewName] = html;
+    })
+    .withFailureHandler(function(error) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <span class="material-icons-round">error_outline</span>
+          <h3>Error Loading View</h3>
+          <p>${error.message || 'Please try again.'}</p>
+        </div>
+      `;
+      NavState.isLoading = false;
+      NavState.loadStartTime = null;
+      console.error('Error loading view:', error);
+    })
+    .getViewTemplate(templateName);
+}
+
+/**
+ * Update active states in the navigation
+ * @param {string} viewName - The active view
+ */
+function updateActiveNav(viewName) {
+  const config = VIEW_CONFIG[viewName];
+  
+  // Remove all active states
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.remove('active');
+  });
+  
+  // Add active state to current item
+  const activeItem = document.querySelector(`[data-view="${viewName}"]`);
+  if (activeItem) {
+    activeItem.classList.add('active');
+  }
+  
+  // Expand parent section if needed
+  if (config?.section) {
+    const section = document.querySelector(`[data-section="${config.section}"]`);
+    if (section && !section.classList.contains('expanded')) {
+      toggleSection(config.section);
+    }
+  }
+}
+
+/**
+ * Update the content header based on current view
+ * @param {string} viewName - The active view
+ */
+function updateContentHeader(viewName) {
+  const config = VIEW_CONFIG[viewName];
+  const titleEl = document.getElementById('viewTitle');
+  const actionsEl = document.getElementById('viewActions');
+  
+  if (titleEl) {
+    titleEl.textContent = config?.title || 'Dashboard';
+  }
+  
+  // Add Help button to all pages
+  if (actionsEl) {
+    actionsEl.innerHTML = `
+      <button class="btn btn-ghost btn-sm help-btn" onclick="showPageHelp()" title="Help for this page">
+        <span class="material-icons-round">help_outline</span>
+      </button>
+    `;
+  }
+}
+
+/**
+ * Initialize JavaScript for a specific view after it loads
+ * @param {string} viewName - The view to initialize
+ */
+function initializeView(viewName) {
+  try {
+    // Log console easter egg message for this view
+    logConsoleMessage(viewName);
+    
+    switch (viewName) {
+      case 'home':
+        if (typeof initDashboard === 'function') initDashboard();
+        break;
+      case 'ot-upload':
+        if (typeof initUploadTab === 'function') initUploadTab();
+        break;
+      case 'ot-history':
+        if (typeof initHistoryTab === 'function') initHistoryTab();
+        break;
+      case 'ot-employee':
+        if (typeof initEmployeeTab === 'function') initEmployeeTab();
+        break;
+      case 'ot-trends':
+        if (typeof initTrendsTab === 'function') initTrendsTab();
+        break;
+      case 'uniforms-orders':
+        if (typeof initUniformOrdersView === 'function') initUniformOrdersView();
+        trackChecklistProgress('uniform'); // Track for onboarding checklist
+        break;
+      case 'uniforms-deductions':
+        if (typeof initUniformDeductionsView === 'function') initUniformDeductionsView();
+        break;
+      case 'uniforms-catalog':
+        if (typeof initUniformCatalogView === 'function') initUniformCatalogView();
+        break;
+      case 'pto-records':
+        if (typeof initPTORecordsView === 'function') initPTORecordsView();
+        break;
+      case 'pto-summary':
+        if (typeof initPTOSummaryView === 'function') initPTOSummaryView();
+        break;
+      case 'payroll-processing':
+        if (typeof initPayrollProcessingView === 'function') initPayrollProcessingView();
+        break;
+      case 'uniform-summary':
+        if (typeof initUniformSummaryView === 'function') initUniformSummaryView();
+        break;
+      case 'settings':
+        if (typeof initSettingsTab === 'function') initSettingsTab();
+        break;
+      case 'system-health':
+        if (typeof initSystemHealthView === 'function') initSystemHealthView();
+        trackChecklistProgress('health'); // Track for onboarding checklist
+        break;
+      case 'payroll-calendar':
+        if (typeof initPayrollCalendarView === 'function') initPayrollCalendarView();
+        trackChecklistProgress('calendar'); // Track for onboarding checklist
+        break;
+      case 'year-end-wizard':
+        if (typeof initYearEndWizardView === 'function') initYearEndWizardView();
+        break;
+      case 'help':
+        if (typeof initHelpView === 'function') initHelpView();
+        trackChecklistProgress('help'); // Track for onboarding checklist
+        break;
+    }
+  } catch (error) {
+    console.error('Error initializing view ' + viewName + ':', error);
+    // Don't let errors block future navigation
+  }
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+/**
+ * Add action buttons to the content header
+ * @param {Array} actions - Array of action button configs
+ */
+function setViewActions(actions) {
+  const actionsEl = document.getElementById('viewActions');
+  if (!actionsEl) return;
+  
+  actionsEl.innerHTML = '';
+  
+  actions.forEach(action => {
+    const btn = document.createElement('button');
+    btn.className = `btn ${action.class || 'btn-outline'} btn-sm`;
+    btn.onclick = action.onClick;
+    btn.innerHTML = `
+      <span class="material-icons-round">${action.icon}</span>
+      ${action.label}
+    `;
+    actionsEl.appendChild(btn);
+  });
+}
+
+/**
+ * Navigate to a view programmatically
+ * @param {string} viewName - View to navigate to
+ */
+function navigateTo(viewName) {
+  loadView(viewName);
+}
+
+// ==================== MOBILE MENU ====================
+/**
+ * Toggle mobile sidebar
+ */
+function toggleMobileSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  if (sidebar) {
+    sidebar.classList.toggle('open');
+  }
+}
+
+/**
+ * Close mobile sidebar
+ */
+function closeMobileSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  if (sidebar) {
+    sidebar.classList.remove('open');
+  }
+}
+
+// ==================== DARK MODE ====================
+/**
+ * Initialize dark mode from stored preference
+ */
+function initDarkMode() {
+  // Check localStorage first
+  const storedTheme = localStorage.getItem('theme');
+  if (storedTheme === 'dark') {
+    document.documentElement.classList.add('dark-mode');
+    updateThemeIcon(true);
+  } else if (storedTheme === 'light') {
+    document.documentElement.classList.remove('dark-mode');
+    updateThemeIcon(false);
+  } else {
+    // Check system preference
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.classList.add('dark-mode');
+      updateThemeIcon(true);
+    }
+  }
+}
+
+/**
+ * Toggle dark mode
+ */
+function toggleDarkMode() {
+  const isDark = document.documentElement.classList.toggle('dark-mode');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  updateThemeIcon(isDark);
+  
+  // Show feedback
+  showToast(isDark ? 'Dark mode enabled' : 'Light mode enabled', 'info');
+}
+
+/**
+ * Update the theme icon
+ */
+function updateThemeIcon(isDark) {
+  const icon = document.getElementById('themeIcon');
+  if (icon) {
+    icon.textContent = isDark ? 'light_mode' : 'dark_mode';
+  }
+}
+
+// Initialize dark mode on page load
+document.addEventListener('DOMContentLoaded', initDarkMode);
+
+// ==================== QUICK SEARCH ====================
+const SearchState = {
+  isOpen: false,
+  results: [],
+  selectedIndex: 0,
+  searchIndex: {
+    pages: [],
+    employees: [],
+    orders: [],
+    pto: []
+  }
+};
+
+/**
+ * Open quick search modal
+ */
+function openQuickSearch() {
+  const overlay = document.getElementById('searchOverlay');
+  const input = document.getElementById('searchInput');
+  
+  if (overlay) {
+    overlay.classList.add('active');
+    SearchState.isOpen = true;
+    
+    // Focus input
+    setTimeout(() => {
+      if (input) {
+        input.focus();
+        input.value = '';
+      }
+    }, 100);
+    
+    // Show default results (pages)
+    showDefaultSearchResults();
+    
+    // Build search index
+    buildSearchIndex();
+  }
+}
+
+/**
+ * Close quick search modal
+ */
+function closeQuickSearch(event) {
+  if (event && event.target !== event.currentTarget) return;
+  
+  const overlay = document.getElementById('searchOverlay');
+  if (overlay) {
+    overlay.classList.remove('active');
+    SearchState.isOpen = false;
+    SearchState.selectedIndex = 0;
+  }
+}
+
+/**
+ * Handle keyboard shortcuts for search
+ */
+document.addEventListener('keydown', function(e) {
+  // Cmd/Ctrl + K to open search
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    if (SearchState.isOpen) {
+      closeQuickSearch();
+    } else {
+      openQuickSearch();
+    }
+  }
+  
+  // ESC to close search
+  if (e.key === 'Escape' && SearchState.isOpen) {
+    closeQuickSearch();
+  }
+});
+
+/**
+ * Handle search input
+ */
+function handleSearchInput(query) {
+  if (!query || query.trim() === '') {
+    showDefaultSearchResults();
+    return;
+  }
+  
+  const lowerQuery = query.toLowerCase().trim();
+  const results = [];
+  
+  // Search pages
+  SearchState.searchIndex.pages.forEach(page => {
+    if (page.title.toLowerCase().includes(lowerQuery) || 
+        page.keywords.some(k => k.includes(lowerQuery))) {
+      results.push({ ...page, type: 'page' });
+    }
+  });
+  
+  // Search employees
+  SearchState.searchIndex.employees.forEach(emp => {
+    if (emp.name.toLowerCase().includes(lowerQuery)) {
+      results.push({
+        id: emp.id,
+        title: emp.name,
+        meta: emp.location,
+        type: 'employee',
+        action: () => { navigateTo('ot-employee'); setTimeout(() => searchEmployeeById(emp.id), 300); }
+      });
+    }
+  });
+  
+  // Search orders
+  SearchState.searchIndex.orders.forEach(order => {
+    if (order.id.toLowerCase().includes(lowerQuery) || 
+        order.employee.toLowerCase().includes(lowerQuery)) {
+      results.push({
+        id: order.id,
+        title: order.id,
+        meta: order.employee,
+        type: 'order',
+        action: () => navigateTo('uniforms-orders')
+      });
+    }
+  });
+  
+  // Search PTO
+  SearchState.searchIndex.pto.forEach(pto => {
+    if (pto.id.toLowerCase().includes(lowerQuery) || 
+        pto.employee.toLowerCase().includes(lowerQuery)) {
+      results.push({
+        id: pto.id,
+        title: pto.id,
+        meta: pto.employee + ' - ' + pto.hours + ' hrs',
+        type: 'pto',
+        action: () => navigateTo('pto-records')
+      });
+    }
+  });
+  
+  SearchState.results = results;
+  SearchState.selectedIndex = 0;
+  renderSearchResults(results, query);
+}
+
+/**
+ * Handle keyboard navigation in search
+ */
+function handleSearchKeydown(event) {
+  const resultsContainer = document.getElementById('searchResults');
+  const items = resultsContainer?.querySelectorAll('.search-result-item') || [];
+  
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    SearchState.selectedIndex = Math.min(SearchState.selectedIndex + 1, items.length - 1);
+    updateSelectedResult(items);
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    SearchState.selectedIndex = Math.max(SearchState.selectedIndex - 1, 0);
+    updateSelectedResult(items);
+  } else if (event.key === 'Enter') {
+    event.preventDefault();
+    const selectedItem = items[SearchState.selectedIndex];
+    if (selectedItem) {
+      selectedItem.click();
+    }
+  }
+}
+
+/**
+ * Update selected result highlight
+ */
+function updateSelectedResult(items) {
+  items.forEach((item, index) => {
+    item.classList.toggle('selected', index === SearchState.selectedIndex);
+  });
+  
+  // Scroll into view
+  const selected = items[SearchState.selectedIndex];
+  if (selected) {
+    selected.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+/**
+ * Show default search results (pages)
+ */
+function showDefaultSearchResults() {
+  const pages = [
+    { title: 'Dashboard', icon: 'home', view: 'home' },
+    { title: 'Upload OT Data', icon: 'cloud_upload', view: 'ot-upload' },
+    { title: 'OT History', icon: 'history', view: 'ot-history' },
+    { title: 'Employee Lookup', icon: 'person_search', view: 'ot-employee' },
+    { title: 'Uniform Orders', icon: 'add_shopping_cart', view: 'uniforms-orders' },
+    { title: 'PTO Records', icon: 'list_alt', view: 'pto-records' },
+    { title: 'Payroll Processing', icon: 'payments', view: 'payroll-processing' },
+    { title: 'Settings', icon: 'settings', view: 'settings' }
+  ];
+  
+  const resultsHtml = `
+    <div class="search-section">
+      <div class="search-section-title">Quick Navigation</div>
+      ${pages.map((page, index) => `
+        <div class="search-result-item ${index === 0 ? 'selected' : ''}" 
+             onclick="selectSearchResult('${page.view}')">
+          <div class="search-result-icon page">
+            <span class="material-icons-round">${page.icon}</span>
+          </div>
+          <div class="search-result-content">
+            <div class="search-result-title">${page.title}</div>
+          </div>
+          <div class="search-result-action">↵</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  
+  const container = document.getElementById('searchResults');
+  if (container) {
+    container.innerHTML = resultsHtml;
+  }
+  
+  SearchState.selectedIndex = 0;
+}
+
+/**
+ * Render search results
+ */
+function renderSearchResults(results, query) {
+  const container = document.getElementById('searchResults');
+  if (!container) return;
+  
+  if (results.length === 0) {
+    container.innerHTML = `
+      <div class="search-empty">
+        <span class="material-icons-round">search_off</span>
+        <p>No results for "${query}"</p>
+      </div>
+    `;
+    return;
+  }
+  
+  // Group by type
+  const grouped = {
+    page: results.filter(r => r.type === 'page'),
+    employee: results.filter(r => r.type === 'employee'),
+    order: results.filter(r => r.type === 'order'),
+    pto: results.filter(r => r.type === 'pto')
+  };
+  
+  let html = '';
+  let globalIndex = 0;
+  
+  if (grouped.page.length > 0) {
+    html += `<div class="search-section"><div class="search-section-title">Pages</div>`;
+    grouped.page.forEach(r => {
+      html += renderSearchResultItem(r, globalIndex++);
+    });
+    html += `</div>`;
+  }
+  
+  if (grouped.employee.length > 0) {
+    html += `<div class="search-section"><div class="search-section-title">Employees</div>`;
+    grouped.employee.slice(0, 5).forEach(r => {
+      html += renderSearchResultItem(r, globalIndex++);
+    });
+    html += `</div>`;
+  }
+  
+  if (grouped.order.length > 0) {
+    html += `<div class="search-section"><div class="search-section-title">Uniform Orders</div>`;
+    grouped.order.slice(0, 5).forEach(r => {
+      html += renderSearchResultItem(r, globalIndex++);
+    });
+    html += `</div>`;
+  }
+  
+  if (grouped.pto.length > 0) {
+    html += `<div class="search-section"><div class="search-section-title">PTO Requests</div>`;
+    grouped.pto.slice(0, 5).forEach(r => {
+      html += renderSearchResultItem(r, globalIndex++);
+    });
+    html += `</div>`;
+  }
+  
+  container.innerHTML = html;
+}
+
+/**
+ * Render a single search result item
+ */
+function renderSearchResultItem(result, index) {
+  const iconClass = result.type === 'page' ? 'page' : 
+                    result.type === 'employee' ? 'employee' :
+                    result.type === 'order' ? 'order' : 'pto';
+  
+  const icon = result.icon || (
+    result.type === 'employee' ? 'person' :
+    result.type === 'order' ? 'checkroom' :
+    result.type === 'pto' ? 'beach_access' : 'article'
+  );
+  
+  return `
+    <div class="search-result-item ${index === 0 ? 'selected' : ''}" 
+         onclick="${result.view ? `selectSearchResult('${result.view}')` : `executeSearchAction(${index})`}"
+         data-index="${index}">
+      <div class="search-result-icon ${iconClass}">
+        <span class="material-icons-round">${icon}</span>
+      </div>
+      <div class="search-result-content">
+        <div class="search-result-title">${result.title}</div>
+        ${result.meta ? `<div class="search-result-meta">${result.meta}</div>` : ''}
+      </div>
+      <div class="search-result-action">↵</div>
+    </div>
+  `;
+}
+
+/**
+ * Select a search result (navigate to view)
+ */
+function selectSearchResult(view) {
+  closeQuickSearch();
+  navigateTo(view);
+}
+
+/**
+ * Execute search action for non-page results
+ */
+function executeSearchAction(index) {
+  const result = SearchState.results[index];
+  if (result && result.action) {
+    closeQuickSearch();
+    result.action();
+  }
+}
+
+/**
+ * Build search index from current data
+ */
+function buildSearchIndex() {
+  // Pages are static
+  SearchState.searchIndex.pages = [
+    { title: 'Dashboard', view: 'home', icon: 'home', keywords: ['home', 'overview', 'summary'] },
+    { title: 'Upload OT Data', view: 'ot-upload', icon: 'cloud_upload', keywords: ['upload', 'import', 'csv'] },
+    { title: 'OT History', view: 'ot-history', icon: 'history', keywords: ['history', 'overtime', 'past'] },
+    { title: 'Employee Lookup', view: 'ot-employee', icon: 'person_search', keywords: ['employee', 'search', 'lookup', 'find'] },
+    { title: 'OT Trends', view: 'ot-trends', icon: 'trending_up', keywords: ['trends', 'analytics', 'charts', 'graphs'] },
+    { title: 'Uniform Orders', view: 'uniforms-orders', icon: 'add_shopping_cart', keywords: ['uniform', 'order', 'create'] },
+    { title: 'Uniform Deductions', view: 'uniforms-deductions', icon: 'receipt_long', keywords: ['deduction', 'payroll', 'uniform'] },
+    { title: 'Uniform Catalog', view: 'uniforms-catalog', icon: 'inventory_2', keywords: ['catalog', 'items', 'products'] },
+    { title: 'PTO Records', view: 'pto-records', icon: 'list_alt', keywords: ['pto', 'vacation', 'time off'] },
+    { title: 'Payroll Processing', view: 'payroll-processing', icon: 'payments', keywords: ['payroll', 'process', 'pay'] },
+    { title: 'Settings', view: 'settings', icon: 'settings', keywords: ['settings', 'config', 'preferences'] }
+  ];
+  
+  // Load dynamic data in background
+  loadSearchData();
+}
+
+/**
+ * Load dynamic search data from server
+ */
+function loadSearchData() {
+  // Load employees
+  google.script.run
+    .withSuccessHandler(function(employees) {
+      SearchState.searchIndex.employees = (employees || []).map(e => ({
+        id: e.employeeId || e.matchKey,
+        name: e.fullName || e.displayName || e.employeeName,
+        location: e.primaryLocation || e.location || ''
+      }));
+    })
+    .withFailureHandler(function(err) {
+      console.error('Failed to load employees for search:', err);
+    })
+    .getEmployees({});
+  
+  // Load orders (limited)
+  google.script.run
+    .withSuccessHandler(function(orders) {
+      SearchState.searchIndex.orders = (orders || []).slice(0, 100).map(o => ({
+        id: o.orderId,
+        employee: o.employeeName
+      }));
+    })
+    .withFailureHandler(function() {})
+    .getUniformOrders({ limit: 100 });
+  
+  // Load PTO (limited)
+  google.script.run
+    .withSuccessHandler(function(records) {
+      SearchState.searchIndex.pto = (records || []).slice(0, 100).map(p => ({
+        id: p.ptoId,
+        employee: p.employeeName,
+        hours: p.hoursRequested
+      }));
+    })
+    .withFailureHandler(function() {})
+    .getPTORecords({});
+}
+
+/**
+ * Helper for employee lookup from search
+ */
+function searchEmployeeById(employeeId) {
+  const input = document.getElementById('employeeSearchInput');
+  if (input) {
+    input.value = employeeId;
+    if (typeof searchEmployee === 'function') {
+      searchEmployee();
+    }
+  }
+}
+
+// ==================== UNDO SYSTEM ====================
+const UndoState = {
+  lastAction: null,
+  timer: null,
+  timeout: 30000 // 30 seconds
+};
+
+/**
+ * Register an undoable action
+ */
+function registerUndoableAction(title, subtitle, undoCallback) {
+  // Clear any existing timer
+  if (UndoState.timer) {
+    clearTimeout(UndoState.timer);
+  }
+  
+  UndoState.lastAction = {
+    title: title,
+    subtitle: subtitle,
+    callback: undoCallback,
+    timestamp: Date.now()
+  };
+  
+  showUndoToast(title, subtitle);
+  
+  // Auto-hide after timeout
+  UndoState.timer = setTimeout(() => {
+    hideUndoToast();
+  }, UndoState.timeout);
+}
+
+/**
+ * Show the undo toast
+ */
+function showUndoToast(title, subtitle) {
+  const toast = document.getElementById('undoToast');
+  const titleEl = document.getElementById('undoTitle');
+  const subtitleEl = document.getElementById('undoSubtitle');
+  const progressEl = document.getElementById('undoProgress');
+  
+  if (titleEl) titleEl.textContent = title;
+  if (subtitleEl) subtitleEl.textContent = subtitle;
+  
+  if (toast) {
+    toast.classList.add('visible');
+  }
+  
+  // Animate progress bar
+  if (progressEl) {
+    progressEl.style.width = '100%';
+    progressEl.style.transition = 'none';
+    
+    setTimeout(() => {
+      progressEl.style.transition = `width ${UndoState.timeout}ms linear`;
+      progressEl.style.width = '0%';
+    }, 50);
+  }
+}
+
+/**
+ * Hide the undo toast
+ */
+function hideUndoToast() {
+  const toast = document.getElementById('undoToast');
+  if (toast) {
+    toast.classList.remove('visible');
+  }
+  
+  if (UndoState.timer) {
+    clearTimeout(UndoState.timer);
+    UndoState.timer = null;
+  }
+  
+  UndoState.lastAction = null;
+}
+
+/**
+ * Perform the undo action
+ */
+function performUndo() {
+  if (UndoState.lastAction && UndoState.lastAction.callback) {
+    showLoading(true);
+    
+    try {
+      UndoState.lastAction.callback();
+      showToast('Action undone', 'success');
+    } catch (error) {
+      showToast('Failed to undo: ' + error.message, 'error');
+    }
+    
+    hideUndoToast();
+    showLoading(false);
+  }
+}
+
+// ==================== COMMENTS SYSTEM ====================
+const CommentsState = {
+  currentRecordType: null,
+  currentRecordId: null,
+  comments: []
+};
+
+/**
+ * Open comments modal for a record
+ */
+function openCommentsModal(recordType, recordId, recordTitle) {
+  CommentsState.currentRecordType = recordType;
+  CommentsState.currentRecordId = recordId;
+  
+  const modal = document.getElementById('commentsModal');
+  const modalTitle = modal?.querySelector('.modal-header h3');
+  
+  if (modalTitle) {
+    modalTitle.innerHTML = `<span class="material-icons-round" style="vertical-align: middle; margin-right: 8px;">chat</span>Comments - ${recordTitle || recordId}`;
+  }
+  
+  if (modal) {
+    modal.style.display = 'flex';
+  }
+  
+  // Load comments
+  loadComments(recordType, recordId);
+}
+
+/**
+ * Close comments modal
+ */
+function closeCommentsModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  
+  const modal = document.getElementById('commentsModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+  
+  CommentsState.currentRecordType = null;
+  CommentsState.currentRecordId = null;
+  CommentsState.comments = [];
+}
+
+/**
+ * Load comments for a record
+ */
+function loadComments(recordType, recordId) {
+  const container = document.getElementById('commentsList');
+  if (!container) return;
+  
+  container.innerHTML = `
+    <div class="loading-placeholder" style="padding: 40px; text-align: center;">
+      <span class="material-icons-round spin" style="font-size: 24px;">sync</span>
+    </div>
+  `;
+  
+  google.script.run
+    .withSuccessHandler(function(comments) {
+      CommentsState.comments = comments || [];
+      renderComments(comments);
+    })
+    .withFailureHandler(function(error) {
+      container.innerHTML = `
+        <div class="comments-empty">
+          <span class="material-icons-round">error_outline</span>
+          <p>Failed to load comments</p>
+        </div>
+      `;
+    })
+    .getComments(recordType, recordId);
+}
+
+/**
+ * Render comments list
+ */
+function renderComments(comments) {
+  const container = document.getElementById('commentsList');
+  if (!container) return;
+  
+  if (!comments || comments.length === 0) {
+    container.innerHTML = `
+      <div class="comments-empty">
+        <span class="material-icons-round">chat_bubble_outline</span>
+        <p>No comments yet</p>
+        <small>Be the first to add a comment</small>
+      </div>
+    `;
+    return;
+  }
+  
+  const html = comments.map(comment => `
+    <div class="comment-item" data-id="${comment.id}">
+      <div class="comment-header">
+        <span class="comment-author">${comment.createdBy.split('@')[0]}</span>
+        <span class="comment-date">${formatTimeAgo(new Date(comment.createdDate))}</span>
+      </div>
+      <div class="comment-text">${escapeHtml(comment.text)}</div>
+      <div class="comment-actions">
+        <button class="comment-action-btn" onclick="deleteComment('${comment.id}')">Delete</button>
+      </div>
+    </div>
+  `).join('');
+  
+  container.innerHTML = html;
+}
+
+/**
+ * Add a new comment
+ */
+function addComment() {
+  const input = document.getElementById('commentInput');
+  const text = input?.value?.trim();
+  
+  if (!text) {
+    showToast('Please enter a comment', 'error');
+    return;
+  }
+  
+  if (!CommentsState.currentRecordType || !CommentsState.currentRecordId) {
+    showToast('No record selected', 'error');
+    return;
+  }
+  
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success) {
+        input.value = '';
+        loadComments(CommentsState.currentRecordType, CommentsState.currentRecordId);
+        showToast('Comment added', 'success');
+      } else {
+        showToast(result.error || 'Failed to add comment', 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      showToast('Error: ' + error.message, 'error');
+    })
+    .addComment(CommentsState.currentRecordType, CommentsState.currentRecordId, text);
+}
+
+/**
+ * Delete a comment
+ */
+function deleteComment(commentId) {
+  if (!confirm('Delete this comment?')) return;
+  
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success) {
+        loadComments(CommentsState.currentRecordType, CommentsState.currentRecordId);
+        showToast('Comment deleted', 'success');
+      } else {
+        showToast(result.error || 'Failed to delete comment', 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      showToast('Error: ' + error.message, 'error');
+    })
+    .deleteComment(commentId);
+}
+
+/**
+ * Helper: Format time ago
+ */
+function formatTimeAgo(date) {
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
+/**
+ * Helper: Escape HTML
+ */
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ============================================================
+// NEW USER ONBOARDING SYSTEM
+// ============================================================
+
+var onboardingState = {
+  currentScreen: 1,
+  totalScreens: 5,
+  isOpen: false,
+  newUserModeEnabled: false
+};
+
+/**
+ * Check and show onboarding for new users
+ */
+function checkAndShowOnboarding() {
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success) {
+        onboardingState.newUserModeEnabled = result.status.newUserModeEnabled;
+        
+        // Apply new user mode if enabled
+        if (result.status.newUserModeEnabled) {
+          document.body.classList.add('new-user-mode');
+        }
+        
+        // Show tour for new users
+        if (result.isNewUser) {
+          showOnboarding();
+        }
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.log('Could not check onboarding status:', error);
+    })
+    .checkOnboardingStatus();
+}
+
+/**
+ * Show the onboarding modal
+ */
+function showOnboarding() {
+  onboardingState.currentScreen = 1;
+  onboardingState.isOpen = true;
+  updateOnboardingUI();
+  
+  const modal = document.getElementById('onboardingModal');
+  if (modal) {
+    modal.style.display = 'flex';
+  }
+}
+
+/**
+ * Close/hide onboarding
+ */
+function hideOnboarding() {
+  const modal = document.getElementById('onboardingModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+  onboardingState.isOpen = false;
+}
+
+/**
+ * Skip onboarding (but can replay later)
+ */
+function skipOnboarding() {
+  hideOnboarding();
+  // Don't mark as complete - they can still do it later
+}
+
+/**
+ * Go to next onboarding screen
+ */
+function nextOnboardingScreen() {
+  if (onboardingState.currentScreen < onboardingState.totalScreens) {
+    onboardingState.currentScreen++;
+    updateOnboardingUI();
+  }
+}
+
+/**
+ * Go to previous onboarding screen
+ */
+function prevOnboardingScreen() {
+  if (onboardingState.currentScreen > 1) {
+    onboardingState.currentScreen--;
+    updateOnboardingUI();
+  }
+}
+
+/**
+ * Update onboarding UI based on current state
+ */
+function updateOnboardingUI() {
+  // Update progress bar
+  const progressBar = document.getElementById('onboardingProgressBar');
+  if (progressBar) {
+    const progress = (onboardingState.currentScreen / onboardingState.totalScreens) * 100;
+    progressBar.style.setProperty('--progress', progress + '%');
+  }
+  
+  // Update step indicator
+  const indicator = document.getElementById('onboardingStepIndicator');
+  if (indicator) {
+    indicator.textContent = onboardingState.currentScreen + ' / ' + onboardingState.totalScreens;
+  }
+  
+  // Show current screen, hide others
+  for (let i = 1; i <= onboardingState.totalScreens; i++) {
+    const screen = document.getElementById('onboardingScreen' + i);
+    if (screen) {
+      screen.style.display = (i === onboardingState.currentScreen) ? 'block' : 'none';
+    }
+  }
+}
+
+/**
+ * Complete the onboarding tour
+ */
+function completeOnboarding() {
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success) {
+        hideOnboarding();
+        showToast('Welcome! Tour complete. You can replay it anytime from Help.', 'success');
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('Error completing onboarding:', error);
+      hideOnboarding();
+    })
+    .markTourComplete();
+}
+
+/**
+ * Replay the onboarding tour (from Help menu)
+ */
+function replayOnboardingTour() {
+  showOnboarding();
+}
+
+/**
+ * Toggle New User Mode
+ */
+function toggleNewUserMode(enabled) {
+  onboardingState.newUserModeEnabled = enabled;
+  
+  if (enabled) {
+    document.body.classList.add('new-user-mode');
+  } else {
+    document.body.classList.remove('new-user-mode');
+  }
+  
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success) {
+        showToast(enabled ? 'New User Mode enabled' : 'New User Mode disabled', 'success');
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('Error toggling new user mode:', error);
+    })
+    .setNewUserMode(enabled);
+}
+
+/**
+ * Load and render onboarding checklist
+ */
+function loadOnboardingChecklist(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success) {
+        renderOnboardingChecklist(container, result.checklist);
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.log('Could not load checklist:', error);
+    })
+    .getOnboardingChecklist();
+}
+
+/**
+ * Render onboarding checklist
+ */
+function renderOnboardingChecklist(container, checklist) {
+  const completedCount = checklist.filter(item => item.completed).length;
+  const allComplete = completedCount === checklist.length;
+  
+  if (allComplete) {
+    // Don't show checklist if all complete
+    container.style.display = 'none';
+    return;
+  }
+  
+  let html = '<div class="onboarding-checklist">';
+  html += '<h4><span class="material-icons-round">checklist</span> Getting Started Checklist</h4>';
+  html += '<div class="checklist-items">';
+  
+  checklist.forEach(function(item) {
+    const icon = item.completed ? '<span class="check-icon">&#10004;</span>' : '<span class="pending-icon">&#9675;</span>';
+    html += '<div class="checklist-item ' + (item.completed ? 'completed' : '') + '">';
+    html += icon + ' ' + item.label;
+    html += '</div>';
+  });
+  
+  html += '</div>';
+  html += '<div class="checklist-progress">' + completedCount + ' of ' + checklist.length + ' complete</div>';
+  html += '</div>';
+  
+  container.innerHTML = html;
+  container.style.display = 'block';
+}
+
+/**
+ * Mark a checklist item complete (called when user visits relevant pages)
+ */
+function trackChecklistProgress(itemId) {
+  google.script.run
+    .withSuccessHandler(function() {})
+    .withFailureHandler(function() {})
+    .markChecklistItem(itemId);
+}
+
+// ============================================================
+// EASTER EGGS & CONTEXTUAL MESSAGES
+// ============================================================
+
+// System launch date (for birthday detection)
+var SYSTEM_LAUNCH_DATE = '2024-12-15';
+
+/**
+ * Check and display contextual banner on page load
+ */
+function checkContextualBanner() {
+  // Check if already dismissed this session
+  if (sessionStorage.getItem('bannerDismissed')) {
+    return;
+  }
+  
+  var now = new Date();
+  var hour = now.getHours();
+  var month = now.getMonth(); // 0-11
+  var day = now.getDate();
+  
+  var bannerType = null;
+  var bannerIcon = '';
+  var bannerMessage = '';
+  
+  // Priority: Late Night > Holiday > Birthday
+  
+  // Check Late Night (1AM - 6:59AM)
+  if (hour >= 1 && hour < 7) {
+    bannerType = 'latenight';
+    if (hour >= 1 && hour < 3) {
+      bannerIcon = '🦉';
+      bannerMessage = "Working late? Don't forget to take breaks!";
+    } else if (hour >= 3 && hour < 5) {
+      bannerIcon = '😴';
+      bannerMessage = "It's " + hour + " AM. This system will still be here tomorrow.";
+    } else {
+      bannerIcon = '🌅';
+      bannerMessage = "Early bird or night owl? Either way, respect. ☕";
+    }
+  }
+  // Check Christmas (December 25)
+  else if (month === 11 && day === 25) {
+    bannerType = 'christmas';
+    bannerIcon = '🎄';
+    bannerMessage = "Merry Christmas! Hope you're not actually working today.";
+  }
+  // Check New Years (January 1)
+  else if (month === 0 && day === 1) {
+    bannerType = 'newyear';
+    bannerIcon = '🎉';
+    bannerMessage = "Happy New Year! Starting the year with payroll - you're dedicated!";
+  }
+  // Check System Birthday
+  else {
+    var launchDate = new Date(SYSTEM_LAUNCH_DATE);
+    if (month === launchDate.getMonth() && day === launchDate.getDate()) {
+      var yearsOld = now.getFullYear() - launchDate.getFullYear();
+      if (yearsOld > 0) {
+        bannerType = 'birthday';
+        bannerIcon = '🎂';
+        bannerMessage = "This system turned " + yearsOld + " year" + (yearsOld > 1 ? 's' : '') + " old today! Still running strong.";
+      }
+    }
+  }
+  
+  // Display banner if we have one
+  if (bannerType) {
+    showContextualBanner(bannerType, bannerIcon, bannerMessage);
+  }
+}
+
+/**
+ * Show contextual banner
+ */
+function showContextualBanner(type, icon, message) {
+  var banner = document.getElementById('contextualBanner');
+  var iconEl = document.getElementById('bannerIcon');
+  var messageEl = document.getElementById('bannerMessage');
+  
+  if (!banner || !iconEl || !messageEl) return;
+  
+  // Remove old type classes
+  banner.className = 'contextual-banner';
+  banner.classList.add(type);
+  
+  iconEl.textContent = icon;
+  messageEl.textContent = message;
+  banner.style.display = 'flex';
+}
+
+/**
+ * Dismiss the contextual banner
+ */
+function dismissBanner() {
+  var banner = document.getElementById('contextualBanner');
+  if (banner) {
+    banner.style.display = 'none';
+  }
+  // Remember dismissal for this session
+  sessionStorage.setItem('bannerDismissed', 'true');
+}
+
+/**
+ * Console developer notes
+ */
+var CONSOLE_MESSAGES = {
+  'home': [
+    '%c👋 Hey there!',
+    'font-size: 16px; font-weight: bold; color: #E51636;',
+    "If you're reading this, you're probably debugging.",
+    "This system was built by Brent in 2024-2025. Good luck!",
+    "P.S. Try the Konami code... ↑↑↓↓←→←→BA"
+  ],
+  'ot-upload': [
+    '%c⏰ OT Tracker',
+    'font-size: 14px; font-weight: bold; color: #3B82F6;',
+    "Still calculating overtime the hard way? You're doing great! 💪"
+  ],
+  'uniforms-orders': [
+    '%c👕 Uniform Orders',
+    'font-size: 14px; font-weight: bold; color: #8B5CF6;',
+    "Each order represents someone's hard work. Thanks for processing them carefully."
+  ],
+  'payroll-processing': [
+    '%c💰 Payroll Processing',
+    'font-size: 14px; font-weight: bold; color: #22C55E;',
+    "About to process payroll? Take a deep breath. The system's got your back."
+  ],
+  'settings': [
+    '%c🔧 Settings',
+    'font-size: 14px; font-weight: bold; color: #F59E0B;',
+    "Changing settings? Bold move. The system trusts you."
+  ]
+};
+
+/**
+ * Log console message for current view
+ */
+function logConsoleMessage(viewName) {
+  var messages = CONSOLE_MESSAGES[viewName];
+  if (messages) {
+    console.log(messages[0], messages[1]);
+    for (var i = 2; i < messages.length; i++) {
+      console.log(messages[i]);
+    }
+  }
+}
+
+/**
+ * Progress bar messages for loading operations
+ */
+var PROGRESS_MESSAGES = [
+  { min: 0, max: 20, messages: ["Counting the money...", "Starting payroll processing...", "Warming up the engines..."] },
+  { min: 20, max: 40, messages: ["Double-checking because we're careful...", "Verifying employee data...", "Crunching the numbers..."] },
+  { min: 40, max: 60, messages: ["Making sure nobody gets charged twice...", "Calculating deductions...", "Cross-referencing everything..."] },
+  { min: 60, max: 80, messages: ["Almost there, promise...", "Finalizing everything...", "Just a few more calculations..."] },
+  { min: 80, max: 100, messages: ["Done! Time for a break.", "✅ All set! Great work.", "Wrapping things up..."] }
+];
+
+/**
+ * Get progress message based on percentage
+ */
+function getProgressMessage(percent) {
+  for (var i = 0; i < PROGRESS_MESSAGES.length; i++) {
+    var range = PROGRESS_MESSAGES[i];
+    if (percent >= range.min && percent < range.max) {
+      var messages = range.messages;
+      return messages[Math.floor(Math.random() * messages.length)];
+    }
+  }
+  return "Processing...";
+}
+
+/**
+ * Show processing overlay with progress
+ */
+function showProcessingOverlay(title) {
+  // Remove existing overlay if present
+  hideProcessingOverlay();
+  
+  var overlay = document.createElement('div');
+  overlay.id = 'processingOverlay';
+  overlay.className = 'processing-overlay';
+  overlay.innerHTML = [
+    '<div class="processing-spinner"></div>',
+    '<h3 class="processing-title">' + (title || 'Processing...') + '</h3>',
+    '<div class="processing-progress-container">',
+    '  <div class="progress-bar-container">',
+    '    <div class="progress-bar-fill" id="processingProgressBar" style="width: 0%;"></div>',
+    '  </div>',
+    '  <p class="processing-message" id="processingMessage">' + getProgressMessage(0) + '</p>',
+    '</div>'
+  ].join('');
+  
+  document.body.appendChild(overlay);
+}
+
+/**
+ * Update processing overlay progress
+ */
+function updateProcessingProgress(percent) {
+  var bar = document.getElementById('processingProgressBar');
+  var message = document.getElementById('processingMessage');
+  
+  if (bar) {
+    bar.style.width = Math.min(100, percent) + '%';
+  }
+  if (message) {
+    message.textContent = getProgressMessage(percent);
+  }
+}
+
+/**
+ * Hide processing overlay
+ */
+function hideProcessingOverlay() {
+  var overlay = document.getElementById('processingOverlay');
+  if (overlay) {
+    overlay.remove();
+  }
+}
+
+// Konami Code Easter Egg
+var konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+var konamiIndex = 0;
+var konamiTimeout = null;
+
+document.addEventListener('keydown', function(e) {
+  // Ignore if typing in an input/textarea
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+    return;
+  }
+  
+  // Get the key - use e.key for letters (lowercase) and e.code for arrows
+  var key = e.key ? e.key.toLowerCase() : e.code;
+  var expectedKey = konamiCode[konamiIndex];
+  
+  // For arrow keys, check e.code
+  if (expectedKey.startsWith('Arrow')) {
+    key = e.code;
+  }
+  
+  // Debug (uncomment to troubleshoot)
+  // console.log('Konami:', key, '| Expected:', expectedKey, '| Progress:', konamiIndex + '/' + konamiCode.length);
+  
+  if (key === expectedKey) {
+    konamiIndex++;
+    
+    // Reset timeout - user has 3 seconds to continue sequence
+    if (konamiTimeout) clearTimeout(konamiTimeout);
+    konamiTimeout = setTimeout(function() {
+      konamiIndex = 0;
+    }, 3000);
+    
+    if (konamiIndex === konamiCode.length) {
+      // Konami code complete!
+      konamiIndex = 0;
+      if (konamiTimeout) clearTimeout(konamiTimeout);
+      triggerKonamiEasterEgg();
+    }
+  } else {
+    konamiIndex = 0;
+  }
+});
+
+/**
+ * Trigger Konami code easter egg
+ */
+function triggerKonamiEasterEgg() {
+  // Create confetti effect
+  var colors = ['#E51636', '#22C55E', '#3B82F6', '#F59E0B', '#8B5CF6'];
+  for (var i = 0; i < 100; i++) {
+    createConfetti(colors[Math.floor(Math.random() * colors.length)]);
+  }
+  
+  // Record discovery
+  recordEasterEggDiscovery('konami');
+  
+  // Show the About the Builder modal
+  setTimeout(function() {
+    showEasterEggModal('aboutBuilderModal');
+  }, 500);
+  
+  console.log('%c🎮 KONAMI CODE ACTIVATED! 🎮', 'font-size: 24px; font-weight: bold; color: #E51636;');
+  console.log("You're officially a power user. Brent would be proud. 👏");
+}
+
+/**
+ * Create confetti particle
+ */
+function createConfetti(color) {
+  var confetti = document.createElement('div');
+  confetti.style.cssText = [
+    'position: fixed;',
+    'width: 10px;',
+    'height: 10px;',
+    'background: ' + color + ';',
+    'left: ' + Math.random() * 100 + 'vw;',
+    'top: -10px;',
+    'border-radius: 50%;',
+    'pointer-events: none;',
+    'z-index: 99999;',
+    'animation: confettiFall ' + (2 + Math.random() * 2) + 's linear forwards;'
+  ].join('');
+  
+  document.body.appendChild(confetti);
+  
+  // Add CSS animation if not exists
+  if (!document.getElementById('confettiStyle')) {
+    var style = document.createElement('style');
+    style.id = 'confettiStyle';
+    style.textContent = '@keyframes confettiFall { to { transform: translateY(100vh) rotate(720deg); opacity: 0; } }';
+    document.head.appendChild(style);
+  }
+  
+  setTimeout(function() {
+    confetti.remove();
+  }, 4000);
+}
+
+// ============================================================
+// EASTER EGG DISCOVERY SYSTEM
+// ============================================================
+
+// Easter egg definitions
+var EASTER_EGGS = {
+  'konami': { name: 'Code Archaeologist', icon: '🎮', description: 'Found the Konami Code secret' },
+  'logo10': { name: 'System Historian', icon: '📜', description: 'Discovered the design history' },
+  'latenight': { name: 'Night Owl', icon: '🦉', description: 'Worked during the witching hours' },
+  'holiday': { name: 'Holiday Hero', icon: '🎄', description: 'Checked payroll on a holiday' },
+  'console': { name: 'Inspector', icon: '🔍', description: 'Peeked behind the curtain' },
+  'calculator': { name: 'Tip Master', icon: '🧮', description: 'Found the hidden calculator' }
+};
+
+/**
+ * Get discovered easter eggs from localStorage
+ */
+function getDiscoveredEggs() {
+  try {
+    var stored = localStorage.getItem('discoveredEasterEggs');
+    return stored ? JSON.parse(stored) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Record an easter egg discovery
+ */
+function recordEasterEggDiscovery(eggId) {
+  var discovered = getDiscoveredEggs();
+  if (discovered.indexOf(eggId) === -1) {
+    discovered.push(eggId);
+    localStorage.setItem('discoveredEasterEggs', JSON.stringify(discovered));
+    updateEasterEggCounter();
+    
+    // Show discovery toast if it's a new find
+    var egg = EASTER_EGGS[eggId];
+    if (egg) {
+      showToast(egg.icon + ' Achievement Unlocked: ' + egg.name, 'success');
+    }
+  }
+}
+
+/**
+ * Update the easter egg counter in footer
+ */
+function updateEasterEggCounter() {
+  var discovered = getDiscoveredEggs();
+  var countDisplay = document.getElementById('eggCountDisplay');
+  if (countDisplay) {
+    countDisplay.textContent = discovered.length;
+  }
+}
+
+/**
+ * Show easter egg modal
+ */
+function showEasterEggModal(modalId) {
+  var modal = document.getElementById(modalId);
+  if (modal) {
+    modal.style.display = 'flex';
+  }
+}
+
+/**
+ * Close easter egg modal
+ */
+function closeEasterEggModal(modalId) {
+  var modal = document.getElementById(modalId);
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+/**
+ * Show easter egg discovery list
+ */
+function showEasterEggList() {
+  var discovered = getDiscoveredEggs();
+  var listBody = document.getElementById('easterEggListBody');
+  
+  if (!listBody) return;
+  
+  var html = '';
+  var totalEggs = Object.keys(EASTER_EGGS).length;
+  
+  for (var eggId in EASTER_EGGS) {
+    var egg = EASTER_EGGS[eggId];
+    var isDiscovered = discovered.indexOf(eggId) !== -1;
+    
+    html += '<div class="egg-item ' + (isDiscovered ? 'discovered' : 'undiscovered') + '">';
+    html += '<span class="egg-icon">' + (isDiscovered ? egg.icon : '❓') + '</span>';
+    html += '<div class="egg-info">';
+    html += '<div class="egg-name">' + (isDiscovered ? egg.name : '???') + '</div>';
+    html += '<div class="egg-status">' + (isDiscovered ? '✓ Discovered' : 'Not yet found') + '</div>';
+    html += '</div>';
+    html += '</div>';
+  }
+  
+  html += '<div style="text-align: center; margin-top: 20px; color: #9CA3AF; font-size: 0.9rem;">';
+  html += discovered.length + ' of ' + totalEggs + ' easter eggs found';
+  html += '</div>';
+  
+  listBody.innerHTML = html;
+  showEasterEggModal('easterEggListModal');
+}
+
+// ============================================================
+// LOGO CLICK EASTER EGG (10 clicks)
+// ============================================================
+
+var logoClickCount = 0;
+var logoClickTimer = null;
+var logoClickTimeout = 3000; // 3 seconds to complete 10 clicks
+
+/**
+ * Initialize logo click listener
+ */
+function initLogoClickEasterEgg() {
+  // Find the sidebar header (the "Payroll Review" title area)
+  var logo = document.querySelector('.sidebar-header');
+  if (!logo) return;
+  
+  logo.style.cursor = 'pointer';
+  logo.addEventListener('click', handleLogoClick);
+}
+
+/**
+ * Handle logo click
+ */
+function handleLogoClick(e) {
+  e.preventDefault();
+  logoClickCount++;
+  
+  // Visual feedback
+  var logo = e.currentTarget;
+  logo.classList.remove('logo-shake', 'logo-pulse');
+  
+  // Small pulse on each click
+  setTimeout(function() {
+    logo.classList.add('logo-pulse');
+    setTimeout(function() {
+      logo.classList.remove('logo-pulse');
+    }, 200);
+  }, 10);
+  
+  // Reset timer
+  if (logoClickTimer) {
+    clearTimeout(logoClickTimer);
+  }
+  
+  // Check if we hit 10
+  if (logoClickCount >= 10) {
+    logoClickCount = 0;
+    triggerLogoEasterEgg();
+    return;
+  }
+  
+  // Set timeout to reset counter
+  logoClickTimer = setTimeout(function() {
+    logoClickCount = 0;
+  }, logoClickTimeout);
+}
+
+/**
+ * Trigger logo click easter egg
+ */
+function triggerLogoEasterEgg() {
+  // Record discovery
+  recordEasterEggDiscovery('logo10');
+  
+  // Confetti!
+  var colors = ['#8B5CF6', '#3B82F6', '#22C55E', '#F59E0B'];
+  for (var i = 0; i < 50; i++) {
+    createConfetti(colors[Math.floor(Math.random() * colors.length)]);
+  }
+  
+  // Show design history modal
+  showEasterEggModal('designHistoryModal');
+}
+
+/**
+ * Check and record contextual easter eggs (late night, holidays)
+ */
+function checkContextualEasterEggs() {
+  var now = new Date();
+  var hour = now.getHours();
+  var month = now.getMonth();
+  var day = now.getDate();
+  
+  // Late night detection (1AM - 6AM)
+  if (hour >= 1 && hour < 7) {
+    recordEasterEggDiscovery('latenight');
+  }
+  
+  // Holiday detection
+  if ((month === 11 && day === 25) || (month === 0 && day === 1)) {
+    recordEasterEggDiscovery('holiday');
+  }
+}
+
+/**
+ * Record console easter egg when devtools opened
+ * Note: This is a best-effort detection, not foolproof
+ */
+function detectConsoleOpen() {
+  var threshold = 160;
+  var devtoolsOpen = false;
+  
+  setInterval(function() {
+    if (window.outerWidth - window.innerWidth > threshold || 
+        window.outerHeight - window.innerHeight > threshold) {
+      if (!devtoolsOpen) {
+        devtoolsOpen = true;
+        recordEasterEggDiscovery('console');
+      }
+    } else {
+      devtoolsOpen = false;
+    }
+  }, 1000);
+}
+
+// Initialize easter egg systems on load
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize logo click listener after a short delay
+  setTimeout(initLogoClickEasterEgg, 500);
+  
+  // Update counter
+  updateEasterEggCounter();
+  
+  // Check contextual easter eggs
+  checkContextualEasterEggs();
+  
+  // Start console detection
+  detectConsoleOpen();
+  
+  // Check URL for calculator parameter
+  checkCalculatorUrlParam();
+});
+
+// ============================================================
+// TIP CALCULATOR
+// ============================================================
+
+/**
+ * Check URL for ?calculator=true parameter
+ */
+function checkCalculatorUrlParam() {
+  var urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('calculator') === 'true') {
+    openTipCalculator();
+  }
+}
+
+/**
+ * Open tip calculator (can also be called from console)
+ */
+function calculator() {
+  openTipCalculator();
+}
+
+function openTipCalculator() {
+  // Record as easter egg discovery
+  recordEasterEggDiscovery('calculator');
+  showEasterEggModal('tipCalculatorModal');
+}
+
+/**
+ * Set tip percentage and recalculate
+ */
+function setTipPercent(percent) {
+  document.getElementById('calcTipPercent').value = percent;
+  
+  // Update active button
+  document.querySelectorAll('.tip-btn').forEach(function(btn) {
+    btn.classList.remove('active');
+    if (btn.textContent === percent + '%') {
+      btn.classList.add('active');
+    }
+  });
+  
+  calculateTip();
+}
+
+/**
+ * Calculate tip and totals
+ */
+function calculateTip() {
+  var billAmount = parseFloat(document.getElementById('calcBillAmount').value) || 0;
+  var tipPercent = parseFloat(document.getElementById('calcTipPercent').value) || 0;
+  var splitCount = parseInt(document.getElementById('calcSplitCount').value) || 1;
+  
+  var tipAmount = billAmount * (tipPercent / 100);
+  var total = billAmount + tipAmount;
+  var perPerson = splitCount > 0 ? total / splitCount : total;
+  
+  document.getElementById('calcTipAmount').textContent = '$' + tipAmount.toFixed(2);
+  document.getElementById('calcTotal').textContent = '$' + total.toFixed(2);
+  document.getElementById('calcPerPerson').textContent = '$' + perPerson.toFixed(2);
+}
+
+/**
+ * Adjust split count
+ */
+function adjustSplit(delta) {
+  var input = document.getElementById('calcSplitCount');
+  var newValue = parseInt(input.value) + delta;
+  if (newValue >= 1 && newValue <= 20) {
+    input.value = newValue;
+    calculateTip();
+  }
+}
+
+/**
+ * Clear calculator
+ */
+function clearCalculator() {
+  document.getElementById('calcBillAmount').value = '';
+  document.getElementById('calcTipPercent').value = 18;
+  document.getElementById('calcSplitCount').value = 1;
+  setTipPercent(18);
+  calculateTip();
+}
+
+// ============================================================
+// MILESTONE CELEBRATION (1000th Order)
+// ============================================================
+
+// Milestone thresholds
+var MILESTONES = [1000, 2500, 5000, 10000];
+
+/**
+ * Check if we hit a milestone (called after order creation)
+ */
+function checkOrderMilestone(orderNumber, orderDetails) {
+  for (var i = 0; i < MILESTONES.length; i++) {
+    var milestone = MILESTONES[i];
+    if (orderNumber === milestone) {
+      var milestoneKey = 'milestone_' + milestone + '_reached';
+      
+      // Check if already celebrated
+      if (localStorage.getItem(milestoneKey)) {
+        return;
+      }
+      
+      // Mark as celebrated
+      localStorage.setItem(milestoneKey, 'true');
+      
+      // Trigger celebration
+      triggerMilestoneCelebration(milestone, orderDetails);
+      return;
+    }
+  }
+}
+
+/**
+ * Trigger milestone celebration
+ */
+function triggerMilestoneCelebration(milestone, orderDetails) {
+  // Confetti!
+  var colors = ['#F59E0B', '#E51636', '#22C55E', '#3B82F6', '#8B5CF6'];
+  for (var i = 0; i < 150; i++) {
+    createConfetti(colors[Math.floor(Math.random() * colors.length)]);
+  }
+  
+  // Update modal content
+  document.getElementById('milestoneNumber').textContent = milestone.toLocaleString();
+  document.getElementById('milestoneCount').textContent = milestone.toLocaleString();
+  document.getElementById('milestoneOrderNum').textContent = milestone;
+  
+  // Fill order details
+  var detailsHtml = '';
+  if (orderDetails) {
+    detailsHtml += '<p><strong>Employee:</strong> ' + (orderDetails.employeeName || 'Unknown') + '</p>';
+    if (orderDetails.items) {
+      detailsHtml += '<p><strong>Items:</strong> ' + orderDetails.items.join(', ') + '</p>';
+    }
+    detailsHtml += '<p><strong>Total:</strong> $' + (orderDetails.total || 0).toFixed(2) + '</p>';
+  }
+  document.getElementById('milestoneOrderDetails').innerHTML = detailsHtml;
+  
+  // Show modal
+  setTimeout(function() {
+    showEasterEggModal('milestoneModal');
+  }, 500);
+}
+
+/**
+ * Download milestone certificate
+ */
+function downloadMilestoneCertificate() {
+  var milestone = document.getElementById('milestoneNumber').textContent;
+  var details = document.getElementById('milestoneOrderDetails').innerHTML;
+  var date = new Date().toLocaleDateString();
+  
+  var certificateText = [
+    '═══════════════════════════════════════',
+    '       🎉 MILESTONE ACHIEVEMENT 🎉',
+    '═══════════════════════════════════════',
+    '',
+    '    The Payroll System has successfully',
+    '              processed',
+    '',
+    '      ' + milestone + ' UNIFORM ORDERS',
+    '',
+    '          Date: ' + date,
+    '',
+    '═══════════════════════════════════════',
+    '',
+    '  This milestone represents:',
+    '  • Thousands of dollars managed',
+    '  • Hundreds of employees served',
+    '  • Countless hours saved',
+    '',
+    '═══════════════════════════════════════',
+    '',
+    '  Built by: Brent, 2024-2025',
+    '  Maintained by: You!',
+    '',
+    '  Keep up the great work! 🎊',
+    '',
+    '═══════════════════════════════════════'
+  ].join('\n');
+  
+  // Create download
+  var blob = new Blob([certificateText], { type: 'text/plain' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'milestone_' + milestone.replace(/,/g, '') + '_certificate.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+// TIME CAPSULE
+// ============================================================
+
+var TIME_CAPSULE_UNLOCK_DATE = new Date('2028-01-01T00:00:00');
+
+/**
+ * Open time capsule modal
+ */
+function openTimeCapsule() {
+  var now = new Date();
+  var body = document.getElementById('timeCapsuleBody');
+  var title = document.getElementById('timeCapsuleTitle');
+  
+  if (now >= TIME_CAPSULE_UNLOCK_DATE) {
+    // Unlocked!
+    title.textContent = 'Opened';
+    body.innerHTML = renderTimeCapsuleMessage();
+  } else {
+    // Still locked
+    title.textContent = 'Locked';
+    body.innerHTML = renderTimeCapsuleLocked(now);
+  }
+  
+  showEasterEggModal('timeCapsuleModal');
+}
+
+/**
+ * Render locked time capsule
+ */
+function renderTimeCapsuleLocked(now) {
+  var diff = TIME_CAPSULE_UNLOCK_DATE - now;
+  var days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  var years = Math.floor(days / 365);
+  var remainingDays = days % 365;
+  
+  return [
+    '<div class="capsule-locked">',
+    '  <div class="capsule-icon">📦🔒</div>',
+    '  <p>This time capsule is sealed until January 1, 2028.</p>',
+    '  <div class="countdown">',
+    '    <p class="countdown-label">Unlocks in:</p>',
+    '    <p class="countdown-value">' + years + ' years, ' + remainingDays + ' days</p>',
+    '  </div>',
+    '  <p style="color: #6B7280; font-size: 0.9rem;">Sealed by Brent in December 2024</p>',
+    '</div>'
+  ].join('\n');
+}
+
+/**
+ * Render unlocked time capsule message
+ */
+function renderTimeCapsuleMessage() {
+  var today = new Date().toLocaleDateString('en-US', { 
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+  });
+  
+  return [
+    '<div class="capsule-message">',
+    '  <p style="color: #9CA3AF; font-size: 0.9rem; text-align: center;">',
+    '    Sealed: December 2024<br>Opened: ' + today,
+    '  </p>',
+    '  <h3 style="color: #F59E0B; margin: 24px 0 16px;">To whoever is reading this in 2028 (or beyond),</h3>',
+    '  <p>I built this system in 2024-2025 to make payroll less painful for the teams at Cockrell Hill DTO and Dallas Baptist University.</p>',
+    '  <p>If you\'re reading this, it means the system is still running! That makes me really happy. That was always the goal - to build something that would last.</p>',
+    '  <h4 style="color: white; margin: 24px 0 12px;">A few things I hope you know:</h4>',
+    '  <ul style="text-align: left; line-height: 2;">',
+    '    <li>Every feature was built to solve a real problem</li>',
+    '    <li>The documentation exists to help you</li>',
+    '    <li>You\'re doing great, even when it\'s hard</li>',
+    '    <li>The employees appreciate accurate paychecks more than they say</li>',
+    '    <li>The easter eggs are there to make you smile</li>',
+    '  </ul>',
+    '  <h4 style="color: white; margin: 24px 0 12px;">Some questions I\'m curious about:</h4>',
+    '  <ul style="text-align: left; line-height: 2;">',
+    '    <li>How many orders has the system processed by now?</li>',
+    '    <li>Are you still at the same two locations, or have you grown?</li>',
+    '    <li>Did you discover all the easter eggs?</li>',
+    '    <li>What features have you added that I never imagined?</li>',
+    '  </ul>',
+    '  <p>Thanks for taking care of this system, and thanks for taking care of the people at Cockrell Hill and DBU. They\'re lucky to have you.</p>',
+    '  <p>If this system is still running in 2030, I\'d genuinely love to hear about it:</p>',
+    '  <p style="color: #3B82F6;">brentb.lawncare@gmail.com</p>',
+    '  <p class="capsule-signature">— Brent<br>December 2024</p>',
+    '  <p class="capsule-ps">P.S. I hope you found the Konami code. And the tip calculator. And clicked the logo 10 times. If not, you\'ve got some exploring to do! 🎮</p>',
+    '</div>'
+  ].join('\n');
+}
+
+// ============================================================
+// CREDITS ROLL
+// ============================================================
+
+var creditsScrolling = true;
+
+/**
+ * Show credits
+ */
+function showCredits() {
+  // Update egg count
+  var discovered = getDiscoveredEggs();
+  document.getElementById('creditsEggCount').textContent = discovered.length;
+  
+  // Reset scroll position
+  var scroll = document.getElementById('creditsScroll');
+  if (scroll) {
+    scroll.style.animation = 'none';
+    scroll.offsetHeight; // Trigger reflow
+    scroll.style.animation = 'creditsScroll 60s linear forwards';
+  }
+  
+  creditsScrolling = true;
+  document.getElementById('creditsModal').style.display = 'flex';
+}
+
+/**
+ * Close credits
+ */
+function closeCredits() {
+  document.getElementById('creditsModal').style.display = 'none';
+}
+
+/**
+ * Toggle credits pause/play
+ */
+function toggleCredits() {
+  var scroll = document.getElementById('creditsScroll');
+  if (!scroll) return;
+  
+  creditsScrolling = !creditsScrolling;
+  scroll.classList.toggle('paused', !creditsScrolling);
+}
+
+// Click on credits to pause/play
+document.addEventListener('click', function(e) {
+  if (e.target.closest('.credits-scroll') || e.target.closest('.credits-container')) {
+    if (!e.target.closest('.credits-skip')) {
+      toggleCredits();
+    }
+  }
+});
+</script>
+

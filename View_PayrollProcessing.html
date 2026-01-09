@@ -1,0 +1,830 @@
+<!-- Payroll Processing View -->
+<div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <span class="material-icons-round" style="font-size: 28px; color: var(--cfa-red);">payments</span>
+    <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700;">Payroll Processing</h2>
+  </div>
+</div>
+
+<!-- Pre-Payroll Validation Card -->
+<div class="card mb-lg" id="validationCard">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span class="material-icons-round" style="color: var(--gray-600);">verified</span>
+      <span style="font-weight: 600;">Pre-Payroll Validation</span>
+      <span class="tooltip-icon" tabindex="0" style="position: relative;">
+        <span class="material-icons-round">help_outline</span>
+        <span class="tooltip-text" style="position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); z-index: 9999;">Automated checks that run before you process payroll. Fix any red errors before proceeding. Click each item to see details and how to fix.</span>
+      </span>
+      <span class="validation-badge" id="validationBadge">
+        <span class="material-icons-round spin" style="font-size: 14px;">sync</span>
+        Checking...
+      </span>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="runPayrollValidationCheck()" id="refreshValidationBtn">
+      <span class="material-icons-round" style="font-size: 16px;">refresh</span>
+      Re-check
+    </button>
+  </div>
+  <div class="card-body" id="validationContent">
+    <div class="validation-loading">
+      <span class="material-icons-round spin">sync</span>
+      <span>Running validation checks...</span>
+    </div>
+  </div>
+</div>
+
+<!-- Date Selection Card -->
+<div class="card mb-lg" id="dateSelectionCard">
+  <div class="card-header">
+    <span class="material-icons-round" style="color: var(--cfa-red);">event</span>
+    <span style="font-weight: 600;">Select Payroll Date</span>
+  </div>
+  <div class="card-body">
+    <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
+      <div class="form-group" style="margin: 0; flex: 0 0 280px;">
+        <label class="form-label">Payment Date</label>
+        <select id="payrollDateSelect" class="form-control form-select" onchange="updatePayPeriodDisplay()">
+          <option value="">Loading dates...</option>
+        </select>
+      </div>
+      <div style="flex: 1;">
+        <div style="font-size: 0.85rem; color: var(--gray-500);">Pay Period</div>
+        <div id="payPeriodDisplay" style="font-size: 1.1rem; font-weight: 600; color: var(--gray-700);">
+          Select a date to see pay period
+        </div>
+      </div>
+      <button class="btn btn-primary" id="generateReportBtn" onclick="generatePayrollReport()" style="padding: 12px 24px;">
+        <span class="material-icons-round" style="font-size: 18px;">assessment</span>
+        Generate Report
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Report Content (hidden until generated) -->
+<div id="reportContent" style="display: none;">
+
+  <!-- Export & Complete Actions Bar -->
+  <div class="card mb-lg" style="background: var(--gray-50);">
+    <div class="card-body" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-outline" onclick="exportReportHTML()" title="Open printable report in new tab">
+          <span class="material-icons-round" style="font-size: 18px;">print</span>
+          Print
+        </button>
+        <button class="btn btn-pdf" onclick="exportPayrollToPDF()" title="Generate PDF report">
+          <span class="material-icons-round" style="font-size: 18px;">picture_as_pdf</span>
+          Export PDF
+        </button>
+        <button class="btn btn-outline" onclick="exportReportCSV()" title="Download CSV summary">
+          <span class="material-icons-round" style="font-size: 18px;">download</span>
+          Export CSV
+        </button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <label class="tips-reminder" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; cursor: pointer;">
+          <input type="checkbox" id="tipsProcessedCheck" style="width: 18px; height: 18px; accent-color: var(--success);">
+          <span style="font-size: 0.9rem; font-weight: 500; color: #92400E;">
+            <span class="material-icons-round" style="font-size: 16px; vertical-align: middle;">attach_money</span>
+            Tips processed?
+          </span>
+        </label>
+        <button class="btn btn-primary" id="markCompleteBtn" onclick="confirmMarkComplete()" style="padding: 10px 20px;">
+          <span class="material-icons-round" style="font-size: 18px;">check_circle</span>
+          Mark All Complete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;" id="summaryCards">
+    <div class="stat-card" style="background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); text-align: center;">
+      <div style="font-size: 2rem; font-weight: 700; color: var(--cfa-red);" id="summaryOTCount">0</div>
+      <div style="font-size: 0.85rem; color: var(--gray-600);">Employees with OT</div>
+      <div style="font-size: 0.75rem; color: var(--gray-500);" id="summaryOTHours">0 hours</div>
+    </div>
+    <div class="stat-card" style="background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); text-align: center;">
+      <div style="font-size: 2rem; font-weight: 700; color: var(--warning);" id="summaryUniformCount">0</div>
+      <div style="font-size: 0.85rem; color: var(--gray-600);">Uniform Deductions</div>
+      <div style="font-size: 0.75rem; color: var(--gray-500);" id="summaryUniformTotal">$0.00</div>
+    </div>
+    <div class="stat-card" style="background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); text-align: center;">
+      <div style="font-size: 2rem; font-weight: 700; color: var(--info);" id="summaryPTOCount">0</div>
+      <div style="font-size: 0.85rem; color: var(--gray-600);">PTO Payouts</div>
+      <div style="font-size: 0.75rem; color: var(--gray-500);" id="summaryPTOHours">0 hours</div>
+    </div>
+    <div class="stat-card" style="background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); text-align: center;">
+      <div style="font-size: 2rem; font-weight: 700; color: var(--success);" id="summaryTransferCount">0</div>
+      <div style="font-size: 0.85rem; color: var(--gray-600);">Time Transfers</div>
+      <div style="font-size: 0.75rem; color: var(--gray-500);">Multi-location</div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: OVERTIME (View Only - sorted by highest OT) -->
+  <div class="card mb-lg" id="otSection">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="material-icons-round" style="color: var(--cfa-red);">schedule</span>
+        <span style="font-weight: 600;">OVERTIME</span>
+        <span class="badge" style="background: var(--cfa-red-light); color: var(--cfa-red);" id="otBadge">0 employees</span>
+      </div>
+      <span style="font-size: 0.75rem; color: var(--gray-500);">Sorted by highest OT</span>
+    </div>
+    <div class="card-body" id="otContent" style="padding: 12px;">
+      <div class="empty-state" style="padding: 40px;">
+        <span class="material-icons-round" style="font-size: 48px; color: var(--gray-300);">schedule</span>
+        <p style="color: var(--gray-500);">No overtime data</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: UNIFORM DEDUCTIONS -->
+  <div class="card mb-lg" id="uniformSection">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="material-icons-round" style="color: var(--warning);">checkroom</span>
+        <span style="font-weight: 600;">UNIFORM DEDUCTIONS</span>
+        <span class="badge" style="background: #FEF3C7; color: var(--warning);" id="uniformBadge">0 orders</span>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="toggleAllChecks('uniform')">
+        <span class="material-icons-round" style="font-size: 16px;">check_box</span>
+        Check All
+      </button>
+    </div>
+    <div class="card-body" id="uniformContent">
+      <div class="empty-state" style="padding: 40px;">
+        <span class="material-icons-round" style="font-size: 48px; color: var(--gray-300);">checkroom</span>
+        <p style="color: var(--gray-500);">No uniform deductions</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3: PTO PAYOUTS -->
+  <div class="card mb-lg" id="ptoSection">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="material-icons-round" style="color: var(--info);">beach_access</span>
+        <span style="font-weight: 600;">PTO PAYOUTS</span>
+        <span class="badge" style="background: var(--info-light); color: var(--info);" id="ptoBadge">0 requests</span>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="toggleAllChecks('pto')">
+        <span class="material-icons-round" style="font-size: 16px;">check_box</span>
+        Check All
+      </button>
+    </div>
+    <div class="card-body" id="ptoContent">
+      <div class="empty-state" style="padding: 40px;">
+        <span class="material-icons-round" style="font-size: 48px; color: var(--gray-300);">beach_access</span>
+        <p style="color: var(--gray-500);">No PTO payouts</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 4: TIME TRANSFERS -->
+  <div class="card mb-lg" id="transferSection">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="material-icons-round" style="color: var(--success);">swap_horiz</span>
+        <span style="font-weight: 600;">TIME TRANSFERS</span>
+        <span class="badge" style="background: var(--success-light); color: var(--success);" id="transferBadge">0 employees</span>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="toggleAllChecks('transfer')">
+        <span class="material-icons-round" style="font-size: 16px;">check_box</span>
+        Check All
+      </button>
+    </div>
+    <div class="card-body" id="transferContent">
+      <div class="empty-state" style="padding: 40px;">
+        <span class="material-icons-round" style="font-size: 48px; color: var(--gray-300);">swap_horiz</span>
+        <p style="color: var(--gray-500);">No multi-location employees</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Skip Payment Confirmation Modal -->
+<div class="modal-overlay" id="skipModal" style="display: none;">
+  <div class="modal-content" style="max-width: 450px;">
+    <div class="modal-header">
+      <h3>Skip This Payment?</h3>
+      <button class="btn-icon" onclick="closeSkipModal()">
+        <span class="material-icons-round">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 16px; color: var(--gray-600);">
+        This will push all remaining payments back by 2 weeks.
+      </p>
+      <div style="background: var(--gray-50); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+        <div><strong>Order:</strong> <span id="skipOrderId"></span></div>
+        <div><strong>Employee:</strong> <span id="skipEmployeeName"></span></div>
+        <div><strong>Current amount:</strong> $<span id="skipAmount"></span></div>
+      </div>
+      <p style="font-size: 0.9rem; color: var(--warning);">
+        <span class="material-icons-round" style="font-size: 16px; vertical-align: middle;">warning</span>
+        The payment will appear again on the next payroll date.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeSkipModal()">Cancel</button>
+      <button class="btn btn-primary" id="confirmSkipBtn" onclick="executeSkipPayment()">
+        Skip Payment
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Mark Complete Confirmation Modal -->
+<div class="modal-overlay" id="completeModal" style="display: none;">
+  <div class="modal-content" style="max-width: 450px;">
+    <div class="modal-header">
+      <h3>Mark Payroll Complete?</h3>
+      <button class="btn-icon" onclick="closeCompleteModal()">
+        <span class="material-icons-round">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 16px; color: var(--gray-600);">This will:</p>
+      <ul style="margin-bottom: 16px; padding-left: 20px; color: var(--gray-700);">
+        <li>Mark <strong id="completeUniformCount">0</strong> uniform payments as complete</li>
+        <li>Mark <strong id="completePTOCount">0</strong> PTO requests as paid</li>
+        <li>Advance next payroll date to <strong id="completeNextDate">-</strong></li>
+      </ul>
+      <div style="background: var(--gray-50); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+        <div><strong>Skipped payments:</strong> <span id="completeSkippedCount">0</span></div>
+      </div>
+      <p style="font-size: 0.9rem; color: var(--error);">
+        <span class="material-icons-round" style="font-size: 16px; vertical-align: middle;">warning</span>
+        This action cannot be undone.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeCompleteModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="executeMarkComplete()">
+        <span class="material-icons-round" style="font-size: 18px;">check_circle</span>
+        Mark Complete
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal-overlay" id="successModal" style="display: none;">
+  <div class="modal-content" style="max-width: 450px; text-align: center;">
+    <div class="modal-body" style="padding: 32px;">
+      <div style="width: 80px; height: 80px; background: var(--success-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+        <span class="material-icons-round" style="font-size: 48px; color: var(--success);">check_circle</span>
+      </div>
+      <h2 style="margin-bottom: 8px; color: var(--gray-800);">Payroll Complete!</h2>
+      <p style="color: var(--gray-600); margin-bottom: 24px;">Payment date: <span id="successPayrollDate"></span></p>
+      
+      <div style="background: var(--gray-50); padding: 16px; border-radius: 8px; text-align: left; margin-bottom: 24px;">
+        <div style="margin-bottom: 8px;"><strong>Processed:</strong></div>
+        <div style="color: var(--gray-600);">• <span id="successUniformCount">0</span> uniform payments</div>
+        <div style="color: var(--gray-600);">• <span id="successPTOCount">0</span> PTO payouts</div>
+      </div>
+      
+      <div style="background: var(--cfa-red-light); padding: 12px; border-radius: 8px; margin-bottom: 24px;">
+        <strong style="color: var(--cfa-red);">Next Payroll:</strong>
+        <div style="font-size: 1.1rem; color: var(--cfa-red);" id="successNextDate"></div>
+      </div>
+      
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button class="btn btn-outline" onclick="closeSuccessModal(); loadView('home');">
+          Return to Dashboard
+        </button>
+        <button class="btn btn-primary" onclick="closeSuccessModal(); generatePayrollReport();">
+          View Next Payroll
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Pre-Payroll Validation Styles */
+  .validation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: var(--gray-100);
+    color: var(--gray-600);
+  }
+  
+  .validation-badge.ready {
+    background: var(--success-light);
+    color: var(--success);
+  }
+  
+  .validation-badge.warnings {
+    background: #FEF3C7;
+    color: #D97706;
+  }
+  
+  .validation-badge.errors {
+    background: #FEE2E2;
+    color: #DC2626;
+  }
+  
+  .validation-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    color: var(--gray-500);
+  }
+  
+  .validation-summary {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  
+  .validation-stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  
+  .validation-stat.success {
+    background: var(--success-light);
+    color: var(--success);
+  }
+  
+  .validation-stat.warning {
+    background: #FEF3C7;
+    color: #D97706;
+  }
+  
+  .validation-stat.error {
+    background: #FEE2E2;
+    color: #DC2626;
+  }
+  
+  .validation-checks {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .validation-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--gray-50);
+    transition: background 0.2s;
+  }
+  
+  .validation-check.clickable {
+    cursor: pointer;
+  }
+  
+  .validation-check.clickable:hover {
+    background: var(--gray-100);
+  }
+  
+  .validation-check-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .validation-check-icon.success { color: var(--success); }
+  .validation-check-icon.warning { color: #D97706; }
+  .validation-check-icon.error { color: #DC2626; }
+  
+  .validation-check-content {
+    flex: 1;
+  }
+  
+  .validation-check-title {
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: 2px;
+  }
+  
+  .validation-check-message {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+  }
+  
+  .validation-check-action {
+    flex-shrink: 0;
+    color: var(--primary);
+  }
+  
+  /* ===== Accordion-Style Validation (Chunk improvement) ===== */
+  .validation-accordion {
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    border: 1px solid var(--gray-200);
+  }
+  
+  .validation-accordion.success {
+    border-color: var(--success);
+    background: rgba(16, 185, 129, 0.05);
+  }
+  
+  .validation-accordion.warning {
+    border-color: #F59E0B;
+    background: rgba(245, 158, 11, 0.05);
+  }
+  
+  .validation-accordion.error {
+    border-color: #DC2626;
+    background: rgba(220, 38, 38, 0.05);
+  }
+  
+  .validation-accordion-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+  
+  .validation-accordion-header.expandable {
+    cursor: pointer;
+  }
+  
+  .validation-accordion-header.expandable:hover {
+    background: rgba(0, 0, 0, 0.03);
+  }
+  
+  .validation-expand-icon {
+    flex-shrink: 0;
+    color: var(--gray-400);
+    transition: transform 0.2s;
+  }
+  
+  .validation-accordion.expanded .validation-expand-icon {
+    transform: rotate(180deg);
+  }
+  
+  .validation-accordion-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+    background: rgba(255, 255, 255, 0.8);
+    border-top: 1px solid var(--gray-200);
+  }
+  
+  .validation-accordion.expanded .validation-accordion-body {
+    padding: 16px;
+  }
+  
+  .validation-details {
+    margin-bottom: 12px;
+  }
+  
+  .validation-details-title {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--gray-700);
+    margin-bottom: 8px;
+  }
+  
+  .validation-details-list {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 0.85rem;
+    color: var(--gray-600);
+  }
+  
+  .validation-details-list li {
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--gray-200);
+  }
+  
+  .validation-details-list li:last-child {
+    border-bottom: none;
+  }
+  
+  .validation-howtofix {
+    background: #FEF3C7;
+    padding: 12px;
+    border-radius: 6px;
+    margin-top: 12px;
+  }
+  
+  .validation-howtofix-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #92400E;
+    margin-bottom: 6px;
+  }
+  
+  .validation-howtofix p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #78350F;
+    line-height: 1.5;
+  }
+  
+  .spin {
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Payroll Processing specific styles */
+  .payroll-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  
+  .payroll-item:last-child {
+    border-bottom: none;
+  }
+  
+  .payroll-checkbox {
+    margin-top: 4px;
+  }
+  
+  .payroll-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--cfa-red);
+  }
+  
+  .payroll-item-content {
+    flex: 1;
+  }
+  
+  .payroll-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  
+  .payroll-item-name {
+    font-weight: 600;
+    color: var(--gray-800);
+  }
+  
+  .payroll-item-location {
+    font-size: 0.85rem;
+    color: var(--gray-500);
+  }
+  
+  .payroll-item-details {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    line-height: 1.5;
+  }
+  
+  .payroll-item-details strong {
+    color: var(--gray-800);
+  }
+  
+  .badge-final {
+    background: var(--success);
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 8px;
+  }
+  
+  .badge-hs {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.8rem;
+    margin-left: 8px;
+  }
+  
+  .badge-hs.confirmed {
+    color: var(--success);
+  }
+  
+  .badge-hs.not-confirmed {
+    color: var(--warning);
+  }
+  
+  .skip-btn {
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    background: var(--gray-100);
+    border: 1px solid var(--gray-300);
+    border-radius: 4px;
+    color: var(--gray-600);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .skip-btn:hover {
+    background: var(--warning);
+    border-color: var(--warning);
+    color: white;
+  }
+  
+  .items-summary {
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    margin-top: 4px;
+    font-style: italic;
+  }
+  
+  .transfer-locations {
+    margin-top: 8px;
+    padding-left: 16px;
+  }
+  
+  .transfer-location {
+    margin-bottom: 4px;
+    font-size: 0.85rem;
+  }
+  
+  .transfer-summary {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--cfa-red-light);
+    border-radius: 6px;
+    color: var(--cfa-red);
+    font-weight: 500;
+    font-size: 0.85rem;
+  }
+  
+  .item-skipped {
+    opacity: 0.5;
+    text-decoration: line-through;
+  }
+  
+  .item-skipped .skip-btn {
+    display: none;
+  }
+  
+  .skipped-badge {
+    background: var(--gray-400);
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 8px;
+  }
+
+  /* Modal styles */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-height: 90vh;
+    overflow: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  
+  .modal-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+  
+  .modal-body {
+    padding: 20px;
+  }
+  
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--gray-200);
+    background: var(--gray-50);
+  }
+
+  @media (max-width: 768px) {
+    #summaryCards {
+      grid-template-columns: repeat(2, 1fr) !important;
+    }
+  }
+  
+  /* ===== Compact OT Grid (Read-Only) ===== */
+  .ot-compact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+  }
+  
+  .ot-compact-card {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 10px 12px;
+    transition: border-color 0.2s;
+  }
+  
+  .ot-compact-card.moderate-ot {
+    background: #FFFBEB;
+    border-color: #F59E0B;
+  }
+  
+  .ot-compact-card.high-ot {
+    background: #FEF2F2;
+    border-color: #DC2626;
+  }
+  
+  .ot-compact-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  
+  .ot-compact-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--gray-800);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+  
+  .ot-compact-hours {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--cfa-red);
+    white-space: nowrap;
+  }
+  
+  .ot-compact-card.moderate-ot .ot-compact-hours {
+    color: #D97706;
+  }
+  
+  .ot-compact-card.high-ot .ot-compact-hours {
+    color: #DC2626;
+  }
+  
+  .ot-compact-details {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    margin-bottom: 4px;
+  }
+  
+  .ot-multi-badge {
+    background: var(--info-light);
+    color: var(--info);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 600;
+  }
+  
+  .ot-compact-breakdown {
+    font-size: 0.7rem;
+    color: var(--gray-400);
+  }
+</style>
+

@@ -1,0 +1,620 @@
+<!-- ================================================================
+     VIEW: PAYROLL CALENDAR (CHUNK 15)
+     Full calendar view showing payroll dates, deductions, and events
+     ================================================================ -->
+
+<style>
+  .calendar-container {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+  }
+  
+  @media (max-width: 1024px) {
+    .calendar-container {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  /* Calendar Grid */
+  .calendar-grid {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+  
+  .calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+  }
+  
+  .calendar-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  
+  .calendar-nav {
+    display: flex;
+    gap: 8px;
+  }
+  
+  .calendar-nav button {
+    background: white;
+    border: 1px solid var(--gray-300);
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.85rem;
+  }
+  
+  .calendar-nav button:hover {
+    background: var(--gray-100);
+  }
+  
+  .calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: var(--gray-100);
+    border-bottom: 1px solid var(--gray-200);
+  }
+  
+  .calendar-weekday {
+    padding: 10px;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--gray-500);
+    text-transform: uppercase;
+  }
+  
+  .calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+  }
+  
+  .calendar-day {
+    min-height: 80px;
+    border-right: 1px solid var(--gray-100);
+    border-bottom: 1px solid var(--gray-100);
+    padding: 8px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  
+  .calendar-day:nth-child(7n) {
+    border-right: none;
+  }
+  
+  .calendar-day:hover {
+    background: var(--gray-50);
+  }
+  
+  .calendar-day.other-month {
+    background: var(--gray-50);
+  }
+  
+  .calendar-day.other-month .day-number {
+    color: var(--gray-400);
+  }
+  
+  .calendar-day.today {
+    background: rgba(99, 102, 241, 0.05);
+  }
+  
+  .calendar-day.today .day-number {
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .day-number {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--gray-700);
+    margin-bottom: 4px;
+  }
+  
+  .day-events {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  
+  .day-event {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+  }
+  
+  .day-event.payday {
+    background: var(--success);
+    color: white;
+  }
+  
+  .day-event.period-start {
+    background: var(--info);
+    color: white;
+  }
+  
+  .day-event.ot-due {
+    background: #F59E0B;
+    color: white;
+  }
+  
+  /* Sidebar */
+  .calendar-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .sidebar-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+  
+  .sidebar-card-header {
+    padding: 12px 16px;
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+    font-weight: 600;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .sidebar-card-body {
+    padding: 16px;
+  }
+  
+  /* Next Payday Card */
+  .next-payday-card {
+    background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+    color: white;
+  }
+  
+  .next-payday-card .sidebar-card-header {
+    background: rgba(0,0,0,0.1);
+    border: none;
+    color: white;
+  }
+  
+  .next-payday-big {
+    text-align: center;
+    padding: 10px 0;
+  }
+  
+  .next-payday-big .date {
+    font-size: 2rem;
+    font-weight: 700;
+  }
+  
+  .next-payday-big .countdown {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-top: 4px;
+  }
+  
+  .next-payday-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.2);
+  }
+  
+  .next-payday-stat {
+    text-align: center;
+  }
+  
+  .next-payday-stat .value {
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+  
+  .next-payday-stat .label {
+    font-size: 0.7rem;
+    opacity: 0.9;
+    text-transform: uppercase;
+  }
+  
+  /* Upcoming Paydays List */
+  .upcoming-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .upcoming-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background: var(--gray-50);
+    border-radius: 8px;
+  }
+  
+  .upcoming-item .date-badge {
+    background: white;
+    padding: 8px 10px;
+    border-radius: 6px;
+    text-align: center;
+    min-width: 50px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+  
+  .upcoming-item .date-badge .day {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    line-height: 1;
+  }
+  
+  .upcoming-item .date-badge .month {
+    font-size: 0.65rem;
+    color: var(--gray-500);
+    text-transform: uppercase;
+  }
+  
+  .upcoming-item .details {
+    flex: 1;
+  }
+  
+  .upcoming-item .details .amount {
+    font-weight: 600;
+    color: var(--gray-800);
+  }
+  
+  .upcoming-item .details .meta {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+  }
+  
+  /* Past Paydays Toggle */
+  .past-toggle {
+    padding: 12px 16px;
+    background: var(--gray-50);
+    border: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .past-toggle:hover {
+    background: var(--gray-100);
+  }
+  
+  .past-paydays {
+    display: none;
+    padding: 16px;
+    border-top: 1px solid var(--gray-200);
+  }
+  
+  .past-paydays.visible {
+    display: block;
+  }
+  
+  .past-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--gray-100);
+    font-size: 0.85rem;
+  }
+  
+  .past-item:last-child {
+    border-bottom: none;
+  }
+  
+  .past-item .date {
+    color: var(--gray-600);
+  }
+  
+  .past-item .amount {
+    font-weight: 600;
+    color: var(--gray-800);
+  }
+  
+  /* Loading State */
+  .calendar-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px;
+    gap: 12px;
+    color: var(--gray-500);
+  }
+  
+  /* Legend */
+  .calendar-legend {
+    display: flex;
+    gap: 16px;
+    padding: 12px 20px;
+    background: var(--gray-50);
+    border-top: 1px solid var(--gray-200);
+    flex-wrap: wrap;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--gray-600);
+  }
+  
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+  
+  .legend-dot.payday { background: var(--success); }
+  .legend-dot.period { background: var(--info); }
+  .legend-dot.ot-due { background: #F59E0B; }
+  
+  /* Day Detail Modal */
+  .day-detail-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .day-detail-modal.visible {
+    display: flex;
+  }
+  
+  .day-detail-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow: auto;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  }
+  
+  .day-detail-header {
+    padding: 20px;
+    background: var(--success);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .day-detail-header h3 {
+    margin: 0;
+  }
+  
+  .day-detail-header .close-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .day-detail-body {
+    padding: 20px;
+  }
+  
+  .deduction-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .deduction-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: var(--gray-50);
+    border-radius: 8px;
+  }
+  
+  .deduction-item .employee {
+    font-weight: 600;
+  }
+  
+  .deduction-item .payment-info {
+    font-size: 0.8rem;
+    color: var(--gray-500);
+  }
+  
+  .deduction-item .amount {
+    font-weight: 700;
+    color: var(--success);
+  }
+  
+  .deduction-total {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 2px solid var(--gray-200);
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.1rem;
+  }
+  
+  .deduction-total .label {
+    font-weight: 600;
+  }
+  
+  .deduction-total .amount {
+    font-weight: 700;
+    color: var(--success);
+  }
+</style>
+
+<div class="calendar-container">
+  <!-- Main Calendar -->
+  <div class="calendar-main">
+    <div class="calendar-grid">
+      <div class="calendar-header">
+        <h3 id="calendarMonthYear">Loading...</h3>
+        <div class="calendar-nav">
+          <button onclick="navigateCalendar(-1)">
+            <span class="material-icons-round" style="font-size: 18px;">chevron_left</span>
+            Prev
+          </button>
+          <button onclick="navigateCalendar(0)">Today</button>
+          <button onclick="navigateCalendar(1)">
+            Next
+            <span class="material-icons-round" style="font-size: 18px;">chevron_right</span>
+          </button>
+        </div>
+      </div>
+      
+      <div class="calendar-weekdays">
+        <div class="calendar-weekday">Sun</div>
+        <div class="calendar-weekday">Mon</div>
+        <div class="calendar-weekday">Tue</div>
+        <div class="calendar-weekday">Wed</div>
+        <div class="calendar-weekday">Thu</div>
+        <div class="calendar-weekday">Fri</div>
+        <div class="calendar-weekday">Sat</div>
+      </div>
+      
+      <div class="calendar-days" id="calendarDays">
+        <div class="calendar-loading">
+          <div class="spinner" style="width: 32px; height: 32px;"></div>
+          <span>Loading calendar...</span>
+        </div>
+      </div>
+      
+      <div class="calendar-legend">
+        <div class="legend-item tooltip-wrap">
+          <div class="legend-dot payday"></div>
+          <span>Payday</span>
+          <span class="tooltip-icon" tabindex="0" style="margin-left: 4px;">
+            <span class="material-icons-round">help_outline</span>
+            <span class="tooltip-text right">Bi-weekly payday (every other Friday). Click to see deduction details for that date.</span>
+          </span>
+        </div>
+        <div class="legend-item tooltip-wrap">
+          <div class="legend-dot period"></div>
+          <span>Pay Period Start</span>
+          <span class="tooltip-icon" tabindex="0" style="margin-left: 4px;">
+            <span class="material-icons-round">help_outline</span>
+            <span class="tooltip-text right">The first day (Sunday) of each bi-weekly pay period. Work from Sunday-Saturday.</span>
+          </span>
+        </div>
+        <div class="legend-item tooltip-wrap">
+          <div class="legend-dot ot-due"></div>
+          <span>Time Punches Due</span>
+          <span class="tooltip-icon" tabindex="0" style="margin-left: 4px;">
+            <span class="material-icons-round">help_outline</span>
+            <span class="tooltip-text right">Upload time punch data from CFA Home by this date to include in payroll processing.</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Sidebar -->
+  <div class="calendar-sidebar">
+    <!-- Next Payday Card -->
+    <div class="sidebar-card next-payday-card">
+      <div class="sidebar-card-header">
+        <span class="material-icons-round">event</span>
+        Next Payday
+      </div>
+      <div class="sidebar-card-body">
+        <div class="next-payday-big" id="nextPaydayInfo">
+          <div class="date">--</div>
+          <div class="countdown">Loading...</div>
+        </div>
+        <div class="next-payday-stats" id="nextPaydayStats">
+          <div class="next-payday-stat">
+            <div class="value">--</div>
+            <div class="label">Total Deductions</div>
+          </div>
+          <div class="next-payday-stat">
+            <div class="value">--</div>
+            <div class="label">Employees</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Upcoming Paydays -->
+    <div class="sidebar-card">
+      <div class="sidebar-card-header">
+        <span class="material-icons-round">date_range</span>
+        Upcoming Paydays
+      </div>
+      <div class="sidebar-card-body">
+        <div class="upcoming-list" id="upcomingPaydaysList">
+          <div class="calendar-loading">
+            <div class="spinner" style="width: 24px; height: 24px;"></div>
+          </div>
+        </div>
+      </div>
+      <button class="past-toggle" onclick="togglePastPaydays()">
+        <span class="material-icons-round" style="font-size: 18px;">history</span>
+        Show Past Payrolls
+        <span class="material-icons-round" style="font-size: 18px; margin-left: auto;">expand_more</span>
+      </button>
+      <div class="past-paydays" id="pastPaydays">
+        <!-- Past paydays will be loaded here -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Day Detail Modal -->
+<div class="day-detail-modal" id="dayDetailModal">
+  <div class="day-detail-content">
+    <div class="day-detail-header">
+      <h3 id="dayDetailTitle">Payday Details</h3>
+      <button class="close-btn" onclick="closeDayDetail()">
+        <span class="material-icons-round">close</span>
+      </button>
+    </div>
+    <div class="day-detail-body" id="dayDetailBody">
+      <!-- Detail content loaded dynamically -->
+    </div>
+  </div>
+</div>
+

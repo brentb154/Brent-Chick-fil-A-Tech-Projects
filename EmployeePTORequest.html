@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Request Time Off / Solicitar Tiempo Libre</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cfa-red: #E51636;
+      --cfa-red-dark: #C41230;
+      --cfa-red-light: #FFE8EC;
+      --success: #22C55E;
+      --success-light: #DCFCE7;
+      --warning: #F59E0B;
+      --error: #EF4444;
+      --gray-50: #F9FAFB;
+      --gray-100: #F3F4F6;
+      --gray-200: #E5E7EB;
+      --gray-300: #D1D5DB;
+      --gray-400: #9CA3AF;
+      --gray-500: #6B7280;
+      --gray-600: #4B5563;
+      --gray-700: #374151;
+      --gray-800: #1F2937;
+      --gray-900: #111827;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, var(--cfa-red) 0%, var(--cfa-red-dark) 100%);
+      min-height: 100vh;
+      padding: 16px;
+      color: var(--gray-800);
+    }
+
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, var(--cfa-red) 0%, var(--cfa-red-dark) 100%);
+      color: white;
+      padding: 24px 20px;
+      text-align: center;
+    }
+
+    .header-icon {
+      font-size: 48px;
+      margin-bottom: 8px;
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .header h2 {
+      font-size: 1.1rem;
+      font-weight: 400;
+      opacity: 0.9;
+    }
+
+    .form-content {
+      padding: 24px 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: 4px;
+      font-size: 0.95rem;
+    }
+
+    .form-label-spanish {
+      display: block;
+      font-weight: 400;
+      color: var(--gray-500);
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 16px; /* Prevents zoom on iOS */
+      border: 2px solid var(--gray-200);
+      border-radius: 10px;
+      background: white;
+      color: var(--gray-800);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--cfa-red);
+      box-shadow: 0 0 0 3px var(--cfa-red-light);
+    }
+
+    .form-control.error {
+      border-color: var(--error);
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+    }
+
+    select.form-control {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%236B7280'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 40px;
+    }
+
+    .date-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .date-row .form-group {
+      flex: 1;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px;
+      background: var(--gray-50);
+      border-radius: 10px;
+      border: 2px solid var(--gray-200);
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .checkbox-group:hover {
+      background: var(--gray-100);
+    }
+
+    .checkbox-group.checked {
+      background: var(--success-light);
+      border-color: var(--success);
+    }
+    
+    .checkbox-group.error {
+      border-color: var(--error);
+      background: #FEF2F2;
+      animation: shake 0.5s;
+    }
+    
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: 24px;
+      height: 24px;
+      margin-top: 2px;
+      accent-color: var(--success);
+      cursor: pointer;
+    }
+
+    .checkbox-label {
+      flex: 1;
+    }
+
+    .checkbox-label-en {
+      font-weight: 500;
+      color: var(--gray-700);
+      font-size: 0.95rem;
+      margin-bottom: 4px;
+    }
+
+    .checkbox-label-es {
+      color: var(--gray-500);
+      font-size: 0.85rem;
+    }
+
+    textarea.form-control {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .required {
+      color: var(--cfa-red);
+    }
+
+    .required-note {
+      font-size: 0.8rem;
+      color: var(--gray-500);
+      margin-top: 16px;
+      text-align: center;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 16px 24px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--cfa-red) 0%, var(--cfa-red-dark) 100%);
+      color: white;
+      box-shadow: 0 4px 12px rgba(229, 22, 54, 0.3);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(229, 22, 54, 0.4);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: var(--gray-100);
+      color: var(--gray-700);
+      border: 2px solid var(--gray-200);
+    }
+
+    .btn-secondary:hover {
+      background: var(--gray-200);
+    }
+
+    .error-message {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid var(--error);
+      color: var(--error);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+
+    /* Success Screen */
+    .success-screen {
+      display: none;
+      text-align: center;
+      padding: 32px 20px;
+    }
+
+    .success-screen.show {
+      display: block;
+    }
+
+    .success-icon {
+      width: 80px;
+      height: 80px;
+      background: var(--success-light);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+    }
+
+    .success-icon .material-icons-round {
+      font-size: 48px;
+      color: var(--success);
+    }
+
+    .success-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--gray-800);
+      margin-bottom: 4px;
+    }
+
+    .success-subtitle {
+      font-size: 1.1rem;
+      color: var(--gray-500);
+      margin-bottom: 24px;
+    }
+
+    .success-details {
+      background: var(--gray-50);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    .success-detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .success-detail-row:last-child {
+      border-bottom: none;
+    }
+
+    .success-detail-label {
+      color: var(--gray-500);
+      font-size: 0.85rem;
+    }
+
+    .success-detail-value {
+      color: var(--gray-800);
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-align: right;
+    }
+
+    .success-ptoId {
+      background: var(--cfa-red-light);
+      color: var(--cfa-red);
+      font-size: 1.5rem;
+      font-weight: 700;
+      padding: 12px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: inline-block;
+    }
+
+    .success-note {
+      background: var(--gray-50);
+      border-left: 4px solid var(--cfa-red);
+      padding: 16px;
+      margin: 24px 0;
+      font-size: 0.9rem;
+      color: var(--gray-600);
+      text-align: left;
+    }
+
+    .success-note p {
+      margin-bottom: 8px;
+    }
+
+    .success-note p:last-child {
+      margin-bottom: 0;
+    }
+
+    .success-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    /* Loading Spinner */
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Hide form when success shows */
+    .form-content.hidden {
+      display: none;
+    }
+
+    /* Loading overlay */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .loading-overlay.show {
+      display: flex;
+    }
+
+    .loading-content {
+      background: white;
+      padding: 32px;
+      border-radius: 16px;
+      text-align: center;
+    }
+
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid var(--gray-200);
+      border-radius: 50%;
+      border-top-color: var(--cfa-red);
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    .loading-text {
+      font-weight: 500;
+      color: var(--gray-600);
+    }
+    
+    /* CHUNK 19: Undo Toast */
+    .undo-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #1F2937;
+      color: white;
+      padding: 14px 20px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      z-index: 2000;
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      max-width: 90%;
+      pointer-events: none; /* Prevent blocking clicks when hidden */
+    }
+    
+    .undo-toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+      pointer-events: auto; /* Allow clicks when visible */
+    }
+    
+    .undo-toast-message {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+    }
+    
+    .undo-toast-message .material-icons-round {
+      color: var(--success);
+      font-size: 22px;
+    }
+    
+    .undo-toast-text {
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+    
+    .undo-toast-btn {
+      background: white;
+      color: #1F2937;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+      line-height: 1.3;
+      text-align: center;
+    }
+    
+    .undo-toast-btn:hover {
+      background: #E5E7EB;
+    }
+    
+    .undo-toast-countdown {
+      font-size: 0.8rem;
+      color: #9CA3AF;
+      margin-left: -8px;
+    }
+    
+    .undo-toast-close {
+      background: transparent;
+      border: none;
+      color: #9CA3AF;
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .undo-toast-close:hover {
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <!-- Header -->
+      <div class="header">
+        <div class="header-icon">🏖️</div>
+        <h1>Request Time Off</h1>
+        <h2>Solicitar Tiempo Libre</h2>
+      </div>
+
+      <!-- Form Content -->
+      <div class="form-content" id="formContent">
+        <!-- Error Message -->
+        <div class="error-message" id="errorMessage"></div>
+
+        <!-- Employee Selection -->
+        <div class="form-group">
+          <label class="form-label">Your Name <span class="required">*</span></label>
+          <label class="form-label-spanish">Tu Nombre</label>
+          <select id="employeeSelect" class="form-control" required>
+            <option value="">Select your name / Selecciona tu nombre</option>
+          </select>
+        </div>
+
+        <!-- Hours Requested -->
+        <div class="form-group">
+          <label class="form-label">Hours Requested <span class="required">*</span></label>
+          <label class="form-label-spanish">Horas Solicitadas</label>
+          <select id="hoursInput" class="form-control" required>
+            <option value="">Select hours / Selecciona horas</option>
+            <option value="4">4 hours / horas</option>
+            <option value="8" selected>8 hours / horas (1 day / día)</option>
+            <option value="12">12 hours / horas</option>
+            <option value="16">16 hours / horas (2 days / días)</option>
+            <option value="24">24 hours / horas (3 days / días)</option>
+            <option value="32">32 hours / horas (4 days / días)</option>
+            <option value="40">40 hours / horas (5 days / días)</option>
+            <option value="48">48 hours / horas (6 days / días)</option>
+            <option value="56">56 hours / horas (7 days / días)</option>
+            <option value="64">64 hours / horas (8 days / días)</option>
+            <option value="80">80 hours / horas (10 days / días)</option>
+          </select>
+        </div>
+
+        <!-- Date Range -->
+        <div class="form-group">
+          <label class="form-label">Dates <span class="required">*</span></label>
+          <label class="form-label-spanish">Fechas</label>
+          <div class="date-row">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 0.8rem; font-weight: 500;">Start / Inicio</label>
+              <input type="date" id="startDate" class="form-control" required>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 0.8rem; font-weight: 500;">End / Fin</label>
+              <input type="date" id="endDate" class="form-control" required>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pay Period -->
+        <div class="form-group">
+          <label class="form-label">Pay Period <span class="required">*</span></label>
+          <label class="form-label-spanish">Período de Pago (¿En cuál cheque quieres que se pague?)</label>
+          <select id="payoutPeriod" class="form-control" required>
+            <option value="">Select pay period / Selecciona período</option>
+          </select>
+        </div>
+
+        <!-- HotSchedules Checkbox (Required) -->
+        <div class="form-group">
+          <div class="checkbox-group" id="hotSchedulesGroup" onclick="toggleCheckbox(event)">
+            <input type="checkbox" id="hotSchedulesCheck" onclick="event.stopPropagation(); handleCheckboxClick()">
+            <div class="checkbox-label">
+              <div class="checkbox-label-en">I have requested this time off in HotSchedules <span style="color: var(--cfa-red);">*</span></div>
+              <div class="checkbox-label-es">He solicitado este tiempo libre en HotSchedules <span style="color: var(--cfa-red);">*</span></div>
+            </div>
+          </div>
+          <small style="color: var(--gray-500); font-size: 0.8rem; margin-top: 4px; display: block;">
+            Required / Requerido
+          </small>
+        </div>
+
+        <!-- Notes -->
+        <div class="form-group">
+          <label class="form-label">Notes (optional)</label>
+          <label class="form-label-spanish">Notas (opcional)</label>
+          <textarea id="notesInput" class="form-control" placeholder="Example: Family wedding / Ejemplo: Boda familiar" maxlength="500"></textarea>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="button" id="submitBtn" class="btn btn-primary" onclick="submitForm()">
+          Submit Request / Enviar Solicitud
+        </button>
+
+        <div class="required-note">
+          <span class="required">*</span> Required / Requerido
+        </div>
+      </div>
+
+      <!-- Success Screen -->
+      <div class="success-screen" id="successScreen">
+        <div class="success-icon">
+          <span class="material-icons-round">check_circle</span>
+        </div>
+        <div class="success-title">Success! / ¡Éxito!</div>
+        <div class="success-subtitle">Your PTO request has been submitted<br>Tu solicitud de PTO ha sido enviada</div>
+        
+        <div class="success-ptoId" id="successPtoId">PTO-00000</div>
+        
+        <div class="success-details">
+          <div class="success-detail-row">
+            <span class="success-detail-label">Employee / Empleado</span>
+            <span class="success-detail-value" id="successEmployee">-</span>
+          </div>
+          <div class="success-detail-row">
+            <span class="success-detail-label">Hours / Horas</span>
+            <span class="success-detail-value" id="successHours">-</span>
+          </div>
+          <div class="success-detail-row">
+            <span class="success-detail-label">Dates / Fechas</span>
+            <span class="success-detail-value" id="successDates">-</span>
+          </div>
+          <div class="success-detail-row">
+            <span class="success-detail-label">Will be paid on / Se pagará el</span>
+            <span class="success-detail-value" id="successPayout">-</span>
+          </div>
+        </div>
+
+        <div class="success-note">
+          <p><strong>Pending Approval:</strong> The Director team will review your request. If approved, it will be included in your paycheck on the date shown above.</p>
+          <p><strong>Pendiente de Aprobación:</strong> El equipo de Directores revisará tu solicitud. Si es aprobada, se incluirá en tu cheque de pago en la fecha mostrada arriba.</p>
+        </div>
+
+        <div class="success-buttons">
+          <button type="button" class="btn btn-primary" onclick="submitAnother()">
+            Submit Another Request / Enviar Otra Solicitud
+          </button>
+          <p style="color: var(--gray-500); font-size: 0.9rem; margin-top: 8px;">
+            You can close this page now / Puedes cerrar esta página ahora
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Submitting... / Enviando...</div>
+    </div>
+  </div>
+
+  <script>
+    // Initialize form when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      // Clean up any stuck overlays from previous sessions
+      const stuckOverlay = document.getElementById('cancelledOverlay');
+      if (stuckOverlay) stuckOverlay.remove();
+      const stuckToast = document.getElementById('submissionUndoToast');
+      if (stuckToast) stuckToast.remove();
+      
+      loadEmployees();
+      loadPayrollDates();
+      setDefaultDates();
+    });
+
+    /**
+     * Loads employees into the dropdown
+     */
+    function loadEmployees() {
+      const select = document.getElementById('employeeSelect');
+      select.innerHTML = '<option value="">Loading employees... / Cargando empleados...</option>';
+      
+      google.script.run
+        .withSuccessHandler(function(employees) {
+          console.log('Employees loaded:', employees ? employees.length : 0);
+          
+          select.innerHTML = '<option value="">Select your name / Selecciona tu nombre</option>';
+          
+          if (!employees || employees.length === 0) {
+            select.innerHTML = '<option value="">No employees found / No se encontraron empleados</option>';
+            showError('No employee list available. Please contact your manager. / No hay lista de empleados disponible. Por favor contacta a tu gerente.');
+            return;
+          }
+          
+          employees.forEach(function(emp) {
+            const option = document.createElement('option');
+            option.value = emp.id;
+            option.textContent = emp.name + ' (' + emp.location + ')';
+            option.dataset.name = emp.name;
+            option.dataset.location = emp.location;
+            select.appendChild(option);
+          });
+          
+          console.log('Employee dropdown populated with', employees.length, 'employees');
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error loading employees:', error);
+          select.innerHTML = '<option value="">Error loading / Error al cargar</option>';
+          showError('Error loading employee list. Please refresh the page. / Error cargando lista de empleados. Por favor actualiza la página.');
+        })
+        .getActiveEmployeesForPTO();
+    }
+
+    /**
+     * Loads payroll dates into the dropdown
+     * Only shows pay dates AFTER the PTO end date (can only be paid after time off is taken)
+     */
+    function loadPayrollDates() {
+      const endDateInput = document.getElementById('endDate');
+      const endDate = endDateInput.value || null;
+      
+      const select = document.getElementById('payoutPeriod');
+      select.innerHTML = '<option value="">Loading pay periods... / Cargando períodos...</option>';
+      
+      google.script.run
+        .withSuccessHandler(function(dates) {
+          select.innerHTML = '<option value="">Select pay period / Selecciona período</option>';
+          
+          if (!dates || dates.length === 0) {
+            select.innerHTML = '<option value="">No available pay periods / No hay períodos disponibles</option>';
+            return;
+          }
+          
+          dates.forEach(function(d) {
+            const option = document.createElement('option');
+            option.value = d.date;
+            option.textContent = d.displayEnglish + ' / ' + d.displaySpanish;
+            select.appendChild(option);
+          });
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error loading payroll dates:', error);
+          select.innerHTML = '<option value="">Error loading / Error al cargar</option>';
+        })
+        .getUpcomingPayrollDates(endDate);
+    }
+
+    /**
+     * Sets default dates (tomorrow for start, same for end)
+     */
+    function setDefaultDates() {
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const startInput = document.getElementById('startDate');
+      const endInput = document.getElementById('endDate');
+      
+      // Set min to today
+      const todayStr = today.toISOString().split('T')[0];
+      startInput.min = todayStr;
+      endInput.min = todayStr;
+      
+      // Set default to tomorrow
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      startInput.value = tomorrowStr;
+      endInput.value = tomorrowStr;
+      
+      // Update end min when start changes
+      startInput.addEventListener('change', function() {
+        endInput.min = startInput.value;
+        if (endInput.value < startInput.value) {
+          endInput.value = startInput.value;
+        }
+        // Reload payout periods based on new dates
+        loadPayrollDates();
+      });
+      
+      // Reload payout periods when end date changes
+      // This ensures only pay dates AFTER the time off can be selected
+      endInput.addEventListener('change', function() {
+        loadPayrollDates();
+      });
+    }
+
+    /**
+     * Toggles the HotSchedules checkbox (when clicking the group area)
+     */
+    function toggleCheckbox(event) {
+      // Don't toggle if clicking directly on the checkbox (it handles itself)
+      if (event && event.target && event.target.type === 'checkbox') {
+        return;
+      }
+      
+      const checkbox = document.getElementById('hotSchedulesCheck');
+      const group = document.getElementById('hotSchedulesGroup');
+      checkbox.checked = !checkbox.checked;
+      updateCheckboxState();
+    }
+    
+    /**
+     * Handle direct checkbox click
+     */
+    function handleCheckboxClick() {
+      updateCheckboxState();
+    }
+    
+    /**
+     * Update checkbox visual state
+     */
+    function updateCheckboxState() {
+      const checkbox = document.getElementById('hotSchedulesCheck');
+      const group = document.getElementById('hotSchedulesGroup');
+      group.classList.toggle('checked', checkbox.checked);
+      // Remove error state when checked
+      if (checkbox.checked) {
+        group.classList.remove('error');
+        hideError();
+      }
+    }
+
+    /**
+     * Shows error message
+     */
+    function showError(message) {
+      const errorEl = document.getElementById('errorMessage');
+      errorEl.textContent = message;
+      errorEl.classList.add('show');
+      errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    /**
+     * Hides error message
+     */
+    function hideError() {
+      document.getElementById('errorMessage').classList.remove('show');
+    }
+
+    /**
+     * Shows/hides loading overlay
+     */
+    function showLoading(show) {
+      document.getElementById('loadingOverlay').classList.toggle('show', show);
+    }
+
+    /**
+     * Validates form inputs
+     */
+    function validateForm() {
+      hideError();
+      
+      // Remove previous error styles
+      document.querySelectorAll('.form-control.error').forEach(el => el.classList.remove('error'));
+      document.getElementById('hotSchedulesGroup').classList.remove('error');
+      
+      const employeeSelect = document.getElementById('employeeSelect');
+      const hoursInput = document.getElementById('hoursInput');
+      const startDate = document.getElementById('startDate');
+      const endDate = document.getElementById('endDate');
+      const payoutPeriod = document.getElementById('payoutPeriod');
+      
+      // Check employee
+      if (!employeeSelect.value) {
+        employeeSelect.classList.add('error');
+        showError('Please select your name / Por favor selecciona tu nombre');
+        return false;
+      }
+      
+      // Check hours
+      if (!hoursInput.value) {
+        hoursInput.classList.add('error');
+        showError('Please select hours / Por favor selecciona las horas');
+        return false;
+      }
+      
+      // Check dates
+      if (!startDate.value) {
+        startDate.classList.add('error');
+        showError('Please select a start date / Por favor selecciona una fecha de inicio');
+        return false;
+      }
+      
+      if (!endDate.value) {
+        endDate.classList.add('error');
+        showError('Please select an end date / Por favor selecciona una fecha de fin');
+        return false;
+      }
+      
+      if (endDate.value < startDate.value) {
+        endDate.classList.add('error');
+        showError('End date must be after start date / La fecha de fin debe ser después de la fecha de inicio');
+        return false;
+      }
+      
+      // Check payout period
+      if (!payoutPeriod.value) {
+        payoutPeriod.classList.add('error');
+        showError('Please select a pay period / Por favor selecciona un período de pago');
+        return false;
+      }
+      
+      // Check HotSchedules confirmation (REQUIRED)
+      const hotSchedulesCheck = document.getElementById('hotSchedulesCheck');
+      if (!hotSchedulesCheck.checked) {
+        document.getElementById('hotSchedulesGroup').classList.add('error');
+        showError('Please confirm you have requested this time off in HotSchedules / Por favor confirma que solicitaste este tiempo libre en HotSchedules');
+        return false;
+      }
+      
+      return true;
+    }
+
+    /**
+     * Submits the PTO request form
+     */
+    function submitForm() {
+      if (!validateForm()) {
+        return;
+      }
+      
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      showLoading(true);
+      
+      const formData = {
+        employeeId: document.getElementById('employeeSelect').value,
+        hoursRequested: parseFloat(document.getElementById('hoursInput').value),
+        ptoStartDate: document.getElementById('startDate').value,
+        ptoEndDate: document.getElementById('endDate').value,
+        payoutPeriod: document.getElementById('payoutPeriod').value,
+        hotSchedulesConfirmed: document.getElementById('hotSchedulesCheck').checked,
+        notes: document.getElementById('notesInput').value.trim()
+      };
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          showLoading(false);
+          
+          if (result.success) {
+            showSuccessScreen(result);
+            
+            // Show undo toast for employee to cancel if submitted by mistake
+            showSubmissionUndoToast(
+              `Request ${result.ptoId} submitted (${result.hours} hrs)`,
+              result.ptoId,
+              'pto'
+            );
+          } else {
+            submitBtn.disabled = false;
+            showError(result.error || 'Error submitting request. Please try again.');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showLoading(false);
+          submitBtn.disabled = false;
+          console.error('Submit error:', error);
+          showError('Error submitting request. Please try again. / Error al enviar la solicitud. Por favor, inténtalo de nuevo.');
+        })
+        .submitPTORequest(formData);
+    }
+
+    /**
+     * Shows the success screen with submitted data
+     */
+    function showSuccessScreen(result) {
+      document.getElementById('formContent').classList.add('hidden');
+      document.getElementById('successScreen').classList.add('show');
+      
+      document.getElementById('successPtoId').textContent = result.ptoId;
+      document.getElementById('successEmployee').textContent = result.employeeName;
+      document.getElementById('successHours').textContent = result.hours + ' hours / horas';
+      document.getElementById('successDates').textContent = result.dateRange;
+      document.getElementById('successPayout').textContent = result.payoutPeriod;
+    }
+
+    /**
+     * Reloads the form for another submission
+     */
+    function submitAnother() {
+      // Remove cancelled overlay if present
+      const overlay = document.getElementById('cancelledOverlay');
+      if (overlay) overlay.remove();
+      
+      // Reset form
+      document.getElementById('employeeSelect').value = '';
+      document.getElementById('hoursInput').value = '8'; // Default to 8 hours
+      document.getElementById('payoutPeriod').value = '';
+      document.getElementById('hotSchedulesCheck').checked = false;
+      document.getElementById('hotSchedulesGroup').classList.remove('checked');
+      document.getElementById('notesInput').value = '';
+      document.getElementById('submitBtn').disabled = false;
+      
+      // Reset dates
+      setDefaultDates();
+      
+      // Hide success, show form
+      document.getElementById('successScreen').classList.remove('show');
+      document.getElementById('formContent').classList.remove('hidden');
+      
+      // Clear errors
+      hideError();
+      document.querySelectorAll('.form-control.error').forEach(el => el.classList.remove('error'));
+      
+      // Scroll to top
+      window.scrollTo(0, 0);
+    }
+    
+    // ============================================================
+    // CHUNK 19: EMPLOYEE SUBMISSION UNDO
+    // ============================================================
+    
+    let currentSubmissionId = null;
+    let submissionUndoCountdownInterval = null;
+    const SUBMISSION_UNDO_SECONDS = 30; // 30 seconds for employee undo
+    
+    /**
+     * Show undo toast after employee submission
+     */
+    function showSubmissionUndoToast(message, submissionId, type) {
+      currentSubmissionId = submissionId;
+      
+      // Create toast if doesn't exist
+      let toast = document.getElementById('submissionUndoToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'submissionUndoToast';
+        toast.className = 'undo-toast';
+        toast.innerHTML = `
+          <div class="undo-toast-message">
+            <span class="material-icons-round">check_circle</span>
+            <div>
+              <span class="undo-toast-text"></span>
+              <div style="font-size: 0.8rem; color: #9CA3AF; margin-top: 2px;">
+                Submitted by mistake? / ¿Enviado por error?
+              </div>
+            </div>
+          </div>
+          <button class="undo-toast-btn" onclick="undoSubmission()">
+            Cancel Request<br><span style="font-size: 0.7rem;">Cancelar Solicitud</span>
+          </button>
+          <span class="submission-undo-countdown"></span>
+          <button class="undo-toast-close" onclick="hideSubmissionUndoToast()">
+            <span class="material-icons-round" style="font-size: 18px;">close</span>
+          </button>
+        `;
+        document.body.appendChild(toast);
+      }
+      
+      // Set message
+      toast.querySelector('.undo-toast-text').textContent = message;
+      
+      // Clear any existing countdown
+      if (submissionUndoCountdownInterval) {
+        clearInterval(submissionUndoCountdownInterval);
+      }
+      
+      // Start countdown
+      let secondsLeft = SUBMISSION_UNDO_SECONDS;
+      updateSubmissionUndoCountdown(secondsLeft);
+      
+      submissionUndoCountdownInterval = setInterval(() => {
+        secondsLeft--;
+        updateSubmissionUndoCountdown(secondsLeft);
+        
+        if (secondsLeft <= 0) {
+          hideSubmissionUndoToast();
+        }
+      }, 1000);
+      
+      // Show toast
+      setTimeout(() => toast.classList.add('show'), 10);
+    }
+    
+    /**
+     * Update countdown display
+     */
+    function updateSubmissionUndoCountdown(seconds) {
+      const countdown = document.querySelector('.submission-undo-countdown');
+      if (countdown) {
+        countdown.textContent = `(${seconds}s)`;
+      }
+    }
+    
+    /**
+     * Hide submission undo toast
+     */
+    function hideSubmissionUndoToast() {
+      const toast = document.getElementById('submissionUndoToast');
+      if (toast) {
+        toast.classList.remove('show');
+      }
+      if (submissionUndoCountdownInterval) {
+        clearInterval(submissionUndoCountdownInterval);
+        submissionUndoCountdownInterval = null;
+      }
+      currentSubmissionId = null;
+    }
+    
+    /**
+     * Undo/cancel PTO submission
+     */
+    function undoSubmission() {
+      console.log('undoSubmission called, currentSubmissionId:', currentSubmissionId);
+      
+      if (!currentSubmissionId) {
+        console.log('No submission ID found');
+        showError('Nothing to cancel');
+        return;
+      }
+      
+      const submissionId = currentSubmissionId;
+      console.log('Cancelling PTO request:', submissionId);
+      hideSubmissionUndoToast();
+      showLoading(true);
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          console.log('Cancel result:', result);
+          showLoading(false);
+          if (result.success) {
+            console.log('Cancel successful, showing overlay');
+            showCancelledSuccess();
+            // Wait a moment then go back to form
+            setTimeout(function() {
+              submitAnother();
+            }, 2500);
+          } else {
+            console.error('Cancel failed:', result.error);
+            showError(result.error || 'Could not cancel request');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showLoading(false);
+          console.error('Cancel PTO error:', error);
+          showError('Error cancelling request: ' + (error.message || error) + ' / Error al cancelar la solicitud.');
+        })
+        .cancelPTORequest(submissionId);
+    }
+    
+    /**
+     * Show cancelled success message
+     */
+    function showCancelledSuccess() {
+      // Create success overlay
+      let overlay = document.getElementById('cancelledOverlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'cancelledOverlay';
+        overlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 3000;
+          opacity: 0;
+          transition: opacity 0.3s;
+        `;
+        overlay.innerHTML = `
+          <div style="
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            max-width: 320px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+          ">
+            <div style="
+              width: 64px;
+              height: 64px;
+              background: #DCFCE7;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin: 0 auto 16px;
+            ">
+              <span class="material-icons-round" style="font-size: 36px; color: #22C55E;">check_circle</span>
+            </div>
+            <h3 style="margin: 0 0 8px; color: #1F2937; font-size: 1.2rem;">Request Cancelled</h3>
+            <p style="margin: 0 0 4px; color: #6B7280; font-size: 0.95rem;">Solicitud Cancelada</p>
+            <p style="margin: 16px 0 0; color: #9CA3AF; font-size: 0.85rem;">Returning to form... / Volviendo al formulario...</p>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+      }
+      
+      // Show with animation
+      setTimeout(() => overlay.style.opacity = '1', 10);
+    }
+  </script>
+</body>
+</html>
+

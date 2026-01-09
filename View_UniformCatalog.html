@@ -1,0 +1,454 @@
+<!-- Uniform Catalog View -->
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">inventory_2</span> Uniform Catalog</h2>
+    <button class="btn btn-primary btn-sm" onclick="showAddCatalogItemModal()">
+      <span class="material-icons-round">add</span> Add Item
+    </button>
+  </div>
+  <div class="card-body">
+    <div class="form-row mb-lg">
+      <div class="form-group">
+        <label>Filter by Category</label>
+        <select id="catalogCategoryFilter" class="form-control form-select" style="width: 200px;" onchange="loadCatalogTable()">
+          <option value="">All Categories</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Show</label>
+        <select id="catalogStatusFilter" class="form-control form-select" style="width: 150px;" onchange="loadCatalogTable()">
+          <option value="active">Active Only</option>
+          <option value="all">All Items</option>
+          <option value="inactive">Inactive Only</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Item Name</th>
+            <th>Category</th>
+            <th>Sizes</th>
+            <th class="numeric">Price</th>
+            <th>Active</th>
+            <th style="width: 100px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="catalogBody">
+          <tr><td colspan="7"><div class="empty-state"><span class="material-icons-round">hourglass_empty</span><p>Loading...</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Category Summary -->
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">pie_chart</span> Catalog Summary</h2>
+  </div>
+  <div class="card-body">
+    <div id="catalogSummary" class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon blue"><span class="material-icons-round">inventory_2</span></div>
+        <div class="stat-content"><h3 id="totalItems">--</h3><p>Total Items</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green"><span class="material-icons-round">check_circle</span></div>
+        <div class="stat-content"><h3 id="activeItems">--</h3><p>Active</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple"><span class="material-icons-round">category</span></div>
+        <div class="stat-content"><h3 id="categoryCount">--</h3><p>Categories</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Catalog Item Modal -->
+<div class="modal-overlay" id="addCatalogItemModal" style="display: none;">
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-header">
+      <h3><span class="material-icons-round" style="vertical-align: middle; margin-right: 8px;">add_circle</span>Add Catalog Item</h3>
+      <button class="btn-icon" onclick="closeAddCatalogItemModal()">
+        <span class="material-icons-round">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="addCatalogItemForm" onsubmit="submitAddCatalogItem(event)">
+        <div class="form-group">
+          <label class="form-label required">Item ID</label>
+          <input type="text" id="newItemId" class="form-control" placeholder="e.g., POLO-BLK" required 
+                 style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()">
+          <small style="color: var(--gray-500);">Unique identifier (letters, numbers, dashes)</small>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label required">Item Name</label>
+          <input type="text" id="newItemName" class="form-control" placeholder="e.g., Black Polo Shirt" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label required">Category</label>
+          <div style="display: flex; gap: 8px;">
+            <select id="newItemCategory" class="form-control form-select" style="flex: 1;" onchange="handleCategoryChange()">
+              <option value="">Select category...</option>
+              <!-- Categories populated dynamically -->
+            </select>
+            <button type="button" class="btn btn-outline" onclick="toggleNewCategoryInput()" title="Add new category">
+              <span class="material-icons-round">add</span>
+            </button>
+          </div>
+          <input type="text" id="newCategoryInput" class="form-control" placeholder="Enter new category name" 
+                 style="display: none; margin-top: 8px;">
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label required">Price</label>
+          <div style="position: relative;">
+            <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--gray-500);">$</span>
+            <input type="number" id="newItemPrice" class="form-control" placeholder="0.00" step="0.01" min="0" required
+                   style="padding-left: 28px;">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Available Sizes</label>
+          <div style="margin-bottom: 8px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="noSizeCheckbox" onchange="toggleSizeOptions()">
+              <span style="font-size: 14px; color: var(--gray-600);">No size (one size fits all)</span>
+            </label>
+          </div>
+          <div id="sizeOptionsContainer" class="size-checkbox-grid">
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="XS" checked>
+              <span>XS</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="S" checked>
+              <span>S</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="M" checked>
+              <span>M</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="L" checked>
+              <span>L</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="XL" checked>
+              <span>XL</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="2XL" checked>
+              <span>2XL</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="3XL" checked>
+              <span>3XL</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="4XL">
+              <span>4XL</span>
+            </label>
+          </div>
+          <div id="customSizesSection" style="margin-top: 12px;">
+            <label class="form-label" style="font-size: 13px;">Custom Sizes (comma-separated)</label>
+            <input type="text" id="newCustomSizes" class="form-control" placeholder="e.g., S/M, L/XL or 28, 30, 32">
+            <small style="color: var(--gray-500);">For hat sizes, specialty sizes, etc.</small>
+          </div>
+        </div>
+        
+        <!-- Pants-specific: Waist and Inseam Overrides -->
+        <div id="pantsOverrideSection" style="display: none; padding: 16px; background: var(--gray-50); border-radius: 8px; margin-bottom: 16px;">
+          <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--gray-700); display: flex; align-items: center; gap: 8px;">
+            <span class="material-icons-round" style="font-size: 18px;">straighten</span>
+            Pants Size Options
+          </h4>
+          <p style="font-size: 12px; color: var(--gray-500); margin-bottom: 12px;">
+            Leave blank to use global defaults from Settings. Fill in to override for this specific item.
+          </p>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label class="form-label" style="font-size: 13px;">Waist Sizes (comma-separated)</label>
+            <input type="text" id="newWaistSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34, 36">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 13px;">Inseam Sizes (comma-separated)</label>
+            <input type="text" id="newInseamSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34">
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeAddCatalogItemModal()">Cancel</button>
+      <button type="submit" form="addCatalogItemForm" class="btn btn-primary">
+        <span class="material-icons-round" style="font-size: 18px;">add</span>
+        Add Item
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* Size Checkbox Grid */
+.size-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.size-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  background: var(--gray-50);
+  border: 2px solid var(--gray-200);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.size-checkbox:hover {
+  border-color: var(--gray-300);
+  background: var(--gray-100);
+}
+
+.size-checkbox input[type="checkbox"] {
+  display: none;
+}
+
+.size-checkbox input[type="checkbox"]:checked + span {
+  color: var(--cfa-red);
+  font-weight: 600;
+}
+
+.size-checkbox:has(input:checked) {
+  border-color: var(--cfa-red);
+  background: var(--cfa-red-light);
+}
+
+.size-checkbox span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-600);
+}
+
+.size-checkbox-grid.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--gray-200);
+  background: var(--gray-50);
+}
+
+.form-label.required::after {
+  content: " *";
+  color: var(--cfa-red);
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 50%;
+  color: var(--gray-500);
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+</style>
+
+<!-- Edit Catalog Item Modal -->
+<div class="modal-overlay" id="editCatalogItemModal" style="display: none;">
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-header">
+      <h3><span class="material-icons-round" style="vertical-align: middle; margin-right: 8px;">edit</span>Edit Catalog Item</h3>
+      <button class="btn-icon" onclick="closeEditCatalogItemModal()">
+        <span class="material-icons-round">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="editCatalogItemForm" onsubmit="submitEditCatalogItem(event)">
+        <!-- Hidden field for original Item ID -->
+        <input type="hidden" id="editItemOriginalId">
+        
+        <div class="form-group">
+          <label class="form-label">Item ID</label>
+          <input type="text" id="editItemId" class="form-control" readonly 
+                 style="text-transform: uppercase; background: var(--gray-100); cursor: not-allowed;">
+          <small style="color: var(--gray-500);">Item ID cannot be changed</small>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label required">Item Name</label>
+          <input type="text" id="editItemName" class="form-control" placeholder="e.g., Black Polo Shirt" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label required">Category</label>
+          <div style="display: flex; gap: 8px;">
+            <select id="editItemCategory" class="form-control form-select" style="flex: 1;" onchange="handleEditCategoryChange()">
+              <option value="">Select category...</option>
+              <!-- Categories populated dynamically -->
+            </select>
+            <button type="button" class="btn btn-outline" onclick="toggleEditNewCategoryInput()" title="Add new category">
+              <span class="material-icons-round">add</span>
+            </button>
+          </div>
+          <input type="text" id="editNewCategoryInput" class="form-control" placeholder="Enter new category name" 
+                 style="display: none; margin-top: 8px;">
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label required">Price</label>
+          <div style="position: relative;">
+            <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--gray-500);">$</span>
+            <input type="number" id="editItemPrice" class="form-control" placeholder="0.00" step="0.01" min="0" required
+                   style="padding-left: 28px;">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Available Sizes</label>
+          <div style="margin-bottom: 8px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="editNoSizeCheckbox" onchange="toggleEditSizeOptions()">
+              <span style="font-size: 14px; color: var(--gray-600);">No size (one size fits all)</span>
+            </label>
+          </div>
+          <div id="editSizeOptionsContainer" class="size-checkbox-grid">
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="XS">
+              <span>XS</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="S">
+              <span>S</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="M">
+              <span>M</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="L">
+              <span>L</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="XL">
+              <span>XL</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="2XL">
+              <span>2XL</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="3XL">
+              <span>3XL</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="4XL">
+              <span>4XL</span>
+            </label>
+          </div>
+          <div id="editCustomSizesSection" style="margin-top: 12px;">
+            <label class="form-label" style="font-size: 13px;">Custom Sizes (comma-separated)</label>
+            <input type="text" id="editCustomSizes" class="form-control" placeholder="e.g., S/M, L/XL">
+            <small style="color: var(--gray-500);">For hat sizes, specialty sizes, etc.</small>
+          </div>
+        </div>
+        
+        <!-- Pants-specific: Waist and Inseam Overrides -->
+        <div id="editPantsOverrideSection" style="display: none; padding: 16px; background: var(--gray-50); border-radius: 8px; margin-bottom: 16px;">
+          <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--gray-700); display: flex; align-items: center; gap: 8px;">
+            <span class="material-icons-round" style="font-size: 18px;">straighten</span>
+            Pants Size Options
+          </h4>
+          <p style="font-size: 12px; color: var(--gray-500); margin-bottom: 12px;">
+            Leave blank to use global defaults from Settings. Fill in to override for this specific item.
+          </p>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label class="form-label" style="font-size: 13px;">Waist Sizes (comma-separated)</label>
+            <input type="text" id="editWaistSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34, 36">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 13px;">Inseam Sizes (comma-separated)</label>
+            <input type="text" id="editInseamSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="editItemActive">
+            <span style="font-size: 14px; color: var(--gray-600);">Item is active (available for ordering)</span>
+          </label>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeEditCatalogItemModal()">Cancel</button>
+      <button type="submit" form="editCatalogItemForm" class="btn btn-primary">
+        <span class="material-icons-round" style="font-size: 18px;">save</span>
+        Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+

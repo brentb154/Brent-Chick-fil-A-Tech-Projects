@@ -1,0 +1,120 @@
+<!-- OT Trends View -->
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">trending_up</span> OT Trends & Analytics</h2>
+    <div class="form-row">
+      <select id="trendRange" class="form-control form-select" style="width: 150px;">
+        <option value="3m">Last 3 Months</option>
+        <option value="6m" selected>Last 6 Months</option>
+        <option value="1y">Last Year</option>
+        <option value="all">All Time</option>
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="exportTrendsPDF()">
+        <span class="material-icons-round">picture_as_pdf</span> Export
+      </button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="trendsStats" class="stats-grid hidden mb-lg">
+      <div class="stat-card">
+        <div class="stat-icon purple"><span class="material-icons-round">date_range</span></div>
+        <div class="stat-content"><h3 id="trendPeriods">0</h3><p>Pay Periods</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue"><span class="material-icons-round">people</span></div>
+        <div class="stat-content"><h3 id="trendEmployees">0</h3><p>Unique Employees</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon yellow"><span class="material-icons-round">timer</span></div>
+        <div class="stat-content"><h3 id="trendTotalOT">0</h3><p>Total OT Hours</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green"><span class="material-icons-round">attach_money</span></div>
+        <div class="stat-content"><h3 id="trendTotalCost">$0</h3><p>Total OT Cost</p></div>
+      </div>
+    </div>
+    <div class="chart-row">
+      <div class="card">
+        <div class="card-header"><h2>OT Over Time</h2></div>
+        <div class="card-body"><div id="otTrendChart" class="chart-container"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h2>Top OT Employees</h2></div>
+        <div class="card-body"><div id="topEmployeesChart" class="chart-container"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">leaderboard</span> Top 15 OT Employees</h2>
+  </div>
+  <div class="card-body">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Employee</th>
+            <th class="numeric">Periods</th>
+            <th class="numeric">Total OT</th>
+            <th class="numeric">Total Cost</th>
+            <th class="numeric">Avg OT</th>
+          </tr>
+        </thead>
+        <tbody id="topEmployeesBody">
+          <tr><td colspan="6"><div class="empty-state"><span class="material-icons-round">hourglass_empty</span><p>Loading...</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">swap_horiz</span> Monthly Time Transfers</h2>
+    <select id="transferMonthSelect" class="form-control form-select" style="width: 180px;" onchange="loadMonthlyTransfers()">
+      <option value="">Select Month...</option>
+    </select>
+  </div>
+  <div class="card-body">
+    <div id="transferSummary" class="stats-grid" style="margin-bottom: var(--space-lg);">
+      <div class="stat-card">
+        <div class="stat-icon blue"><span class="material-icons-round">people</span></div>
+        <div class="stat-content"><h3 id="transferCount">--</h3><p>Multi-Location Employees</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: #FEE2E2;"><span class="material-icons-round" style="color: #991B1B;">arrow_forward</span></div>
+        <div class="stat-content"><h3 id="transferToCH">--</h3><p>Hours → Cockrell Hill</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: #DBEAFE;"><span class="material-icons-round" style="color: #1E40AF;">arrow_forward</span></div>
+        <div class="stat-content"><h3 id="transferToDBU">--</h3><p>Hours → DBU</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple"><span class="material-icons-round">sync_alt</span></div>
+        <div class="stat-content"><h3 id="transferTotal">--</h3><p>Total Hours to Transfer for EOM</p></div>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Pay-out Location</th>
+            <th class="numeric">CH Hours</th>
+            <th class="numeric">DBU Hours</th>
+            <th class="numeric">Transferred</th>
+            <th>Direction</th>
+          </tr>
+        </thead>
+        <tbody id="transferTableBody">
+          <tr><td colspan="6"><div class="empty-state"><span class="material-icons-round">info</span><p>Select a month to view transfer details</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+

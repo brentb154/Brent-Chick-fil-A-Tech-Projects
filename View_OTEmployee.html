@@ -1,0 +1,61 @@
+<!-- OT Employee Lookup View -->
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">person_search</span> Employee Lookup</h2>
+    <div class="form-row">
+      <input type="text" id="employeeSearch" class="form-control" placeholder="Search employee name..." list="employeeList" style="width: 250px;">
+      <datalist id="employeeList"></datalist>
+      <button class="btn btn-outline btn-sm" onclick="exportEmployeePDF()">
+        <span class="material-icons-round">picture_as_pdf</span> Export
+      </button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="employeeStats" class="hidden">
+      <h3 id="empName" style="font-size: 1.25rem; margin-bottom: var(--space-md);">--</h3>
+      <div id="empAlerts" class="mb-md"></div>
+      <div class="stats-grid mb-lg">
+        <div class="stat-card">
+          <div class="stat-icon purple"><span class="material-icons-round">date_range</span></div>
+          <div class="stat-content"><h3 id="empPeriods">0</h3><p>Periods</p></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow"><span class="material-icons-round">timer</span></div>
+          <div class="stat-content"><h3 id="empTotalOT">0</h3><p>Total OT</p></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon blue"><span class="material-icons-round">analytics</span></div>
+          <div class="stat-content"><h3 id="empAvgOT">0</h3><p>Avg OT/Period</p></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green"><span class="material-icons-round">attach_money</span></div>
+          <div class="stat-content"><h3 id="empCost">$0</h3><p>Total Cost</p></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon blue"><span class="material-icons-round">compare_arrows</span></div>
+          <div class="stat-content"><h3 id="empMulti">0</h3><p>Multi-Loc</p></div>
+        </div>
+      </div>
+      <div id="employeeChart" class="chart-container"></div>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Period End</th>
+            <th>Location</th>
+            <th class="numeric">Total Hrs</th>
+            <th class="numeric">OT</th>
+            <th class="numeric">Cost</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="empTableBody">
+          <tr><td colspan="6"><div class="empty-state"><span class="material-icons-round">person_search</span><h3>Search for an Employee</h3><p>Enter a name above to see their OT history</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+

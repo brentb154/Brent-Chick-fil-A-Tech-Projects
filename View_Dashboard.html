@@ -1,0 +1,727 @@
+<!-- Dashboard View -->
+
+<!-- Section 1: Period Info Bar -->
+<div class="period-info-bar" id="periodInfoBar">
+  <div class="period-info-content">
+    <div class="period-dates">
+      <span class="material-icons-round">date_range</span>
+      <span id="periodRange">Loading pay period...</span>
+    </div>
+    <div class="payroll-countdown" id="payrollCountdown">
+      <span class="material-icons-round">payments</span>
+      <span id="nextPayroll">Calculating...</span>
+    </div>
+  </div>
+  <button class="refresh-btn" onclick="refreshDashboard()" title="Refresh Dashboard">
+    <span class="material-icons-round">refresh</span>
+  </button>
+</div>
+
+<!-- Section 2: Metric Cards -->
+<div class="dashboard-metrics">
+  <div class="metric-card clickable" onclick="navigateTo('ot-trends')">
+    <div class="metric-icon yellow">
+      <span class="material-icons-round">trending_up</span>
+    </div>
+    <div class="metric-content">
+      <div class="metric-value" id="metricOTHours">--</div>
+      <div class="metric-label">OT Hours
+        <span class="tooltip-icon" tabindex="0" onclick="event.stopPropagation()">
+          <span class="material-icons-round">help_outline</span>
+          <span class="tooltip-text below">Total overtime hours worked by all employees in the most recent pay period. Click to see trends and details.</span>
+        </span>
+      </div>
+      <div class="metric-sublabel">(Latest Period)</div>
+    </div>
+    <div class="metric-change" id="otChange"></div>
+  </div>
+  
+  <div class="metric-card clickable" onclick="navigateTo('uniforms-deductions')">
+    <div class="metric-icon blue">
+      <span class="material-icons-round">checkroom</span>
+    </div>
+    <div class="metric-content">
+      <div class="metric-value" id="metricUniformDeductions">--</div>
+      <div class="metric-label">Uniform Deductions
+        <span class="tooltip-icon" tabindex="0" onclick="event.stopPropagation()">
+          <span class="material-icons-round">help_outline</span>
+          <span class="tooltip-text below">Total amount being deducted from paychecks for uniforms next payroll cycle. Click to see all active deductions.</span>
+        </span>
+      </div>
+      <div class="metric-sublabel">(Next Paycheck)</div>
+    </div>
+  </div>
+  
+  <div class="metric-card clickable" onclick="navigateTo('pto-records')">
+    <div class="metric-icon purple">
+      <span class="material-icons-round">beach_access</span>
+    </div>
+    <div class="metric-content">
+      <div class="metric-value" id="metricPTOPending">--</div>
+      <div class="metric-label">PTO Pending
+        <span class="tooltip-icon" tabindex="0" onclick="event.stopPropagation()">
+          <span class="material-icons-round">help_outline</span>
+          <span class="tooltip-text below">Number of PTO requests awaiting approval. Click to review and approve pending requests.</span>
+        </span>
+      </div>
+      <div class="metric-sublabel" id="ptoHoursSublabel">&nbsp;</div>
+    </div>
+  </div>
+  
+  <div class="metric-card clickable" onclick="scrollToAlerts()" id="alertsMetricCard">
+    <div class="metric-icon red">
+      <span class="material-icons-round">warning</span>
+    </div>
+    <div class="metric-content">
+      <div class="metric-value" id="metricAlerts">--</div>
+      <div class="metric-label">Active Alerts
+        <span class="tooltip-icon" tabindex="0" onclick="event.stopPropagation()">
+          <span class="material-icons-round">help_outline</span>
+          <span class="tooltip-text below">Issues that need your attention, like high overtime or stale orders. Click to scroll to alerts below.</span>
+        </span>
+      </div>
+      <div class="metric-sublabel" id="alertsSublabel">&nbsp;</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 3: Action Items -->
+<div class="card action-items-card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">checklist</span> Action Items This Week</h2>
+  </div>
+  <div class="card-body">
+    <div id="actionItemsList" class="action-items-list">
+      <div class="empty-state small">
+        <span class="material-icons-round">hourglass_empty</span>
+        <p>Loading action items...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 3.5: Payroll Calendar Widget (Chunk 15) -->
+<div class="card payroll-calendar-widget">
+  <div class="card-header">
+    <h2><span class="material-icons-round">event</span> Payroll Calendar</h2>
+    <button class="btn btn-outline btn-sm" onclick="refreshPayrollCalendar()">
+      <span class="material-icons-round">refresh</span>
+    </button>
+  </div>
+  <div class="card-body" id="payrollCalendarWidget" style="padding: 0;">
+    <div class="calendar-loading" style="display: flex; align-items: center; justify-content: center; gap: 12px; padding: 40px; color: #6B7280;">
+      <div class="spinner" style="width: 32px; height: 32px;"></div>
+      <span>Loading calendar...</span>
+    </div>
+  </div>
+</div>
+
+<!-- Section 4: Two-Column Insights -->
+<div class="dashboard-columns">
+  <!-- Left: Top OT Employees -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">leaderboard</span> Top OT Employees</h2>
+      <span class="badge" id="topOTPeriodBadge">Latest Period</span>
+    </div>
+    <div class="card-body">
+      <div id="topOTList" class="top-ot-list">
+        <div class="empty-state small">
+          <span class="material-icons-round">hourglass_empty</span>
+          <p>Loading...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Right: Upcoming Uniform Payments -->
+<div class="card">
+  <div class="card-header">
+      <h2><span class="material-icons-round">event</span> Upcoming Uniform Payments</h2>
+    </div>
+    <div class="card-body">
+      <div id="upcomingPaymentsList" class="upcoming-payments-list">
+        <div class="empty-state small">
+          <span class="material-icons-round">hourglass_empty</span>
+          <p>Loading...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 5: Alerts & Quick Actions -->
+<div class="dashboard-columns">
+  <!-- Left: Recent Alerts -->
+  <div class="card" id="alertsSection">
+    <div class="card-header">
+      <h2><span class="material-icons-round">notifications</span> Recent Alerts</h2>
+      <button class="btn btn-outline btn-sm" onclick="navigateTo('ot-trends')">View All</button>
+    </div>
+    <div class="card-body">
+      <div id="alertsList" class="alerts-list">
+        <div class="empty-state small">
+          <span class="material-icons-round">hourglass_empty</span>
+          <p>Loading alerts...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Right: Quick Actions -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">bolt</span> Quick Actions</h2>
+  </div>
+  <div class="card-body">
+      <div class="quick-actions-grid">
+        <button class="quick-action-btn" onclick="navigateTo('ot-upload')">
+          <span class="material-icons-round">cloud_upload</span>
+          <span>Upload OT Data</span>
+        </button>
+        <button class="quick-action-btn" onclick="navigateTo('uniforms-orders')">
+          <span class="material-icons-round">add_shopping_cart</span>
+          <span>Create Uniform Order</span>
+        </button>
+        <button class="quick-action-btn" onclick="openPTOForm()">
+          <span class="material-icons-round">beach_access</span>
+          <span>Request PTO</span>
+        </button>
+        <button class="quick-action-btn" onclick="navigateTo('payroll-processing')">
+          <span class="material-icons-round">payments</span>
+          <span>Payroll Report</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Last Updated Footer -->
+<div class="dashboard-footer">
+  <span class="material-icons-round">update</span>
+  <span id="lastUpdatedText">Last updated: --</span>
+</div>
+
+<!-- Dashboard-specific styles -->
+<style>
+/* Period Info Bar */
+.period-info-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 12px 20px;
+  margin-bottom: 24px;
+}
+
+.period-info-bar.urgent {
+  background: #FEF3C7;
+  border-color: #F59E0B;
+}
+
+.period-info-bar.today {
+  background: #FEE2E2;
+  border-color: #EF4444;
+}
+
+.period-info-content {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.period-dates, .payroll-countdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #374151;
+}
+
+.period-dates .material-icons-round,
+.payroll-countdown .material-icons-round {
+  font-size: 20px;
+  color: #6B7280;
+}
+
+.payroll-countdown strong {
+  color: var(--cfa-red);
+}
+
+.refresh-btn {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 50%;
+  color: #6B7280;
+  transition: all 0.2s;
+}
+
+.refresh-btn:hover {
+  background: #E5E7EB;
+  color: #374151;
+}
+
+.refresh-btn.spinning .material-icons-round {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Metric Cards */
+.dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.metric-card {
+  background: white;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.metric-card.clickable {
+  cursor: pointer;
+}
+
+.metric-card.clickable:hover {
+  border-color: var(--cfa-red);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.metric-card.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.metric-card.disabled:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: #E5E7EB;
+}
+
+.metric-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.metric-icon .material-icons-round {
+  font-size: 24px;
+}
+
+.metric-icon.yellow { background: #FEF3C7; color: #D97706; }
+.metric-icon.blue { background: #DBEAFE; color: #2563EB; }
+.metric-icon.purple { background: #EDE9FE; color: #7C3AED; }
+.metric-icon.red { background: #FEE2E2; color: #DC2626; }
+.metric-icon.green { background: #D1FAE5; color: #059669; }
+
+.metric-content {
+  flex: 1;
+}
+
+.metric-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.metric-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.metric-sublabel {
+  font-size: 12px;
+  color: #6B7280;
+}
+
+.metric-change {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.metric-change.up {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+.metric-change.down {
+  background: #D1FAE5;
+  color: #059669;
+}
+
+/* Action Items */
+.action-items-card {
+  margin-bottom: 24px;
+}
+
+.action-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.action-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #F9FAFB;
+  border-left: 4px solid #E5E7EB;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-item:hover {
+  background: #F3F4F6;
+}
+
+.action-item.urgent {
+  border-left-color: var(--cfa-red);
+  background: #FEF2F2;
+}
+
+.action-item.completed {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.action-item-checkbox {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #D1D5DB;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.action-item-checkbox.checked {
+  background: var(--cfa-red);
+  border-color: var(--cfa-red);
+  color: white;
+}
+
+.action-item-checkbox .material-icons-round {
+  font-size: 16px;
+}
+
+.action-item-text {
+  flex: 1;
+  font-size: 14px;
+  color: #374151;
+}
+
+.action-item-arrow {
+  color: #9CA3AF;
+}
+
+/* Dashboard Columns */
+.dashboard-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+/* Top OT List */
+.top-ot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.top-ot-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.top-ot-item:hover {
+  background: #F3F4F6;
+}
+
+.top-ot-rank {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #E5E7EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6B7280;
+}
+
+.top-ot-item:first-child .top-ot-rank {
+  background: #FEF3C7;
+  color: #D97706;
+}
+
+.top-ot-name {
+  flex: 1;
+  font-size: 14px;
+  color: #374151;
+}
+
+.top-ot-hours {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Upcoming Payments List */
+.upcoming-payments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.payment-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #F9FAFB;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.payment-item:hover {
+  background: #F3F4F6;
+}
+
+.payment-date {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  min-width: 100px;
+}
+
+.payment-details {
+  flex: 1;
+  font-size: 13px;
+  color: #6B7280;
+}
+
+.payment-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cfa-red);
+}
+
+/* Alerts List */
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #F9FAFB;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.alert-item:hover {
+  background: #F3F4F6;
+}
+
+.alert-item.warning {
+  border-left: 3px solid #F59E0B;
+}
+
+.alert-item.error {
+  border-left: 3px solid #EF4444;
+}
+
+.alert-item .material-icons-round {
+  font-size: 20px;
+}
+
+.alert-item.warning .material-icons-round {
+  color: #F59E0B;
+}
+
+.alert-item.error .material-icons-round {
+  color: #EF4444;
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.alert-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.alert-message {
+  font-size: 13px;
+  color: #6B7280;
+  margin-top: 2px;
+}
+
+/* Quick Actions Grid */
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.quick-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 16px;
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.quick-action-btn:hover {
+  background: var(--cfa-red);
+  border-color: var(--cfa-red);
+  color: white;
+}
+
+.quick-action-btn:hover .material-icons-round {
+  color: white;
+}
+
+.quick-action-btn .material-icons-round {
+  font-size: 28px;
+  color: var(--cfa-red);
+}
+
+.quick-action-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.quick-action-btn.disabled:hover {
+  background: #F9FAFB;
+  border-color: #E5E7EB;
+  color: #374151;
+}
+
+.quick-action-btn.disabled:hover .material-icons-round {
+  color: var(--cfa-red);
+}
+
+/* Dashboard Footer */
+.dashboard-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  color: #9CA3AF;
+  font-size: 12px;
+}
+
+.dashboard-footer .material-icons-round {
+  font-size: 16px;
+}
+
+/* Empty state small variant */
+.empty-state.small {
+  padding: 24px;
+}
+
+.empty-state.small .material-icons-round {
+  font-size: 32px;
+}
+
+.empty-state.small p {
+  font-size: 13px;
+}
+
+/* Badge */
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #E5E7EB;
+  color: #6B7280;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .dashboard-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .dashboard-columns {
+    grid-template-columns: 1fr;
+  }
+  
+  .period-info-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-metrics {
+    grid-template-columns: 1fr;
+  }
+  
+  .quick-actions-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

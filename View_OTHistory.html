@@ -1,0 +1,55 @@
+<!-- OT History View -->
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">history</span> Pay Period Browser</h2>
+    <div class="form-row">
+      <select id="periodSelect" class="form-control form-select" style="width: 220px;">
+        <option value="">Select a pay period...</option>
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="exportPeriodPDF()">
+        <span class="material-icons-round">picture_as_pdf</span> Export PDF
+      </button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="historyStats" class="stats-grid hidden mb-lg">
+      <div class="stat-card">
+        <div class="stat-icon purple"><span class="material-icons-round">people</span></div>
+        <div class="stat-content"><h3 id="histEmployees">0</h3><p>Employees</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon yellow"><span class="material-icons-round">timer</span></div>
+        <div class="stat-content"><h3 id="histTotalOT">0</h3><p>Total OT</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green"><span class="material-icons-round">attach_money</span></div>
+        <div class="stat-content"><h3 id="histTotalCost">$0</h3><p>OT Cost</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon red"><span class="material-icons-round">warning</span></div>
+        <div class="stat-content"><h3 id="histHighOT">0</h3><p>High OT</p></div>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Location</th>
+            <th class="numeric" id="loc1HoursHeader">Loc 1 Hrs</th>
+            <th class="numeric" id="loc2HoursHeader">Loc 2 Hrs</th>
+            <th class="numeric">Total</th>
+            <th class="numeric">OT</th>
+            <th class="numeric">Cost</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="historyTableBody">
+          <tr><td colspan="8"><div class="empty-state"><span class="material-icons-round">calendar_today</span><h3>Select a Pay Period</h3><p>Choose a period from the dropdown above</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+

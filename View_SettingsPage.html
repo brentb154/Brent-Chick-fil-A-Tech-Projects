@@ -1,0 +1,1412 @@
+<!-- Settings View -->
+<div class="settings-container">
+  
+  <!-- General Settings Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">settings</span> General Settings</h2>
+    </div>
+    <div class="card-body">
+      <form id="settingsForm" onsubmit="saveAllSettings(event)">
+        <div class="settings-grid">
+          <div class="settings-section">
+            <h3><span class="material-icons-round">attach_money</span> Cost Settings</h3>
+            <div class="form-group">
+              <label>Average Hourly Wage ($)</label>
+              <input type="number" id="settingWage" class="form-control" step="0.5" min="0" value="16.5">
+              <small class="form-hint">Used to calculate OT cost estimates</small>
+            </div>
+            <div class="form-group">
+              <label>OT Multiplier</label>
+              <input type="number" id="settingMultiplier" class="form-control" step="0.1" min="1" value="1.5">
+              <small class="form-hint">Overtime pay rate multiplier (1.5 = time and a half)</small>
+            </div>
+          </div>
+          
+          <div class="settings-section">
+            <h3><span class="material-icons-round">store</span> Location Settings</h3>
+            <div class="form-group">
+              <label>Number of Locations</label>
+              <select id="settingNumLocations" class="form-control" onchange="updateLocationFieldsVisibility()">
+                <option value="1">1 Location</option>
+                <option value="2" selected>2 Locations</option>
+                <option value="3">3 Locations</option>
+              </select>
+              <small class="form-hint">How many locations does your operation have?</small>
+            </div>
+            <div class="form-group" id="location1Group">
+              <label>Location 1 Name</label>
+              <input type="text" id="settingLoc1" class="form-control" value="Cockrell Hill DTO" placeholder="e.g., Main Store">
+            </div>
+            <div class="form-group" id="location2Group">
+              <label>Location 2 Name</label>
+              <input type="text" id="settingLoc2" class="form-control" value="DBU" placeholder="e.g., Second Location">
+            </div>
+            <div class="form-group" id="location3Group" style="display: none;">
+              <label>Location 3 Name</label>
+              <input type="text" id="settingLoc3" class="form-control" value="" placeholder="e.g., Third Location">
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Alert Thresholds Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">tune</span> Alert Thresholds</h2>
+      <span class="badge badge-info">Customize when alerts appear</span>
+    </div>
+    <div class="card-body">
+      <div class="settings-grid">
+        <div class="settings-section">
+          <h3><span class="material-icons-round">schedule</span> Overtime Thresholds</h3>
+          <div class="form-group">
+            <label>Moderate OT (hours)</label>
+            <input type="number" id="settingModerate" class="form-control" step="1" min="1" value="5">
+            <small class="form-hint">Employees with this many OT hours get a yellow flag</small>
+          </div>
+          <div class="form-group">
+            <label>High OT (hours)</label>
+            <input type="number" id="settingHigh" class="form-control" step="1" min="1" value="10">
+            <small class="form-hint">Triggers dashboard alert and optional email notification</small>
+          </div>
+          <div class="form-group">
+            <label>Really High OT (hours)</label>
+            <input type="number" id="settingReallyHigh" class="form-control" step="1" min="1" value="15">
+            <small class="form-hint">Employees with this many OT hours get a red flag</small>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <h3><span class="material-icons-round">notifications_active</span> Dashboard Alerts</h3>
+          <div class="form-group">
+            <label>Pending PTO Alert Threshold</label>
+            <input type="number" id="settingPTOThreshold" class="form-control" step="1" min="1" value="5">
+            <small class="form-hint">Show alert when pending PTO requests exceed this number</small>
+          </div>
+          <div class="form-group">
+            <label>Payroll Urgency (days)</label>
+            <input type="number" id="settingPayrollUrgency" class="form-control" step="1" min="1" max="7" value="2">
+            <small class="form-hint">Show urgent alert when payroll is due within this many days</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Email Notifications Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">email</span> Email Notifications</h2>
+      <label class="toggle-switch" style="margin-left: auto;">
+        <input type="checkbox" id="notificationsEnabled">
+        <span class="toggle-slider"></span>
+        <span class="toggle-label" id="notificationsLabel">Disabled</span>
+      </label>
+    </div>
+    <div class="card-body" id="notificationSettings">
+      <div class="form-group">
+        <label>Admin Email Address(es)</label>
+        <input type="text" id="adminEmails" class="form-control" placeholder="admin@example.com, manager@example.com">
+        <small class="form-hint">Comma-separated list of email addresses to receive notifications</small>
+      </div>
+      
+      <!-- Weekly Summary Section -->
+      <div class="weekly-summary-section" style="margin-top: 16px; padding: 16px; background: var(--gray-50); border-radius: 8px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+          <span class="material-icons-round" style="color: var(--cfa-red); font-size: 28px;">summarize</span>
+          <div>
+            <h4 style="margin: 0; font-size: 1rem;">Weekly Summary Email</h4>
+            <small style="color: var(--gray-500);">Consolidates PTO requests and Uniform orders into one weekly email</small>
+          </div>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: white; border-radius: 6px; margin-bottom: 12px;">
+          <span class="material-icons-round" style="color: var(--gray-400);">schedule</span>
+          <div>
+            <strong>Schedule:</strong> Every Saturday at 1:00 PM
+          </div>
+          <span id="weeklySummaryStatus" style="margin-left: auto; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; background: var(--gray-200); color: var(--gray-600);">
+            Checking...
+          </span>
+        </div>
+        
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="setupWeeklySummary()">
+            <span class="material-icons-round">check_circle</span> Enable Weekly Summary
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="testWeeklySummary()">
+            <span class="material-icons-round">send</span> Send Now (Test)
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="disableWeeklySummary()" style="color: var(--gray-500);">
+            <span class="material-icons-round">cancel</span> Disable
+          </button>
+        </div>
+      </div>
+      
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--gray-200);">
+      
+      <div class="notification-types">
+        <h4>Other Notification Types</h4>
+        <div class="notification-options">
+          <label class="checkbox-option">
+            <input type="checkbox" id="notifyHighOT" checked>
+            <div class="option-content">
+              <span class="material-icons-round">warning</span>
+              <div>
+                <strong>High Overtime Alerts</strong>
+                <small>Get notified when employees exceed the high OT threshold</small>
+              </div>
+            </div>
+          </label>
+          
+          <label class="checkbox-option">
+            <input type="checkbox" id="notifyPayroll" checked>
+            <div class="option-content">
+              <span class="material-icons-round">payments</span>
+              <div>
+                <strong>Payroll Reminders</strong>
+                <small>Get reminded when payroll is approaching</small>
+              </div>
+            </div>
+          </label>
+        </div>
+        <small class="form-hint" style="margin-top: 8px; display: block;">
+          <span class="material-icons-round" style="font-size: 14px; vertical-align: middle;">info</span>
+          PTO and Uniform notifications are now included in the weekly summary email
+        </small>
+      </div>
+      
+      <div class="mt-md">
+        <button type="button" class="btn btn-outline" onclick="sendTestEmail()">
+          <span class="material-icons-round">send</span> Send Test Email
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Manager Receiving Passcode Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">admin_panel_settings</span> Manager Receiving Passcode</h2>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">This passcode is used by managers to access the uniform receiving section on the employee uniform request form.</p>
+      
+      <div class="settings-grid">
+        <div class="settings-section">
+          <div class="form-group">
+            <label>Current Passcode</label>
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <input type="password" id="currentPasscodeDisplay" class="form-control" readonly style="flex: 1; font-family: monospace; letter-spacing: 2px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="togglePasscodeVisibility()" id="togglePasscodeBtn">
+                <span class="material-icons-round" id="togglePasscodeIcon">visibility</span>
+              </button>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>New Passcode</label>
+            <div style="display: flex; gap: 12px;">
+              <input type="text" id="newPasscodeInput" class="form-control" placeholder="Enter new passcode" style="flex: 1; font-family: monospace;" minlength="4" maxlength="10">
+              <button type="button" class="btn btn-primary" onclick="updateManagerPasscode()">
+                <span class="material-icons-round">save</span> Update
+              </button>
+            </div>
+            <small class="form-hint">Passcode must be at least 4 characters</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Employee Management Card -->
+  <div class="card employee-mgmt-card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">people</span> Employee Management</h2>
+      <span class="badge badge-info">Review new employees & merge duplicates</span>
+    </div>
+    <div class="card-body">
+      
+      <!-- Potential Duplicates Section -->
+      <div class="mgmt-section">
+        <div class="section-title">
+          <span class="material-icons-round">content_copy</span>
+          <h3>Potential Duplicate Employees</h3>
+          <button type="button" class="btn btn-outline btn-sm" onclick="scanForDuplicates()">
+            <span class="material-icons-round" style="font-size: 16px;">refresh</span>
+            Scan Now
+          </button>
+        </div>
+        <p class="section-desc">Employees with similar names that may be duplicates. Review and merge if needed.</p>
+        <div id="duplicatesList" class="duplicates-list">
+          <div class="empty-state-small">
+            <span class="material-icons-round">hourglass_empty</span>
+            <p>Click "Scan Now" to check for potential duplicates</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Employees Needing Review Section -->
+      <div class="mgmt-section">
+        <div class="section-title">
+          <span class="material-icons-round">rate_review</span>
+          <h3>Created via Uniform Orders</h3>
+          <button type="button" class="btn btn-outline btn-sm" onclick="loadEmployeesNeedingReview()">
+            <span class="material-icons-round" style="font-size: 16px;">refresh</span>
+            Refresh
+          </button>
+        </div>
+        <p class="section-desc">New employees created through uniform orders that should be verified for correct spelling.</p>
+        <div id="employeesNeedingReview" class="review-list">
+          <div class="empty-state-small">
+            <span class="material-icons-round">check_circle</span>
+            <p>No employees pending review</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Recent Employee Additions Log -->
+      <div class="mgmt-section">
+        <div class="section-title">
+          <span class="material-icons-round">history</span>
+          <h3>Recent Employee Additions</h3>
+        </div>
+        <div id="employeeAuditLog" class="audit-log-table">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      
+    </div>
+  </div>
+  
+  <!-- Merge Employee Modal -->
+  <div class="modal-overlay" id="mergeEmployeeModal" style="display: none;">
+    <div class="modal-content" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3><span class="material-icons-round">merge</span> Merge Employees</h3>
+        <button type="button" class="modal-close" onclick="closeMergeModal()">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 16px;">
+          Merge <strong id="mergeSourceName"></strong> into <strong id="mergeTargetName"></strong>?
+        </p>
+        
+        <input type="hidden" id="mergeSourceKey">
+        <input type="hidden" id="mergeTargetKey">
+        
+        <div class="merge-impact">
+          <h4>This will update:</h4>
+          <div id="mergeImpact">
+            <ul>
+              <li>Loading...</li>
+            </ul>
+          </div>
+        </div>
+        
+        <div class="merge-direction">
+          <p><strong>Keep which name?</strong></p>
+          <label class="radio-option">
+            <input type="radio" name="mergeKeepName" value="target" checked>
+            <span id="keepTargetLabel">Target name</span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="mergeKeepName" value="source">
+            <span id="keepSourceLabel">Source name</span>
+          </label>
+        </div>
+        
+        <div class="merge-warning">
+          <span class="material-icons-round">warning</span>
+          <span>This action cannot be undone. The source employee record will be deleted and all their data moved to the target.</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeMergeModal()">Cancel</button>
+        <button type="button" class="btn btn-danger" onclick="executeMerge()">
+          <span class="material-icons-round">merge</span>
+          Merge Employees
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Uniform Size Configuration Card -->
+  <div class="card sizes-card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">straighten</span> Uniform Size Configuration</h2>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">Configure available waist and inseam sizes for pants. These sizes appear in both the admin order form and the employee request form.</p>
+      
+      <div class="size-config-grid">
+        <!-- Female Pants -->
+        <div class="size-config-section">
+          <h4><span class="material-icons-round">female</span> Female Pants</h4>
+          <div class="form-group">
+            <label>Waist Sizes</label>
+            <input type="text" id="sizeFemaleWaist" class="form-control" placeholder="00, 0, 2, 4, 6...">
+            <small class="form-hint">Comma-separated list of waist sizes</small>
+          </div>
+          <div class="form-group">
+            <label>Inseam Sizes</label>
+            <input type="text" id="sizeFemaleInseam" class="form-control" placeholder="29, 31, 33, 35">
+            <small class="form-hint">Comma-separated list of inseam lengths</small>
+          </div>
+        </div>
+        
+        <!-- Male Pants -->
+        <div class="size-config-section">
+          <h4><span class="material-icons-round">male</span> Male Pants</h4>
+          <div class="form-group">
+            <label>Waist Sizes</label>
+            <input type="text" id="sizeMaleWaist" class="form-control" placeholder="28, 30, 32, 34...">
+            <small class="form-hint">Comma-separated list of waist sizes</small>
+          </div>
+          <div class="form-group">
+            <label>Inseam Sizes</label>
+            <input type="text" id="sizeMaleInseam" class="form-control" placeholder="28, 30, 32, 34, 36">
+            <small class="form-hint">Comma-separated list of inseam lengths</small>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Shorts (if needed) -->
+      <div class="size-config-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--gray-200);">
+        <h4><span class="material-icons-round">content_cut</span> Shorts</h4>
+        <div class="size-config-grid">
+          <div class="form-group">
+            <label>Waist Sizes</label>
+            <input type="text" id="sizeShortsWaist" class="form-control" placeholder="XS, S, M, L, XL...">
+            <small class="form-hint">Comma-separated list of waist/overall sizes</small>
+          </div>
+          <div class="form-group">
+            <label>Inseam Sizes</label>
+            <input type="text" id="sizeShortsInseam" class="form-control" placeholder="30, 32, 34">
+            <small class="form-hint">Comma-separated list of inseam lengths</small>
+          </div>
+        </div>
+      </div>
+      
+      <div class="size-config-actions" style="margin-top: 20px; display: flex; gap: 12px; align-items: center;">
+        <button type="button" class="btn btn-primary" onclick="saveSizeConfig()">
+          <span class="material-icons-round">save</span> Save Size Configuration
+        </button>
+        <button type="button" class="btn btn-outline" onclick="resetSizeConfigToDefaults()">
+          <span class="material-icons-round">restart_alt</span> Reset to Defaults
+        </button>
+        <span id="sizeConfigStatus" style="margin-left: auto; font-size: 0.85rem; color: var(--gray-500);"></span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- System Health Card -->
+  <div class="card system-health-card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">monitor_heart</span> System Health
+        <span class="tooltip-icon" tabindex="0">
+          <span class="material-icons-round">help_outline</span>
+          <span class="tooltip-text">Automated checks that detect data issues, missing sheets, stale orders, and other problems. Green = healthy, Yellow = review needed, Red = action required.</span>
+        </span>
+      </h2>
+      <span class="badge badge-success" id="healthBadge">✓ Healthy</span>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">Monitor the health of your payroll system and catch issues early.</p>
+      <div class="health-preview" id="healthPreview">
+        <div class="health-stat">
+          <span class="material-icons-round" style="color: var(--success);">check_circle</span>
+          <span>All sheets present</span>
+        </div>
+        <div class="health-stat">
+          <span class="material-icons-round" style="color: var(--success);">check_circle</span>
+          <span>ID counters active</span>
+        </div>
+      </div>
+      <button type="button" class="btn btn-outline" onclick="navigateTo('system-health')" style="margin-top: 16px;">
+        <span class="material-icons-round">open_in_new</span> View Full Health Check
+      </button>
+    </div>
+  </div>
+  
+  <!-- Data Archive Card -->
+  <div class="card archive-card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">archive</span> Data Archive
+        <span class="tooltip-icon" tabindex="0">
+          <span class="material-icons-round">help_outline</span>
+          <span class="tooltip-text">Moves old completed orders and OT data to separate archive sheets. Keeps your main sheets fast and clean. Archived data is preserved and accessible.</span>
+        </span>
+      </h2>
+      <span class="badge" id="archiveBadge">Loading...</span>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">Automatically archive old completed orders and OT data to keep your system fast.</p>
+      
+      <div class="archive-status" id="archiveStatus">
+        <div class="archive-stat">
+          <span class="material-icons-round" style="color: var(--gray-400);">schedule</span>
+          <span>Checking auto-archive status...</span>
+        </div>
+      </div>
+      
+      <div class="archive-actions" style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-outline" onclick="previewArchive()">
+          <span class="material-icons-round">preview</span> Preview Archive
+        </button>
+        <button type="button" class="btn btn-primary" onclick="runManualArchive()">
+          <span class="material-icons-round">archive</span> Run Archive Now
+        </button>
+      </div>
+      
+      <div class="archive-trigger-section" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--gray-200);">
+        <h4 style="margin-bottom: 8px; font-size: 0.9rem; color: var(--gray-700);">Automatic Archive</h4>
+        <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 12px;">
+          When enabled, old data is automatically archived on January 1st each year.
+        </p>
+        <div id="archiveTriggerControls">
+          <button type="button" class="btn btn-outline btn-sm" onclick="toggleArchiveTrigger()">
+            <span class="material-icons-round">schedule</span> Enable Auto-Archive
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Activity Log Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">history</span> Activity Log</h2>
+      <button type="button" class="btn btn-outline btn-sm" onclick="refreshActivityLog()">
+        <span class="material-icons-round">refresh</span> Refresh
+      </button>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">Recent changes and actions in the system</p>
+      <div id="activityLogContainer" class="activity-log-list">
+        <div class="loading-placeholder">
+          <span class="material-icons-round spin">sync</span>
+          <span>Loading activity...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Data Backup Card (Chunk 20) -->
+  <div class="card backup-card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">backup</span> Data Backup</h2>
+      <span class="badge" id="backupBadge">Loading...</span>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">
+        Automatic monthly backups protect your data. All sheets are exported to Google Drive as CSV files.
+      </p>
+      
+      <!-- Last Backup Status -->
+      <div class="backup-status-card" id="backupStatusCard">
+        <div class="backup-status-icon" id="backupStatusIcon">
+          <span class="material-icons-round">cloud_queue</span>
+        </div>
+        <div class="backup-status-details">
+          <div class="backup-status-title" id="backupStatusTitle">Checking backup status...</div>
+          <div class="backup-status-meta" id="backupStatusMeta"></div>
+        </div>
+        <a href="#" id="backupViewLink" class="btn btn-outline btn-sm" style="display: none;" target="_blank">
+          <span class="material-icons-round">folder_open</span> View
+        </a>
+      </div>
+      
+      <!-- Backup Actions -->
+      <div class="backup-actions" style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary" onclick="runBackupNow()" id="runBackupBtn">
+          <span class="material-icons-round">backup</span> Run Backup Now
+        </button>
+      </div>
+      
+      <!-- Auto-Backup Section -->
+      <div class="backup-auto-section" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--gray-200);">
+        <h4 style="margin-bottom: 8px; font-size: 0.9rem; color: var(--gray-700);">
+          <span class="material-icons-round" style="font-size: 18px; vertical-align: middle;">schedule</span>
+          Automatic Monthly Backup
+        </h4>
+        <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 12px;">
+          When enabled, a full backup runs automatically on the first Sunday of each month at 2:00 AM.
+        </p>
+        <div id="autoBackupControls">
+          <div class="auto-backup-status" id="autoBackupStatus">
+            <span class="material-icons-round spin">sync</span>
+            <span>Checking...</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Backup Contents Info -->
+      <div class="backup-contents" style="margin-top: 24px; padding: 16px; background: var(--gray-50); border-radius: 8px;">
+        <h4 style="margin: 0 0 12px 0; font-size: 0.85rem; color: var(--gray-600);">What Gets Backed Up:</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; font-size: 0.8rem; color: var(--gray-600);">
+          <span>📋 Uniform Orders</span>
+          <span>👥 Employee Roster</span>
+          <span>👔 Uniform Catalog</span>
+          <span>⏱️ Overtime History</span>
+          <span>🏖️ PTO Records</span>
+          <span>📝 Activity Log</span>
+          <span>⚙️ Settings</span>
+          <span>🔢 System Counters</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Time Capsule & Easter Eggs Card -->
+  <div class="card tools-card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">auto_awesome</span> Special</h2>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">Mysteries and hidden features</p>
+      
+      <div class="tools-grid">
+        <div class="tool-item" onclick="openTimeCapsule()">
+          <span class="tool-icon">📦</span>
+          <div class="tool-info">
+            <span class="tool-name">Time Capsule</span>
+            <span class="tool-desc">Locked until 2028</span>
+          </div>
+        </div>
+        
+        <div class="tool-item" onclick="showEasterEggList()">
+          <span class="tool-icon">🥚</span>
+          <div class="tool-info">
+            <span class="tool-name">Easter Eggs</span>
+            <span class="tool-desc" id="toolsEggCount">0/5 found</span>
+          </div>
+        </div>
+      </div>
+      
+      <p class="text-muted" style="font-size: 0.8rem; margin-top: 16px; font-style: italic;">
+        Rumor has it there are hidden tools in this system... 🤫
+      </p>
+    </div>
+  </div>
+  
+  <!-- Save Button -->
+  <div class="settings-actions">
+    <button type="button" class="btn btn-primary btn-lg" onclick="saveAllSettings()">
+      <span class="material-icons-round">save</span> Save All Settings
+    </button>
+  </div>
+  
+</div>
+
+<style>
+.settings-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 32px;
+}
+
+.settings-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--gray-100);
+}
+
+.settings-section h3 .material-icons-round {
+  font-size: 20px;
+  color: var(--primary);
+}
+
+.form-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--gray-500);
+  margin-top: 4px;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  display: none;
+}
+
+.toggle-slider {
+  width: 44px;
+  height: 24px;
+  background: var(--gray-300);
+  border-radius: 24px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: white;
+  border-radius: 50%;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--success);
+}
+
+.toggle-switch input:checked + .toggle-slider::after {
+  transform: translateX(20px);
+}
+
+.toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-600);
+}
+
+/* Notification Options */
+.notification-types h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 12px;
+}
+
+.notification-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.checkbox-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.checkbox-option:hover {
+  border-color: var(--primary);
+  background: white;
+}
+
+.checkbox-option input {
+  margin-top: 4px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
+.checkbox-option .option-content {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+}
+
+.checkbox-option .option-content .material-icons-round {
+  font-size: 24px;
+  color: var(--gray-400);
+}
+
+.checkbox-option input:checked ~ .option-content .material-icons-round {
+  color: var(--primary);
+}
+
+.checkbox-option .option-content strong {
+  display: block;
+  font-size: 14px;
+  color: var(--gray-800);
+  margin-bottom: 2px;
+}
+
+.checkbox-option .option-content small {
+  display: block;
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+/* Activity Log */
+.activity-log-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.activity-icon.pto { background: #DBEAFE; color: #2563EB; }
+.activity-icon.uniform { background: #FEF3C7; color: #D97706; }
+.activity-icon.payroll { background: #D1FAE5; color: #059669; }
+.activity-icon.ot { background: #FEE2E2; color: #DC2626; }
+.activity-icon.settings { background: #E5E7EB; color: #4B5563; }
+
+.activity-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-content strong {
+  display: block;
+  font-size: 14px;
+  color: var(--gray-800);
+  margin-bottom: 2px;
+}
+
+.activity-content p {
+  font-size: 13px;
+  color: var(--gray-600);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-meta {
+  font-size: 12px;
+  color: var(--gray-400);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.activity-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--gray-500);
+}
+
+.activity-empty .material-icons-round {
+  font-size: 48px;
+  color: var(--gray-300);
+  margin-bottom: 12px;
+  display: block;
+}
+
+/* Settings Actions */
+.settings-actions {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(to top, white 70%, transparent);
+  padding: 24px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.btn-lg {
+  padding: 14px 32px;
+  font-size: 16px;
+}
+
+/* Loading */
+.loading-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--gray-500);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* System Health Card */
+.system-health-card .card-header {
+  border-bottom: 2px solid var(--success-light, #DCFCE7);
+}
+
+.health-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.health-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--gray-700);
+}
+
+.health-stat .material-icons-round {
+  font-size: 20px;
+}
+
+/* Archive Card */
+.archive-card .card-header {
+  border-bottom: 2px solid #E0E7FF;
+}
+
+.archive-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.archive-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--gray-700);
+}
+
+.archive-stat .material-icons-round {
+  font-size: 20px;
+}
+
+/* Disabled state for notification settings */
+#notificationSettings.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Dark mode overrides for settings page */
+:root.dark-mode .settings-actions {
+  background: linear-gradient(to top, #0f0f1a 70%, transparent);
+}
+
+:root.dark-mode .backup-info {
+  background: var(--gray-200);
+}
+
+:root.dark-mode .backup-item {
+  background: var(--gray-200);
+}
+
+:root.dark-mode .checkbox-option {
+  background: var(--gray-200);
+  border-color: var(--gray-300);
+}
+
+:root.dark-mode .checkbox-option:hover {
+  background: var(--gray-100);
+  border-color: var(--cfa-red);
+}
+
+:root.dark-mode .comment-input-wrapper {
+  background: var(--gray-200);
+  border-color: var(--gray-300);
+}
+
+:root.dark-mode .activity-log-list {
+  border-color: var(--gray-300);
+}
+
+:root.dark-mode .activity-item {
+  border-color: var(--gray-300);
+}
+
+:root.dark-mode .form-hint {
+  color: var(--gray-500);
+}
+
+/* Backup Card Styles (Chunk 20) */
+.backup-card .card-header {
+  border-bottom: 2px solid #DBEAFE;
+}
+
+.backup-status-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--gray-50);
+  border-radius: 10px;
+  border: 1px solid var(--gray-200);
+}
+
+.backup-status-card.success {
+  background: #D1FAE5;
+  border-color: #10B981;
+}
+
+.backup-status-card.warning {
+  background: #FEF3C7;
+  border-color: #F59E0B;
+}
+
+.backup-status-card.error {
+  background: #FEE2E2;
+  border-color: #EF4444;
+}
+
+.backup-status-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.backup-status-icon .material-icons-round {
+  font-size: 28px;
+  color: var(--gray-400);
+}
+
+.backup-status-card.success .backup-status-icon .material-icons-round {
+  color: #10B981;
+}
+
+.backup-status-card.warning .backup-status-icon .material-icons-round {
+  color: #F59E0B;
+}
+
+.backup-status-card.error .backup-status-icon .material-icons-round {
+  color: #EF4444;
+}
+
+.backup-status-details {
+  flex: 1;
+}
+
+.backup-status-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--gray-800);
+}
+
+.backup-status-meta {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+  margin-top: 2px;
+}
+
+.auto-backup-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--gray-100);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--gray-600);
+}
+
+.auto-backup-status.enabled {
+  background: #D1FAE5;
+  color: #059669;
+}
+
+.auto-backup-status.enabled .material-icons-round {
+  color: #10B981;
+}
+
+.auto-backup-status.disabled {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+/* Tools & Extras Card */
+.tools-card .card-header {
+  border-bottom: 2px solid #E9D5FF;
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.tool-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--gray-50);
+  border-radius: 10px;
+  border: 1px solid var(--gray-200);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tool-item:hover {
+  background: var(--gray-100);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+}
+
+.tool-icon {
+  font-size: 32px;
+}
+
+.tool-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tool-name {
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.tool-desc {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+}
+
+/* Uniform Size Configuration Card */
+.sizes-card .card-header {
+  border-bottom: 2px solid #C7D2FE;
+}
+
+.size-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.size-config-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--gray-100);
+}
+
+.size-config-section h4 .material-icons-round {
+  font-size: 20px;
+  color: var(--primary);
+}
+
+.size-config-section .form-group {
+  margin-bottom: 12px;
+}
+
+.size-config-section .form-control {
+  font-family: 'SF Mono', Monaco, 'Consolas', monospace;
+  font-size: 13px;
+}
+
+/* ===== Employee Management Styles ===== */
+.employee-mgmt-card {
+  margin-bottom: 24px;
+}
+
+.mgmt-section {
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.mgmt-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.section-title h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  flex: 1;
+}
+
+.section-title .material-icons-round {
+  color: var(--primary);
+}
+
+.section-desc {
+  margin: 0 0 14px 0;
+  font-size: 0.85rem;
+  color: var(--gray-500);
+}
+
+.duplicates-list, .review-list {
+  background: var(--gray-50);
+  border-radius: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.empty-state-small {
+  padding: 24px;
+  text-align: center;
+  color: var(--gray-500);
+}
+
+.empty-state-small .material-icons-round {
+  font-size: 32px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.empty-state-small p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.duplicate-pair, .review-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--gray-200);
+  background: white;
+}
+
+.duplicate-pair:first-child, .review-item:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.duplicate-pair:last-child, .review-item:last-child {
+  border-bottom: none;
+  border-radius: 0 0 8px 8px;
+}
+
+.duplicate-pair:only-child, .review-item:only-child {
+  border-radius: 8px;
+}
+
+.duplicate-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.duplicate-info strong {
+  color: var(--gray-800);
+}
+
+.duplicate-info .vs {
+  color: var(--gray-400);
+  font-size: 0.9rem;
+}
+
+.similarity-badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  background: #FEF3C7;
+  color: #92400E;
+  border-radius: 4px;
+}
+
+.review-item-info {
+  flex: 1;
+}
+
+.review-item-name {
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.review-item-meta {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+  margin-top: 2px;
+}
+
+.review-item-warning {
+  font-size: 0.75rem;
+  color: #D97706;
+  background: #FEF3C7;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+.audit-log-table {
+  max-height: 250px;
+  overflow-y: auto;
+  font-size: 0.85rem;
+}
+
+.audit-log-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.audit-log-table th, .audit-log-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.audit-log-table th {
+  background: var(--gray-100);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--gray-600);
+  position: sticky;
+  top: 0;
+}
+
+.audit-log-table tr:hover {
+  background: var(--gray-50);
+}
+
+.method-badge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.method-badge.ot-upload {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.method-badge.uniform-order {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.method-badge.merge {
+  background: #E0E7FF;
+  color: #4338CA;
+}
+
+/* Merge Modal Styles */
+.merge-impact {
+  background: var(--gray-50);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.merge-impact h4 {
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+}
+
+.merge-impact ul {
+  margin: 0;
+  padding: 0 0 0 20px;
+}
+
+.merge-impact li {
+  margin: 4px 0;
+  color: var(--gray-600);
+}
+
+.merge-direction {
+  margin-bottom: 16px;
+}
+
+.merge-direction p {
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 6px 0;
+  background: var(--gray-50);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.radio-option:hover {
+  background: var(--gray-100);
+}
+
+.radio-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
+.merge-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #7F1D1D;
+}
+
+.merge-warning .material-icons-round {
+  color: #DC2626;
+  flex-shrink: 0;
+}
+
+.btn-danger {
+  background: #DC2626;
+  color: white;
+  border: none;
+}
+
+.btn-danger:hover {
+  background: #B91C1C;
+}
+</style>

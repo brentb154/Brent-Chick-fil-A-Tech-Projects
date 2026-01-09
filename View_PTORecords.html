@@ -1,0 +1,357 @@
+<!-- PTO Records Admin View -->
+<div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <span class="material-icons-round" style="font-size: 28px; color: var(--cfa-red);">beach_access</span>
+    <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700;">PTO Records</h2>
+  </div>
+  <div style="display: flex; gap: 8px;">
+    <button class="btn btn-outline" onclick="exportPTOToCSV()" title="Export to CSV">
+      <span class="material-icons-round" style="font-size: 18px;">download</span>
+      Export CSV
+    </button>
+    <button class="btn btn-primary" onclick="showBatchPayModal()" title="Batch Mark as Paid">
+      <span class="material-icons-round" style="font-size: 18px;">payments</span>
+      Batch Pay
+    </button>
+  </div>
+</div>
+
+<!-- Stats Summary -->
+<div class="stats-row" style="display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">
+  <div class="stat-card" style="flex: 1; min-width: 140px; background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+    <div style="font-size: 0.8rem; color: var(--gray-500); margin-bottom: 4px;">Pending Requests</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: var(--cfa-red);" id="statPendingCount">-</div>
+  </div>
+  <div class="stat-card" style="flex: 1; min-width: 140px; background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+    <div style="font-size: 0.8rem; color: var(--gray-500); margin-bottom: 4px;">Pending Hours</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: var(--warning);" id="statPendingHours">-</div>
+  </div>
+  <div class="stat-card" style="flex: 1; min-width: 140px; background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+    <div style="font-size: 0.8rem; color: var(--gray-500); margin-bottom: 4px;">This Week</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: var(--info);" id="statRecentCount">-</div>
+  </div>
+  <div class="stat-card" style="flex: 1; min-width: 140px; background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+    <div style="font-size: 0.8rem; color: var(--gray-500); margin-bottom: 4px;">Total Paid</div>
+    <div style="font-size: 1.8rem; font-weight: 700; color: var(--success);" id="statPaidHours">-</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-lg">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span class="material-icons-round" style="color: var(--gray-500);">filter_list</span>
+      <span style="font-weight: 600;">Filters</span>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <input type="text" id="ptoSearchInput" class="form-control" placeholder="Search employee..." 
+             style="width: 180px;" oninput="filterPTORecords()">
+      <select id="ptoStatusFilter" class="form-control form-select" style="width: 130px;" onchange="loadPTORecords()">
+        <option value="Pending" selected>⏳ Pending</option>
+        <option value="Paid">✅ Paid</option>
+        <option value="Denied">❌ Denied</option>
+        <option value="Cancelled">✗ Cancelled</option>
+        <option value="">All Statuses</option>
+      </select>
+      <select id="ptoLocationFilter" class="form-control form-select" style="width: 150px;" onchange="loadPTORecords()">
+        <option value="">All Locations</option>
+        <!-- Locations populated dynamically from settings -->
+      </select>
+      <select id="ptoPayoutFilter" class="form-control form-select" style="width: 160px;" onchange="loadPTORecords()">
+        <option value="">All Pay Periods</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- PTO Records List -->
+<div class="card">
+  <div class="card-body" style="padding: 0;">
+    <table class="data-table" id="ptoTable" style="width: 100%;">
+      <thead>
+        <tr>
+          <th style="width: 30px;"><input type="checkbox" id="selectAllPTO" onchange="toggleSelectAllPTO(this)"></th>
+          <th>PTO ID</th>
+          <th>Employee</th>
+          <th>Location</th>
+          <th>Hours</th>
+          <th>Dates</th>
+          <th>Payout</th>
+          <th>HotSchedules</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="ptoTableBody">
+        <tr>
+          <td colspan="10">
+            <div class="empty-state" style="padding: 40px;">
+              <span class="material-icons-round" style="font-size: 48px; color: var(--gray-300);">beach_access</span>
+              <h3 style="margin: 16px 0 8px; color: var(--gray-600);">Loading PTO Records...</h3>
+              <p style="color: var(--gray-500);">Please wait</p>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--gray-50); border-top: 1px solid var(--gray-200);">
+    <div id="ptoRecordsCount" style="color: var(--gray-600); font-size: 0.9rem;">
+      Showing 0 records
+    </div>
+    <div id="ptoTotalHours" style="color: var(--gray-600); font-size: 0.9rem;">
+      Total: 0 hours
+    </div>
+  </div>
+</div>
+
+<!-- PTO Details Modal -->
+<div class="modal-overlay" id="ptoDetailsModal" style="display: none;">
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-header">
+      <h3 id="ptoModalTitle">PTO Details</h3>
+      <button class="btn-icon" onclick="closePTOModal()">
+        <span class="material-icons-round">close</span>
+      </button>
+    </div>
+    <div class="modal-body" id="ptoModalBody">
+      <!-- Populated by JavaScript -->
+    </div>
+    <div class="modal-footer" id="ptoModalFooter">
+      <!-- Populated by JavaScript -->
+    </div>
+  </div>
+</div>
+
+<!-- Batch Pay Modal -->
+<div class="modal-overlay" id="batchPayModal" style="display: none;">
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-header">
+      <h3>Batch Mark as Paid</h3>
+      <button class="btn-icon" onclick="closeBatchPayModal()">
+        <span class="material-icons-round">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 16px; color: var(--gray-600);">
+        Select a pay period to mark all pending PTO requests as paid:
+      </p>
+      <div class="form-group">
+        <label class="form-label">Pay Period</label>
+        <select id="batchPayPeriod" class="form-control form-select">
+          <option value="">Select pay period...</option>
+        </select>
+      </div>
+      <div id="batchPayPreview" style="background: var(--gray-50); border-radius: 8px; padding: 16px; margin-top: 16px; display: none;">
+        <div style="font-weight: 600; margin-bottom: 8px;">Preview:</div>
+        <div id="batchPayCount" style="color: var(--gray-600);">0 requests</div>
+        <div id="batchPayHours" style="color: var(--gray-600);">0 hours total</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeBatchPayModal()">Cancel</button>
+      <button class="btn btn-primary" id="batchPayBtn" onclick="executeBatchPay()" disabled>
+        <span class="material-icons-round" style="font-size: 18px;">payments</span>
+        Mark All as Paid
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit PTO Modal -->
+<div class="modal-overlay" id="editPTOModal" style="display: none;">
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-header">
+      <h3>Edit PTO Request</h3>
+      <button class="btn-icon" onclick="closeEditPTOModal()">
+        <span class="material-icons-round">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editPtoId">
+      <div class="form-group">
+        <label class="form-label">Hours</label>
+        <input type="number" id="editHours" class="form-control" min="0.5" max="80" step="0.5">
+      </div>
+      <div class="form-row" style="display: flex; gap: 12px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Start Date</label>
+          <input type="date" id="editStartDate" class="form-control">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">End Date</label>
+          <input type="date" id="editEndDate" class="form-control">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Payout Period</label>
+        <select id="editPayoutPeriod" class="form-control form-select">
+          <option value="">Select pay period...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select id="editStatus" class="form-control form-select">
+          <option value="Pending">Pending</option>
+          <option value="Paid">Paid</option>
+          <option value="Denied">Denied</option>
+          <option value="Cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea id="editNotes" class="form-control" rows="3"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeEditPTOModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditPTO()">
+        <span class="material-icons-round" style="font-size: 18px;">save</span>
+        Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* PTO-specific styles */
+  .pto-row {
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  
+  .pto-row:hover {
+    background: var(--gray-50);
+  }
+  
+  .pto-row td {
+    padding: 12px 16px;
+    vertical-align: middle;
+  }
+  
+  .pto-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+  
+  .pto-status.pending {
+    background: #FEF3C7;
+    color: #D97706;
+  }
+  
+  .pto-status.paid {
+    background: var(--success-light);
+    color: var(--success);
+  }
+  
+  .pto-status.denied {
+    background: #FEE2E2;
+    color: #DC2626;
+  }
+  
+  .pto-status.cancelled {
+    background: var(--gray-100);
+    color: var(--gray-500);
+  }
+  
+  .hs-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.85rem;
+  }
+  
+  .hs-badge.confirmed {
+    color: var(--success);
+  }
+  
+  .hs-badge.not-confirmed {
+    color: var(--gray-400);
+  }
+  
+  .action-btns {
+    display: flex;
+    gap: 4px;
+  }
+  
+  .action-btns .btn-sm {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+  }
+  
+  /* Modal styles */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-height: 90vh;
+    overflow: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  
+  .modal-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+  
+  .modal-body {
+    padding: 20px;
+  }
+  
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--gray-200);
+    background: var(--gray-50);
+  }
+  
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  
+  .detail-row:last-child {
+    border-bottom: none;
+  }
+  
+  .detail-label {
+    color: var(--gray-500);
+    font-size: 0.9rem;
+  }
+  
+  .detail-value {
+    font-weight: 500;
+    color: var(--gray-800);
+  }
+</style>
+

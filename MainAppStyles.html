@@ -1,0 +1,410 @@
+<style>
+/* ==================== MAIN APP LAYOUT ==================== */
+.main-app-container {
+  display: flex;
+  min-height: 100vh;
+  background: #F9FAFB;
+}
+
+/* ==================== SIDEBAR ==================== */
+.sidebar {
+  width: 260px;
+  min-width: 260px;
+  background: #FFFFFF;
+  border-right: 1px solid #E5E7EB;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+/* Sidebar Header */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.sidebar-logo {
+  font-size: 28px;
+  color: var(--cfa-red);
+}
+
+.sidebar-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.02em;
+}
+
+/* Sidebar Navigation */
+.sidebar-nav {
+  flex: 1;
+  padding: 12px 0;
+  overflow-y: auto;
+}
+
+.nav-divider {
+  height: 1px;
+  background: #E5E7EB;
+  margin: 8px 16px;
+}
+
+/* Section Label (for external links section) */
+.nav-section-label {
+  padding: 8px 20px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #9CA3AF;
+}
+
+/* External Link styling */
+.nav-item.external-link {
+  position: relative;
+}
+
+.nav-item.external-link .external-icon {
+  font-size: 14px !important;
+  opacity: 0.5;
+  margin-left: auto;
+}
+
+.nav-item.external-link:hover .external-icon {
+  opacity: 1;
+  color: var(--cfa-red);
+}
+
+/* Navigation Items */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  color: #374151;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+
+.nav-item:hover {
+  background: #F3F4F6;
+  color: var(--cfa-red);
+}
+
+.nav-item.active {
+  background: #FEE2E2;
+  color: var(--cfa-red);
+  border-left-color: var(--cfa-red);
+}
+
+.nav-item .material-icons-round {
+  font-size: 20px;
+  opacity: 0.8;
+}
+
+.nav-item.active .material-icons-round {
+  opacity: 1;
+}
+
+/* Sub-items (indented) */
+.nav-item.sub-item {
+  padding-left: 52px;
+  font-size: 13px;
+}
+
+/* Section Headers */
+.nav-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 20px;
+  background: none;
+  border: none;
+  color: #6B7280;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nav-section-header:hover {
+  color: #374151;
+  background: #F9FAFB;
+}
+
+.nav-section-header .material-icons-round:first-child {
+  font-size: 20px;
+  color: #9CA3AF;
+}
+
+.nav-section-header span:nth-child(2) {
+  flex: 1;
+  text-align: left;
+}
+
+.section-arrow {
+  font-size: 18px !important;
+  transition: transform 0.2s ease;
+}
+
+/* Expanded state */
+.nav-section.expanded .section-arrow {
+  transform: rotate(0deg);
+}
+
+.nav-section:not(.expanded) .section-arrow {
+  transform: rotate(-90deg);
+}
+
+/* Section Items Container */
+.nav-section-items {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+
+.nav-section-items.expanded {
+  max-height: 300px;
+}
+
+/* Disabled sections (coming soon) */
+.nav-section.disabled {
+  opacity: 0.5;
+}
+
+.nav-section.disabled .nav-section-header {
+  cursor: not-allowed;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #E5E7EB;
+  text-align: center;
+}
+
+.version-text {
+  font-size: 11px;
+  color: #9CA3AF;
+}
+
+/* ==================== MAIN CONTENT ==================== */
+.main-content {
+  flex: 1;
+  margin-left: 260px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #FFFFFF;
+}
+
+/* Content Header */
+.content-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E5E7EB;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.content-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+#viewActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Header Actions Container */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.search-trigger-text {
+  display: inline;
+}
+
+@media (max-width: 640px) {
+  .search-trigger-text {
+    display: none;
+  }
+  
+  .search-trigger .search-shortcut {
+    display: none;
+  }
+}
+
+/* View Container */
+.view-container {
+  flex: 1;
+  padding: 32px;
+  overflow-y: auto;
+}
+
+/* View Loading State */
+.view-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  color: #6B7280;
+}
+
+.view-loading p {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 220px;
+    min-width: 220px;
+  }
+  
+  .main-content {
+    margin-left: 220px;
+  }
+  
+  .nav-item.sub-item {
+    padding-left: 44px;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  
+  .main-content {
+    margin-left: 0;
+  }
+  
+  .content-header {
+    padding: 16px 20px;
+  }
+  
+  .view-container {
+    padding: 20px;
+  }
+}
+
+/* ==================== HIDE OLD APP CONTAINER STYLES ==================== */
+/* These override styles from Styles.html when using MainApp */
+.main-app-container .app-container,
+.main-app-container .app-header,
+.main-app-container .nav-tabs {
+  display: none;
+}
+
+/* ==================== DARK MODE FOR MAIN APP ==================== */
+:root.dark-mode .main-app-container {
+  background: #0f0f1a;
+}
+
+:root.dark-mode .sidebar {
+  background: #1a1a2e;
+  border-color: #2d2d4a;
+}
+
+:root.dark-mode .sidebar-header {
+  border-color: #2d2d4a;
+}
+
+:root.dark-mode .sidebar-title {
+  color: #f4f4f7;
+}
+
+:root.dark-mode .nav-divider {
+  background: #2d2d4a;
+}
+
+:root.dark-mode .nav-section-label {
+  color: #6b6b8a;
+}
+
+:root.dark-mode .nav-item {
+  color: #b0b0c4;
+}
+
+:root.dark-mode .nav-item:hover {
+  background: #2d2d4a;
+  color: var(--cfa-red);
+}
+
+:root.dark-mode .nav-item.active {
+  background: rgba(229, 22, 54, 0.15);
+  color: var(--cfa-red);
+}
+
+:root.dark-mode .nav-section-header {
+  color: #6b6b8a;
+}
+
+:root.dark-mode .nav-section-header:hover {
+  background: #2d2d4a;
+  color: #b0b0c4;
+}
+
+:root.dark-mode .nav-section-header .material-icons-round:first-child {
+  color: #6b6b8a;
+}
+
+:root.dark-mode .sidebar-footer {
+  border-color: #2d2d4a;
+}
+
+:root.dark-mode .main-content {
+  background: #0f0f1a;
+}
+
+:root.dark-mode .content-header {
+  background: #1a1a2e;
+  border-color: #2d2d4a;
+}
+
+:root.dark-mode .content-header h1 {
+  color: #f4f4f7;
+}
+
+:root.dark-mode .view-loading {
+  color: #9090a8;
+}
+
+/* Smooth transition for dark mode */
+.sidebar, .main-content, .content-header, .nav-item, .nav-section-header {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+</style>
+

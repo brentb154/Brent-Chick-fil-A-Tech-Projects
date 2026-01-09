@@ -1,0 +1,1042 @@
+<!-- Help & Documentation View -->
+<div class="help-page-container">
+  
+  <!-- Tab Navigation -->
+  <div class="help-tabs">
+    <button class="help-tab active" onclick="switchHelpTab('guide')" id="tab-guide">
+      <span class="material-icons-round">menu_book</span> User Guide
+    </button>
+    <button class="help-tab" onclick="switchHelpTab('mistakes')" id="tab-mistakes">
+      <span class="material-icons-round">warning</span> Common Mistakes
+    </button>
+    <button class="help-tab" onclick="switchHelpTab('maintenance')" id="tab-maintenance">
+      <span class="material-icons-round">checklist</span> Maintenance
+    </button>
+    <button class="help-tab" onclick="switchHelpTab('troubleshooting')" id="tab-troubleshooting">
+      <span class="material-icons-round">build</span> Troubleshooting
+    </button>
+    <button class="help-tab" onclick="switchHelpTab('about')" id="tab-about">
+      <span class="material-icons-round">info</span> About
+    </button>
+  </div>
+  
+  <!-- User Guide Tab -->
+  <div class="help-tab-content active" id="content-guide">
+    <div class="help-intro">
+      <h2>📚 OT Tracker Pro User Guide</h2>
+      <p>Everything you need to know to manage payroll, overtime tracking, and uniform orders.</p>
+    </div>
+    
+    <!-- Replay Tutorial Button -->
+    <div class="replay-tutorial-banner">
+      <div class="replay-content">
+        <span class="material-icons-round">school</span>
+        <div>
+          <strong>New here?</strong> Take an interactive 5-minute tour of the system.
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="replayOnboardingTour()">
+        <span class="material-icons-round">play_circle</span> Start Tutorial
+      </button>
+    </div>
+    
+    <!-- Quick Start -->
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">rocket_launch</span>
+        <h3>Quick Start for New Managers</h3>
+      </div>
+      <div class="help-card-body">
+        <p>New to this system? Here's what you need to know:</p>
+        <ol class="help-steps">
+          <li><strong>Check the Dashboard daily</strong> - See OT metrics and pending items</li>
+          <li><strong>Upload OT data bi-weekly</strong> - After each pay period closes</li>
+          <li><strong>Process uniform orders</strong> - When items arrive, mark them received</li>
+          <li><strong>Run payroll deductions</strong> - Generate reports for each pay period</li>
+          <li><strong>Check System Health weekly</strong> - Catch issues before they cause problems</li>
+        </ol>
+      </div>
+    </div>
+    
+    <!-- OT Tracking -->
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">schedule</span>
+        <h3>Overtime Tracking</h3>
+      </div>
+      <div class="help-card-body">
+        <h4>Getting the Data from CFA Home</h4>
+        <ol class="help-steps">
+          <li>Go to <strong>CFA Home</strong></li>
+          <li>Navigate to <strong>Analytics Hub → DataFeeds</strong></li>
+          <li>Select <strong>Time Punches Included Open Punches</strong></li>
+          <li>Set the correct pay period date range</li>
+          <li>Download as <strong>CSV</strong></li>
+        </ol>
+        
+        <h4>Uploading the Data</h4>
+        <ol class="help-steps">
+          <li>Go to <strong>Overtime → Upload Data</strong> in this app</li>
+          <li>Drag the CSV file into the upload area</li>
+          <li>Review the preview, then click <strong>Import Data</strong></li>
+        </ol>
+        
+        <h4>Understanding OT Flags</h4>
+        <div class="help-flags">
+          <div class="help-flag green">
+            <span class="dot"></span>
+            <span><strong>Green</strong> - Under 5 hours OT (normal)</span>
+          </div>
+          <div class="help-flag yellow">
+            <span class="dot"></span>
+            <span><strong>Yellow</strong> - 5-10 hours OT (review recommended)</span>
+          </div>
+          <div class="help-flag red">
+            <span class="dot"></span>
+            <span><strong>Red</strong> - Over 10 hours OT (needs attention)</span>
+          </div>
+        </div>
+        <p class="help-note">Thresholds can be adjusted in Settings.</p>
+      </div>
+    </div>
+    
+    <!-- Uniform Orders -->
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">checkroom</span>
+        <h3>Uniform Orders</h3>
+      </div>
+      <div class="help-card-body">
+        <h4>Processing Pending Orders</h4>
+        <ol class="help-steps">
+          <li>Go to the <strong>Uniform Request Form</strong> (separate page)</li>
+          <li>Click <strong>Access Manager Section</strong> and enter the passcode</li>
+          <li>Find the order and check off items as they arrive</li>
+          <li>Click <strong>Save & Activate Order</strong></li>
+          <li>Deductions will start on the next payroll</li>
+        </ol>
+        
+        <h4>Payment Plans</h4>
+        <ul>
+          <li><strong>1 Paycheck</strong> - Full amount deducted at once</li>
+          <li><strong>2 Paychecks</strong> - Split evenly across 2 pay periods</li>
+          <li><strong>3 Paychecks</strong> - Split evenly across 3 pay periods</li>
+        </ul>
+        
+        <h4>What if items never arrive?</h4>
+        <p>Leave items unchecked. Only checked items are charged. After 90 days, the System Health check will flag the order for review.</p>
+      </div>
+    </div>
+    
+    <!-- Payroll Processing -->
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">payments</span>
+        <h3>Payroll Processing</h3>
+      </div>
+      <div class="help-card-body">
+        <h4>Running Payroll Deductions</h4>
+        <ol class="help-steps">
+          <li>Go to <strong>Payroll Processing</strong></li>
+          <li>Select the pay period date</li>
+          <li>Click <strong>Generate Report</strong></li>
+          <li>Review all deductions</li>
+          <li>Export to CSV for your payroll system</li>
+          <li>Mark payments as made after processing</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Common Mistakes Tab -->
+  <div class="help-tab-content" id="content-mistakes">
+    <div class="help-intro">
+      <h2>⚠️ Common Mistakes & How to Fix Them</h2>
+      <p>Everyone makes mistakes! Here's how to identify and fix the most common issues.</p>
+    </div>
+    
+    <!-- Mistake 1: Order activated too early -->
+    <div class="help-card mistake-card">
+      <div class="help-card-header">
+        <span class="material-icons-round" style="color: #F59E0B;">warning</span>
+        <h3>"I activated an order before the items arrived"</h3>
+      </div>
+      <div class="help-card-body">
+        <p class="mistake-scenario"><strong>What happened:</strong> You clicked "Save and Activate" but the uniform items haven't actually been delivered yet.</p>
+        <div class="mistake-fix">
+          <h4>How to Fix:</h4>
+          <ol class="help-steps">
+            <li>If within 12 hours: Look for the <strong>Undo</strong> button in the notification that appeared after activation</li>
+            <li>If more than 12 hours: Go to <strong>Uniform Orders → Active Orders</strong></li>
+            <li>Find the order and click <strong>Deactivate</strong></li>
+            <li>The order will return to Pending status</li>
+            <li>When items arrive, activate again</li>
+          </ol>
+        </div>
+        <div class="mistake-prevention">
+          <strong>Prevention:</strong> Only activate orders when you physically have the items in hand
+        </div>
+      </div>
+    </div>
+    
+    <!-- Mistake 2: Wrong employee charged -->
+    <div class="help-card mistake-card">
+      <div class="help-card-header">
+        <span class="material-icons-round" style="color: #F59E0B;">warning</span>
+        <h3>"An employee says they were charged incorrectly"</h3>
+      </div>
+      <div class="help-card-body">
+        <p class="mistake-scenario"><strong>What happened:</strong> An employee claims their paycheck deduction is wrong.</p>
+        <div class="mistake-fix">
+          <h4>How to Investigate:</h4>
+          <ol class="help-steps">
+            <li>Go to <strong>Uniform Orders</strong></li>
+            <li>Search for the employee's name</li>
+            <li>Review their order history and deduction schedule</li>
+            <li>Check the <strong>Amount Paid</strong> vs <strong>Amount Remaining</strong></li>
+            <li>Look at the Activity Log for any changes made to their orders</li>
+          </ol>
+        </div>
+        <div class="mistake-resolution">
+          <strong>If there was an error:</strong> Contact Jeff (Operator) to adjust the payroll deduction manually if needed
+        </div>
+      </div>
+    </div>
+    
+    <!-- Mistake 3: Duplicate order -->
+    <div class="help-card mistake-card">
+      <div class="help-card-header">
+        <span class="material-icons-round" style="color: #F59E0B;">warning</span>
+        <h3>"I created a duplicate order by accident"</h3>
+      </div>
+      <div class="help-card-body">
+        <p class="mistake-scenario"><strong>What happened:</strong> The same employee has two orders for the same items.</p>
+        <div class="mistake-fix">
+          <h4>How to Fix:</h4>
+          <ol class="help-steps">
+            <li>Go to <strong>Uniform Orders</strong></li>
+            <li>Find the duplicate order (look for same employee, same items, same date)</li>
+            <li>If it's still <strong>Pending</strong>: Click the order and select <strong>Cancel Order</strong></li>
+            <li>If it's already <strong>Active</strong>: Deactivate it first, then cancel</li>
+          </ol>
+        </div>
+        <div class="mistake-prevention">
+          <strong>Prevention:</strong> The Pre-Payroll Validation will flag duplicate deductions before payroll runs
+        </div>
+      </div>
+    </div>
+    
+    <!-- Mistake 4: OT data uploaded for wrong period -->
+    <div class="help-card mistake-card">
+      <div class="help-card-header">
+        <span class="material-icons-round" style="color: #F59E0B;">warning</span>
+        <h3>"I uploaded OT data for the wrong pay period"</h3>
+      </div>
+      <div class="help-card-body">
+        <p class="mistake-scenario"><strong>What happened:</strong> You uploaded a CSV file with incorrect dates.</p>
+        <div class="mistake-fix">
+          <h4>How to Fix:</h4>
+          <ol class="help-steps">
+            <li>Go to <strong>OT Tracker → History</strong></li>
+            <li>Find the incorrect upload by date</li>
+            <li>Click <strong>Delete Period</strong> (this only affects this period's data)</li>
+            <li>Return to <strong>Upload Data</strong></li>
+            <li>Upload the correct CSV file</li>
+          </ol>
+        </div>
+        <div class="mistake-prevention">
+          <strong>Prevention:</strong> Always double-check the date range before uploading
+        </div>
+      </div>
+    </div>
+    
+    <!-- Mistake 5: Employee marked inactive incorrectly -->
+    <div class="help-card mistake-card">
+      <div class="help-card-header">
+        <span class="material-icons-round" style="color: #F59E0B;">warning</span>
+        <h3>"I marked an active employee as inactive"</h3>
+      </div>
+      <div class="help-card-body">
+        <p class="mistake-scenario"><strong>What happened:</strong> An employee was marked inactive but they still work here.</p>
+        <div class="mistake-fix">
+          <h4>How to Fix:</h4>
+          <ol class="help-steps">
+            <li>Go to <strong>Settings</strong></li>
+            <li>Click <strong>Employee Roster</strong></li>
+            <li>Find the employee in the list</li>
+            <li>Change their <strong>Status</strong> from "Inactive" back to "Active"</li>
+            <li>They will now appear in all dropdowns again</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+    
+    <!-- General tip -->
+    <div class="help-card" style="background: linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%);">
+      <div class="help-card-body" style="padding: 24px;">
+        <h4 style="color: #166534; margin: 0 0 12px 0;">💡 General Tip</h4>
+        <p style="margin: 0; color: #166534;">
+          <strong>When in doubt, don't delete data!</strong> It's almost always better to deactivate, cancel, or mark as inactive rather than permanently deleting records. This preserves the audit trail and makes it easier to undo mistakes.
+        </p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Maintenance Tab -->
+  <div class="help-tab-content" id="content-maintenance">
+    <div class="help-intro">
+      <h2>📋 Maintenance Checklists</h2>
+      <p>Regular maintenance keeps the system running smoothly.</p>
+    </div>
+    
+    <!-- Annual Checklist -->
+    <div class="help-card highlight">
+      <div class="help-card-header">
+        <span class="material-icons-round">event</span>
+        <h3>🗓️ Annual Maintenance (Every January)</h3>
+      </div>
+      <div class="help-card-body">
+        <p><strong>Do this every January to start the year fresh:</strong></p>
+        <div class="checklist">
+          <label class="checklist-item">
+            <input type="checkbox" onchange="saveChecklistState()">
+            <span>Run System Health Check - fix any red errors</span>
+          </label>
+          <label class="checklist-item">
+            <input type="checkbox" onchange="saveChecklistState()">
+            <span>Review orders pending > 90 days - cancel or activate</span>
+          </label>
+          <label class="checklist-item">
+            <input type="checkbox" onchange="saveChecklistState()">
+            <span>Archive last year's data (Settings → Data Archive)</span>
+          </label>
+          <label class="checklist-item">
+            <input type="checkbox" onchange="saveChecklistState()">
+            <span>Update employee roster - mark departures as Inactive</span>
+          </label>
+          <label class="checklist-item">
+            <input type="checkbox" onchange="saveChecklistState()">
+            <span>Review uniform catalog prices - update if needed</span>
+          </label>
+          <label class="checklist-item">
+            <input type="checkbox" onchange="saveChecklistState()">
+            <span>Verify OT upload schedule still works</span>
+          </label>
+          <label class="checklist-item">
+            <input type="checkbox" onchange="saveChecklistState()">
+            <span>Test sample uniform order end-to-end</span>
+          </label>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="resetChecklist()" style="margin-top: 16px;">
+          <span class="material-icons-round">restart_alt</span> Reset Checklist
+        </button>
+      </div>
+    </div>
+    
+    <!-- Weekly Checklist -->
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">date_range</span>
+        <h3>Weekly Tasks</h3>
+      </div>
+      <div class="help-card-body">
+        <ul class="help-checklist-simple">
+          <li>Check Dashboard for any alerts</li>
+          <li>Review System Health status</li>
+          <li>Process any pending uniform orders</li>
+        </ul>
+      </div>
+    </div>
+    
+    <!-- Bi-Weekly Checklist -->
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">repeat</span>
+        <h3>Bi-Weekly Tasks (Each Pay Period)</h3>
+      </div>
+      <div class="help-card-body">
+        <ul class="help-checklist-simple">
+          <li>Upload OT data from CFA Home</li>
+          <li>Generate payroll deduction report</li>
+          <li>Process deductions in payroll system</li>
+          <li>Mark payments as made in the app</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Troubleshooting Tab -->
+  <div class="help-tab-content" id="content-troubleshooting">
+    <div class="help-intro">
+      <h2>🔧 Troubleshooting</h2>
+      <p>Common problems and how to fix them.</p>
+    </div>
+    
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">upload_file</span>
+        <h3>OT Upload Issues</h3>
+      </div>
+      <div class="help-card-body">
+        <div class="troubleshoot-item">
+          <h4>❌ "File format not recognized"</h4>
+          <p><strong>Cause:</strong> Wrong file type or wrong report exported.</p>
+          <p><strong>Fix:</strong> Make sure you're downloading from <strong>CFA Home → Analytics Hub → DataFeeds → Time Punches Included Open Punches</strong> and saving as CSV.</p>
+        </div>
+        <div class="troubleshoot-item">
+          <h4>❌ Employee names not matching</h4>
+          <p><strong>Cause:</strong> Name format in CFA Home differs from the roster.</p>
+          <p><strong>Fix:</strong> Check the Employees sheet - the Match_Key column is used for matching. Names should be consistent with how they appear in CFA Home.</p>
+        </div>
+        <div class="troubleshoot-item">
+          <h4>❌ OT hours look wrong</h4>
+          <p><strong>Cause:</strong> Wrong date range selected in CFA Home.</p>
+          <p><strong>Fix:</strong> Verify the date range matches the pay period. Re-download and re-upload to overwrite.</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">checkroom</span>
+        <h3>Uniform Order Issues</h3>
+      </div>
+      <div class="help-card-body">
+        <div class="troubleshoot-item">
+          <h4>❌ Can't activate order - "No items marked received"</h4>
+          <p><strong>Cause:</strong> You need to check off at least one item before activating.</p>
+          <p><strong>Fix:</strong> Check the boxes next to items that have arrived, then click Save & Activate.</p>
+        </div>
+        <div class="troubleshoot-item">
+          <h4>❌ Wrong amount being deducted</h4>
+          <p><strong>Cause:</strong> Order was activated with incorrect items or prices.</p>
+          <p><strong>Fix:</strong> Contact Jeff - manual adjustment in the spreadsheet may be needed.</p>
+        </div>
+        <div class="troubleshoot-item">
+          <h4>❌ Order stuck in Pending forever</h4>
+          <p><strong>Cause:</strong> Items never arrived or order was forgotten.</p>
+          <p><strong>Fix:</strong> Either activate with the items you have, or cancel the order if it's no longer needed.</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">error</span>
+        <h3>System Errors</h3>
+      </div>
+      <div class="help-card-body">
+        <div class="troubleshoot-item">
+          <h4>❌ "Something went wrong" error</h4>
+          <p><strong>Cause:</strong> Usually a temporary connection issue.</p>
+          <p><strong>Fix:</strong> Refresh the page and try again. If it persists, check your internet connection.</p>
+        </div>
+        <div class="troubleshoot-item">
+          <h4>❌ Page won't load / infinite spinner</h4>
+          <p><strong>Cause:</strong> Browser cache issue or deployment problem.</p>
+          <p><strong>Fix:</strong> Hard refresh (Ctrl+Shift+R or Cmd+Shift+R). If still broken, the app may need redeployment.</p>
+        </div>
+        <div class="troubleshoot-item">
+          <h4>❌ Missing data or blank screens</h4>
+          <p><strong>Cause:</strong> Required sheet might be missing or renamed.</p>
+          <p><strong>Fix:</strong> Check System Health - it will tell you if sheets are missing.</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="help-card contact-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">support_agent</span>
+        <h3>Who to Contact</h3>
+      </div>
+      <div class="help-card-body">
+        <div class="contact-list">
+          <div class="contact-item">
+            <strong>For day-to-day questions:</strong>
+            <p>Jeff (Operator)</p>
+          </div>
+          <div class="contact-item">
+            <strong>For technical issues:</strong>
+            <p>Check this troubleshooting guide first. If unresolved, the issue may require someone with Google Apps Script knowledge.</p>
+          </div>
+          <div class="contact-item">
+            <strong>For payroll discrepancies:</strong>
+            <p>Check the spreadsheet directly (Uniform_Orders, OT_History sheets) to verify data.</p>
+          </div>
+          <div class="contact-item last-resort">
+            <strong>AS A LAST DITCH EFFORT ONLY!!!!</strong>
+            <p>CONTACT BRENT BALDWIN. PLEASE ENSURE ALL OTHER FIXES HAVE BEEN ATTEMPTED BEFORE CONTACTING.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- About Tab -->
+  <div class="help-tab-content" id="content-about">
+    <div class="help-intro">
+      <h2>ℹ️ About This System</h2>
+      <p>Technical information and system overview.</p>
+    </div>
+    
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">info</span>
+        <h3>System Information</h3>
+      </div>
+      <div class="help-card-body">
+        <table class="about-table">
+          <tr>
+            <td><strong>System Name</strong></td>
+            <td>OT Tracker Pro</td>
+          </tr>
+          <tr>
+            <td><strong>Version</strong></td>
+            <td>2.0</td>
+          </tr>
+          <tr>
+            <td><strong>Created By</strong></td>
+            <td>Brent (Chief of Staff)</td>
+          </tr>
+          <tr>
+            <td><strong>Created</strong></td>
+            <td>2024</td>
+          </tr>
+          <tr>
+            <td><strong>Last Updated</strong></td>
+            <td>December 2025</td>
+          </tr>
+          <tr>
+            <td><strong>Platform</strong></td>
+            <td>Google Apps Script + Google Sheets</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">architecture</span>
+        <h3>System Architecture</h3>
+      </div>
+      <div class="help-card-body">
+        <p>This system is built on Google Workspace:</p>
+        <ul>
+          <li><strong>Frontend:</strong> HTML/CSS/JavaScript served via Google Apps Script Web App</li>
+          <li><strong>Backend:</strong> Google Apps Script (Code.gs, DashboardModule.gs, etc.)</li>
+          <li><strong>Database:</strong> Google Sheets (multiple sheets for different data types)</li>
+          <li><strong>Authentication:</strong> Google account sign-in</li>
+        </ul>
+        
+        <h4 style="margin-top: 20px;">Key Sheets</h4>
+        <ul>
+          <li><strong>OT_History</strong> - Overtime data by pay period</li>
+          <li><strong>Employees</strong> - Employee roster and status</li>
+          <li><strong>Uniform_Orders</strong> - Order headers and payment tracking</li>
+          <li><strong>Uniform_Order_Items</strong> - Individual items in orders</li>
+          <li><strong>Uniform_Catalog</strong> - Available uniform items and prices</li>
+          <li><strong>Settings</strong> - Application configuration</li>
+          <li><strong>System_Counters</strong> - ID generation (prevents duplicates)</li>
+        </ul>
+        
+        <h4 style="margin-top: 20px;">For Future Maintainers</h4>
+        <p>To make changes to this system:</p>
+        <ol>
+          <li>Open the Google Sheet that powers this app</li>
+          <li>Go to Extensions → Apps Script</li>
+          <li>Code files are organized by function (Code.gs = main, DashboardModule.gs = dashboard, etc.)</li>
+          <li>After changes, Deploy → Manage Deployments → Create new version</li>
+        </ol>
+      </div>
+    </div>
+    
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">description</span>
+        <h3>Documentation</h3>
+      </div>
+      <div class="help-card-body">
+        <p>Additional resources:</p>
+        <ul>
+          <li>This in-app help system covers daily operations</li>
+          <li>System Health page monitors for issues</li>
+          <li>Activity Log (in Settings) tracks all changes</li>
+        </ul>
+      </div>
+    </div>
+    
+    <div class="help-card" style="background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);">
+      <div class="help-card-header">
+        <span class="material-icons-round">lightbulb</span>
+        <h3>Fun Fact</h3>
+      </div>
+      <div class="help-card-body">
+        <p style="margin: 0; color: #1E40AF;">
+          This system was built with attention to detail. Classic gaming references <em>may or may not</em> 
+          be hidden within. Those who remember the classics might find something special... 🎮
+        </p>
+      </div>
+    </div>
+    
+    <!-- Credits Button -->
+    <div style="text-align: center; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--gray-200);">
+      <button class="btn btn-secondary" onclick="showCredits()" style="gap: 8px;">
+        <span class="material-icons-round" style="font-size: 18px;">movie</span>
+        View Credits
+      </button>
+      <p style="margin-top: 12px; font-size: 0.85rem; color: var(--gray-500);">
+        See who built this system and why
+      </p>
+    </div>
+  </div>
+  
+</div>
+
+<style>
+.help-page-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.help-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--gray-200);
+  padding-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.help-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: var(--gray-600);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.help-tab:hover {
+  background: var(--gray-100);
+  color: var(--gray-800);
+}
+
+.help-tab.active {
+  background: var(--primary);
+  color: white;
+}
+
+.help-tab .material-icons-round {
+  font-size: 18px;
+}
+
+.help-tab-content {
+  display: none;
+}
+
+.help-tab-content.active {
+  display: block;
+}
+
+.help-intro {
+  margin-bottom: 24px;
+}
+
+.help-intro h2 {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+  color: var(--gray-800);
+}
+
+.help-intro p {
+  color: var(--gray-600);
+}
+
+.help-card {
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.help-card.highlight {
+  border: 2px solid var(--primary);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.1);
+}
+
+.help-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.help-card-header .material-icons-round {
+  color: var(--primary);
+  font-size: 24px;
+}
+
+.help-card-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--gray-800);
+}
+
+.help-card-body {
+  padding: 20px;
+}
+
+.help-card-body h4 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  color: var(--gray-700);
+}
+
+.help-card-body h4:not(:first-child) {
+  margin-top: 24px;
+}
+
+.help-card-body p {
+  margin: 0 0 12px 0;
+  color: var(--gray-600);
+  line-height: 1.6;
+}
+
+.help-card-body ul, .help-card-body ol {
+  margin: 0 0 16px 0;
+  padding-left: 24px;
+  color: var(--gray-600);
+}
+
+.help-card-body li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.help-steps {
+  counter-reset: step;
+  list-style: none;
+  padding-left: 0;
+}
+
+.help-steps li {
+  position: relative;
+  padding-left: 36px;
+  margin-bottom: 12px;
+}
+
+.help-steps li::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  background: var(--primary);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.help-flags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.help-flag {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--gray-50);
+}
+
+.help-flag .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.help-flag.green .dot { background: var(--success); }
+.help-flag.yellow .dot { background: #F59E0B; }
+.help-flag.red .dot { background: var(--danger); }
+
+.help-note {
+  font-size: 0.85rem;
+  color: var(--gray-500);
+  font-style: italic;
+}
+
+/* Checklist styles */
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.checklist-item:hover {
+  background: var(--gray-100);
+}
+
+.checklist-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.checklist-item input[type="checkbox"]:checked + span {
+  text-decoration: line-through;
+  color: var(--gray-400);
+}
+
+.help-checklist-simple {
+  list-style: none;
+  padding: 0;
+}
+
+.help-checklist-simple li {
+  position: relative;
+  padding-left: 28px;
+  margin-bottom: 10px;
+}
+
+.help-checklist-simple li::before {
+  content: '☐';
+  position: absolute;
+  left: 0;
+  color: var(--gray-400);
+}
+
+/* Troubleshooting */
+.troubleshoot-item {
+  padding: 16px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.troubleshoot-item h4 {
+  margin: 0 0 8px 0 !important;
+  color: var(--danger);
+  font-size: 0.95rem;
+}
+
+.troubleshoot-item p {
+  margin: 4px 0;
+  font-size: 0.9rem;
+}
+
+.contact-card .help-card-header {
+  background: #EEF2FF;
+}
+
+.contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.contact-item strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--gray-700);
+}
+
+.contact-item p {
+  margin: 0;
+  color: var(--gray-600);
+}
+
+.contact-item.last-resort {
+  margin-top: 16px;
+  padding: 16px;
+  background: #FEF2F2;
+  border: 2px solid #DC2626;
+  border-radius: 8px;
+}
+
+.contact-item.last-resort strong {
+  color: #DC2626;
+  font-size: 0.9rem;
+}
+
+.contact-item.last-resort p {
+  color: #991B1B;
+  font-weight: 500;
+}
+
+/* About table */
+.about-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.about-table td {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.about-table tr:last-child td {
+  border-bottom: none;
+}
+
+.about-table td:first-child {
+  color: var(--gray-500);
+  width: 40%;
+}
+
+/* Help Modal Styles (for page-specific help) */
+.help-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.help-modal {
+  background: white;
+  border-radius: 16px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.help-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--gray-200);
+  background: var(--gray-50);
+}
+
+.help-modal-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--gray-800);
+}
+
+.help-modal-header .material-icons-round {
+  color: var(--primary);
+}
+
+.help-modal-close {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--gray-500);
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.help-modal-close:hover {
+  background: var(--gray-200);
+  color: var(--gray-700);
+}
+
+.help-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.help-section {
+  margin-bottom: 20px;
+}
+
+.help-section:last-child {
+  margin-bottom: 0;
+}
+
+.help-section h4 {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  color: var(--gray-700);
+}
+
+.help-content {
+  color: var(--gray-600);
+  line-height: 1.6;
+}
+
+.help-content ul, .help-content ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.help-content li {
+  margin-bottom: 4px;
+}
+
+.help-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--gray-200);
+  background: var(--gray-50);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .help-tabs {
+    gap: 4px;
+  }
+  
+  .help-tab {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+  
+  .help-tab .material-icons-round {
+    font-size: 16px;
+  }
+  
+  .help-card-body {
+    padding: 16px;
+  }
+}
+</style>
+
+
