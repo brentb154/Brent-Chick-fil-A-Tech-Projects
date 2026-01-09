@@ -1,0 +1,2697 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFA Accountability - Employee Overview</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    /* Header */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .header-title h1 {
+      margin: 0;
+      color: #E51636;
+      font-size: 24px;
+    }
+
+    .header-title h2 {
+      margin: 5px 0 0 0;
+      font-weight: normal;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .header-user {
+      text-align: right;
+    }
+
+    .user-role {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 5px;
+    }
+
+    .header-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .nav-btn {
+      padding: 8px 16px;
+      background-color: #E51636;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      text-decoration: none;
+    }
+
+    .nav-btn:hover {
+      background-color: #c41230;
+    }
+
+    .logout-btn {
+      padding: 8px 16px;
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .logout-btn:hover {
+      background-color: #c82333;
+    }
+
+    /* Filters Section */
+    .filters-section {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .filters-row {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .filter-group {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .filter-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .filter-group select,
+    .filter-group input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .filter-group select:focus,
+    .filter-group input:focus {
+      outline: none;
+      border-color: #E51636;
+    }
+
+    /* Threshold Summary Cards */
+    .threshold-summary {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .threshold-card {
+      flex: 1;
+      min-width: 200px;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .threshold-card.at-risk {
+      background: linear-gradient(135deg, #FFE0B2, #FFB74D);
+      border-left: 4px solid #FF9800;
+    }
+
+    .threshold-card.final-warning {
+      background: linear-gradient(135deg, #FFCDD2, #EF9A9A);
+      border-left: 4px solid #dc3545;
+    }
+
+    .threshold-card.termination {
+      background: linear-gradient(135deg, #F8BBD9, #F06292);
+      border-left: 4px solid #721c24;
+    }
+
+    .threshold-card .count {
+      font-size: 36px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .threshold-card .label {
+      font-size: 14px;
+      color: #555;
+      margin-top: 5px;
+    }
+
+    /* Results Info */
+    .results-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .refresh-indicator {
+      color: #E51636;
+      font-style: italic;
+    }
+
+    /* Employee Grid */
+    .employee-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    /* Employee Card */
+    .employee-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .employee-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .employee-card.green {
+      border-left: 5px solid #28a745;
+      background: linear-gradient(135deg, #ffffff 0%, #E8F5E9 100%);
+    }
+
+    .employee-card.yellow {
+      border-left: 5px solid #ffc107;
+      background: linear-gradient(135deg, #ffffff 0%, #FFF9C4 100%);
+    }
+
+    .employee-card.orange {
+      border-left: 5px solid #fd7e14;
+      background: linear-gradient(135deg, #ffffff 0%, #FFE0B2 100%);
+    }
+
+    .employee-card.red {
+      border-left: 5px solid #dc3545;
+      background: linear-gradient(135deg, #ffffff 0%, #FFCDD2 100%);
+    }
+
+    .employee-card.gray {
+      border-left: 5px solid #6c757d;
+      background: #f8f9fa;
+    }
+
+    .employee-name {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+      margin: 0 0 5px 0;
+    }
+
+    .employee-id {
+      font-size: 12px;
+      color: #999;
+      margin-bottom: 10px;
+    }
+
+    .employee-location {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 15px;
+    }
+
+    .points-display {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .points-number {
+      font-size: 32px;
+      font-weight: bold;
+    }
+
+    .points-number.green { color: #28a745; }
+    .points-number.yellow { color: #856404; }
+    .points-number.orange { color: #fd7e14; }
+    .points-number.red { color: #dc3545; }
+    .points-number.gray { color: #6c757d; }
+
+    .points-label {
+      font-size: 14px;
+      color: #666;
+    }
+
+    /* Status Badges */
+    .status-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 15px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .badge.probation {
+      background-color: #fd7e14;
+      color: white;
+    }
+
+    .badge.final_warning {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .badge.termination {
+      background-color: #721c24;
+      color: white;
+    }
+
+    .badge.error {
+      background-color: #6c757d;
+      color: white;
+    }
+
+    /* Expiration Info */
+    .expiration-info {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 15px;
+      padding: 8px;
+      background: rgba(0,0,0,0.03);
+      border-radius: 4px;
+    }
+
+    .expiration-info.expiring-soon {
+      font-weight: bold;
+      color: #E51636;
+      background: rgba(229, 22, 54, 0.1);
+    }
+
+    /* View Details Button */
+    .view-details-btn {
+      width: 100%;
+      padding: 10px;
+      background-color: #E51636;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+
+    .view-details-btn:hover {
+      background-color: #c41230;
+    }
+
+    /* Loading State */
+    .loading-container {
+      text-align: center;
+      padding: 60px 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #E51636;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-message {
+      font-size: 18px;
+      color: #666;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .empty-state h3 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .empty-state p {
+      color: #666;
+    }
+
+    /* Error State */
+    .error-state {
+      text-align: center;
+      padding: 40px 20px;
+      background: #f8d7da;
+      border: 1px solid #dc3545;
+      border-radius: 8px;
+      color: #721c24;
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .pagination button {
+      padding: 8px 16px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .pagination button:hover:not(:disabled) {
+      background: #f0f0f0;
+    }
+
+    .pagination button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .pagination button.active {
+      background: #E51636;
+      color: white;
+      border-color: #E51636;
+    }
+
+    .pagination-info {
+      color: #666;
+      font-size: 14px;
+    }
+
+    /* Session Expired Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .modal-content h3 {
+      margin-top: 0;
+      color: #dc3545;
+    }
+
+    .modal-btn {
+      padding: 10px 20px;
+      background-color: #E51636;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 15px;
+    }
+
+    .modal-btn:hover {
+      background-color: #c41230;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header-bar {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+      }
+
+      .filters-row {
+        flex-direction: column;
+      }
+
+      .filter-group {
+        min-width: 100%;
+      }
+
+      .threshold-summary {
+        flex-direction: column;
+      }
+
+      .employee-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Employee Detail Modal */
+    .detail-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.6);
+      z-index: 2000;
+      display: none;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .detail-modal-overlay.active {
+      display: flex;
+    }
+
+    .detail-modal-content {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      width: 100%;
+      max-width: 900px;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      margin: auto;
+    }
+
+    .detail-modal-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+    }
+
+    .detail-loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #E51636;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .detail-loading-text {
+      margin-top: 15px;
+      color: #666;
+    }
+
+    /* Action Modal Styles (Phase 14) */
+    .action-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      z-index: 3000;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .action-modal-overlay.active {
+      display: flex;
+    }
+
+    .action-modal-content {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .action-modal-header {
+      background: #E51636;
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-radius: 8px 8px 0 0;
+    }
+
+    .action-modal-header.danger {
+      background: #dc3545;
+    }
+
+    .action-modal-header h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .action-modal-close {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      font-size: 24px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .action-modal-close:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .action-modal-body {
+      padding: 20px;
+    }
+
+    .action-modal-footer {
+      padding: 15px 20px;
+      background: #f8f9fa;
+      border-top: 1px solid #dee2e6;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      border-radius: 0 0 8px 8px;
+    }
+
+    .action-modal-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .action-modal-btn.cancel {
+      background: #6c757d;
+      color: white;
+    }
+
+    .action-modal-btn.cancel:hover {
+      background: #5a6268;
+    }
+
+    .action-modal-btn.submit {
+      background: #E51636;
+      color: white;
+    }
+
+    .action-modal-btn.submit:hover {
+      background: #c41230;
+    }
+
+    .action-modal-btn.submit.danger {
+      background: #dc3545;
+    }
+
+    .action-modal-btn.submit.danger:hover {
+      background: #c82333;
+    }
+
+    /* Edit Form Styles */
+    .edit-form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .form-group label {
+      font-weight: 500;
+      color: #333;
+      font-size: 14px;
+    }
+
+    .form-group label .required {
+      color: #dc3545;
+      font-weight: normal;
+      font-size: 12px;
+    }
+
+    .form-input {
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #E51636;
+    }
+
+    .form-input.disabled {
+      background: #f8f9fa;
+      color: #666;
+    }
+
+    .form-textarea {
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      width: 100%;
+      box-sizing: border-box;
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    .form-textarea:focus {
+      outline: none;
+      border-color: #E51636;
+    }
+
+    .char-counter {
+      font-size: 12px;
+      color: #dc3545;
+      text-align: right;
+    }
+
+    .warning-banner {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+      padding: 15px;
+      margin-bottom: 10px;
+    }
+
+    .warning-banner .warning-icon {
+      font-size: 24px;
+      margin-right: 10px;
+    }
+
+    .warning-banner strong {
+      color: #856404;
+    }
+
+    .warning-banner p {
+      margin: 8px 0 0 0;
+      color: #856404;
+      font-size: 13px;
+    }
+
+    /* Infraction Selection List */
+    .infraction-select-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .infraction-select-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 15px;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .infraction-select-item:hover {
+      background: #e9ecef;
+      border-color: #E51636;
+    }
+
+    .infraction-select-date {
+      font-weight: 500;
+      color: #333;
+    }
+
+    .infraction-select-type {
+      flex: 1;
+      margin-left: 15px;
+      color: #666;
+    }
+
+    .infraction-select-points {
+      font-weight: bold;
+      color: #E51636;
+    }
+  </style>
+</head>
+<body>
+  <!-- Session Expired Modal -->
+  <div id="sessionExpiredModal" class="modal-overlay">
+    <div class="modal-content">
+      <h3>Session Expired</h3>
+      <p>Your session has expired due to inactivity. Please login again to continue.</p>
+      <button class="modal-btn" onclick="returnToLogin()">Return to Login</button>
+    </div>
+  </div>
+
+  <!-- Employee Detail Modal -->
+  <div id="employeeDetailModal" class="detail-modal-overlay" onclick="closeEmployeeDetailModal(event)">
+    <div class="detail-modal-content" onclick="event.stopPropagation()">
+      <!-- Loading State -->
+      <div id="detailLoadingState" class="detail-modal-loading">
+        <div class="detail-loading-spinner"></div>
+        <div class="detail-loading-text">Loading employee details...</div>
+      </div>
+
+      <!-- Error State -->
+      <div id="detailErrorState" style="display: none; padding: 40px; text-align: center;">
+        <div style="font-size: 48px; margin-bottom: 15px;">&#9888;</div>
+        <p id="detailErrorText" style="color: #721c24; margin-bottom: 20px;">Error loading employee data</p>
+        <button class="nav-btn" onclick="closeEmployeeDetailModal()">Close</button>
+      </div>
+
+      <!-- Detail Content Container -->
+      <div id="detailContentContainer" style="display: none;"></div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header-bar">
+    <div class="header-title">
+      <h1>Employee Accountability Overview</h1>
+      <h2 id="currentDateTime">Loading...</h2>
+    </div>
+    <div class="header-user">
+      <div class="user-role">Logged in as: <strong id="userRoleDisplay">--</strong></div>
+      <div class="header-buttons">
+        <a href="#" id="userManagementLink" class="nav-btn" style="display: none; background-color: #6c757d;">User Management</a>
+        <a href="#" id="addInfractionLink" class="nav-btn">+ Add Infraction</a>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters Section -->
+  <div class="filters-section">
+    <div class="filters-row">
+      <div class="filter-group">
+        <label for="locationFilter">Location</label>
+        <select id="locationFilter" onchange="applyFilters()">
+          <option value="">All Locations</option>
+          <option value="Cockrell Hill DTO">Cockrell Hill DTO</option>
+          <option value="Dallas Baptist University OCV">Dallas Baptist University OCV</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="searchInput">Search Employee</label>
+        <input type="text" id="searchInput" placeholder="Search by employee name..." oninput="applyFilters()">
+      </div>
+      <div class="filter-group">
+        <label for="sortSelect">Sort By</label>
+        <select id="sortSelect" onchange="applyFilters()">
+          <option value="name_asc">Name (A-Z)</option>
+          <option value="name_desc">Name (Z-A)</option>
+          <option value="points_desc">Points (High to Low)</option>
+          <option value="points_asc">Points (Low to High)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Threshold Summary Cards -->
+  <div class="threshold-summary">
+    <div class="threshold-card at-risk">
+      <div class="count" id="atRiskCount">-</div>
+      <div class="label">At Risk (6+ points)</div>
+    </div>
+    <div class="threshold-card final-warning">
+      <div class="count" id="finalWarningCount">-</div>
+      <div class="label">Final Warning (9+ points)</div>
+    </div>
+    <div class="threshold-card termination">
+      <div class="count" id="terminationCount">-</div>
+      <div class="label">Termination Level (15+ points)</div>
+    </div>
+  </div>
+
+  <!-- Results Info -->
+  <div class="results-info">
+    <span id="resultsCount">Loading employees...</span>
+    <span id="refreshIndicator" class="refresh-indicator" style="display: none;">Refreshing...</span>
+  </div>
+
+  <!-- Loading State -->
+  <div id="loadingContainer" class="loading-container">
+    <div class="loading-spinner"></div>
+    <div class="loading-message" id="loadingMessage">Calculating points...</div>
+  </div>
+
+  <!-- Employee Grid -->
+  <div id="employeeGrid" class="employee-grid" style="display: none;"></div>
+
+  <!-- Empty State -->
+  <div id="emptyState" class="empty-state" style="display: none;">
+    <h3 id="emptyTitle">No employees found</h3>
+    <p id="emptyMessage">There are no employees to display.</p>
+  </div>
+
+  <!-- Error State -->
+  <div id="errorState" class="error-state" style="display: none;">
+    <h3>Error Loading Employees</h3>
+    <p id="errorMessage">Please refresh the page and try again.</p>
+  </div>
+
+  <!-- Pagination -->
+  <div id="paginationContainer" class="pagination" style="display: none;">
+    <button id="prevPageBtn" onclick="changePage(-1)">Previous</button>
+    <span id="pageInfo" class="pagination-info">Page 1 of 1</span>
+    <button id="nextPageBtn" onclick="changePage(1)">Next</button>
+  </div>
+
+  <script>
+    // ============================================
+    // GLOBAL VARIABLES
+    // ============================================
+
+    let allEmployees = [];           // All employees from server
+    let filteredEmployees = [];      // Employees after filtering
+    let displayedEmployees = [];     // Employees on current page
+    let userRole = null;
+    let sessionCheckInterval = null;
+    let autoRefreshInterval = null;
+    let loadingMessageInterval = null;
+
+    // Pagination
+    const EMPLOYEES_PER_PAGE = 20;
+    let currentPage = 1;
+    let totalPages = 1;
+
+    // Fun loading messages
+    const loadingMessages = [
+      "Calculating points...",
+      "Confabulating data...",
+      "Counting the eggs...",
+      "Tallying infractions...",
+      "Crunching numbers...",
+      "Herding the chickens..."
+    ];
+    let currentMessageIndex = 0;
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+
+    document.addEventListener('DOMContentLoaded', function() {
+      updateDateTime();
+      initializeSession();
+      loadEmployeeData();
+      startSessionMonitoring();
+      startAutoRefresh();
+      setupAddInfractionLink();
+
+      // Update date/time every minute
+      setInterval(updateDateTime, 60000);
+    });
+
+    /**
+     * Update the current date/time display
+     */
+    function updateDateTime() {
+      const now = new Date();
+      const options = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      };
+      document.getElementById('currentDateTime').textContent = now.toLocaleDateString('en-US', options);
+    }
+
+    /**
+     * Setup the Add Infraction link with correct URL
+     */
+    function setupAddInfractionLink() {
+      google.script.run
+        .withSuccessHandler(function(url) {
+          document.getElementById('addInfractionLink').href = url + '?page=form&t=' + Date.now();
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error getting URL:', error);
+        })
+        .getWebAppUrl();
+    }
+
+    // ============================================
+    // SESSION MANAGEMENT
+    // ============================================
+
+    /**
+     * Initialize session - get user role from server (Simplified Auth)
+     */
+    function initializeSession() {
+      // Check cached role first for faster UI
+      var storedRole = sessionStorage.getItem('cfa_user_role');
+      if (storedRole) {
+        userRole = storedRole;
+        document.getElementById('userRoleDisplay').textContent = storedRole;
+        setupUserManagementLink(storedRole);
+      }
+
+      // Verify with server using simplified auth
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.authenticated) {
+            userRole = result.role;
+            document.getElementById('userRoleDisplay').textContent = result.role;
+            sessionStorage.setItem('cfa_user_role', result.role);
+            setupUserManagementLink(result.role);
+          } else {
+            // Not authenticated or session expired
+            handleSessionExpired();
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Session check failed:', error);
+        })
+        .getCurrentRole();
+    }
+
+    /**
+     * Setup User Management link for Directors and Operators
+     */
+    function setupUserManagementLink(role) {
+      if (role === 'Director' || role === 'Operator') {
+        var userMgmtLink = document.getElementById('userManagementLink');
+        if (userMgmtLink) {
+          userMgmtLink.style.display = 'inline-block';
+          userMgmtLink.onclick = function(e) {
+            e.preventDefault();
+            google.script.run
+              .withSuccessHandler(function(url) {
+                window.location.href = url + '?page=users';
+              })
+              .getWebAppUrl();
+          };
+        }
+      }
+    }
+
+    /**
+     * Start session monitoring (Simplified Auth)
+     */
+    function startSessionMonitoring() {
+      sessionCheckInterval = setInterval(function() {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (!result.authenticated) {
+              handleSessionExpired();
+            }
+          })
+          .withFailureHandler(function(error) {
+            console.error('Error checking session:', error);
+          })
+          .getCurrentRole();
+      }, 60000);
+    }
+
+    /**
+     * Handle session expiration
+     */
+    function handleSessionExpired() {
+      if (sessionCheckInterval) {
+        clearInterval(sessionCheckInterval);
+      }
+      if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+      }
+      document.getElementById('sessionExpiredModal').style.display = 'flex';
+    }
+
+    /**
+     * Return to login page
+     */
+    function returnToLogin() {
+      sessionStorage.removeItem('cfa_user_role');
+      google.script.run
+        .withSuccessHandler(function(url) {
+          var loginUrl = url + '?t=' + Date.now();
+          var link = document.createElement('a');
+          link.href = loginUrl;
+          document.body.appendChild(link);
+          link.click();
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error getting URL:', error);
+        })
+        .getWebAppUrl();
+    }
+
+    /**
+     * Logout the user (Simplified Auth)
+     */
+    function logout() {
+      sessionStorage.removeItem('cfa_user_role');
+      google.script.run
+        .withSuccessHandler(function() {
+          returnToLogin();
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error ending session:', error);
+          returnToLogin();
+        })
+        .logoutRole();
+    }
+
+    // ============================================
+    // DATA LOADING
+    // ============================================
+
+    /**
+     * Load employee data from server
+     */
+    function loadEmployeeData(isRefresh) {
+      if (isRefresh) {
+        document.getElementById('refreshIndicator').style.display = 'inline';
+      } else {
+        showLoading();
+      }
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (isRefresh) {
+            document.getElementById('refreshIndicator').style.display = 'none';
+          }
+          handleEmployeeDataLoaded(result);
+        })
+        .withFailureHandler(function(error) {
+          if (isRefresh) {
+            document.getElementById('refreshIndicator').style.display = 'none';
+          }
+          handleLoadError(error);
+        })
+        .getAllEmployeesWithPoints();
+    }
+
+    /**
+     * Handle successfully loaded employee data
+     */
+    function handleEmployeeDataLoaded(result) {
+      hideLoading();
+
+      // Check if result is null or undefined
+      if (!result) {
+        showError('Server returned no data. Please try again.');
+        return;
+      }
+
+      if (result.sessionExpired) {
+        handleSessionExpired();
+        return;
+      }
+
+      if (!result.success) {
+        console.error('Server error:', result.error, result.errorStack);
+        showError(result.error || 'Unknown error occurred');
+        return;
+      }
+
+      // Store all employees (already filtered server-side based on user role)
+      // Filtering logic (Micro-Phase 12):
+      // - Operators: See all employees EXCEPT other Operators
+      // - Directors with can_see_directors: See Managers, Directors, and hourly (not Operators)
+      // - Directors without can_see_directors: See only Managers and hourly
+      // - Managers: See only hourly employees
+      allEmployees = result.employees || [];
+
+      // Update threshold counts
+      updateThresholdCounts(result.counts);
+
+      // Apply filters and render
+      applyFilters();
+    }
+
+    /**
+     * Handle error loading employee data
+     */
+    function handleLoadError(error) {
+      hideLoading();
+      console.error('Error loading employees:', error);
+      showError('Error loading employees. Please refresh the page.');
+    }
+
+    /**
+     * Start auto-refresh every 5 minutes
+     */
+    function startAutoRefresh() {
+      autoRefreshInterval = setInterval(function() {
+        loadEmployeeData(true);
+      }, 5 * 60 * 1000); // 5 minutes
+    }
+
+    // ============================================
+    // FILTERING AND SORTING
+    // ============================================
+
+    /**
+     * Check if employee location matches the filter
+     * Handles both abbreviated (DBU) and full (Dallas Baptist University OCV) location names
+     */
+    function locationMatches(employeeLocation, filterValue) {
+      if (!filterValue) return true;
+      if (!employeeLocation) return false;
+
+      const empLoc = employeeLocation.toLowerCase().trim();
+      const filterLoc = filterValue.toLowerCase().trim();
+
+      // Exact match
+      if (empLoc === filterLoc) return true;
+
+      // Location mappings - handles abbreviations and variations
+      const locationMappings = {
+        'cockrell hill dto': ['cockrell hill', 'cockrell', 'ch dto', 'ch'],
+        'dallas baptist university ocv': ['dbu', 'dallas baptist', 'dbu ocv', 'dallas baptist university']
+      };
+
+      // Check if filter matches any known variations
+      for (const [fullName, variations] of Object.entries(locationMappings)) {
+        // If filter is the full name, check if employee location matches any variation
+        if (filterLoc === fullName || variations.includes(filterLoc)) {
+          if (empLoc === fullName || variations.some(v => empLoc.includes(v) || v.includes(empLoc))) {
+            return true;
+          }
+        }
+        // If employee location is the full name, check if it matches the filter
+        if (empLoc === fullName || variations.some(v => empLoc.includes(v))) {
+          if (filterLoc === fullName || variations.includes(filterLoc)) {
+            return true;
+          }
+        }
+      }
+
+      // Fallback: partial match (either contains the other)
+      return empLoc.includes(filterLoc) || filterLoc.includes(empLoc);
+    }
+
+    /**
+     * Apply all filters and re-render
+     */
+    function applyFilters() {
+      const locationFilter = document.getElementById('locationFilter').value;
+      const searchText = document.getElementById('searchInput').value.toLowerCase().trim();
+      const sortOption = document.getElementById('sortSelect').value;
+
+      // Filter employees
+      filteredEmployees = allEmployees.filter(emp => {
+        // Location filter - using flexible matching
+        if (locationFilter && !locationMatches(emp.primary_location, locationFilter)) {
+          return false;
+        }
+
+        // Search filter
+        if (searchText && !emp.full_name.toLowerCase().includes(searchText)) {
+          return false;
+        }
+
+        return true;
+      });
+
+      // Sort employees
+      sortEmployees(sortOption);
+
+      // Reset to page 1
+      currentPage = 1;
+
+      // Update counts for filtered results
+      updateFilteredCounts();
+
+      // Render
+      renderEmployees();
+    }
+
+    /**
+     * Sort employees by selected option
+     */
+    function sortEmployees(sortOption) {
+      switch (sortOption) {
+        case 'name_asc':
+          filteredEmployees.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+          break;
+        case 'name_desc':
+          filteredEmployees.sort((a, b) => (b.full_name || '').localeCompare(a.full_name || ''));
+          break;
+        case 'points_desc':
+          filteredEmployees.sort((a, b) => b.current_points - a.current_points);
+          break;
+        case 'points_asc':
+          filteredEmployees.sort((a, b) => a.current_points - b.current_points);
+          break;
+      }
+    }
+
+    /**
+     * Update filtered threshold counts
+     */
+    function updateFilteredCounts() {
+      let atRisk = 0;
+      let finalWarning = 0;
+      let termination = 0;
+
+      for (const emp of filteredEmployees) {
+        if (emp.current_points >= 15) {
+          termination++;
+        } else if (emp.current_points >= 9) {
+          finalWarning++;
+        } else if (emp.current_points >= 6) {
+          atRisk++;
+        }
+      }
+
+      document.getElementById('atRiskCount').textContent = atRisk;
+      document.getElementById('finalWarningCount').textContent = finalWarning;
+      document.getElementById('terminationCount').textContent = termination;
+    }
+
+    /**
+     * Update threshold counts from server data
+     */
+    function updateThresholdCounts(counts) {
+      if (!counts) return;
+
+      // These will be updated by updateFilteredCounts after filtering
+      // But set initial values
+      document.getElementById('atRiskCount').textContent = counts.atRisk || 0;
+      document.getElementById('finalWarningCount').textContent = counts.finalWarning || 0;
+      document.getElementById('terminationCount').textContent = counts.termination || 0;
+    }
+
+    // ============================================
+    // RENDERING
+    // ============================================
+
+    /**
+     * Render employee cards
+     */
+    function renderEmployees() {
+      const grid = document.getElementById('employeeGrid');
+      const emptyState = document.getElementById('emptyState');
+      const pagination = document.getElementById('paginationContainer');
+
+      // Calculate pagination
+      totalPages = Math.ceil(filteredEmployees.length / EMPLOYEES_PER_PAGE);
+      if (totalPages === 0) totalPages = 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      // Get employees for current page
+      const startIndex = (currentPage - 1) * EMPLOYEES_PER_PAGE;
+      const endIndex = startIndex + EMPLOYEES_PER_PAGE;
+      displayedEmployees = filteredEmployees.slice(startIndex, endIndex);
+
+      // Update results count
+      const locationFilter = document.getElementById('locationFilter').value;
+      const searchText = document.getElementById('searchInput').value.trim();
+
+      if (filteredEmployees.length === 0) {
+        grid.style.display = 'none';
+        pagination.style.display = 'none';
+
+        // Show appropriate empty message
+        if (searchText) {
+          document.getElementById('emptyTitle').textContent = 'No employees match your search';
+          document.getElementById('emptyMessage').textContent = `No employees found matching "${searchText}"`;
+        } else if (locationFilter) {
+          document.getElementById('emptyTitle').textContent = 'No employees at this location';
+          document.getElementById('emptyMessage').textContent = `No employees found at ${locationFilter}`;
+        } else {
+          document.getElementById('emptyTitle').textContent = 'No employees found';
+          document.getElementById('emptyMessage').textContent = 'There are no employees to display.';
+        }
+
+        emptyState.style.display = 'block';
+        document.getElementById('resultsCount').textContent = '0 employees';
+        return;
+      }
+
+      // Hide empty state, show grid
+      emptyState.style.display = 'none';
+      grid.style.display = 'grid';
+
+      // Update results count
+      if (totalPages > 1) {
+        document.getElementById('resultsCount').textContent =
+          `Showing ${startIndex + 1}-${Math.min(endIndex, filteredEmployees.length)} of ${filteredEmployees.length} employees`;
+        pagination.style.display = 'flex';
+        updatePagination();
+      } else {
+        document.getElementById('resultsCount').textContent = `${filteredEmployees.length} employee${filteredEmployees.length !== 1 ? 's' : ''}`;
+        pagination.style.display = 'none';
+      }
+
+      // Render cards
+      grid.innerHTML = displayedEmployees.map(emp => createEmployeeCard(emp)).join('');
+    }
+
+    /**
+     * Create HTML for an employee card
+     */
+    function createEmployeeCard(emp) {
+      const colorClass = emp.point_level_color || 'green';
+      const pointsDisplay = emp.current_points === -1 ? 'Error' :
+                           emp.current_points === 0 ? 'No infractions' :
+                           `${emp.current_points} point${emp.current_points !== 1 ? 's' : ''}`;
+
+      // Format next expiration
+      let expirationHtml = '';
+      if (emp.next_expiration_date && emp.current_points > 0) {
+        const expDate = new Date(emp.next_expiration_date);
+        const today = new Date();
+        const daysUntil = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+        const expiringSoon = daysUntil <= 7 && daysUntil >= 0;
+        const dateStr = expDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+        expirationHtml = `
+          <div class="expiration-info ${expiringSoon ? 'expiring-soon' : ''}">
+            ${emp.next_expiration_points} point${emp.next_expiration_points !== 1 ? 's' : ''} expire${emp.next_expiration_points === 1 ? 's' : ''} on ${dateStr}
+            ${expiringSoon ? ' (Soon!)' : ''}
+          </div>
+        `;
+      } else if (emp.current_points === 0) {
+        expirationHtml = `<div class="expiration-info">No upcoming expirations</div>`;
+      }
+
+      // Format badges
+      let badgesHtml = '';
+      if (emp.status_badges && emp.status_badges.length > 0) {
+        badgesHtml = '<div class="status-badges">' +
+          emp.status_badges.map(badge =>
+            `<span class="badge ${badge.type}">${badge.icon || ''} ${badge.label}</span>`
+          ).join('') +
+          '</div>';
+      }
+
+      return `
+        <div class="employee-card ${colorClass}">
+          <div class="employee-name">${escapeHtml(emp.full_name)}</div>
+          <div class="employee-id">ID: ${escapeHtml(emp.employee_id)}</div>
+          <div class="employee-location">${escapeHtml(emp.primary_location)}</div>
+
+          <div class="points-display">
+            <div>
+              <div class="points-number ${colorClass}">
+                ${emp.current_points === -1 ? '?' : emp.current_points}
+              </div>
+              <div class="points-label">${pointsDisplay}</div>
+            </div>
+          </div>
+
+          ${badgesHtml}
+          ${expirationHtml}
+
+          <button class="view-details-btn" onclick="viewEmployeeDetails('${escapeHtml(emp.employee_id)}')">
+            View Details
+          </button>
+        </div>
+      `;
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ============================================
+    // PAGINATION
+    // ============================================
+
+    /**
+     * Change page
+     */
+    function changePage(delta) {
+      const newPage = currentPage + delta;
+      if (newPage >= 1 && newPage <= totalPages) {
+        currentPage = newPage;
+        renderEmployees();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+
+    /**
+     * Update pagination controls
+     */
+    function updatePagination() {
+      document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+      document.getElementById('prevPageBtn').disabled = currentPage <= 1;
+      document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
+    }
+
+    // ============================================
+    // EMPLOYEE DETAILS
+    // ============================================
+
+    let currentDetailEmployeeId = null;
+    let currentDetailData = null;
+
+    /**
+     * View employee details - opens modal with full employee information
+     */
+    function viewEmployeeDetails(employeeId) {
+      console.log('View details for employee:', employeeId);
+      currentDetailEmployeeId = employeeId;
+
+      // Show modal with loading state
+      const modal = document.getElementById('employeeDetailModal');
+      document.getElementById('detailLoadingState').style.display = 'flex';
+      document.getElementById('detailErrorState').style.display = 'none';
+      document.getElementById('detailContentContainer').style.display = 'none';
+      modal.classList.add('active');
+
+      // Prevent body scroll
+      document.body.style.overflow = 'hidden';
+
+      // Fetch employee detail data
+      google.script.run
+        .withSuccessHandler(handleDetailDataLoaded)
+        .withFailureHandler(handleDetailDataError)
+        .getEmployeeDetailData(employeeId);
+    }
+
+    /**
+     * Handle successful detail data load
+     */
+    function handleDetailDataLoaded(result) {
+      document.getElementById('detailLoadingState').style.display = 'none';
+
+      if (!result) {
+        showDetailError('Server returned no data. Please try again.');
+        return;
+      }
+
+      if (result.sessionExpired) {
+        closeEmployeeDetailModal();
+        handleSessionExpired();
+        return;
+      }
+
+      if (!result.success) {
+        showDetailError(result.error || 'Error loading employee data');
+        return;
+      }
+
+      currentDetailData = result;
+
+      // Render the detail content
+      renderDetailContent(result);
+
+      document.getElementById('detailContentContainer').style.display = 'block';
+    }
+
+    /**
+     * Handle detail data load error
+     */
+    function handleDetailDataError(error) {
+      document.getElementById('detailLoadingState').style.display = 'none';
+      showDetailError('Error loading data: ' + error.message);
+    }
+
+    /**
+     * Show detail error state
+     */
+    function showDetailError(message) {
+      document.getElementById('detailErrorText').textContent = message;
+      document.getElementById('detailErrorState').style.display = 'block';
+    }
+
+    /**
+     * Close employee detail modal
+     */
+    function closeEmployeeDetailModal(event) {
+      // If called from overlay click, check if target is the overlay itself
+      if (event && event.target !== document.getElementById('employeeDetailModal')) {
+        return;
+      }
+
+      document.getElementById('employeeDetailModal').classList.remove('active');
+      document.body.style.overflow = '';
+      currentDetailEmployeeId = null;
+      currentDetailData = null;
+    }
+
+    /**
+     * Render the detail content HTML
+     */
+    function renderDetailContent(data) {
+      const container = document.getElementById('detailContentContainer');
+
+      // Build badges HTML
+      let badgesHtml = '';
+      if (data.currentPoints.statusBadges && data.currentPoints.statusBadges.length > 0) {
+        badgesHtml = data.currentPoints.statusBadges.map(badge =>
+          `<span class="detail-badge ${badge.type}">${badge.icon || ''} ${badge.label}</span>`
+        ).join('');
+      }
+
+      // Build threshold history HTML
+      let thresholdHtml = '';
+      if (data.thresholdHistory && data.thresholdHistory.length > 0) {
+        thresholdHtml = data.thresholdHistory.map(event => {
+          const isUp = event.type === 'crossed_up';
+          return `
+            <div class="threshold-item">
+              <div class="threshold-icon ${isUp ? 'up' : 'down'}">${isUp ? '&#9650;' : '&#9660;'}</div>
+              <div class="threshold-content">
+                <div class="threshold-label">${escapeHtml(event.label)}</div>
+                <div class="threshold-date">${escapeHtml(event.dateFormatted)}</div>
+                ${event.consequence ? '<div class="threshold-consequence">' + escapeHtml(event.consequence) + '</div>' : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        thresholdHtml = '<div class="empty-state">No threshold crossings recorded</div>';
+      }
+
+      // Build timeline HTML
+      let timelineHtml = '';
+      if (data.infractions && data.infractions.length > 0) {
+        timelineHtml = data.infractions.map(inf => {
+          let itemClass = 'timeline-item';
+          if (inf.is_expired) itemClass += ' expired';
+          if (inf.is_positive) itemClass += ' positive';
+          if (inf.status === 'Deleted') itemClass += ' deleted';
+
+          const pointsClass = inf.is_positive ? 'green' :
+            (inf.is_expired ? 'gray' :
+              (inf.points >= 5 ? 'red' : (inf.points >= 3 ? 'orange' : 'yellow')));
+
+          return `
+            <div class="${itemClass}" data-infraction-id="${escapeHtml(inf.infraction_id)}">
+              <div class="timeline-header">
+                <span class="timeline-date">${escapeHtml(inf.dateFormatted)}</span>
+                <span class="timeline-points ${pointsClass}">${inf.is_positive ? '' : '+'}${inf.points} pts</span>
+              </div>
+              <div class="timeline-type">${escapeHtml(inf.infraction_type)}</div>
+              <div class="timeline-description truncated" onclick="this.classList.toggle('truncated'); this.classList.toggle('expanded');">${escapeHtml(inf.description || 'No description')}</div>
+              <div class="timeline-meta">
+                <span>&#128205; ${escapeHtml(inf.location)}</span>
+                <span>&#128100; ${escapeHtml(inf.entered_by)}</span>
+                ${!inf.is_expired && inf.status === 'Active' ?
+                  '<span class="timeline-expiration">Expires: ' + escapeHtml(inf.expirationFormatted) + '</span>' : ''}
+                ${inf.status !== 'Active' ? '<span>[' + escapeHtml(inf.status) + ']</span>' : ''}
+              </div>
+              ${inf.modification_reason ? '<div class="timeline-modification">Modified: ' + escapeHtml(inf.modification_reason) + '</div>' : ''}
+            </div>
+          `;
+        }).join('');
+      } else {
+        timelineHtml = '<div class="empty-state">No infractions recorded</div>';
+      }
+
+      // Build action tracking HTML (Directors only)
+      let actionTrackingHtml = '';
+      if (data.userRole === 'Director' && data.actionTracking) {
+        const at = data.actionTracking;
+        actionTrackingHtml = `
+          <div class="section" id="detailActionTracking">
+            <h2 class="section-title">Action Tracking (Director Only)</h2>
+            <div class="action-tracking">
+              <div class="action-item">
+                <input type="checkbox" class="action-checkbox" id="detailActionSchedule" ${at.scheduleDayRemoved.completed ? 'checked' : ''} onchange="handleDetailActionChange('schedule_day_removed')">
+                <span class="action-label">Removed day from schedule</span>
+                <span class="action-date">${at.scheduleDayRemoved.date ? new Date(at.scheduleDayRemoved.date).toLocaleDateString() : ''}</span>
+              </div>
+              <div class="action-item">
+                <input type="checkbox" class="action-checkbox" id="detailActionSuspension" ${at.suspensionCompleted.completed ? 'checked' : ''} onchange="handleDetailActionChange('suspension_completed')">
+                <span class="action-label">3-day suspension completed</span>
+                <span class="action-date">${at.suspensionCompleted.date ? new Date(at.suspensionCompleted.date).toLocaleDateString() : ''}</span>
+              </div>
+              <div class="action-item">
+                <input type="checkbox" class="action-checkbox" id="detailActionMeeting" ${at.directorMeetingHeld.completed ? 'checked' : ''} onchange="handleDetailActionChange('director_meeting')">
+                <span class="action-label">Director meeting held</span>
+                <span class="action-date">${at.directorMeetingHeld.date ? new Date(at.directorMeetingHeld.date).toLocaleDateString() : ''}</span>
+              </div>
+              <textarea class="action-notes-input" id="detailDirectorNotes" placeholder="Director notes..." onblur="saveDetailDirectorNotes()">${escapeHtml(at.directorNotes || '')}</textarea>
+            </div>
+          </div>
+        `;
+      }
+
+      // Build director actions HTML (Directors only)
+      let directorActionsHtml = '';
+      if (data.userRole === 'Director') {
+        directorActionsHtml = `
+          <div class="section">
+            <h2 class="section-title">Director Actions</h2>
+            <div class="director-actions">
+              <button class="action-btn primary" onclick="showDetailEditModal()">&#9998; Edit Infraction</button>
+              <button class="action-btn secondary" onclick="showDetailRemovePointsModal()">&#8722; Remove Points</button>
+              <button class="action-btn success" onclick="showDetailAddCreditModal()">&#43; Add Positive Credit</button>
+              <button class="action-btn danger" onclick="showDetailTerminateModal()">&#9888; Mark as Terminated</button>
+            </div>
+          </div>
+        `;
+      }
+
+      // Format next expiration date
+      const nextExpDate = data.currentPoints.nextExpirationDate
+        ? new Date(data.currentPoints.nextExpirationDate).toLocaleDateString()
+        : '--';
+
+      container.innerHTML = `
+        <style>
+          /* Inline styles for detail modal content */
+          .detail-header {
+            background: linear-gradient(135deg, #E51636 0%, #c41230 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 8px 8px 0 0;
+            position: relative;
+          }
+          .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 24px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .close-btn:hover { background: rgba(255, 255, 255, 0.3); }
+          .detail-employee-name { font-size: 28px; font-weight: bold; margin: 0 0 5px 0; }
+          .detail-employee-id { font-size: 14px; opacity: 0.9; margin-bottom: 5px; }
+          .detail-employee-location { font-size: 16px; opacity: 0.9; }
+          .header-points { display: flex; align-items: center; gap: 15px; margin-top: 15px; }
+          .points-circle {
+            width: 70px; height: 70px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px; font-weight: bold;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+          }
+          .points-circle.green { background-color: #28a745; }
+          .points-circle.yellow { background-color: #ffc107; color: #333; }
+          .points-circle.orange { background-color: #fd7e14; }
+          .points-circle.red { background-color: #dc3545; }
+          .detail-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+          .detail-badge {
+            padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 500;
+            background: rgba(255, 255, 255, 0.2);
+          }
+          .detail-badge.final_warning { background-color: #dc3545; }
+          .detail-badge.termination { background-color: #721c24; }
+          .detail-badge.probation { background-color: #fd7e14; }
+          .detail-body { padding: 25px; }
+          .section { margin-bottom: 25px; }
+          .section-title {
+            font-size: 18px; font-weight: 600; color: #333;
+            margin: 0 0 15px 0; padding-bottom: 10px;
+            border-bottom: 2px solid #E51636;
+          }
+          .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+          .summary-card {
+            background: #f8f9fa; border-radius: 8px; padding: 15px;
+            text-align: center; border: 1px solid #dee2e6;
+          }
+          .summary-value { font-size: 24px; font-weight: bold; color: #E51636; }
+          .summary-label { font-size: 13px; color: #666; margin-top: 5px; }
+          .summary-card.positive .summary-value { color: #28a745; }
+          .summary-card.warning .summary-value { color: #dc3545; }
+          .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
+          .stat-item { background: #f8f9fa; padding: 12px; border-radius: 6px; text-align: center; }
+          .stat-value { font-size: 18px; font-weight: bold; color: #333; }
+          .stat-label { font-size: 12px; color: #666; margin-top: 4px; }
+          .threshold-item { display: flex; align-items: center; gap: 15px; padding: 12px 0; border-bottom: 1px solid #eee; }
+          .threshold-item:last-child { border-bottom: none; }
+          .threshold-icon {
+            width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 16px;
+          }
+          .threshold-icon.up { background: #f8d7da; color: #721c24; }
+          .threshold-icon.down { background: #d4edda; color: #155724; }
+          .threshold-content { flex: 1; }
+          .threshold-label { font-weight: 500; color: #333; }
+          .threshold-date { font-size: 13px; color: #666; }
+          .threshold-consequence { font-size: 12px; color: #888; font-style: italic; }
+          .timeline { position: relative; padding-left: 30px; }
+          .timeline::before {
+            content: ''; position: absolute; left: 10px; top: 0; bottom: 0;
+            width: 2px; background: #dee2e6;
+          }
+          .timeline-item {
+            position: relative; padding: 15px; background: white;
+            border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 15px;
+          }
+          .timeline-item::before {
+            content: ''; position: absolute; left: -24px; top: 20px;
+            width: 12px; height: 12px; border-radius: 50%;
+            background: #E51636; border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+          }
+          .timeline-item.expired { opacity: 0.6; background: #f8f9fa; }
+          .timeline-item.expired::before { background: #6c757d; }
+          .timeline-item.positive::before { background: #28a745; }
+          .timeline-item.deleted { opacity: 0.4; text-decoration: line-through; }
+          .timeline-item.deleted::before { background: #999; }
+          .timeline-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+          .timeline-date { font-weight: 600; color: #333; }
+          .timeline-points { padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 14px; }
+          .timeline-points.green { background-color: #d4edda; color: #155724; }
+          .timeline-points.yellow { background-color: #fff3cd; color: #856404; }
+          .timeline-points.orange { background-color: #ffe0b3; color: #8a4500; }
+          .timeline-points.red { background-color: #f8d7da; color: #721c24; }
+          .timeline-points.gray { background-color: #e2e3e5; color: #383d41; }
+          .timeline-type { font-size: 15px; color: #555; margin-bottom: 8px; }
+          .timeline-description { font-size: 14px; color: #666; line-height: 1.5; cursor: pointer; }
+          .timeline-description.truncated {
+            display: -webkit-box; -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical; overflow: hidden;
+          }
+          .timeline-meta { display: flex; gap: 15px; margin-top: 10px; font-size: 12px; color: #888; flex-wrap: wrap; }
+          .timeline-expiration { color: #dc3545; font-weight: 500; }
+          .timeline-modification {
+            background: #fff3cd; padding: 8px 12px; border-radius: 4px;
+            font-size: 12px; margin-top: 10px; color: #856404;
+          }
+          .empty-state { text-align: center; padding: 30px; color: #666; }
+          .action-tracking {
+            background: #f8f9fa; border-radius: 8px; padding: 20px;
+            border: 1px solid #dee2e6;
+          }
+          .action-item {
+            display: flex; align-items: center; gap: 15px;
+            padding: 12px 0; border-bottom: 1px solid #dee2e6;
+          }
+          .action-item:last-child { border-bottom: none; }
+          .action-checkbox { width: 20px; height: 20px; cursor: pointer; }
+          .action-label { flex: 1; font-weight: 500; }
+          .action-date { font-size: 13px; color: #666; }
+          .action-notes-input {
+            width: 100%; margin-top: 15px; padding: 12px;
+            border: 1px solid #ddd; border-radius: 4px; font-size: 14px;
+            resize: vertical; min-height: 80px;
+          }
+          .director-actions {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px;
+          }
+          .action-btn {
+            padding: 12px 16px; border: none; border-radius: 6px;
+            font-size: 14px; font-weight: 500; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+          }
+          .action-btn.primary { background: #E51636; color: white; }
+          .action-btn.primary:hover { background: #c41230; }
+          .action-btn.secondary { background: #6c757d; color: white; }
+          .action-btn.secondary:hover { background: #5a6268; }
+          .action-btn.success { background: #28a745; color: white; }
+          .action-btn.success:hover { background: #218838; }
+          .action-btn.danger { background: #dc3545; color: white; }
+          .action-btn.danger:hover { background: #c82333; }
+          @media (max-width: 768px) {
+            .detail-header { padding: 20px; }
+            .detail-employee-name { font-size: 22px; }
+            .header-points { flex-direction: column; align-items: flex-start; }
+            .summary-grid { grid-template-columns: repeat(2, 1fr); }
+            .director-actions { grid-template-columns: 1fr; }
+          }
+        </style>
+
+        <!-- Header -->
+        <div class="detail-header">
+          <button class="close-btn" onclick="closeEmployeeDetailModal()" title="Close">&times;</button>
+          <h1 class="detail-employee-name">${escapeHtml(data.employee.full_name)}</h1>
+          <div class="detail-employee-id">ID: ${escapeHtml(data.employee.employee_id)}</div>
+          <div class="detail-employee-location">Location: ${escapeHtml(data.employee.primary_location)}</div>
+
+          <div class="header-points">
+            <div class="points-circle ${data.currentPoints.pointLevelColor}">${data.currentPoints.total}</div>
+            <div class="detail-badges">${badgesHtml}</div>
+          </div>
+        </div>
+
+        <div class="detail-body">
+          <!-- Point Summary -->
+          <div class="section">
+            <h2 class="section-title">Point Summary</h2>
+            <div class="summary-grid">
+              <div class="summary-card">
+                <div class="summary-value">${data.currentPoints.total}</div>
+                <div class="summary-label">Current Points</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-value">${data.pointTrends.pointsLast30Days}</div>
+                <div class="summary-label">Points (Last 30 Days)</div>
+              </div>
+              <div class="summary-card positive">
+                <div class="summary-value">${data.pointTrends.pointsExpiringNext30Days}</div>
+                <div class="summary-label">Expiring (Next 30 Days)</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-value">${nextExpDate}</div>
+                <div class="summary-label">Next Expiration</div>
+              </div>
+              <div class="summary-card warning">
+                <div class="summary-value">${data.statistics.highestPointsEver}</div>
+                <div class="summary-label">Highest Ever</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Statistics -->
+          <div class="section">
+            <h2 class="section-title">Statistics</h2>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <div class="stat-value">${data.statistics.totalInfractionsEver}</div>
+                <div class="stat-label">Total Infractions</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">${data.statistics.activeInfractions}</div>
+                <div class="stat-label">Active</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">${data.statistics.expiredInfractions}</div>
+                <div class="stat-label">Expired</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">${data.statistics.positiveCredits}</div>
+                <div class="stat-label">Positive Credits</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">${data.statistics.daysSinceLastInfraction !== null ? data.statistics.daysSinceLastInfraction : '--'}</div>
+                <div class="stat-label">Days Since Last</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value" style="font-size: 14px;">${escapeHtml(data.statistics.mostCommonType || '--')}</div>
+                <div class="stat-label">Most Common Type</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Threshold History -->
+          <div class="section">
+            <h2 class="section-title">Threshold History</h2>
+            <div class="threshold-list">${thresholdHtml}</div>
+          </div>
+
+          <!-- Timeline -->
+          <div class="section">
+            <h2 class="section-title">Infraction Timeline</h2>
+            <div class="timeline">${timelineHtml}</div>
+          </div>
+
+          ${actionTrackingHtml}
+          ${directorActionsHtml}
+
+          <!-- Export -->
+          <div class="section">
+            <h2 class="section-title">Export</h2>
+            <button class="action-btn primary" onclick="exportDetailPdf()" id="exportDetailBtn">
+              &#128196; Export Write-Up PDF
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // ============================================
+    // DETAIL MODAL ACTION HANDLERS
+    // ============================================
+
+    /**
+     * Handle action tracking checkbox change in detail modal
+     */
+    function handleDetailActionChange(actionType) {
+      const checkboxId = {
+        'schedule_day_removed': 'detailActionSchedule',
+        'suspension_completed': 'detailActionSuspension',
+        'director_meeting': 'detailActionMeeting'
+      }[actionType];
+
+      const checkbox = document.getElementById(checkboxId);
+
+      if (checkbox.checked) {
+        // Prompt for date
+        const dateStr = prompt('Enter the date this action was completed (MM/DD/YYYY):');
+        if (!dateStr) {
+          checkbox.checked = false;
+          return;
+        }
+
+        const actionDate = new Date(dateStr);
+        if (isNaN(actionDate.getTime())) {
+          alert('Invalid date format. Please use MM/DD/YYYY.');
+          checkbox.checked = false;
+          return;
+        }
+
+        saveDetailActionTracking(actionType, true, actionDate.toISOString(), null);
+      } else {
+        saveDetailActionTracking(actionType, false, null, null);
+      }
+    }
+
+    /**
+     * Save action tracking from detail modal
+     */
+    function saveDetailActionTracking(actionType, completed, date, notes) {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result.success) {
+            alert('Error saving action: ' + result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+        })
+        .saveActionTracking(currentDetailEmployeeId, actionType, completed, date, notes);
+    }
+
+    /**
+     * Save director notes from detail modal
+     */
+    function saveDetailDirectorNotes() {
+      const notes = document.getElementById('detailDirectorNotes').value;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          // Silent save
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error saving notes:', error);
+        })
+        .saveActionTracking(currentDetailEmployeeId, 'director_notes', true, null, notes);
+    }
+
+    /**
+     * Export PDF from detail modal
+     */
+    function exportDetailPdf() {
+      const btn = document.getElementById('exportDetailBtn');
+      btn.disabled = true;
+      btn.innerHTML = 'Generating PDF...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          btn.disabled = false;
+          btn.innerHTML = '&#128196; Export Write-Up PDF';
+
+          if (result.success) {
+            if (result.printUrl) {
+              window.open(result.printUrl, '_blank');
+            } else {
+              alert(result.message);
+            }
+          } else {
+            alert('Error: ' + result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          btn.disabled = false;
+          btn.innerHTML = '&#128196; Export Write-Up PDF';
+          alert('Error: ' + error.message);
+        })
+        .generateWriteUpPdf(currentDetailEmployeeId);
+    }
+
+    // ============================================
+    // MICRO-PHASE 14: DIRECTOR EDIT MODALS
+    // ============================================
+
+    let selectedInfractionId = null;
+    let selectedInfractionData = null;
+    let infractionTypes = [];
+
+    /**
+     * Show the edit infraction modal with full form
+     */
+    function showDetailEditModal() {
+      // First, let the user select which infraction to edit
+      if (!currentDetailData || !currentDetailData.infractions || currentDetailData.infractions.length === 0) {
+        alert('No infractions available to edit.');
+        return;
+      }
+
+      // Filter to only active infractions
+      const editableInfractions = currentDetailData.infractions.filter(inf =>
+        inf.status === 'Active' || inf.status === 'Modified'
+      );
+
+      if (editableInfractions.length === 0) {
+        alert('No active infractions available to edit.');
+        return;
+      }
+
+      // Build selection list
+      let selectionHtml = '<p>Select an infraction to edit:</p><div class="infraction-select-list">';
+      editableInfractions.forEach((inf, index) => {
+        selectionHtml += `
+          <div class="infraction-select-item" onclick="selectInfractionToEdit('${escapeHtml(inf.infraction_id)}', ${index})">
+            <div class="infraction-select-date">${escapeHtml(inf.dateFormatted)}</div>
+            <div class="infraction-select-type">${escapeHtml(inf.infraction_type)}</div>
+            <div class="infraction-select-points">${inf.points} pts</div>
+          </div>
+        `;
+      });
+      selectionHtml += '</div>';
+
+      // Show selection modal
+      showActionModal('Select Infraction to Edit', selectionHtml, null, 'Cancel');
+    }
+
+    /**
+     * Select an infraction to edit and show the edit form
+     */
+    function selectInfractionToEdit(infractionId, index) {
+      selectedInfractionId = infractionId;
+      selectedInfractionData = currentDetailData.infractions.find(inf => inf.infraction_id === infractionId);
+
+      if (!selectedInfractionData) {
+        alert('Infraction not found.');
+        return;
+      }
+
+      // Load infraction types for dropdown
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            infractionTypes = result.types;
+          }
+          showEditInfractionForm();
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error loading infraction types:', error);
+          infractionTypes = ['Attendance - Tardy', 'Attendance - NCNS', 'Conduct', 'Dress Code', 'Performance', 'Safety'];
+          showEditInfractionForm();
+        })
+        .getInfractionTypes();
+    }
+
+    /**
+     * Show the edit infraction form
+     */
+    function showEditInfractionForm() {
+      const inf = selectedInfractionData;
+      const typeOptions = infractionTypes.map(t =>
+        `<option value="${escapeHtml(t)}" ${t === inf.infraction_type ? 'selected' : ''}>${escapeHtml(t)}</option>`
+      ).join('');
+
+      const formHtml = `
+        <div class="edit-form">
+          <div class="form-group">
+            <label>Infraction ID</label>
+            <input type="text" value="${escapeHtml(inf.infraction_id)}" disabled class="form-input disabled">
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="editInfractionDate" value="${inf.date ? inf.date.split('T')[0] : ''}" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>Infraction Type</label>
+            <select id="editInfractionType" class="form-input">${typeOptions}</select>
+          </div>
+          <div class="form-group">
+            <label>Points</label>
+            <input type="number" id="editInfractionPoints" value="${inf.points}" min="1" max="15" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="editInfractionDescription" class="form-textarea" rows="4">${escapeHtml(inf.description || '')}</textarea>
+          </div>
+          <div class="form-group">
+            <label>Modification Reason <span class="required">(min 240 characters)</span></label>
+            <textarea id="editInfractionReason" class="form-textarea" rows="4" placeholder="Explain why this infraction is being modified..."></textarea>
+            <div class="char-counter" id="editReasonCounter">0 / 240 characters</div>
+          </div>
+        </div>
+      `;
+
+      showActionModal('Edit Infraction', formHtml, submitEditInfraction, 'Cancel');
+
+      // Add character counter
+      setTimeout(() => {
+        const reasonField = document.getElementById('editInfractionReason');
+        if (reasonField) {
+          reasonField.addEventListener('input', updateEditReasonCounter);
+        }
+      }, 100);
+    }
+
+    /**
+     * Update character counter for edit reason
+     */
+    function updateEditReasonCounter() {
+      const reason = document.getElementById('editInfractionReason').value;
+      const counter = document.getElementById('editReasonCounter');
+      counter.textContent = `${reason.length} / 240 characters`;
+      counter.style.color = reason.length >= 240 ? '#28a745' : '#dc3545';
+    }
+
+    /**
+     * Submit the edit infraction form
+     */
+    function submitEditInfraction() {
+      const date = document.getElementById('editInfractionDate').value;
+      const infraction_type = document.getElementById('editInfractionType').value;
+      const points = parseInt(document.getElementById('editInfractionPoints').value);
+      const description = document.getElementById('editInfractionDescription').value;
+      const reason = document.getElementById('editInfractionReason').value;
+
+      if (!reason || reason.length < 240) {
+        alert('Modification reason must be at least 240 characters.');
+        return;
+      }
+
+      showActionModalLoading('Saving changes...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideActionModal();
+          if (result.success) {
+            alert(result.message);
+            viewEmployeeDetails(currentDetailEmployeeId); // Refresh
+          } else {
+            alert('Error: ' + result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideActionModal();
+          alert('Error: ' + error.message);
+        })
+        .editInfractionWithAudit({
+          infraction_id: selectedInfractionId,
+          date: date ? new Date(date).toISOString() : undefined,
+          infraction_type: infraction_type,
+          points: points,
+          description: description,
+          modification_reason: reason
+        });
+    }
+
+    /**
+     * Show remove points modal with proper form (Phase 14 enhanced)
+     */
+    function showDetailRemovePointsModal() {
+      const formHtml = `
+        <div class="edit-form">
+          <div class="form-group">
+            <label>Employee</label>
+            <input type="text" value="${escapeHtml(currentDetailData.employee.full_name)}" disabled class="form-input disabled">
+          </div>
+          <div class="form-group">
+            <label>Current Points</label>
+            <input type="text" value="${currentDetailData.currentPoints.total}" disabled class="form-input disabled">
+          </div>
+          <div class="form-group">
+            <label>Points to Remove</label>
+            <input type="number" id="removePointsAmount" value="1" min="1" max="15" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>Reason for Removal <span class="required">(min 240 characters)</span></label>
+            <textarea id="removePointsReason" class="form-textarea" rows="5" placeholder="Provide a detailed explanation for why these points are being removed. This will be logged in the audit trail..."></textarea>
+            <div class="char-counter" id="removePointsCounter">0 / 240 characters</div>
+          </div>
+        </div>
+      `;
+
+      showActionModal('Remove Points', formHtml, submitRemovePoints, 'Cancel');
+
+      // Add character counter
+      setTimeout(() => {
+        const reasonField = document.getElementById('removePointsReason');
+        if (reasonField) {
+          reasonField.addEventListener('input', function() {
+            const counter = document.getElementById('removePointsCounter');
+            counter.textContent = `${this.value.length} / 240 characters`;
+            counter.style.color = this.value.length >= 240 ? '#28a745' : '#dc3545';
+          });
+        }
+      }, 100);
+    }
+
+    /**
+     * Submit remove points form
+     */
+    function submitRemovePoints() {
+      const points = parseInt(document.getElementById('removePointsAmount').value);
+      const reason = document.getElementById('removePointsReason').value;
+
+      if (isNaN(points) || points < 1 || points > 15) {
+        alert('Please enter a valid number between 1 and 15.');
+        return;
+      }
+
+      if (!reason || reason.length < 240) {
+        alert('Reason must be at least 240 characters.');
+        return;
+      }
+
+      showActionModalLoading('Removing points...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideActionModal();
+          if (result.success) {
+            alert(result.message + '\n\nAudit Log ID: ' + result.logId);
+            viewEmployeeDetails(currentDetailEmployeeId); // Refresh
+          } else {
+            alert('Error: ' + result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideActionModal();
+          alert('Error: ' + error.message);
+        })
+        .removePointsWithAudit({
+          employee_id: currentDetailEmployeeId,
+          points: points,
+          reason: reason
+        });
+    }
+
+    /**
+     * Show add credit modal (placeholder - full implementation in future)
+     */
+    function showDetailAddCreditModal() {
+      const dateStr = prompt('Enter date of positive behavior (MM/DD/YYYY):');
+      if (!dateStr) return;
+
+      const behaviorDate = new Date(dateStr);
+      if (isNaN(behaviorDate.getTime())) {
+        alert('Invalid date format.');
+        return;
+      }
+
+      const points = prompt('Enter points to credit (1-6):');
+      if (!points) return;
+
+      const pointsNum = parseInt(points);
+      if (isNaN(pointsNum) || pointsNum < 1 || pointsNum > 6) {
+        alert('Points must be between 1 and 6.');
+        return;
+      }
+
+      const description = prompt('Enter description (minimum 240 characters):');
+      if (!description || description.length < 240) {
+        alert('Description must be at least 240 characters.');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            alert(result.message);
+            viewEmployeeDetails(currentDetailEmployeeId); // Refresh
+          } else {
+            alert('Error: ' + result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+        })
+        .addPositiveBehaviorCredit({
+          employee_id: currentDetailEmployeeId,
+          date: behaviorDate.toISOString(),
+          points: pointsNum,
+          description: description
+        });
+    }
+
+    /**
+     * Show terminate modal with proper form (Phase 14 enhanced)
+     */
+    function showDetailTerminateModal() {
+      const formHtml = `
+        <div class="edit-form terminate-warning">
+          <div class="warning-banner">
+            <span class="warning-icon">&#9888;</span>
+            <strong>WARNING: This action cannot be undone!</strong>
+            <p>Marking an employee as terminated will archive all their infractions.</p>
+          </div>
+          <div class="form-group">
+            <label>Employee</label>
+            <input type="text" value="${escapeHtml(currentDetailData.employee.full_name)}" disabled class="form-input disabled">
+          </div>
+          <div class="form-group">
+            <label>Current Points</label>
+            <input type="text" value="${currentDetailData.currentPoints.total}" disabled class="form-input disabled">
+          </div>
+          <div class="form-group">
+            <label>Termination Date</label>
+            <input type="date" id="terminationDate" value="${new Date().toISOString().split('T')[0]}" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>Termination Reason</label>
+            <textarea id="terminationReason" class="form-textarea" rows="4" placeholder="Enter the reason for termination..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Confirmation</label>
+            <p style="color: #721c24; font-size: 13px;">Type <strong>TERMINATE</strong> to confirm:</p>
+            <input type="text" id="terminationConfirm" class="form-input" placeholder="Type TERMINATE here...">
+          </div>
+        </div>
+      `;
+
+      showActionModal('Mark as Terminated', formHtml, submitTermination, 'Cancel', true);
+    }
+
+    /**
+     * Submit termination form
+     */
+    function submitTermination() {
+      const dateStr = document.getElementById('terminationDate').value;
+      const reason = document.getElementById('terminationReason').value;
+      const confirmText = document.getElementById('terminationConfirm').value;
+
+      if (!dateStr) {
+        alert('Please enter a termination date.');
+        return;
+      }
+
+      if (!reason) {
+        alert('Please enter a termination reason.');
+        return;
+      }
+
+      if (confirmText !== 'TERMINATE') {
+        alert('Please type TERMINATE to confirm.');
+        return;
+      }
+
+      showActionModalLoading('Processing termination...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideActionModal();
+          if (result.success) {
+            alert(result.message);
+            closeEmployeeDetailModal();
+            loadEmployeeData(); // Refresh list
+          } else {
+            alert('Error: ' + result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideActionModal();
+          alert('Error: ' + error.message);
+        })
+        .markAsTerminated({
+          employee_id: currentDetailEmployeeId,
+          termination_date: new Date(dateStr).toISOString(),
+          reason: reason
+        });
+    }
+
+    /**
+     * Delete an infraction (from the timeline)
+     */
+    function showDeleteInfractionModal(infractionId) {
+      const infraction = currentDetailData.infractions.find(inf => inf.infraction_id === infractionId);
+      if (!infraction) {
+        alert('Infraction not found.');
+        return;
+      }
+
+      const formHtml = `
+        <div class="edit-form">
+          <div class="warning-banner">
+            <span class="warning-icon">&#9888;</span>
+            <strong>Deleting Infraction</strong>
+            <p>This will remove the infraction from the employee's record.</p>
+          </div>
+          <div class="form-group">
+            <label>Infraction</label>
+            <input type="text" value="${escapeHtml(infraction.infraction_type)} - ${escapeHtml(infraction.dateFormatted)}" disabled class="form-input disabled">
+          </div>
+          <div class="form-group">
+            <label>Points to be Removed</label>
+            <input type="text" value="${infraction.points}" disabled class="form-input disabled">
+          </div>
+          <div class="form-group">
+            <label>Reason for Deletion <span class="required">(min 240 characters)</span></label>
+            <textarea id="deleteInfractionReason" class="form-textarea" rows="5" placeholder="Provide a detailed explanation for why this infraction is being deleted..."></textarea>
+            <div class="char-counter" id="deleteReasonCounter">0 / 240 characters</div>
+          </div>
+        </div>
+      `;
+
+      selectedInfractionId = infractionId;
+      showActionModal('Delete Infraction', formHtml, submitDeleteInfraction, 'Cancel', true);
+
+      // Add character counter
+      setTimeout(() => {
+        const reasonField = document.getElementById('deleteInfractionReason');
+        if (reasonField) {
+          reasonField.addEventListener('input', function() {
+            const counter = document.getElementById('deleteReasonCounter');
+            counter.textContent = `${this.value.length} / 240 characters`;
+            counter.style.color = this.value.length >= 240 ? '#28a745' : '#dc3545';
+          });
+        }
+      }, 100);
+    }
+
+    /**
+     * Submit delete infraction form
+     */
+    function submitDeleteInfraction() {
+      const reason = document.getElementById('deleteInfractionReason').value;
+
+      if (!reason || reason.length < 240) {
+        alert('Deletion reason must be at least 240 characters.');
+        return;
+      }
+
+      showActionModalLoading('Deleting infraction...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideActionModal();
+          if (result.success) {
+            alert(result.message + '\n\nAudit Log ID: ' + result.logId);
+            viewEmployeeDetails(currentDetailEmployeeId); // Refresh
+          } else {
+            alert('Error: ' + result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideActionModal();
+          alert('Error: ' + error.message);
+        })
+        .deleteInfractionWithAudit(selectedInfractionId, reason);
+    }
+
+    // ============================================
+    // ACTION MODAL HELPERS
+    // ============================================
+
+    let currentActionCallback = null;
+
+    /**
+     * Show action modal with content
+     */
+    function showActionModal(title, content, submitCallback, cancelText, isDanger) {
+      currentActionCallback = submitCallback;
+
+      let modalHtml = `
+        <div class="action-modal-header ${isDanger ? 'danger' : ''}">
+          <h3>${title}</h3>
+          <button class="action-modal-close" onclick="hideActionModal()">&times;</button>
+        </div>
+        <div class="action-modal-body">${content}</div>
+        <div class="action-modal-footer">
+          <button class="action-modal-btn cancel" onclick="hideActionModal()">${cancelText || 'Cancel'}</button>
+          ${submitCallback ? `<button class="action-modal-btn submit ${isDanger ? 'danger' : ''}" onclick="handleActionSubmit()">Submit</button>` : ''}
+        </div>
+      `;
+
+      const container = document.getElementById('actionModalContainer');
+      if (!container) {
+        // Create container if it doesn't exist
+        const div = document.createElement('div');
+        div.id = 'actionModalContainer';
+        div.className = 'action-modal-overlay';
+        div.innerHTML = '<div class="action-modal-content" onclick="event.stopPropagation()"></div>';
+        div.onclick = hideActionModal;
+        document.body.appendChild(div);
+      }
+
+      document.getElementById('actionModalContainer').querySelector('.action-modal-content').innerHTML = modalHtml;
+      document.getElementById('actionModalContainer').classList.add('active');
+    }
+
+    /**
+     * Show loading state in action modal
+     */
+    function showActionModalLoading(message) {
+      const body = document.querySelector('#actionModalContainer .action-modal-body');
+      if (body) {
+        body.innerHTML = `
+          <div style="text-align: center; padding: 40px;">
+            <div class="detail-loading-spinner"></div>
+            <p style="margin-top: 15px; color: #666;">${message || 'Processing...'}</p>
+          </div>
+        `;
+      }
+      const footer = document.querySelector('#actionModalContainer .action-modal-footer');
+      if (footer) {
+        footer.style.display = 'none';
+      }
+    }
+
+    /**
+     * Hide action modal
+     */
+    function hideActionModal() {
+      const container = document.getElementById('actionModalContainer');
+      if (container) {
+        container.classList.remove('active');
+      }
+      currentActionCallback = null;
+    }
+
+    /**
+     * Handle action submit button click
+     */
+    function handleActionSubmit() {
+      if (currentActionCallback) {
+        currentActionCallback();
+      }
+    }
+
+    // ============================================
+    // UI STATE MANAGEMENT
+    // ============================================
+
+    /**
+     * Show loading state
+     */
+    function showLoading() {
+      document.getElementById('loadingContainer').style.display = 'block';
+      document.getElementById('employeeGrid').style.display = 'none';
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('errorState').style.display = 'none';
+      document.getElementById('paginationContainer').style.display = 'none';
+
+      // Start rotating loading messages
+      currentMessageIndex = 0;
+      updateLoadingMessage();
+      loadingMessageInterval = setInterval(function() {
+        currentMessageIndex = (currentMessageIndex + 1) % loadingMessages.length;
+        updateLoadingMessage();
+      }, 2000);
+    }
+
+    /**
+     * Update loading message
+     */
+    function updateLoadingMessage() {
+      document.getElementById('loadingMessage').textContent = loadingMessages[currentMessageIndex];
+    }
+
+    /**
+     * Hide loading state
+     */
+    function hideLoading() {
+      document.getElementById('loadingContainer').style.display = 'none';
+      if (loadingMessageInterval) {
+        clearInterval(loadingMessageInterval);
+        loadingMessageInterval = null;
+      }
+    }
+
+    /**
+     * Show error state
+     */
+    function showError(message) {
+      document.getElementById('loadingContainer').style.display = 'none';
+      document.getElementById('employeeGrid').style.display = 'none';
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('paginationContainer').style.display = 'none';
+      document.getElementById('errorMessage').textContent = message;
+      document.getElementById('errorState').style.display = 'block';
+    }
+  </script>
+</body>
+</html>

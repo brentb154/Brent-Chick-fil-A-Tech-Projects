@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Detail - CFA Accountability</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
+    }
+
+    /* Modal Overlay */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.6);
+      z-index: 1000;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      width: 100%;
+      max-width: 900px;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      margin: auto;
+    }
+
+    /* Header Section */
+    .detail-header {
+      background: linear-gradient(135deg, #E51636 0%, #c41230 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 8px 8px 0 0;
+      position: relative;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      font-size: 24px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s;
+    }
+
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .employee-name {
+      font-size: 28px;
+      font-weight: bold;
+      margin: 0 0 5px 0;
+    }
+
+    .employee-id {
+      font-size: 14px;
+      opacity: 0.9;
+      margin-bottom: 5px;
+    }
+
+    .employee-location {
+      font-size: 16px;
+      opacity: 0.9;
+    }
+
+    .header-points {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .points-circle {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: bold;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .points-circle.green { background-color: #28a745; }
+    .points-circle.yellow { background-color: #ffc107; color: #333; }
+    .points-circle.orange { background-color: #fd7e14; }
+    .points-circle.red { background-color: #dc3545; }
+
+    .status-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .status-badge {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(5px);
+    }
+
+    .status-badge.final_warning { background-color: #dc3545; }
+    .status-badge.termination { background-color: #721c24; }
+    .status-badge.probation { background-color: #fd7e14; }
+
+    /* Content Sections */
+    .detail-body {
+      padding: 25px;
+    }
+
+    .section {
+      margin-bottom: 25px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      margin: 0 0 15px 0;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #E51636;
+    }
+
+    /* Point Summary Cards */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+    }
+
+    .summary-card {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+      border: 1px solid #dee2e6;
+    }
+
+    .summary-value {
+      font-size: 28px;
+      font-weight: bold;
+      color: #E51636;
+    }
+
+    .summary-label {
+      font-size: 13px;
+      color: #666;
+      margin-top: 5px;
+    }
+
+    .summary-card.positive .summary-value { color: #28a745; }
+    .summary-card.warning .summary-value { color: #dc3545; }
+
+    /* Timeline */
+    .timeline {
+      position: relative;
+      padding-left: 30px;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 10px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #dee2e6;
+    }
+
+    .timeline-item {
+      position: relative;
+      padding: 15px;
+      background: white;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      transition: box-shadow 0.2s;
+    }
+
+    .timeline-item:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -24px;
+      top: 20px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #E51636;
+      border: 2px solid white;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .timeline-item.expired {
+      opacity: 0.6;
+      background: #f8f9fa;
+    }
+
+    .timeline-item.expired::before {
+      background: #6c757d;
+    }
+
+    .timeline-item.positive::before {
+      background: #28a745;
+    }
+
+    .timeline-item.deleted {
+      opacity: 0.4;
+      text-decoration: line-through;
+    }
+
+    .timeline-item.deleted::before {
+      background: #999;
+    }
+
+    .timeline-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .timeline-date {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .timeline-points {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .timeline-points.green { background-color: #d4edda; color: #155724; }
+    .timeline-points.yellow { background-color: #fff3cd; color: #856404; }
+    .timeline-points.orange { background-color: #ffe0b3; color: #8a4500; }
+    .timeline-points.red { background-color: #f8d7da; color: #721c24; }
+    .timeline-points.gray { background-color: #e2e3e5; color: #383d41; }
+
+    .timeline-type {
+      font-size: 15px;
+      color: #555;
+      margin-bottom: 8px;
+    }
+
+    .timeline-description {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.5;
+      cursor: pointer;
+    }
+
+    .timeline-description.truncated {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .timeline-description.expanded {
+      -webkit-line-clamp: unset;
+    }
+
+    .timeline-meta {
+      display: flex;
+      gap: 15px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #888;
+    }
+
+    .timeline-expiration {
+      color: #dc3545;
+      font-weight: 500;
+    }
+
+    .timeline-modification {
+      background: #fff3cd;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-top: 10px;
+      color: #856404;
+    }
+
+    /* Threshold History */
+    .threshold-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .threshold-item {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 12px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .threshold-item:last-child {
+      border-bottom: none;
+    }
+
+    .threshold-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .threshold-icon.up {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .threshold-icon.down {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .threshold-content {
+      flex: 1;
+    }
+
+    .threshold-label {
+      font-weight: 500;
+      color: #333;
+    }
+
+    .threshold-date {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .threshold-consequence {
+      font-size: 12px;
+      color: #888;
+      font-style: italic;
+    }
+
+    /* Action Tracking (Directors Only) */
+    .action-tracking {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      border: 1px solid #dee2e6;
+    }
+
+    .action-item {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 12px 0;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    .action-item:last-child {
+      border-bottom: none;
+    }
+
+    .action-checkbox {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+
+    .action-label {
+      flex: 1;
+      font-weight: 500;
+    }
+
+    .action-date {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .action-notes-input {
+      width: 100%;
+      margin-top: 15px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    /* Director Action Buttons */
+    .director-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .action-btn {
+      padding: 12px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .action-btn.primary {
+      background: #E51636;
+      color: white;
+    }
+
+    .action-btn.primary:hover {
+      background: #c41230;
+    }
+
+    .action-btn.secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .action-btn.secondary:hover {
+      background: #5a6268;
+    }
+
+    .action-btn.success {
+      background: #28a745;
+      color: white;
+    }
+
+    .action-btn.success:hover {
+      background: #218838;
+    }
+
+    .action-btn.danger {
+      background: #dc3545;
+      color: white;
+    }
+
+    .action-btn.danger:hover {
+      background: #c82333;
+    }
+
+    .action-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Statistics Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+    }
+
+    .stat-item {
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 6px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    /* Loading State */
+    .loading-overlay {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+    }
+
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #E51636;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      margin-top: 15px;
+      color: #666;
+    }
+
+    /* Error State */
+    .error-message {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      margin: 20px;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 30px;
+      color: #666;
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+    }
+
+    /* Sub-modals for director actions */
+    .sub-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1100;
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .sub-modal {
+      background: white;
+      border-radius: 8px;
+      padding: 25px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .sub-modal-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+      margin: 0 0 20px 0;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .char-counter {
+      font-size: 12px;
+      color: #666;
+      text-align: right;
+      margin-top: 5px;
+    }
+
+    .char-counter.error {
+      color: #dc3545;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .modal-content {
+        margin: 10px;
+        max-height: calc(100vh - 20px);
+      }
+
+      .detail-header {
+        padding: 20px;
+      }
+
+      .employee-name {
+        font-size: 22px;
+      }
+
+      .header-points {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .director-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Main Detail Modal (embedded as content, not an overlay when used standalone) -->
+  <div id="employeeDetailContent">
+    <!-- Loading State -->
+    <div id="loadingState" class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading employee details...</div>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="error-message" style="display: none;">
+      <p id="errorText">Error loading employee data</p>
+      <button class="action-btn secondary" onclick="closeDetail()">Close</button>
+    </div>
+
+    <!-- Employee Detail Content -->
+    <div id="detailContent" style="display: none;">
+      <!-- Header Section -->
+      <div class="detail-header">
+        <button class="close-btn" onclick="closeDetail()" title="Close">&times;</button>
+        <h1 class="employee-name" id="employeeName">--</h1>
+        <div class="employee-id" id="employeeId">ID: --</div>
+        <div class="employee-location" id="employeeLocation">Location: --</div>
+
+        <div class="header-points">
+          <div class="points-circle" id="pointsCircle">0</div>
+          <div class="status-badges" id="statusBadges"></div>
+        </div>
+      </div>
+
+      <div class="detail-body">
+        <!-- Point Summary Section -->
+        <div class="section">
+          <h2 class="section-title">Point Summary</h2>
+          <div class="summary-grid">
+            <div class="summary-card">
+              <div class="summary-value" id="currentPoints">0</div>
+              <div class="summary-label">Current Points</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-value" id="pointsLast30">0</div>
+              <div class="summary-label">Points (Last 30 Days)</div>
+            </div>
+            <div class="summary-card positive">
+              <div class="summary-value" id="pointsExpiring">0</div>
+              <div class="summary-label">Expiring (Next 30 Days)</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-value" id="nextExpiration">--</div>
+              <div class="summary-label">Next Expiration</div>
+            </div>
+            <div class="summary-card warning">
+              <div class="summary-value" id="highestEver">0</div>
+              <div class="summary-label">Highest Ever</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Statistics Section -->
+        <div class="section">
+          <h2 class="section-title">Statistics</h2>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-value" id="totalInfractions">0</div>
+              <div class="stat-label">Total Infractions</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="activeInfractions">0</div>
+              <div class="stat-label">Active</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="expiredInfractions">0</div>
+              <div class="stat-label">Expired</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="positiveCredits">0</div>
+              <div class="stat-label">Positive Credits</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="daysSinceLast">--</div>
+              <div class="stat-label">Days Since Last</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="mostCommonType">--</div>
+              <div class="stat-label">Most Common Type</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Threshold History Section -->
+        <div class="section">
+          <h2 class="section-title">Threshold History</h2>
+          <ul class="threshold-list" id="thresholdList">
+            <li class="empty-state">
+              <div class="empty-icon">&#128200;</div>
+              <div>No threshold crossings recorded</div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Timeline Section -->
+        <div class="section">
+          <h2 class="section-title">Infraction Timeline</h2>
+          <div class="timeline" id="infractionTimeline">
+            <div class="empty-state">
+              <div class="empty-icon">&#128196;</div>
+              <div>No infractions recorded</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Tracking Section (Directors Only) -->
+        <div class="section" id="actionTrackingSection" style="display: none;">
+          <h2 class="section-title">Action Tracking (Director Only)</h2>
+          <div class="action-tracking">
+            <div class="action-item">
+              <input type="checkbox" class="action-checkbox" id="actionSchedule" onchange="handleActionChange('schedule_day_removed')">
+              <span class="action-label">Removed day from schedule</span>
+              <span class="action-date" id="actionScheduleDate"></span>
+            </div>
+            <div class="action-item">
+              <input type="checkbox" class="action-checkbox" id="actionSuspension" onchange="handleActionChange('suspension_completed')">
+              <span class="action-label">3-day suspension completed</span>
+              <span class="action-date" id="actionSuspensionDate"></span>
+            </div>
+            <div class="action-item">
+              <input type="checkbox" class="action-checkbox" id="actionMeeting" onchange="handleActionChange('director_meeting')">
+              <span class="action-label">Director meeting held</span>
+              <span class="action-date" id="actionMeetingDate"></span>
+            </div>
+            <textarea class="action-notes-input" id="directorNotes" placeholder="Director notes..." onblur="saveDirectorNotes()"></textarea>
+          </div>
+        </div>
+
+        <!-- Director Actions Section -->
+        <div class="section" id="directorActionsSection" style="display: none;">
+          <h2 class="section-title">Director Actions</h2>
+          <div class="director-actions">
+            <button class="action-btn primary" onclick="showEditInfractionModal()">
+              &#9998; Edit Infraction
+            </button>
+            <button class="action-btn secondary" onclick="showRemovePointsModal()">
+              &#8722; Remove Points
+            </button>
+            <button class="action-btn success" onclick="showAddCreditModal()">
+              &#43; Add Positive Credit
+            </button>
+            <button class="action-btn danger" onclick="showTerminateModal()">
+              &#9888; Mark as Terminated
+            </button>
+          </div>
+        </div>
+
+        <!-- Export Section -->
+        <div class="section">
+          <h2 class="section-title">Export</h2>
+          <button class="action-btn primary" onclick="exportPdf()" id="exportBtn">
+            &#128196; Export Write-Up PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sub-modal: Edit Infraction -->
+  <div class="sub-modal-overlay" id="editInfractionModal">
+    <div class="sub-modal">
+      <h3 class="sub-modal-title">Edit Infraction</h3>
+      <div class="form-group">
+        <label>Select Infraction</label>
+        <select id="editInfractionSelect">
+          <option value="">-- Select --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>New Description</label>
+        <textarea id="editDescription" placeholder="Updated description..."></textarea>
+        <div class="char-counter" id="editDescCounter">0 / 240 minimum</div>
+      </div>
+      <div class="form-group">
+        <label>Modification Reason (required)</label>
+        <textarea id="editReason" placeholder="Explain why this change is being made..."></textarea>
+        <div class="char-counter" id="editReasonCounter">0 / 240 minimum</div>
+      </div>
+      <div class="modal-buttons">
+        <button class="action-btn secondary" onclick="closeSubModal('editInfractionModal')">Cancel</button>
+        <button class="action-btn primary" onclick="submitEditInfraction()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sub-modal: Remove Points -->
+  <div class="sub-modal-overlay" id="removePointsModal">
+    <div class="sub-modal">
+      <h3 class="sub-modal-title">Remove Points</h3>
+      <div class="form-group">
+        <label>Points to Remove</label>
+        <input type="number" id="removePointsValue" min="1" max="15" value="1">
+      </div>
+      <div class="form-group">
+        <label>Reason (required)</label>
+        <textarea id="removePointsReason" placeholder="Explain why points are being removed..."></textarea>
+        <div class="char-counter" id="removeReasonCounter">0 / 240 minimum</div>
+      </div>
+      <div class="modal-buttons">
+        <button class="action-btn secondary" onclick="closeSubModal('removePointsModal')">Cancel</button>
+        <button class="action-btn primary" onclick="submitRemovePoints()">Remove Points</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sub-modal: Add Positive Credit -->
+  <div class="sub-modal-overlay" id="addCreditModal">
+    <div class="sub-modal">
+      <h3 class="sub-modal-title">Add Positive Behavior Credit</h3>
+      <div class="form-group">
+        <label>Date of Behavior</label>
+        <input type="date" id="creditDate">
+      </div>
+      <div class="form-group">
+        <label>Points to Credit (1-6)</label>
+        <input type="number" id="creditPoints" min="1" max="6" value="1">
+      </div>
+      <div class="form-group">
+        <label>Description (required)</label>
+        <textarea id="creditDescription" placeholder="Describe the positive behavior..."></textarea>
+        <div class="char-counter" id="creditDescCounter">0 / 240 minimum</div>
+      </div>
+      <div class="modal-buttons">
+        <button class="action-btn secondary" onclick="closeSubModal('addCreditModal')">Cancel</button>
+        <button class="action-btn success" onclick="submitAddCredit()">Add Credit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sub-modal: Mark as Terminated -->
+  <div class="sub-modal-overlay" id="terminateModal">
+    <div class="sub-modal">
+      <h3 class="sub-modal-title" style="color: #dc3545;">&#9888; Mark as Terminated</h3>
+      <p style="color: #dc3545; font-weight: 500;">WARNING: This action is irreversible. All active infractions will be archived.</p>
+      <div class="form-group">
+        <label>Termination Date</label>
+        <input type="date" id="terminationDate">
+      </div>
+      <div class="form-group">
+        <label>Termination Reason</label>
+        <select id="terminationReasonType">
+          <option value="">-- Select --</option>
+          <option value="Points Threshold">Points Threshold Reached</option>
+          <option value="Policy Violation">Policy Violation</option>
+          <option value="Performance">Performance Issues</option>
+          <option value="Attendance">Attendance Issues</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Additional Notes</label>
+        <textarea id="terminationNotes" placeholder="Additional details..."></textarea>
+      </div>
+      <div class="form-group">
+        <label style="color: #dc3545;">Type "TERMINATE" to confirm</label>
+        <input type="text" id="terminateConfirm" placeholder="Type TERMINATE">
+      </div>
+      <div class="modal-buttons">
+        <button class="action-btn secondary" onclick="closeSubModal('terminateModal')">Cancel</button>
+        <button class="action-btn danger" onclick="submitTerminate()">Confirm Termination</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sub-modal: Action Date Picker -->
+  <div class="sub-modal-overlay" id="actionDateModal">
+    <div class="sub-modal">
+      <h3 class="sub-modal-title" id="actionDateTitle">Select Date</h3>
+      <div class="form-group">
+        <label>Date Completed</label>
+        <input type="date" id="actionDateInput">
+      </div>
+      <div class="form-group">
+        <label>Notes (optional)</label>
+        <textarea id="actionDateNotes" placeholder="Optional notes..."></textarea>
+      </div>
+      <div class="modal-buttons">
+        <button class="action-btn secondary" onclick="closeSubModal('actionDateModal')">Cancel</button>
+        <button class="action-btn primary" onclick="submitActionDate()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // GLOBAL VARIABLES
+    // ============================================
+    let currentEmployeeId = null;
+    let currentEmployeeData = null;
+    let userRole = null;
+    let pendingActionType = null;
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+
+    /**
+     * Load employee detail data
+     */
+    function loadEmployeeDetail(employeeId) {
+      currentEmployeeId = employeeId;
+
+      // Show loading state
+      document.getElementById('loadingState').style.display = 'flex';
+      document.getElementById('errorState').style.display = 'none';
+      document.getElementById('detailContent').style.display = 'none';
+
+      // Fetch data from server
+      google.script.run
+        .withSuccessHandler(handleDetailDataLoaded)
+        .withFailureHandler(handleDetailError)
+        .getEmployeeDetailData(employeeId);
+    }
+
+    /**
+     * Handle successful data load
+     */
+    function handleDetailDataLoaded(result) {
+      document.getElementById('loadingState').style.display = 'none';
+
+      if (!result) {
+        showError('Server returned no data. Please try again.');
+        return;
+      }
+
+      if (result.sessionExpired) {
+        handleSessionExpired();
+        return;
+      }
+
+      if (!result.success) {
+        showError(result.error || 'Error loading employee data');
+        return;
+      }
+
+      currentEmployeeData = result;
+      userRole = result.userRole;
+
+      // Populate the detail view
+      populateDetailView(result);
+
+      document.getElementById('detailContent').style.display = 'block';
+    }
+
+    /**
+     * Handle data load error
+     */
+    function handleDetailError(error) {
+      document.getElementById('loadingState').style.display = 'none';
+      showError('Error loading data: ' + error.message);
+    }
+
+    /**
+     * Show error state
+     */
+    function showError(message) {
+      document.getElementById('errorText').textContent = message;
+      document.getElementById('errorState').style.display = 'block';
+    }
+
+    /**
+     * Handle session expiration
+     */
+    function handleSessionExpired() {
+      alert('Your session has expired. Please log in again.');
+      closeDetail();
+    }
+
+    // ============================================
+    // POPULATE VIEW
+    // ============================================
+
+    /**
+     * Populate all sections of the detail view
+     */
+    function populateDetailView(data) {
+      // Header
+      document.getElementById('employeeName').textContent = data.employee.full_name;
+      document.getElementById('employeeId').textContent = 'ID: ' + data.employee.employee_id;
+      document.getElementById('employeeLocation').textContent = 'Location: ' + data.employee.primary_location;
+
+      // Points circle
+      const pointsCircle = document.getElementById('pointsCircle');
+      pointsCircle.textContent = data.currentPoints.total;
+      pointsCircle.className = 'points-circle ' + data.currentPoints.pointLevelColor;
+
+      // Status badges
+      const badgesContainer = document.getElementById('statusBadges');
+      badgesContainer.innerHTML = '';
+      if (data.currentPoints.statusBadges && data.currentPoints.statusBadges.length > 0) {
+        data.currentPoints.statusBadges.forEach(badge => {
+          const badgeEl = document.createElement('span');
+          badgeEl.className = 'status-badge ' + badge.type;
+          badgeEl.textContent = (badge.icon || '') + ' ' + badge.label;
+          badgesContainer.appendChild(badgeEl);
+        });
+      }
+
+      // Point summary
+      document.getElementById('currentPoints').textContent = data.currentPoints.total;
+      document.getElementById('pointsLast30').textContent = data.pointTrends.pointsLast30Days;
+      document.getElementById('pointsExpiring').textContent = data.pointTrends.pointsExpiringNext30Days;
+      document.getElementById('nextExpiration').textContent = data.currentPoints.nextExpirationDate
+        ? new Date(data.currentPoints.nextExpirationDate).toLocaleDateString()
+        : '--';
+      document.getElementById('highestEver').textContent = data.statistics.highestPointsEver;
+
+      // Statistics
+      document.getElementById('totalInfractions').textContent = data.statistics.totalInfractionsEver;
+      document.getElementById('activeInfractions').textContent = data.statistics.activeInfractions;
+      document.getElementById('expiredInfractions').textContent = data.statistics.expiredInfractions;
+      document.getElementById('positiveCredits').textContent = data.statistics.positiveCredits;
+      document.getElementById('daysSinceLast').textContent = data.statistics.daysSinceLastInfraction !== null
+        ? data.statistics.daysSinceLastInfraction
+        : '--';
+      document.getElementById('mostCommonType').textContent = data.statistics.mostCommonType || '--';
+
+      // Threshold history
+      populateThresholdHistory(data.thresholdHistory);
+
+      // Infraction timeline
+      populateTimeline(data.infractions);
+
+      // Director-only sections
+      if (userRole === 'Director') {
+        document.getElementById('actionTrackingSection').style.display = 'block';
+        document.getElementById('directorActionsSection').style.display = 'block';
+        populateActionTracking(data.actionTracking);
+      } else {
+        document.getElementById('actionTrackingSection').style.display = 'none';
+        document.getElementById('directorActionsSection').style.display = 'none';
+      }
+    }
+
+    /**
+     * Populate threshold history
+     */
+    function populateThresholdHistory(history) {
+      const container = document.getElementById('thresholdList');
+
+      if (!history || history.length === 0) {
+        container.innerHTML = '<li class="empty-state"><div class="empty-icon">&#128200;</div><div>No threshold crossings recorded</div></li>';
+        return;
+      }
+
+      container.innerHTML = '';
+      history.forEach(event => {
+        const li = document.createElement('li');
+        li.className = 'threshold-item';
+
+        const isUp = event.type === 'crossed_up';
+
+        li.innerHTML = `
+          <div class="threshold-icon ${isUp ? 'up' : 'down'}">${isUp ? '&#9650;' : '&#9660;'}</div>
+          <div class="threshold-content">
+            <div class="threshold-label">${event.label}</div>
+            <div class="threshold-date">${event.dateFormatted}</div>
+            ${event.consequence ? '<div class="threshold-consequence">' + event.consequence + '</div>' : ''}
+          </div>
+        `;
+
+        container.appendChild(li);
+      });
+    }
+
+    /**
+     * Populate infraction timeline
+     */
+    function populateTimeline(infractions) {
+      const container = document.getElementById('infractionTimeline');
+
+      if (!infractions || infractions.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128196;</div><div>No infractions recorded</div></div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      infractions.forEach(inf => {
+        const item = document.createElement('div');
+        item.className = 'timeline-item';
+
+        if (inf.is_expired) item.className += ' expired';
+        if (inf.is_positive) item.className += ' positive';
+        if (inf.status === 'Deleted') item.className += ' deleted';
+
+        const pointsClass = inf.is_positive ? 'green' :
+          (inf.is_expired ? 'gray' :
+            (inf.points >= 5 ? 'red' : (inf.points >= 3 ? 'orange' : 'yellow')));
+
+        item.innerHTML = `
+          <div class="timeline-header">
+            <span class="timeline-date">${inf.dateFormatted}</span>
+            <span class="timeline-points ${pointsClass}">${inf.is_positive ? '' : '+'}${inf.points} pts</span>
+          </div>
+          <div class="timeline-type">${inf.infraction_type}</div>
+          <div class="timeline-description truncated" onclick="toggleDescription(this)">${inf.description || 'No description'}</div>
+          <div class="timeline-meta">
+            <span>&#128205; ${inf.location}</span>
+            <span>&#128100; ${inf.entered_by}</span>
+            ${!inf.is_expired && inf.status === 'Active' ?
+              '<span class="timeline-expiration">Expires: ' + inf.expirationFormatted + '</span>' : ''}
+            ${inf.status !== 'Active' ? '<span>[' + inf.status + ']</span>' : ''}
+          </div>
+          ${inf.modification_reason ? '<div class="timeline-modification">Modified: ' + inf.modification_reason + '</div>' : ''}
+        `;
+
+        // Store infraction ID for editing
+        item.dataset.infractionId = inf.infraction_id;
+
+        container.appendChild(item);
+      });
+    }
+
+    /**
+     * Toggle description expanded/collapsed
+     */
+    function toggleDescription(el) {
+      el.classList.toggle('truncated');
+      el.classList.toggle('expanded');
+    }
+
+    /**
+     * Populate action tracking
+     */
+    function populateActionTracking(tracking) {
+      if (!tracking) return;
+
+      document.getElementById('actionSchedule').checked = tracking.scheduleDayRemoved.completed;
+      document.getElementById('actionScheduleDate').textContent = tracking.scheduleDayRemoved.date
+        ? new Date(tracking.scheduleDayRemoved.date).toLocaleDateString()
+        : '';
+
+      document.getElementById('actionSuspension').checked = tracking.suspensionCompleted.completed;
+      document.getElementById('actionSuspensionDate').textContent = tracking.suspensionCompleted.date
+        ? new Date(tracking.suspensionCompleted.date).toLocaleDateString()
+        : '';
+
+      document.getElementById('actionMeeting').checked = tracking.directorMeetingHeld.completed;
+      document.getElementById('actionMeetingDate').textContent = tracking.directorMeetingHeld.date
+        ? new Date(tracking.directorMeetingHeld.date).toLocaleDateString()
+        : '';
+
+      document.getElementById('directorNotes').value = tracking.directorNotes || '';
+    }
+
+    // ============================================
+    // ACTION TRACKING
+    // ============================================
+
+    /**
+     * Handle action checkbox change
+     */
+    function handleActionChange(actionType) {
+      const checkboxId = {
+        'schedule_day_removed': 'actionSchedule',
+        'suspension_completed': 'actionSuspension',
+        'director_meeting': 'actionMeeting'
+      }[actionType];
+
+      const checkbox = document.getElementById(checkboxId);
+
+      if (checkbox.checked) {
+        // Show date picker modal
+        pendingActionType = actionType;
+        document.getElementById('actionDateTitle').textContent = 'When was this completed?';
+        document.getElementById('actionDateInput').value = new Date().toISOString().split('T')[0];
+        document.getElementById('actionDateNotes').value = '';
+        showSubModal('actionDateModal');
+      } else {
+        // Unchecking - save immediately
+        saveActionTracking(actionType, false, null, null);
+      }
+    }
+
+    /**
+     * Submit action date
+     */
+    function submitActionDate() {
+      const date = document.getElementById('actionDateInput').value;
+      const notes = document.getElementById('actionDateNotes').value;
+
+      if (!date) {
+        alert('Please select a date');
+        return;
+      }
+
+      saveActionTracking(pendingActionType, true, date, notes);
+      closeSubModal('actionDateModal');
+    }
+
+    /**
+     * Save action tracking to server
+     */
+    function saveActionTracking(actionType, completed, date, notes) {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            // Update display
+            const dateId = {
+              'schedule_day_removed': 'actionScheduleDate',
+              'suspension_completed': 'actionSuspensionDate',
+              'director_meeting': 'actionMeetingDate'
+            }[actionType];
+
+            if (dateId && date) {
+              document.getElementById(dateId).textContent = new Date(date).toLocaleDateString();
+            } else if (dateId) {
+              document.getElementById(dateId).textContent = '';
+            }
+          } else {
+            alert('Error saving action: ' + result.error);
+            // Revert checkbox
+            const checkboxId = {
+              'schedule_day_removed': 'actionSchedule',
+              'suspension_completed': 'actionSuspension',
+              'director_meeting': 'actionMeeting'
+            }[actionType];
+            document.getElementById(checkboxId).checked = !completed;
+          }
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+        })
+        .saveActionTracking(currentEmployeeId, actionType, completed, date, notes);
+    }
+
+    /**
+     * Save director notes
+     */
+    function saveDirectorNotes() {
+      const notes = document.getElementById('directorNotes').value;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          // Silent save
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error saving notes:', error);
+        })
+        .saveActionTracking(currentEmployeeId, 'director_notes', true, null, notes);
+    }
+
+    // ============================================
+    // DIRECTOR ACTIONS
+    // ============================================
+
+    /**
+     * Show edit infraction modal
+     */
+    function showEditInfractionModal() {
+      const select = document.getElementById('editInfractionSelect');
+      select.innerHTML = '<option value="">-- Select --</option>';
+
+      // Populate with active infractions
+      if (currentEmployeeData && currentEmployeeData.infractions) {
+        currentEmployeeData.infractions
+          .filter(inf => inf.status === 'Active' && !inf.is_expired)
+          .forEach(inf => {
+            const option = document.createElement('option');
+            option.value = inf.infraction_id;
+            option.textContent = `${inf.dateFormatted} - ${inf.infraction_type} (${inf.points} pts)`;
+            select.appendChild(option);
+          });
+      }
+
+      document.getElementById('editDescription').value = '';
+      document.getElementById('editReason').value = '';
+      updateCharCounter('editDescription', 'editDescCounter');
+      updateCharCounter('editReason', 'editReasonCounter');
+
+      showSubModal('editInfractionModal');
+    }
+
+    /**
+     * Submit edit infraction
+     */
+    function submitEditInfraction() {
+      const infractionId = document.getElementById('editInfractionSelect').value;
+      const description = document.getElementById('editDescription').value;
+      const reason = document.getElementById('editReason').value;
+
+      if (!infractionId) {
+        alert('Please select an infraction');
+        return;
+      }
+
+      if (reason.length < 240) {
+        alert('Modification reason must be at least 240 characters');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            alert('Infraction updated successfully');
+            closeSubModal('editInfractionModal');
+            loadEmployeeDetail(currentEmployeeId); // Refresh
+          } else {
+            alert('Error: ' + result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+        })
+        .editInfraction({
+          infraction_id: infractionId,
+          description: description || undefined,
+          modification_reason: reason
+        });
+    }
+
+    /**
+     * Show remove points modal
+     */
+    function showRemovePointsModal() {
+      document.getElementById('removePointsValue').value = 1;
+      document.getElementById('removePointsReason').value = '';
+      updateCharCounter('removePointsReason', 'removeReasonCounter');
+      showSubModal('removePointsModal');
+    }
+
+    /**
+     * Submit remove points
+     */
+    function submitRemovePoints() {
+      const points = parseInt(document.getElementById('removePointsValue').value);
+      const reason = document.getElementById('removePointsReason').value;
+
+      if (isNaN(points) || points < 1) {
+        alert('Please enter a valid number of points');
+        return;
+      }
+
+      if (reason.length < 240) {
+        alert('Reason must be at least 240 characters');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            alert(result.message);
+            closeSubModal('removePointsModal');
+            loadEmployeeDetail(currentEmployeeId); // Refresh
+          } else {
+            alert('Error: ' + result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+        })
+        .removePoints({
+          employee_id: currentEmployeeId,
+          points: points,
+          reason: reason
+        });
+    }
+
+    /**
+     * Show add credit modal
+     */
+    function showAddCreditModal() {
+      document.getElementById('creditDate').value = new Date().toISOString().split('T')[0];
+      document.getElementById('creditPoints').value = 1;
+      document.getElementById('creditDescription').value = '';
+      updateCharCounter('creditDescription', 'creditDescCounter');
+      showSubModal('addCreditModal');
+    }
+
+    /**
+     * Submit add credit
+     */
+    function submitAddCredit() {
+      const date = document.getElementById('creditDate').value;
+      const points = parseInt(document.getElementById('creditPoints').value);
+      const description = document.getElementById('creditDescription').value;
+
+      if (!date) {
+        alert('Please select a date');
+        return;
+      }
+
+      if (isNaN(points) || points < 1 || points > 6) {
+        alert('Points must be between 1 and 6');
+        return;
+      }
+
+      if (description.length < 240) {
+        alert('Description must be at least 240 characters');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            alert(result.message);
+            closeSubModal('addCreditModal');
+            loadEmployeeDetail(currentEmployeeId); // Refresh
+          } else {
+            alert('Error: ' + result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+        })
+        .addPositiveBehaviorCredit({
+          employee_id: currentEmployeeId,
+          date: date,
+          points: points,
+          description: description
+        });
+    }
+
+    /**
+     * Show terminate modal
+     */
+    function showTerminateModal() {
+      document.getElementById('terminationDate').value = new Date().toISOString().split('T')[0];
+      document.getElementById('terminationReasonType').value = '';
+      document.getElementById('terminationNotes').value = '';
+      document.getElementById('terminateConfirm').value = '';
+      showSubModal('terminateModal');
+    }
+
+    /**
+     * Submit termination
+     */
+    function submitTerminate() {
+      const date = document.getElementById('terminationDate').value;
+      const reasonType = document.getElementById('terminationReasonType').value;
+      const notes = document.getElementById('terminationNotes').value;
+      const confirm = document.getElementById('terminateConfirm').value;
+
+      if (!date) {
+        alert('Please select a termination date');
+        return;
+      }
+
+      if (!reasonType) {
+        alert('Please select a termination reason');
+        return;
+      }
+
+      if (confirm !== 'TERMINATE') {
+        alert('Please type TERMINATE to confirm');
+        return;
+      }
+
+      const reason = reasonType + (notes ? ': ' + notes : '');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            alert(result.message);
+            closeSubModal('terminateModal');
+            closeDetail(); // Return to list
+          } else {
+            alert('Error: ' + result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+        })
+        .markAsTerminated({
+          employee_id: currentEmployeeId,
+          termination_date: date,
+          reason: reason
+        });
+    }
+
+    // ============================================
+    // PDF EXPORT
+    // ============================================
+
+    /**
+     * Export write-up PDF
+     */
+    function exportPdf() {
+      const btn = document.getElementById('exportBtn');
+      btn.disabled = true;
+      btn.textContent = 'Generating PDF...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          btn.disabled = false;
+          btn.textContent = '&#128196; Export Write-Up PDF';
+
+          if (result.success) {
+            if (result.printUrl) {
+              window.open(result.printUrl, '_blank');
+            } else {
+              alert(result.message);
+            }
+          } else {
+            alert('Error: ' + result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          btn.disabled = false;
+          btn.textContent = '&#128196; Export Write-Up PDF';
+          alert('Error: ' + error.message);
+        })
+        .generateWriteUpPdf(currentEmployeeId);
+    }
+
+    // ============================================
+    // MODAL HELPERS
+    // ============================================
+
+    /**
+     * Show sub-modal
+     */
+    function showSubModal(modalId) {
+      document.getElementById(modalId).style.display = 'flex';
+    }
+
+    /**
+     * Close sub-modal
+     */
+    function closeSubModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+
+    /**
+     * Close the detail view
+     */
+    function closeDetail() {
+      // If this is embedded in EmployeeList, call parent close function
+      if (window.parent && window.parent.closeEmployeeDetailModal) {
+        window.parent.closeEmployeeDetailModal();
+      } else if (typeof closeEmployeeDetailModal === 'function') {
+        closeEmployeeDetailModal();
+      }
+    }
+
+    // ============================================
+    // CHARACTER COUNTERS
+    // ============================================
+
+    /**
+     * Update character counter
+     */
+    function updateCharCounter(inputId, counterId) {
+      const input = document.getElementById(inputId);
+      const counter = document.getElementById(counterId);
+      const count = input.value.length;
+      counter.textContent = count + ' / 240 minimum';
+      counter.className = 'char-counter' + (count < 240 ? ' error' : '');
+    }
+
+    // Set up character counter listeners
+    document.addEventListener('DOMContentLoaded', function() {
+      const textareas = [
+        ['editDescription', 'editDescCounter'],
+        ['editReason', 'editReasonCounter'],
+        ['removePointsReason', 'removeReasonCounter'],
+        ['creditDescription', 'creditDescCounter']
+      ];
+
+      textareas.forEach(([inputId, counterId]) => {
+        const input = document.getElementById(inputId);
+        if (input) {
+          input.addEventListener('input', function() {
+            updateCharCounter(inputId, counterId);
+          });
+        }
+      });
+    });
+
+    // ============================================
+    // GLOBAL EXPORT FOR PARENT PAGE
+    // ============================================
+
+    // Export function for parent page to call
+    window.loadEmployeeDetail = loadEmployeeDetail;
+  </script>
+</body>
+</html>

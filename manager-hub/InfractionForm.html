@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFA Accountability - Add Infraction</title>
+  <style>
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #E51636;
+    }
+
+    .header-title h1 {
+      margin: 0;
+      color: #E51636;
+    }
+
+    .header-title h2 {
+      margin: 5px 0 0 0;
+      font-weight: normal;
+      color: #666;
+    }
+
+    .header-user {
+      text-align: right;
+    }
+
+    .user-role {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 5px;
+    }
+
+    .logout-btn {
+      padding: 8px 16px;
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .logout-btn:hover {
+      background-color: #c82333;
+    }
+
+    .nav-btn {
+      padding: 8px 16px;
+      background-color: #E51636;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      text-decoration: none;
+      display: inline-block;
+      margin-right: 10px;
+    }
+
+    .nav-btn:hover {
+      background-color: #c41230;
+    }
+
+    /* Session Expired Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .modal-content h3 {
+      margin-top: 0;
+      color: #dc3545;
+    }
+
+    .modal-btn {
+      padding: 10px 20px;
+      background-color: #E51636;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 15px;
+    }
+
+    .modal-btn:hover {
+      background-color: #c41230;
+    }
+  </style>
+</head>
+<body>
+  <!-- Session Expired Modal -->
+  <div id="sessionExpiredModal" class="modal-overlay">
+    <div class="modal-content">
+      <h3>Session Expired</h3>
+      <p>Your session has expired due to inactivity. Please login again to continue.</p>
+      <button class="modal-btn" onclick="returnToLogin()">Return to Login</button>
+    </div>
+  </div>
+
+  <!-- Header with user info and logout -->
+  <div class="header-bar">
+    <div class="header-title">
+      <h1>CFA Accountability System</h1>
+      <h2>Add New Infraction</h2>
+    </div>
+    <div class="header-user">
+      <div class="user-role">Logged in as: <strong id="userRoleDisplay">--</strong></div>
+      <a href="#" id="employeeListLink" class="nav-btn">← Employee List</a>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <form id="infractionForm">
+    <!-- Manager/Director Name -->
+    <div>
+      <label for="enteredBy">Manager/Director Name: *</label><br>
+      <input type="text" id="enteredBy" name="enteredBy" placeholder="Your full name" required>
+    </div>
+    <br>
+
+    <!-- Employee Selection -->
+    <div>
+      <label for="employeeSelect">Employee: *</label><br>
+      <select id="employeeSelect" name="employeeSelect" required>
+        <option value="">-- Select Employee --</option>
+        <!-- Options populated via JavaScript -->
+      </select>
+      <span id="employeeLoading"> (Loading employees...)</span>
+    </div>
+    <br>
+
+    <!-- Date of Infraction -->
+    <div>
+      <label for="infractionDate">Date of Infraction: *</label><br>
+      <input type="date" id="infractionDate" name="infractionDate" required>
+    </div>
+    <br>
+
+    <!-- Location -->
+    <div>
+      <label for="location">Location: *</label><br>
+      <select id="location" name="location" required>
+        <option value="">-- Select Location --</option>
+        <option value="Cockrell Hill DTO">Cockrell Hill DTO</option>
+        <option value="Dallas Baptist University OCV">Dallas Baptist University OCV</option>
+      </select>
+    </div>
+    <br>
+
+    <!-- Infraction Type -->
+    <div>
+      <label for="infractionType">Infraction Type: *</label><br>
+      <select id="infractionType" name="infractionType" required>
+        <option value="">-- Select Infraction Type --</option>
+        <!-- Options populated via JavaScript -->
+      </select>
+      <span id="typeLoading"> (Loading infraction types...)</span>
+    </div>
+    <br>
+
+    <!-- Description -->
+    <div>
+      <label for="description">Description: * (minimum 240 characters)</label><br>
+      <textarea id="description" name="description" rows="6" cols="60"
+        placeholder="Provide detailed description of the incident (minimum 240 characters)" required></textarea>
+      <br>
+      <span id="charCounter" style="color: red;">0 / 240 characters</span>
+    </div>
+    <br>
+
+    <!-- Submit Button -->
+    <div>
+      <button type="button" id="submitBtn" onclick="submitForm()">Submit Infraction</button>
+    </div>
+    <br>
+
+    <!-- Message Area -->
+    <div id="messageArea" style="display: none; padding: 10px; border: 1px solid #ccc;">
+      <span id="messageText"></span>
+    </div>
+  </form>
+
+  <script>
+    // ============================================
+    // GLOBAL VARIABLES
+    // ============================================
+
+    let bucketData = []; // Store bucket info for point lookups
+    let employeeData = []; // Store employee info for name lookups
+    let messageTimeout = null; // For auto-hiding messages
+    let sessionCheckInterval = null; // For session monitoring
+    let userRole = null; // Current user's role
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+
+    // Set date constraints on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeDateInput();
+      loadFormData();
+      setupCharacterCounter();
+      initializeSession();
+      startSessionMonitoring();
+      setupActivityListeners();
+      setupNavigationLinks();
+    });
+
+    /**
+     * Initialize session - get user role from session storage or server
+     */
+    function initializeSession() {
+      // Check session storage first
+      var storedRole = sessionStorage.getItem('cfa_user_role');
+      if (storedRole) {
+        userRole = storedRole;
+        document.getElementById('userRoleDisplay').textContent = storedRole;
+      }
+
+      // Always validate with server to ensure session is still valid
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.valid) {
+            userRole = result.role;
+            document.getElementById('userRoleDisplay').textContent = result.role;
+            sessionStorage.setItem('cfa_user_role', result.role);
+          } else {
+            // Session invalid - redirect to login
+            handleSessionExpired();
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Session check failed:', error);
+        })
+        .validateSession();
+    }
+
+    /**
+     * Setup navigation links with correct deployment URL
+     */
+    function setupNavigationLinks() {
+      google.script.run
+        .withSuccessHandler(function(url) {
+          var employeeListLink = document.getElementById('employeeListLink');
+          if (employeeListLink) {
+            employeeListLink.href = url + '?page=employees&t=' + Date.now();
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error getting URL:', error);
+        })
+        .getWebAppUrl();
+    }
+
+    /**
+     * Start session monitoring - check every 60 seconds
+     */
+    function startSessionMonitoring() {
+      // Check session every 60 seconds
+      sessionCheckInterval = setInterval(function() {
+        checkSessionStatus();
+      }, 60000); // 60 seconds
+    }
+
+    /**
+     * Check if session is still valid
+     */
+    function checkSessionStatus() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result.valid) {
+            handleSessionExpired();
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error checking session:', error);
+          // Don't show modal on network errors - just log
+        })
+        .validateSession();
+    }
+
+    /**
+     * Setup activity listeners to extend session on user interaction
+     */
+    function setupActivityListeners() {
+      // Extend session on various user interactions
+      const events = ['click', 'keypress', 'scroll', 'mousemove'];
+
+      // Throttle to avoid too many calls
+      let lastExtend = Date.now();
+      const throttleMs = 30000; // Only extend once per 30 seconds
+
+      function throttledExtend() {
+        const now = Date.now();
+        if (now - lastExtend > throttleMs) {
+          lastExtend = now;
+          extendUserSession();
+        }
+      }
+
+      events.forEach(function(eventType) {
+        document.addEventListener(eventType, throttledExtend, { passive: true });
+      });
+    }
+
+    /**
+     * Extend the user's session
+     */
+    function extendUserSession() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          // Session extended silently
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error extending session:', error);
+        })
+        .extendSession();
+    }
+
+    /**
+     * Handle session expiration
+     */
+    function handleSessionExpired() {
+      // Stop session monitoring
+      if (sessionCheckInterval) {
+        clearInterval(sessionCheckInterval);
+        sessionCheckInterval = null;
+      }
+
+      // Disable all form inputs
+      setFormEnabled(false);
+
+      // Show session expired modal
+      document.getElementById('sessionExpiredModal').style.display = 'flex';
+    }
+
+    /**
+     * Return to login page (called from session expired modal)
+     */
+    function returnToLogin() {
+      // Clear session storage
+      sessionStorage.removeItem('cfa_user_role');
+
+      // Show the login link
+      showLogoutScreen('Your session has expired.');
+    }
+
+    /**
+     * Logout the user
+     */
+    function logout() {
+      // Clear session storage
+      sessionStorage.removeItem('cfa_user_role');
+
+      // End session on server
+      google.script.run
+        .withSuccessHandler(function() {
+          showLogoutScreen('You have been logged out successfully.');
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error ending session:', error);
+          // Show logout screen anyway
+          showLogoutScreen('You have been logged out.');
+        })
+        .endSession();
+    }
+
+    /**
+     * Show logout/session expired screen with login link
+     */
+    function showLogoutScreen(message) {
+      // Hide the session expired modal if it's showing
+      document.getElementById('sessionExpiredModal').style.display = 'none';
+
+      // Replace page content with logout message and loading state
+      document.body.innerHTML = `
+        <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          <div style="background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px;">
+            <h1 style="color: #E51636; margin: 0 0 10px 0;">CFA Accountability System</h1>
+            <p style="color: #666; font-size: 16px; margin-bottom: 25px;">${message}</p>
+            <p id="loginLoading">Loading...</p>
+            <a id="loginLink" href="#" style="display: none; padding: 15px 30px; background-color: #E51636; color: white; text-decoration: none; border-radius: 4px; font-size: 16px;">
+              Return to Login →
+            </a>
+          </div>
+        </div>
+      `;
+
+      // Get the actual deployment URL from the server
+      google.script.run
+        .withSuccessHandler(function(url) {
+          var loginUrl = url + '?t=' + Date.now();
+          var link = document.getElementById('loginLink');
+          link.href = loginUrl;
+          link.style.display = 'inline-block';
+          document.getElementById('loginLoading').style.display = 'none';
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error getting URL:', error);
+          document.getElementById('loginLoading').textContent = 'Error loading. Please refresh the page.';
+        })
+        .getWebAppUrl();
+    }
+
+    /**
+     * Initialize date input with min/max values
+     */
+    function initializeDateInput() {
+      const dateInput = document.getElementById('infractionDate');
+      const today = new Date();
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(today.getDate() - 7);
+
+      // Format dates as YYYY-MM-DD for input
+      const todayStr = formatDateForInput(today);
+      const minDateStr = formatDateForInput(sevenDaysAgo);
+
+      dateInput.max = todayStr;
+      dateInput.min = minDateStr;
+      dateInput.value = todayStr; // Default to today
+    }
+
+    /**
+     * Format date as YYYY-MM-DD for date input
+     */
+    function formatDateForInput(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    /**
+     * Load form data from server (employees and infraction types)
+     */
+    function loadFormData() {
+      google.script.run
+        .withSuccessHandler(populateDropdowns)
+        .withFailureHandler(handleLoadError)
+        .getFormData();
+    }
+
+    /**
+     * Populate dropdowns with data from server
+     */
+    function populateDropdowns(data) {
+      console.log('Form data received:', data);
+
+      if (!data.success) {
+        showMessage('Error loading form data: ' + (data.error || 'Unknown error'), 'error');
+        return;
+      }
+
+      // Store data globally for lookups
+      employeeData = data.employees;
+      bucketData = data.infraction_types;
+
+      // Populate employee dropdown
+      populateEmployeeDropdown(data.employees);
+
+      // Populate infraction type dropdown
+      populateInfractionTypeDropdown(data.infraction_types);
+    }
+
+    /**
+     * Populate employee dropdown
+     */
+    function populateEmployeeDropdown(employees) {
+      const select = document.getElementById('employeeSelect');
+      const loading = document.getElementById('employeeLoading');
+
+      // Clear existing options except first
+      select.innerHTML = '<option value="">-- Select Employee --</option>';
+
+      // Add employee options
+      for (const emp of employees) {
+        const option = document.createElement('option');
+        option.value = emp.id;
+        option.textContent = `${emp.name} (${emp.location})`;
+        option.dataset.name = emp.name;
+        select.appendChild(option);
+      }
+
+      // Hide loading text
+      loading.style.display = 'none';
+
+      console.log(`Loaded ${employees.length} employees`);
+    }
+
+    /**
+     * Populate infraction type dropdown with optgroups
+     */
+    function populateInfractionTypeDropdown(buckets) {
+      const select = document.getElementById('infractionType');
+      const loading = document.getElementById('typeLoading');
+
+      // Clear existing options except first
+      select.innerHTML = '<option value="">-- Select Infraction Type --</option>';
+
+      // Add bucket options with optgroups
+      for (const bucket of buckets) {
+        // Create optgroup for bucket
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = `${bucket.name} (${bucket.points} pt${bucket.points !== 1 ? 's' : ''})`;
+
+        // Add bucket itself as an option
+        const bucketOption = document.createElement('option');
+        bucketOption.value = bucket.name;
+        bucketOption.textContent = `${bucket.name} - General`;
+        bucketOption.dataset.bucket = bucket.name;
+        bucketOption.dataset.points = bucket.points;
+        optgroup.appendChild(bucketOption);
+
+        // Add example options
+        if (bucket.examples && bucket.examples.length > 0) {
+          for (const example of bucket.examples) {
+            const option = document.createElement('option');
+            option.value = example;
+            option.textContent = example;
+            option.dataset.bucket = bucket.name;
+            option.dataset.points = bucket.points;
+            optgroup.appendChild(option);
+          }
+        }
+
+        select.appendChild(optgroup);
+      }
+
+      // Hide loading text
+      loading.style.display = 'none';
+
+      console.log(`Loaded ${buckets.length} buckets`);
+    }
+
+    /**
+     * Handle error loading form data
+     */
+    function handleLoadError(error) {
+      console.error('Error loading form data:', error);
+      document.getElementById('employeeLoading').textContent = ' (Error loading!)';
+      document.getElementById('typeLoading').textContent = ' (Error loading!)';
+      showMessage('Error loading form data. Please refresh the page.', 'error');
+    }
+
+    // ============================================
+    // CHARACTER COUNTER
+    // ============================================
+
+    /**
+     * Setup character counter for description field
+     */
+    function setupCharacterCounter() {
+      const textarea = document.getElementById('description');
+      const counter = document.getElementById('charCounter');
+
+      textarea.addEventListener('input', function() {
+        updateCharacterCount();
+      });
+
+      textarea.addEventListener('keyup', function() {
+        updateCharacterCount();
+      });
+    }
+
+    /**
+     * Update character count display
+     */
+    function updateCharacterCount() {
+      const textarea = document.getElementById('description');
+      const counter = document.getElementById('charCounter');
+      const length = textarea.value.length;
+
+      counter.textContent = `${length} / 240 characters`;
+
+      if (length >= 240) {
+        counter.style.color = 'green';
+      } else {
+        counter.style.color = 'red';
+      }
+    }
+
+    // ============================================
+    // FORM VALIDATION
+    // ============================================
+
+    /**
+     * Validate form before submission
+     */
+    function validateForm() {
+      const errors = [];
+
+      // Check manager name
+      const enteredBy = document.getElementById('enteredBy').value.trim();
+      if (!enteredBy) {
+        errors.push('Manager/Director name is required');
+      }
+
+      // Check employee selection
+      const employeeId = document.getElementById('employeeSelect').value;
+      if (!employeeId) {
+        errors.push('Please select an employee');
+      }
+
+      // Check date
+      const dateValue = document.getElementById('infractionDate').value;
+      if (!dateValue) {
+        errors.push('Date is required');
+      } else {
+        const selectedDate = new Date(dateValue + 'T12:00:00');
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
+
+        if (selectedDate > today) {
+          errors.push('Date cannot be in the future');
+        }
+        if (selectedDate < sevenDaysAgo) {
+          errors.push('Date cannot be more than 7 days ago');
+        }
+      }
+
+      // Check location
+      const location = document.getElementById('location').value;
+      if (!location) {
+        errors.push('Please select a location');
+      }
+
+      // Check infraction type
+      const infractionType = document.getElementById('infractionType').value;
+      if (!infractionType) {
+        errors.push('Please select an infraction type');
+      }
+
+      // Check description
+      const description = document.getElementById('description').value.trim();
+      if (!description) {
+        errors.push('Description is required');
+      } else if (description.length < 240) {
+        errors.push(`Description must be at least 240 characters (currently ${description.length})`);
+      }
+
+      return errors;
+    }
+
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+
+    /**
+     * Get points for the selected infraction type
+     */
+    function getSelectedPoints() {
+      const select = document.getElementById('infractionType');
+      const selectedOption = select.options[select.selectedIndex];
+
+      if (selectedOption && selectedOption.dataset.points) {
+        return parseInt(selectedOption.dataset.points, 10);
+      }
+
+      // Fallback: look up in bucket data
+      const infractionType = select.value;
+      for (const bucket of bucketData) {
+        if (infractionType === bucket.name ||
+            infractionType === bucket.name + ' - General' ||
+            (bucket.examples && bucket.examples.includes(infractionType))) {
+          return bucket.points;
+        }
+      }
+
+      return 0;
+    }
+
+    /**
+     * Get the selected employee's full name
+     */
+    function getSelectedEmployeeName() {
+      const select = document.getElementById('employeeSelect');
+      const selectedOption = select.options[select.selectedIndex];
+
+      if (selectedOption && selectedOption.dataset.name) {
+        return selectedOption.dataset.name;
+      }
+
+      // Fallback: extract from text content
+      if (selectedOption && selectedOption.textContent) {
+        const match = selectedOption.textContent.match(/^(.+?) \(/);
+        return match ? match[1] : selectedOption.textContent;
+      }
+
+      return '';
+    }
+
+    /**
+     * Enable or disable all form inputs
+     */
+    function setFormEnabled(enabled) {
+      const inputs = document.querySelectorAll('#infractionForm input, #infractionForm select, #infractionForm textarea, #infractionForm button');
+      inputs.forEach(input => {
+        input.disabled = !enabled;
+      });
+    }
+
+    // ============================================
+    // CONFIRMATION AND DUPLICATE CHECKS
+    // ============================================
+
+    /**
+     * Check if high-point confirmation is needed
+     */
+    function checkHighPointConfirmation() {
+      const points = getSelectedPoints();
+
+      // Bucket 3 (5 pts) or Bucket 4 (8 pts) require confirmation
+      if (points >= 5) {
+        return confirm(`This is a ${points}-point infraction. Are you sure you want to proceed?`);
+      }
+
+      return true;
+    }
+
+    /**
+     * Check for duplicate infraction (async)
+     */
+    function checkDuplicate(callback) {
+      const employeeId = document.getElementById('employeeSelect').value;
+      const date = document.getElementById('infractionDate').value;
+      const infractionType = document.getElementById('infractionType').value;
+
+      if (!employeeId || !date || !infractionType) {
+        callback(false); // No duplicate check if fields are missing
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.isDuplicate) {
+            const proceed = confirm(
+              `A similar infraction was already recorded on ${result.existingDate} for this employee.\n\n` +
+              `Existing type: ${result.existingType}\n\n` +
+              `Submit anyway?`
+            );
+            callback(!proceed); // If they don't want to proceed, it's a "block"
+          } else {
+            callback(false); // No duplicate, proceed
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error checking duplicate:', error);
+          callback(false); // On error, allow submission
+        })
+        .checkForDuplicateInfraction(employeeId, date, infractionType);
+    }
+
+    // ============================================
+    // FORM SUBMISSION
+    // ============================================
+
+    /**
+     * Submit the form
+     */
+    function submitForm() {
+      // Clear any pending message timeout
+      if (messageTimeout) {
+        clearTimeout(messageTimeout);
+        messageTimeout = null;
+      }
+
+      // Validate form
+      const errors = validateForm();
+
+      if (errors.length > 0) {
+        showMessage('Please fix the following errors:\n- ' + errors.join('\n- '), 'error');
+        return;
+      }
+
+      // Check high-point confirmation
+      if (!checkHighPointConfirmation()) {
+        return; // User cancelled
+      }
+
+      // Show loading state immediately
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Checking...';
+      showMessage('Checking for duplicates...', 'info');
+
+      // Check for duplicates
+      checkDuplicate(function(blocked) {
+        if (blocked) {
+          // User chose not to proceed with duplicate
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit Infraction';
+          hideMessage();
+          return;
+        }
+
+        // Proceed with submission
+        proceedWithSubmission();
+      });
+    }
+
+    /**
+     * Proceed with actual form submission after checks pass
+     */
+    function proceedWithSubmission() {
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.textContent = 'Processing...';
+
+      // Disable all form inputs
+      setFormEnabled(false);
+
+      // Show processing message
+      showMessage('Processing infraction... Please wait.', 'info');
+
+      // Collect form data
+      const formData = {
+        entered_by: document.getElementById('enteredBy').value.trim(),
+        employee_id: document.getElementById('employeeSelect').value,
+        full_name: getSelectedEmployeeName(),
+        date: document.getElementById('infractionDate').value,
+        location: document.getElementById('location').value,
+        infraction_type: document.getElementById('infractionType').value,
+        description: document.getElementById('description').value.trim()
+      };
+
+      console.log('Submitting form data:', formData);
+
+      // Submit to server using the enhanced function
+      google.script.run
+        .withSuccessHandler(handleSubmitSuccess)
+        .withFailureHandler(handleSubmitError)
+        .submitInfractionFromForm(formData);
+    }
+
+    /**
+     * Handle successful form submission
+     */
+    function handleSubmitSuccess(result) {
+      console.log('Submit result:', result);
+
+      // Check if session expired
+      if (result.sessionExpired) {
+        handleSessionExpired();
+        return;
+      }
+
+      // Re-enable form
+      setFormEnabled(true);
+
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Infraction';
+
+      if (result.success) {
+        // Show success message (already formatted from server)
+        showMessage(result.message, 'success');
+
+        // Clear form
+        clearForm();
+
+        // Auto-hide message after 10 seconds
+        messageTimeout = setTimeout(function() {
+          hideMessage();
+        }, 10000);
+
+      } else {
+        // Show error message (already formatted from server)
+        showMessage(result.message, 'error');
+        // Don't clear form on error - keep data
+      }
+    }
+
+    /**
+     * Handle form submission error
+     */
+    function handleSubmitError(error) {
+      console.error('Submit error:', error);
+
+      // Re-enable form
+      setFormEnabled(true);
+
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Infraction';
+
+      // Determine error type and show appropriate message
+      let errorMessage = '✗ Error Recording Infraction\n\n';
+
+      if (error.message) {
+        if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+          errorMessage += 'Connection timed out. Please check your internet and try again.';
+        } else if (error.message.includes('permission') || error.message.includes('Permission')) {
+          errorMessage += "You don't have permission to submit infractions. Contact administrator.";
+        } else {
+          errorMessage += error.message;
+        }
+      } else {
+        errorMessage += 'System error occurred. Please try again or contact support if problem persists.';
+      }
+
+      errorMessage += '\n\nPlease check your entries and try again.';
+
+      showMessage(errorMessage, 'error');
+      // Don't clear form on error - keep data
+    }
+
+    /**
+     * Clear the form after successful submission
+     */
+    function clearForm() {
+      document.getElementById('enteredBy').value = '';
+      document.getElementById('employeeSelect').value = '';
+      document.getElementById('location').value = '';
+      document.getElementById('infractionType').value = '';
+      document.getElementById('description').value = '';
+
+      // Reset date to today
+      initializeDateInput();
+
+      // Reset character counter
+      updateCharacterCount();
+    }
+
+    // ============================================
+    // MESSAGE DISPLAY
+    // ============================================
+
+    /**
+     * Show a message to the user
+     */
+    function showMessage(text, type) {
+      // Clear any pending hide timeout
+      if (messageTimeout) {
+        clearTimeout(messageTimeout);
+        messageTimeout = null;
+      }
+
+      const messageArea = document.getElementById('messageArea');
+      const messageText = document.getElementById('messageText');
+
+      // Set message text (preserve newlines)
+      messageText.innerHTML = text.replace(/\n/g, '<br>');
+
+      // Set style based on type
+      if (type === 'success') {
+        messageArea.style.backgroundColor = '#d4edda';
+        messageArea.style.borderColor = '#28a745';
+        messageArea.style.color = '#155724';
+      } else if (type === 'error') {
+        messageArea.style.backgroundColor = '#f8d7da';
+        messageArea.style.borderColor = '#dc3545';
+        messageArea.style.color = '#721c24';
+      } else {
+        messageArea.style.backgroundColor = '#fff3cd';
+        messageArea.style.borderColor = '#ffc107';
+        messageArea.style.color = '#856404';
+      }
+
+      // Show message area
+      messageArea.style.display = 'block';
+
+      // Scroll to message
+      messageArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    /**
+     * Hide the message area
+     */
+    function hideMessage() {
+      const messageArea = document.getElementById('messageArea');
+      messageArea.style.display = 'none';
+    }
+  </script>
+</body>
+</html>

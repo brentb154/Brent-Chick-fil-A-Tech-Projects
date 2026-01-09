@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFA Accountability - User Management</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    /* Header */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .header-title h1 {
+      margin: 0;
+      color: #E51636;
+      font-size: 24px;
+    }
+
+    .header-title h2 {
+      margin: 5px 0 0 0;
+      font-weight: normal;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .header-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .nav-btn {
+      padding: 8px 16px;
+      background-color: #E51636;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      text-decoration: none;
+    }
+
+    .nav-btn:hover {
+      background-color: #c41230;
+    }
+
+    .nav-btn.secondary {
+      background-color: #6c757d;
+    }
+
+    .nav-btn.secondary:hover {
+      background-color: #545b62;
+    }
+
+    /* Tabs */
+    .tabs-container {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #ddd;
+      padding-bottom: 0;
+    }
+
+    .tab-btn {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: #666;
+      transition: all 0.2s;
+      margin-bottom: -2px;
+    }
+
+    .tab-btn:hover {
+      color: #E51636;
+    }
+
+    .tab-btn.active {
+      color: #E51636;
+      border-bottom-color: #E51636;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Section Card */
+    .section-card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 18px;
+      color: #333;
+    }
+
+    /* Form Styles */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #E51636;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .checkbox-group input {
+      width: auto;
+    }
+
+    .form-actions {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .btn-primary {
+      background-color: #E51636;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: #c41230;
+    }
+
+    .btn-primary:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background-color: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background-color: #545b62;
+    }
+
+    /* Table Styles */
+    .table-container {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+
+    th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+      color: #333;
+    }
+
+    tr:hover {
+      background-color: #f8f9fa;
+    }
+
+    /* Status Badges */
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .status-pending {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+
+    .status-completed {
+      background-color: #d4edda;
+      color: #155724;
+    }
+
+    .status-expired {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    .status-cancelled {
+      background-color: #e2e3e5;
+      color: #383d41;
+    }
+
+    /* Role Badges */
+    .role-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .role-manager {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .role-director {
+      background: #fff3e0;
+      color: #e65100;
+    }
+
+    .role-operator {
+      background: #fce4ec;
+      color: #c2185b;
+    }
+
+    /* Action Buttons */
+    .action-btn {
+      padding: 5px 10px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-right: 5px;
+    }
+
+    .action-btn.resend {
+      background-color: #17a2b8;
+      color: white;
+    }
+
+    .action-btn.resend:hover {
+      background-color: #138496;
+    }
+
+    .action-btn.cancel {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .action-btn.cancel:hover {
+      background-color: #c82333;
+    }
+
+    .action-btn.copy {
+      background-color: #6c757d;
+      color: white;
+    }
+
+    .action-btn.copy:hover {
+      background-color: #545b62;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #666;
+    }
+
+    .empty-state .icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+    }
+
+    /* Loading State */
+    .loading-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #666;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #E51636;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Message Area */
+    .message-area {
+      padding: 14px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .message-area.error {
+      background-color: #f8d7da;
+      border: 1px solid #dc3545;
+      color: #721c24;
+    }
+
+    .message-area.success {
+      background-color: #d4edda;
+      border: 1px solid #28a745;
+      color: #155724;
+    }
+
+    .message-area.info {
+      background-color: #cce5ff;
+      border: 1px solid #0d6efd;
+      color: #004085;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      color: #333;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #666;
+    }
+
+    .modal-close:hover {
+      color: #333;
+    }
+
+    /* Link Display */
+    .link-display {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+      word-break: break-all;
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+
+      .header-bar {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .tabs-container {
+        flex-wrap: wrap;
+      }
+
+      .tab-btn {
+        flex: 1;
+        min-width: 120px;
+        text-align: center;
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      th, td {
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header-bar">
+    <div class="header-title">
+      <h1>User Management</h1>
+      <h2>Manage system users and signups</h2>
+    </div>
+    <div class="header-buttons">
+      <a href="#" class="nav-btn secondary" onclick="navigateTo('employees'); return false;">Back to Dashboard</a>
+    </div>
+  </div>
+
+  <!-- Message Area -->
+  <div id="messageArea" class="message-area"></div>
+
+  <!-- Tabs -->
+  <div class="tabs-container">
+    <button class="tab-btn active" data-tab="signups" onclick="switchTab('signups')">Pending Signups</button>
+    <button class="tab-btn" data-tab="create" onclick="switchTab('create')">Create Signup Link</button>
+  </div>
+
+  <!-- Pending Signups Tab -->
+  <div id="signups-tab" class="tab-content active">
+    <div class="section-card">
+      <div class="section-header">
+        <h3 class="section-title">Pending Signups</h3>
+        <button class="btn btn-secondary" onclick="loadPendingSignups()">Refresh</button>
+      </div>
+
+      <div id="signupsLoading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading signups...</p>
+      </div>
+
+      <div id="signupsEmpty" class="empty-state" style="display: none;">
+        <div class="icon">&#128100;</div>
+        <p>No pending signups found.</p>
+        <p>Create a signup link to invite new users.</p>
+      </div>
+
+      <div id="signupsTable" class="table-container" style="display: none;">
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Employee ID</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Expires</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="signupsTableBody">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Signup Tab -->
+  <div id="create-tab" class="tab-content">
+    <div class="section-card">
+      <div class="section-header">
+        <h3 class="section-title">Create New Signup Link</h3>
+      </div>
+
+      <form id="createSignupForm" onsubmit="return false;">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="signupEmployeeId">Select Employee *</label>
+            <select id="signupEmployeeId" required onchange="handleEmployeeSelect()">
+              <option value="">-- Select Employee --</option>
+              <!-- Populated dynamically from active employees -->
+            </select>
+            <small style="color: #666; font-size: 12px;">Only employees without existing system access are shown</small>
+          </div>
+
+          <div class="form-group">
+            <label for="signupEmail">Email Address *</label>
+            <input type="email" id="signupEmail" required placeholder="user@example.com">
+          </div>
+
+          <div class="form-group">
+            <label for="signupRole">Role *</label>
+            <select id="signupRole" required>
+              <option value="">Select Role</option>
+              <option value="Manager">Manager</option>
+              <option value="Director">Director</option>
+            </select>
+            <small style="color: #666; font-size: 12px;">Note: Operator role cannot be assigned via signup</small>
+          </div>
+
+          <div class="form-group">
+            <label>Permissions</label>
+            <div class="checkbox-group">
+              <input type="checkbox" id="signupCanSeeDirectors">
+              <label for="signupCanSeeDirectors">Can see Director-only information</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-primary" id="createSignupBtn" onclick="createSignup()">
+            Create Signup Link
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="clearSignupForm()">
+            Clear
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Signup Created Modal -->
+  <div id="signupCreatedModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Signup Link Created</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <p>A signup link has been created for the new user.</p>
+
+      <div class="form-group">
+        <label>Signup Link:</label>
+        <div class="link-display" id="signupLinkDisplay"></div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="copySignupLink()">Copy Link</button>
+        <button class="btn btn-secondary" id="sendEmailBtn" onclick="sendSignupEmail()">Send Email</button>
+        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // STATE
+    // ============================================
+
+    let pendingSignups = [];
+    let availableEmployees = [];
+    let currentSignupId = null;
+    let currentSignupLink = null;
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+
+    document.addEventListener('DOMContentLoaded', function() {
+      loadPendingSignups();
+      loadAvailableEmployees();
+    });
+
+    // ============================================
+    // LOAD AVAILABLE EMPLOYEES FOR SIGNUP
+    // ============================================
+
+    function loadAvailableEmployees() {
+      google.script.run
+        .withSuccessHandler(handleEmployeesLoaded)
+        .withFailureHandler(function(error) {
+          console.error('Error loading employees:', error);
+        })
+        .getEmployeesForSignup();
+    }
+
+    function handleEmployeesLoaded(result) {
+      if (!result.success) {
+        console.error('Error:', result.message);
+        return;
+      }
+
+      availableEmployees = result.employees || [];
+      const select = document.getElementById('signupEmployeeId');
+
+      // Clear existing options except the placeholder
+      select.innerHTML = '<option value="">-- Select Employee --</option>';
+
+      // Add employees to dropdown
+      availableEmployees.forEach(function(emp) {
+        const option = document.createElement('option');
+        option.value = emp.employee_id;
+        option.textContent = emp.full_name + ' (' + emp.employee_id + ')';
+        option.dataset.email = emp.email || '';
+        select.appendChild(option);
+      });
+    }
+
+    function handleEmployeeSelect() {
+      const select = document.getElementById('signupEmployeeId');
+      const selectedOption = select.options[select.selectedIndex];
+
+      // Auto-fill email if available
+      if (selectedOption && selectedOption.dataset.email) {
+        document.getElementById('signupEmail').value = selectedOption.dataset.email;
+      }
+    }
+
+    // ============================================
+    // NAVIGATION
+    // ============================================
+
+    function navigateTo(page) {
+      google.script.run
+        .withSuccessHandler(function(url) {
+          window.location.href = url + '?page=' + page;
+        })
+        .withFailureHandler(function(error) {
+          console.error('Navigation error:', error);
+        })
+        .getWebAppUrl();
+    }
+
+    // ============================================
+    // TAB SWITCHING
+    // ============================================
+
+    function switchTab(tabName) {
+      // Update tab buttons
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelector('[data-tab="' + tabName + '"]').classList.add('active');
+
+      // Update tab content
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      document.getElementById(tabName + '-tab').classList.add('active');
+    }
+
+    // ============================================
+    // PENDING SIGNUPS
+    // ============================================
+
+    function loadPendingSignups() {
+      document.getElementById('signupsLoading').style.display = 'block';
+      document.getElementById('signupsEmpty').style.display = 'none';
+      document.getElementById('signupsTable').style.display = 'none';
+
+      google.script.run
+        .withSuccessHandler(handleSignupsLoaded)
+        .withFailureHandler(handleSignupsError)
+        .getPendingSignups();
+    }
+
+    function handleSignupsLoaded(result) {
+      document.getElementById('signupsLoading').style.display = 'none';
+
+      if (result.sessionExpired) {
+        showMessage('Session expired. Please login again.', 'error');
+        setTimeout(() => navigateTo(''), 2000);
+        return;
+      }
+
+      if (!result.success) {
+        showMessage(result.message || 'Error loading signups', 'error');
+        return;
+      }
+
+      pendingSignups = result.signups || [];
+
+      if (pendingSignups.length === 0) {
+        document.getElementById('signupsEmpty').style.display = 'block';
+      } else {
+        renderSignupsTable();
+        document.getElementById('signupsTable').style.display = 'block';
+      }
+    }
+
+    function handleSignupsError(error) {
+      document.getElementById('signupsLoading').style.display = 'none';
+      showMessage('Error loading signups: ' + error, 'error');
+    }
+
+    function renderSignupsTable() {
+      const tbody = document.getElementById('signupsTableBody');
+      tbody.innerHTML = '';
+
+      pendingSignups.forEach(signup => {
+        const row = document.createElement('tr');
+
+        const statusClass = 'status-' + signup.status.toLowerCase();
+        const roleClass = 'role-' + signup.role.toLowerCase();
+
+        const createdDate = new Date(signup.created_date).toLocaleDateString();
+        const expiresDate = new Date(signup.expires_date).toLocaleDateString();
+
+        let actionsHtml = '';
+        if (signup.status === 'Pending') {
+          actionsHtml = `
+            <button class="action-btn resend" onclick="resendEmail('${escapeHtml(signup.signup_id)}')">Resend</button>
+            <button class="action-btn cancel" onclick="cancelSignup('${escapeHtml(signup.signup_id)}')">Cancel</button>
+          `;
+        }
+
+        row.innerHTML = `
+          <td>${escapeHtml(signup.email)}</td>
+          <td>${escapeHtml(signup.employee_id)}</td>
+          <td><span class="role-badge ${roleClass}">${escapeHtml(signup.role)}</span></td>
+          <td><span class="status-badge ${statusClass}">${escapeHtml(signup.status)}</span></td>
+          <td>${createdDate}</td>
+          <td>${expiresDate}</td>
+          <td>${actionsHtml}</td>
+        `;
+
+        tbody.appendChild(row);
+      });
+    }
+
+    // ============================================
+    // CREATE SIGNUP
+    // ============================================
+
+    function createSignup() {
+      const employeeId = document.getElementById('signupEmployeeId').value.trim();
+      const email = document.getElementById('signupEmail').value.trim();
+      const role = document.getElementById('signupRole').value;
+      const canSeeDirectors = document.getElementById('signupCanSeeDirectors').checked;
+
+      if (!employeeId || !email || !role) {
+        showMessage('Please fill in all required fields', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('createSignupBtn');
+      btn.disabled = true;
+      btn.textContent = 'Creating...';
+
+      google.script.run
+        .withSuccessHandler(handleSignupCreated)
+        .withFailureHandler(handleSignupError)
+        .generateSignupLink({
+          employee_id: employeeId,
+          email: email,
+          role: role,
+          can_see_directors: canSeeDirectors
+        });
+    }
+
+    function handleSignupCreated(result) {
+      const btn = document.getElementById('createSignupBtn');
+      btn.disabled = false;
+      btn.textContent = 'Create Signup Link';
+
+      if (result.sessionExpired) {
+        showMessage('Session expired. Please login again.', 'error');
+        setTimeout(() => navigateTo(''), 2000);
+        return;
+      }
+
+      if (!result.success) {
+        showMessage(result.message || 'Error creating signup', 'error');
+        return;
+      }
+
+      currentSignupId = result.signup_id;
+      currentSignupLink = result.link;
+
+      document.getElementById('signupLinkDisplay').textContent = result.link;
+      document.getElementById('signupCreatedModal').classList.add('active');
+
+      clearSignupForm();
+      loadPendingSignups();
+    }
+
+    function handleSignupError(error) {
+      const btn = document.getElementById('createSignupBtn');
+      btn.disabled = false;
+      btn.textContent = 'Create Signup Link';
+      showMessage('Error creating signup: ' + error, 'error');
+    }
+
+    function clearSignupForm() {
+      document.getElementById('signupEmployeeId').selectedIndex = 0;
+      document.getElementById('signupEmail').value = '';
+      document.getElementById('signupRole').value = '';
+      document.getElementById('signupCanSeeDirectors').checked = false;
+      // Reload employees in case one was just given access
+      loadAvailableEmployees();
+    }
+
+    // ============================================
+    // SIGNUP ACTIONS
+    // ============================================
+
+    function resendEmail(signupId) {
+      if (!confirm('Resend signup email?')) return;
+
+      showMessage('Sending email...', 'info');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showMessage('Email sent successfully', 'success');
+          } else {
+            showMessage(result.message || 'Error sending email', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showMessage('Error sending email: ' + error, 'error');
+        })
+        .resendSignupEmail(signupId);
+    }
+
+    function cancelSignup(signupId) {
+      if (!confirm('Cancel this signup? The link will no longer work.')) return;
+
+      showMessage('Cancelling signup...', 'info');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showMessage('Signup cancelled', 'success');
+            loadPendingSignups();
+          } else {
+            showMessage(result.message || 'Error cancelling signup', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showMessage('Error cancelling signup: ' + error, 'error');
+        })
+        .cancelSignup(signupId);
+    }
+
+    function sendSignupEmail() {
+      if (!currentSignupId) return;
+
+      const btn = document.getElementById('sendEmailBtn');
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          btn.disabled = false;
+          btn.textContent = 'Send Email';
+
+          if (result.success) {
+            showMessage('Email sent successfully', 'success');
+            closeModal();
+          } else {
+            showMessage(result.message || 'Error sending email', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          btn.disabled = false;
+          btn.textContent = 'Send Email';
+          showMessage('Error sending email: ' + error, 'error');
+        })
+        .sendSignupEmail(currentSignupId);
+    }
+
+    function copySignupLink() {
+      if (!currentSignupLink) return;
+
+      navigator.clipboard.writeText(currentSignupLink).then(function() {
+        showMessage('Link copied to clipboard', 'success');
+      }).catch(function() {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = currentSignupLink;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showMessage('Link copied to clipboard', 'success');
+      });
+    }
+
+    // ============================================
+    // MODAL
+    // ============================================
+
+    function closeModal() {
+      document.getElementById('signupCreatedModal').classList.remove('active');
+      currentSignupId = null;
+      currentSignupLink = null;
+    }
+
+    // ============================================
+    // UTILITIES
+    // ============================================
+
+    function showMessage(text, type) {
+      const messageArea = document.getElementById('messageArea');
+      messageArea.textContent = text;
+      messageArea.className = 'message-area ' + type;
+      messageArea.style.display = 'block';
+
+      if (type === 'success' || type === 'info') {
+        setTimeout(() => {
+          messageArea.style.display = 'none';
+        }, 5000);
+      }
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

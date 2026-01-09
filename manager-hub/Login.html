@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CFA Accountability - Login</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .login-container {
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .login-header h1 {
+      color: #E51636;
+      margin: 0 0 10px 0;
+      font-size: 24px;
+    }
+
+    .login-header h2 {
+      color: #333;
+      margin: 0;
+      font-size: 16px;
+      font-weight: normal;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .form-group select,
+    .form-group input {
+      width: 100%;
+      padding: 14px 12px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      font-size: 16px;
+      -webkit-appearance: none;
+      appearance: none;
+      background-color: white;
+      transition: border-color 0.2s;
+    }
+
+    .form-group select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+      cursor: pointer;
+    }
+
+    .form-group select:focus,
+    .form-group input:focus {
+      outline: none;
+      border-color: #E51636;
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 16px;
+      background-color: #E51636;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s, opacity 0.2s;
+      min-height: 52px;
+    }
+
+    .login-btn:hover:not(:disabled) {
+      background-color: #c41230;
+    }
+
+    .login-btn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
+    .login-btn.loading {
+      position: relative;
+    }
+
+    .login-btn.loading::after {
+      content: '';
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid transparent;
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .message-area {
+      margin-top: 20px;
+      padding: 14px;
+      border-radius: 6px;
+      display: none;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .message-area.error {
+      background-color: #f8d7da;
+      border: 1px solid #dc3545;
+      color: #721c24;
+      display: block;
+    }
+
+    .message-area.success {
+      background-color: #d4edda;
+      border: 1px solid #28a745;
+      color: #155724;
+      display: block;
+    }
+
+    .password-wrapper {
+      position: relative;
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #666;
+      font-size: 14px;
+      padding: 4px 8px;
+    }
+
+    .toggle-password:hover {
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-header">
+      <h1>CFA Accountability</h1>
+      <h2>Manager Hub Login</h2>
+    </div>
+
+    <form id="loginForm" onsubmit="return handleLogin(event)">
+      <div class="form-group">
+        <label for="roleSelect">Select Your Role</label>
+        <select id="roleSelect" required>
+          <option value="">-- Select Role --</option>
+          <option value="Manager">Manager</option>
+          <option value="Director">Director</option>
+          <option value="Operator">Operator</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="passwordInput">Password</label>
+        <div class="password-wrapper">
+          <input type="password" id="passwordInput" required placeholder="Enter password">
+          <button type="button" class="toggle-password" onclick="togglePassword()">Show</button>
+        </div>
+      </div>
+
+      <button type="submit" id="loginBtn" class="login-btn">Login</button>
+    </form>
+
+    <div id="messageArea" class="message-area"></div>
+  </div>
+
+  <script>
+    /**
+     * Toggle password visibility
+     */
+    function togglePassword() {
+      const input = document.getElementById('passwordInput');
+      const btn = document.querySelector('.toggle-password');
+
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = 'Hide';
+      } else {
+        input.type = 'password';
+        btn.textContent = 'Show';
+      }
+    }
+
+    /**
+     * Show message to user
+     */
+    function showMessage(message, type) {
+      const messageArea = document.getElementById('messageArea');
+      messageArea.textContent = message;
+      messageArea.className = 'message-area ' + type;
+    }
+
+    /**
+     * Hide message
+     */
+    function hideMessage() {
+      const messageArea = document.getElementById('messageArea');
+      messageArea.className = 'message-area';
+      messageArea.textContent = '';
+    }
+
+    /**
+     * Handle login form submission
+     */
+    function handleLogin(event) {
+      event.preventDefault();
+
+      const role = document.getElementById('roleSelect').value;
+      const password = document.getElementById('passwordInput').value;
+      const loginBtn = document.getElementById('loginBtn');
+
+      // Validate inputs
+      if (!role) {
+        showMessage('Please select a role', 'error');
+        return false;
+      }
+
+      if (!password) {
+        showMessage('Please enter a password', 'error');
+        return false;
+      }
+
+      // Show loading state
+      loginBtn.disabled = true;
+      loginBtn.classList.add('loading');
+      loginBtn.textContent = 'Logging in...';
+      hideMessage();
+
+      // Call server to validate
+      google.script.run
+        .withSuccessHandler(handleLoginSuccess)
+        .withFailureHandler(handleLoginError)
+        .validateRoleLogin(role, password);
+
+      return false;
+    }
+
+    /**
+     * Handle successful login response
+     */
+    function handleLoginSuccess(result) {
+      const loginBtn = document.getElementById('loginBtn');
+      loginBtn.disabled = false;
+      loginBtn.classList.remove('loading');
+      loginBtn.textContent = 'Login';
+
+      if (result.success) {
+        showMessage('Login successful! Redirecting...', 'success');
+
+        // Store role in sessionStorage for client-side use
+        sessionStorage.setItem('cfa_user_role', result.role);
+
+        // Redirect to employee list
+        setTimeout(function() {
+          google.script.run
+            .withSuccessHandler(function(url) {
+              window.location.href = url + '?page=employees';
+            })
+            .getWebAppUrl();
+        }, 500);
+      } else {
+        showMessage(result.message || 'Login failed', 'error');
+      }
+    }
+
+    /**
+     * Handle login error
+     */
+    function handleLoginError(error) {
+      const loginBtn = document.getElementById('loginBtn');
+      loginBtn.disabled = false;
+      loginBtn.classList.remove('loading');
+      loginBtn.textContent = 'Login';
+
+      showMessage('Error: ' + error.message, 'error');
+    }
+
+    /**
+     * Check if already logged in on page load
+     */
+    document.addEventListener('DOMContentLoaded', function() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.authenticated) {
+            // Already logged in, redirect to employees page
+            google.script.run
+              .withSuccessHandler(function(url) {
+                window.location.href = url + '?page=employees';
+              })
+              .getWebAppUrl();
+          }
+        })
+        .getCurrentRole();
+    });
+  </script>
+</body>
+</html>
