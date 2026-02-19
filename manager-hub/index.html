@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manager Accountability Hub</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e8e8e8;
+            padding: 2rem;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: #a8a8a8;
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: #fff; }
+        .header {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 2rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-top: 4px solid #9C27B0;
+            margin-bottom: 1.5rem;
+        }
+        .project-icon { font-size: 3rem; margin-bottom: 1rem; }
+        h1 { font-size: 2rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+        .subtitle { color: #a8a8a8; font-size: 1rem; line-height: 1.5; }
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: #a0a0a0;
+            margin: 0.5rem 0.3rem 0 0;
+        }
+        .section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 1.5rem;
+        }
+        h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #CE93D8;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .feature-list { list-style: none; }
+        .feature-list li {
+            padding: 0.4rem 0;
+            color: #c0c0c0;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+        }
+        .feature-list li::before { content: '✓'; color: #CE93D8; flex-shrink: 0; }
+        .steps { list-style: none; counter-reset: step; }
+        .steps li {
+            counter-increment: step;
+            padding: 0.6rem 0 0.6rem 2.5rem;
+            color: #c0c0c0;
+            font-size: 0.95rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            position: relative;
+            line-height: 1.5;
+        }
+        .steps li:last-child { border-bottom: none; }
+        .steps li::before {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0.6rem;
+            background: #9C27B0;
+            color: #fff;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.5rem;
+        }
+        .file-item {
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+            color: #a0a0a0;
+            font-family: monospace;
+        }
+        .file-item.gs { color: #81C784; }
+        .file-item.html { color: #64B5F6; }
+        .note {
+            background: rgba(156, 39, 176, 0.1);
+            border: 1px solid rgba(156, 39, 176, 0.3);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            font-size: 0.9rem;
+            color: #c0c0c0;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        .note strong { color: #CE93D8; }
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            background: rgba(156, 39, 176, 0.2);
+            border: 1px solid rgba(156, 39, 176, 0.4);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: #CE93D8;
+            margin-left: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">&#8592; Back to Hub</a>
+
+        <div class="header">
+            <div class="project-icon">&#128101;</div>
+            <h1>Manager Accountability Hub <span class="badge">In Development</span></h1>
+            <p class="subtitle">Employee management system for tracking performance, infractions, and team accountability across locations.</p>
+            <div>
+                <span class="tag">Google Apps Script</span>
+                <span class="tag">Google Sheets</span>
+                <span class="tag">Web App</span>
+            </div>
+        </div>
+
+        <div class="note">
+            <strong>This is a Google Apps Script application.</strong> It runs inside Google Sheets and cannot be opened directly in a browser. Follow the setup steps below to deploy it to your Google account.
+        </div>
+
+        <div class="section">
+            <h2>Features</h2>
+            <ul class="feature-list">
+                <li>Employee infraction logging with point-based tracking system</li>
+                <li>Multi-location support (Cockrell Hill DTO, DBU, and more)</li>
+                <li>Manager login and signup with role-based access</li>
+                <li>Employee detail views with full infraction history</li>
+                <li>Employee list with search and filtering</li>
+                <li>User management for manager accounts</li>
+                <li>Director-level dashboard with analytics and risk flags</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Setup Steps</h2>
+            <ol class="steps">
+                <li>Create a new Google Sheet for the accountability system.</li>
+                <li>Open <strong>Extensions &rarr; Apps Script</strong> in the sheet.</li>
+                <li>Run <strong>Phase1_SheetSetup.gs</strong> first — this creates all required sheet tabs and structure.</li>
+                <li>Copy each <code>.html</code> file into matching HTML files in the Apps Script editor.</li>
+                <li>Deploy: <strong>Deploy &rarr; New Deployment &rarr; Web App</strong>. Set access to your organization.</li>
+                <li>Share the deployment URL with your management team.</li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>Files in This Project</h2>
+            <div class="file-grid">
+                <div class="file-item gs">Phase1_SheetSetup.gs</div>
+                <div class="file-item html">Login.html</div>
+                <div class="file-item html">Signup.html</div>
+                <div class="file-item html">EmployeeList.html</div>
+                <div class="file-item html">EmployeeDetail.html</div>
+                <div class="file-item html">InfractionForm.html</div>
+                <div class="file-item html">UserManagement.html</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
