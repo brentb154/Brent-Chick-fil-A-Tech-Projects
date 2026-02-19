@@ -83,6 +83,8 @@
         .project-card.inventory { --accent-color: #FF9800; --accent-secondary: #FFC107; }
         .project-card.manager { --accent-color: #9C27B0; --accent-secondary: #E91E63; }
         .project-card.facilities { --accent-color: #DD0031; --accent-secondary: #FF4444; }
+        .project-card.catering { --accent-color: #00BCD4; --accent-secondary: #26C6DA; }
+        .project-card.email-summary { --accent-color: #FF8F00; --accent-secondary: #FFA000; }
 
         .project-icon {
             font-size: 2.5rem;
@@ -306,6 +308,39 @@
                 </div>
                 <div class="project-links">
                     <a href="facilities-tracker/facilities-repair-tracker.html" class="project-link primary">Launch Tool</a>
+                </div>
+            </div>
+
+            <!-- Catering Quote Tool -->
+            <div class="project-card catering">
+                <div class="project-icon">🍽️</div>
+                <h3 class="project-title">Catering Quote Generator</h3>
+                <p class="project-description">
+                    Create, manage, email, and print professional catering quotes. Searchable menu picker, sequential quote IDs, and PDF email integration.
+                </p>
+                <div>
+                    <span class="tag">Google Apps Script</span>
+                    <span class="tag">Sheets Integration</span>
+                </div>
+                <div class="project-links">
+                    <a href="catering-quote-tool/README.md" class="project-link primary">Setup Guide</a>
+                    <a href="catering-quote-tool/" class="project-link">View Files</a>
+                </div>
+            </div>
+
+            <!-- Shared Table Email Summary -->
+            <div class="project-card email-summary">
+                <div class="project-icon">📧</div>
+                <h3 class="project-title">Shared Table Email Summary</h3>
+                <p class="project-description">
+                    Automatically sends weekly waste summary emails from Google Form responses. Configurable schedule, recipients, and categorized item reporting.
+                </p>
+                <div>
+                    <span class="tag">Google Apps Script</span>
+                    <span class="tag">Auto-Emails</span>
+                </div>
+                <div class="project-links">
+                    <a href="shared-table-email-summary/" class="project-link primary">View Files</a>
                 </div>
             </div>
         </div>
