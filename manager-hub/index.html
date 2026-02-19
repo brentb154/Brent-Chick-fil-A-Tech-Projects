@@ -103,13 +103,17 @@
             gap: 0.5rem;
         }
         .file-item {
+            display: block;
             background: rgba(255,255,255,0.05);
             border-radius: 6px;
             padding: 0.5rem 0.75rem;
             font-size: 0.8rem;
             color: #a0a0a0;
             font-family: monospace;
+            text-decoration: none;
+            transition: background 0.2s;
         }
+        .file-item:hover { background: rgba(255,255,255,0.12); }
         .file-item.gs { color: #81C784; }
         .file-item.html { color: #64B5F6; }
         .note {
@@ -182,13 +186,13 @@
         <div class="section">
             <h2>Files in This Project</h2>
             <div class="file-grid">
-                <div class="file-item gs">Phase1_SheetSetup.gs</div>
-                <div class="file-item html">Login.html</div>
-                <div class="file-item html">Signup.html</div>
-                <div class="file-item html">EmployeeList.html</div>
-                <div class="file-item html">EmployeeDetail.html</div>
-                <div class="file-item html">InfractionForm.html</div>
-                <div class="file-item html">UserManagement.html</div>
+                <a href="Phase1_SheetSetup.gs" class="file-item gs" target="_blank">Phase1_SheetSetup.gs</a>
+                <a href="Login.html" class="file-item html" target="_blank">Login.html</a>
+                <a href="Signup.html" class="file-item html" target="_blank">Signup.html</a>
+                <a href="EmployeeList.html" class="file-item html" target="_blank">EmployeeList.html</a>
+                <a href="EmployeeDetail.html" class="file-item html" target="_blank">EmployeeDetail.html</a>
+                <a href="InfractionForm.html" class="file-item html" target="_blank">InfractionForm.html</a>
+                <a href="UserManagement.html" class="file-item html" target="_blank">UserManagement.html</a>
             </div>
         </div>
     </div>

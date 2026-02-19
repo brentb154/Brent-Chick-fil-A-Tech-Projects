@@ -103,15 +103,20 @@
             gap: 0.5rem;
         }
         .file-item {
+            display: block;
             background: rgba(255,255,255,0.05);
             border-radius: 6px;
             padding: 0.5rem 0.75rem;
             font-size: 0.8rem;
             color: #a0a0a0;
             font-family: monospace;
+            text-decoration: none;
+            transition: background 0.2s;
         }
+        .file-item:hover { background: rgba(255,255,255,0.12); }
         .file-item.gs { color: #81C784; }
         .file-item.html { color: #64B5F6; }
+        .file-item.md { color: #FFD54F; }
         .note {
             background: rgba(76, 175, 80, 0.1);
             border: 1px solid rgba(76, 175, 80, 0.3);
@@ -174,35 +179,36 @@
         <div class="section">
             <h2>Files in This Project</h2>
             <div class="file-grid">
-                <div class="file-item gs">Code.gs</div>
-                <div class="file-item gs">DashboardModule.gs</div>
-                <div class="file-item gs">PTOModule.gs</div>
-                <div class="file-item gs">ReportsModule.gs</div>
-                <div class="file-item html">MainApp.html</div>
-                <div class="file-item html">MainAppJS.html</div>
-                <div class="file-item html">MainAppStyles.html</div>
-                <div class="file-item html">LoginPrompt.html</div>
-                <div class="file-item html">JavaScript.html</div>
-                <div class="file-item html">Styles.html</div>
-                <div class="file-item html">EmployeePTORequest.html</div>
-                <div class="file-item html">EmployeeUniformRequest.html</div>
-                <div class="file-item html">View_Dashboard.html</div>
-                <div class="file-item html">View_PayrollProcessing.html</div>
-                <div class="file-item html">View_OTUpload.html</div>
-                <div class="file-item html">View_OTHistory.html</div>
-                <div class="file-item html">View_OTTrends.html</div>
-                <div class="file-item html">View_OTEmployee.html</div>
-                <div class="file-item html">View_PTORecords.html</div>
-                <div class="file-item html">View_PTOSummary.html</div>
-                <div class="file-item html">View_UniformOrders.html</div>
-                <div class="file-item html">View_UniformCatalog.html</div>
-                <div class="file-item html">View_UniformDeductions.html</div>
-                <div class="file-item html">View_UniformSummary.html</div>
-                <div class="file-item html">View_PayrollCalendar.html</div>
-                <div class="file-item html">View_YearEndWizard.html</div>
-                <div class="file-item html">View_SettingsPage.html</div>
-                <div class="file-item html">View_SystemHealth.html</div>
-                <div class="file-item html">View_Help.html</div>
+                <a href="Code.gs" class="file-item gs" target="_blank">Code.gs</a>
+                <a href="DashboardModule.gs" class="file-item gs" target="_blank">DashboardModule.gs</a>
+                <a href="PTOModule.gs" class="file-item gs" target="_blank">PTOModule.gs</a>
+                <a href="ReportsModule.gs" class="file-item gs" target="_blank">ReportsModule.gs</a>
+                <a href="COMPLETE_SETUP_GUIDE.md" class="file-item md" target="_blank">COMPLETE_SETUP_GUIDE.md</a>
+                <a href="MainApp.html" class="file-item html" target="_blank">MainApp.html</a>
+                <a href="MainAppJS.html" class="file-item html" target="_blank">MainAppJS.html</a>
+                <a href="MainAppStyles.html" class="file-item html" target="_blank">MainAppStyles.html</a>
+                <a href="LoginPrompt.html" class="file-item html" target="_blank">LoginPrompt.html</a>
+                <a href="JavaScript.html" class="file-item html" target="_blank">JavaScript.html</a>
+                <a href="Styles.html" class="file-item html" target="_blank">Styles.html</a>
+                <a href="EmployeePTORequest.html" class="file-item html" target="_blank">EmployeePTORequest.html</a>
+                <a href="EmployeeUniformRequest.html" class="file-item html" target="_blank">EmployeeUniformRequest.html</a>
+                <a href="View_Dashboard.html" class="file-item html" target="_blank">View_Dashboard.html</a>
+                <a href="View_PayrollProcessing.html" class="file-item html" target="_blank">View_PayrollProcessing.html</a>
+                <a href="View_OTUpload.html" class="file-item html" target="_blank">View_OTUpload.html</a>
+                <a href="View_OTHistory.html" class="file-item html" target="_blank">View_OTHistory.html</a>
+                <a href="View_OTTrends.html" class="file-item html" target="_blank">View_OTTrends.html</a>
+                <a href="View_OTEmployee.html" class="file-item html" target="_blank">View_OTEmployee.html</a>
+                <a href="View_PTORecords.html" class="file-item html" target="_blank">View_PTORecords.html</a>
+                <a href="View_PTOSummary.html" class="file-item html" target="_blank">View_PTOSummary.html</a>
+                <a href="View_UniformOrders.html" class="file-item html" target="_blank">View_UniformOrders.html</a>
+                <a href="View_UniformCatalog.html" class="file-item html" target="_blank">View_UniformCatalog.html</a>
+                <a href="View_UniformDeductions.html" class="file-item html" target="_blank">View_UniformDeductions.html</a>
+                <a href="View_UniformSummary.html" class="file-item html" target="_blank">View_UniformSummary.html</a>
+                <a href="View_PayrollCalendar.html" class="file-item html" target="_blank">View_PayrollCalendar.html</a>
+                <a href="View_YearEndWizard.html" class="file-item html" target="_blank">View_YearEndWizard.html</a>
+                <a href="View_SettingsPage.html" class="file-item html" target="_blank">View_SettingsPage.html</a>
+                <a href="View_SystemHealth.html" class="file-item html" target="_blank">View_SystemHealth.html</a>
+                <a href="View_Help.html" class="file-item html" target="_blank">View_Help.html</a>
             </div>
         </div>
     </div>

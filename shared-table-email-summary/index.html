@@ -103,13 +103,17 @@
             gap: 0.5rem;
         }
         .file-item {
+            display: block;
             background: rgba(255,255,255,0.05);
             border-radius: 6px;
             padding: 0.5rem 0.75rem;
             font-size: 0.8rem;
             color: #a0a0a0;
             font-family: monospace;
+            text-decoration: none;
+            transition: background 0.2s;
         }
+        .file-item:hover { background: rgba(255,255,255,0.12); }
         .file-item.gs { color: #81C784; }
         .note {
             background: rgba(255, 143, 0, 0.1);
@@ -204,7 +208,7 @@
         <div class="section">
             <h2>Files in This Project</h2>
             <div class="file-grid">
-                <div class="file-item gs">Code.gs</div>
+                <a href="Code.gs" class="file-item gs" target="_blank">Code.gs</a>
             </div>
         </div>
     </div>

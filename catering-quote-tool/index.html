@@ -103,13 +103,17 @@
             gap: 0.5rem;
         }
         .file-item {
+            display: block;
             background: rgba(255,255,255,0.05);
             border-radius: 6px;
             padding: 0.5rem 0.75rem;
             font-size: 0.8rem;
             color: #a0a0a0;
             font-family: monospace;
+            text-decoration: none;
+            transition: background 0.2s;
         }
+        .file-item:hover { background: rgba(255,255,255,0.12); }
         .file-item.gs { color: #81C784; }
         .file-item.html { color: #64B5F6; }
         .file-item.md { color: #FFD54F; }
@@ -177,9 +181,9 @@
         <div class="section">
             <h2>Files in This Project</h2>
             <div class="file-grid">
-                <div class="file-item gs">Code.gs</div>
-                <div class="file-item html">Index.html</div>
-                <div class="file-item md">README.md</div>
+                <a href="Code.gs" class="file-item gs" target="_blank">Code.gs</a>
+                <a href="App.html" class="file-item html" target="_blank">App.html</a>
+                <a href="README.md" class="file-item md" target="_blank">README.md</a>
             </div>
         </div>
     </div>
