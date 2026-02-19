@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catering Quote Generator</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e8e8e8;
+            padding: 2rem;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: #a8a8a8;
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: #fff; }
+        .header {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 2rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-top: 4px solid #00BCD4;
+            margin-bottom: 1.5rem;
+        }
+        .project-icon { font-size: 3rem; margin-bottom: 1rem; }
+        h1 { font-size: 2rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+        .subtitle { color: #a8a8a8; font-size: 1rem; line-height: 1.5; }
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: #a0a0a0;
+            margin: 0.5rem 0.3rem 0 0;
+        }
+        .section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 1.5rem;
+        }
+        h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #4DD0E1;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .feature-list { list-style: none; }
+        .feature-list li {
+            padding: 0.4rem 0;
+            color: #c0c0c0;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+        }
+        .feature-list li::before { content: '✓'; color: #4DD0E1; flex-shrink: 0; }
+        .steps { list-style: none; counter-reset: step; }
+        .steps li {
+            counter-increment: step;
+            padding: 0.6rem 0 0.6rem 2.5rem;
+            color: #c0c0c0;
+            font-size: 0.95rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            position: relative;
+            line-height: 1.5;
+        }
+        .steps li:last-child { border-bottom: none; }
+        .steps li::before {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0.6rem;
+            background: #00BCD4;
+            color: #fff;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.5rem;
+        }
+        .file-item {
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+            color: #a0a0a0;
+            font-family: monospace;
+        }
+        .file-item.gs { color: #81C784; }
+        .file-item.html { color: #64B5F6; }
+        .file-item.md { color: #FFD54F; }
+        .note {
+            background: rgba(0, 188, 212, 0.1);
+            border: 1px solid rgba(0, 188, 212, 0.3);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            font-size: 0.9rem;
+            color: #c0c0c0;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        .note strong { color: #4DD0E1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">&#8592; Back to Hub</a>
+
+        <div class="header">
+            <div class="project-icon">&#127869;&#65039;</div>
+            <h1>Catering Quote Generator</h1>
+            <p class="subtitle">Create, manage, email, and print professional catering quotes with a searchable menu picker, sequential quote IDs, and PDF email integration.</p>
+            <div>
+                <span class="tag">Google Apps Script</span>
+                <span class="tag">Google Sheets</span>
+                <span class="tag">Web App</span>
+            </div>
+        </div>
+
+        <div class="note">
+            <strong>This is a Google Apps Script application.</strong> It runs inside Google Sheets and cannot be opened directly in a browser. Follow the setup steps below to deploy it to your Google account.
+        </div>
+
+        <div class="section">
+            <h2>Features</h2>
+            <ul class="feature-list">
+                <li>Searchable, categorized menu item picker with live price display</li>
+                <li>Separate pickup and delivery pricing per item</li>
+                <li>Sequential quote IDs (Q-2026-0001, Q-2026-0002, &hellip;) that never repeat</li>
+                <li>Save &amp; Email — generates a PDF and emails it in one click</li>
+                <li>Quote history with Edit &amp; Reuse — originals are never modified</li>
+                <li>Fully customizable email subject and body templates</li>
+                <li>Optional BCC on every sent quote</li>
+                <li>Auto-cleanup deletes quotes older than 30 days</li>
+                <li>Logo upload and per-location store details in Settings</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Setup Steps</h2>
+            <ol class="steps">
+                <li>Create a new Google Sheet and name it <strong>CFA Catering Quotes</strong>.</li>
+                <li>Open <strong>Extensions &rarr; Apps Script</strong> in the sheet.</li>
+                <li>Paste the contents of <strong>Code.gs</strong> into the default script file.</li>
+                <li>Create an HTML file named <strong>Index</strong> and paste the contents of <strong>Index.html</strong>.</li>
+                <li>Run <strong>initializeSheet</strong> once — this creates the Settings, Menu, Quotes, and Quote_Sequence tabs.</li>
+                <li>Add your menu items to the <strong>Menu</strong> tab (Category | Item Name | Pickup Price | Delivery Price).</li>
+                <li>Deploy: <strong>Deploy &rarr; New Deployment &rarr; Web App</strong>. Set access to your organization and copy the URL.</li>
+                <li>Set up a nightly cleanup trigger: add a <strong>Time-driven</strong> trigger for <code>cleanOldQuotes</code> to run daily at midnight.</li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>Files in This Project</h2>
+            <div class="file-grid">
+                <div class="file-item gs">Code.gs</div>
+                <div class="file-item html">Index.html</div>
+                <div class="file-item md">README.md</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

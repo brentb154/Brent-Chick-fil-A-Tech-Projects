@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shared Table Email Summary</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e8e8e8;
+            padding: 2rem;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: #a8a8a8;
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: #fff; }
+        .header {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 2rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-top: 4px solid #FF8F00;
+            margin-bottom: 1.5rem;
+        }
+        .project-icon { font-size: 3rem; margin-bottom: 1rem; }
+        h1 { font-size: 2rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+        .subtitle { color: #a8a8a8; font-size: 1rem; line-height: 1.5; }
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: #a0a0a0;
+            margin: 0.5rem 0.3rem 0 0;
+        }
+        .section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 1.5rem;
+        }
+        h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #FFB300;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .feature-list { list-style: none; }
+        .feature-list li {
+            padding: 0.4rem 0;
+            color: #c0c0c0;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+        }
+        .feature-list li::before { content: '✓'; color: #FFB300; flex-shrink: 0; }
+        .steps { list-style: none; counter-reset: step; }
+        .steps li {
+            counter-increment: step;
+            padding: 0.6rem 0 0.6rem 2.5rem;
+            color: #c0c0c0;
+            font-size: 0.95rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            position: relative;
+            line-height: 1.5;
+        }
+        .steps li:last-child { border-bottom: none; }
+        .steps li::before {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0.6rem;
+            background: #FF8F00;
+            color: #fff;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.5rem;
+        }
+        .file-item {
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+            color: #a0a0a0;
+            font-family: monospace;
+        }
+        .file-item.gs { color: #81C784; }
+        .note {
+            background: rgba(255, 143, 0, 0.1);
+            border: 1px solid rgba(255, 143, 0, 0.3);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            font-size: 0.9rem;
+            color: #c0c0c0;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        .note strong { color: #FFB300; }
+        .config-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+        .config-table th {
+            text-align: left;
+            padding: 0.5rem 0.75rem;
+            background: rgba(255,255,255,0.07);
+            color: #a0a0a0;
+            font-weight: 600;
+        }
+        .config-table td {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: #c0c0c0;
+        }
+        .config-table code {
+            background: rgba(255,255,255,0.08);
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">&#8592; Back to Hub</a>
+
+        <div class="header">
+            <div class="project-icon">&#128231;</div>
+            <h1>Shared Table Email Summary</h1>
+            <p class="subtitle">Automatically sends weekly waste summary emails from Google Form responses. Configurable schedule, recipients, and categorized item reporting.</p>
+            <div>
+                <span class="tag">Google Apps Script</span>
+                <span class="tag">Google Sheets</span>
+                <span class="tag">Auto-Emails</span>
+            </div>
+        </div>
+
+        <div class="note">
+            <strong>This is a Google Apps Script add-on for Google Sheets.</strong> It attaches to the spreadsheet that receives your Google Form responses and sends a formatted weekly summary email automatically.
+        </div>
+
+        <div class="section">
+            <h2>Features</h2>
+            <ul class="feature-list">
+                <li>Reads weekly waste data from a Google Form response sheet</li>
+                <li>Sends a formatted HTML email with items grouped by category</li>
+                <li>Configurable send day, send time, and week start day</li>
+                <li>Primary recipient plus optional CC address</li>
+                <li>Duplicate-send protection — only sends once per week</li>
+                <li>Catches new or renamed form columns automatically in an &ldquo;Other&rdquo; section</li>
+                <li>Settings sidebar in Google Sheets — no need to edit the Config tab manually</li>
+                <li>Send Test Email button to preview without waiting for the scheduled day</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Setup Steps</h2>
+            <ol class="steps">
+                <li>Open the Google Sheet that receives your waste form responses.</li>
+                <li>Create a new sheet tab named <strong>Config</strong> with these rows:</li>
+            </ol>
+            <table class="config-table" style="margin: 0.75rem 0 1rem 2.5rem; width: calc(100% - 2.5rem);">
+                <tr><th>Column A</th><th>Column B</th></tr>
+                <tr><td>Send Day</td><td><code>Monday</code></td></tr>
+                <tr><td>Recipient Email</td><td><code>you@email.com</code></td></tr>
+                <tr><td>Week Start Day</td><td><code>Sunday</code></td></tr>
+                <tr><td>Last Sent</td><td>(leave blank)</td></tr>
+                <tr><td>CC Email</td><td>(optional)</td></tr>
+                <tr><td>Send Time</td><td><code>7</code> (24-hour format)</td></tr>
+            </table>
+            <ol class="steps" style="counter-reset: step 2;">
+                <li>Open <strong>Extensions &rarr; Apps Script</strong> and paste the contents of <strong>Code.gs</strong>.</li>
+                <li>Run <strong>createDailyTrigger</strong> once to install the automation, or use the <strong>Waste Summary</strong> menu that appears in the toolbar.</li>
+                <li>Use <strong>Waste Summary &rarr; Settings</strong> to adjust the schedule and recipients without touching the Config sheet.</li>
+                <li>Use <strong>Waste Summary &rarr; Send Test Email Now</strong> to verify everything is working.</li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>Files in This Project</h2>
+            <div class="file-grid">
+                <div class="file-item gs">Code.gs</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
