@@ -132,6 +132,22 @@
             background: linear-gradient(135deg, var(--accent-color), var(--accent-secondary));
         }
 
+        .project-link.zip-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .project-link.zip-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        .project-link.zip-btn:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
         .tag {
             display: inline-block;
             padding: 0.25rem 0.6rem;
@@ -244,6 +260,7 @@
                 <div class="project-links">
                     <a href="payroll-system/COMPLETE_SETUP_GUIDE.md" class="project-link primary">Setup Guide</a>
                     <a href="payroll-system/" class="project-link">View Files</a>
+                    <button onclick="downloadZip('payroll-system',['Code.gs','DashboardModule.gs','PTOModule.gs','ReportsModule.gs','COMPLETE_SETUP_GUIDE.md','MainApp.html','MainAppJS.html','MainAppStyles.html','LoginPrompt.html','JavaScript.html','Styles.html','EmployeePTORequest.html','EmployeeUniformRequest.html','View_Dashboard.html','View_PayrollProcessing.html','View_OTUpload.html','View_OTHistory.html','View_OTTrends.html','View_OTEmployee.html','View_PTORecords.html','View_PTOSummary.html','View_UniformOrders.html','View_UniformCatalog.html','View_UniformDeductions.html','View_UniformSummary.html','View_PayrollCalendar.html','View_YearEndWizard.html','View_SettingsPage.html','View_SystemHealth.html','View_Help.html'],'payroll-system.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
                 </div>
             </div>
 
@@ -260,6 +277,7 @@
                 </div>
                 <div class="project-links">
                     <a href="schedule-counter/Schedule Counter 3.1.html" class="project-link primary">Launch Tool</a>
+                    <button onclick="downloadZip('schedule-counter',['Schedule Counter 3.1.html'],'schedule-counter.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
                 </div>
             </div>
 
@@ -276,6 +294,7 @@
                 </div>
                 <div class="project-links">
                     <a href="inventory-analyzer/inventory-analyzer-app.html" class="project-link primary">Launch Tool</a>
+                    <button onclick="downloadZip('inventory-analyzer',['inventory-analyzer-app.html'],'inventory-analyzer.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
                 </div>
             </div>
 
@@ -292,6 +311,7 @@
                 </div>
                 <div class="project-links">
                     <a href="manager-hub/" class="project-link primary">View Files</a>
+                    <button onclick="downloadZip('manager-hub',['Phase1_SheetSetup.gs','Login.html','Signup.html','EmployeeList.html','EmployeeDetail.html','InfractionForm.html','UserManagement.html'],'manager-hub.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
                 </div>
             </div>
 
@@ -308,6 +328,7 @@
                 </div>
                 <div class="project-links">
                     <a href="facilities-tracker/facilities-repair-tracker.html" class="project-link primary">Launch Tool</a>
+                    <button onclick="downloadZip('facilities-tracker',['facilities-repair-tracker.html'],'facilities-tracker.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
                 </div>
             </div>
 
@@ -325,6 +346,7 @@
                 <div class="project-links">
                     <a href="catering-quote-tool/README.md" class="project-link primary">Setup Guide</a>
                     <a href="catering-quote-tool/" class="project-link">View Files</a>
+                    <button onclick="downloadZip('catering-quote-tool',['Code.gs','App.html','README.md'],'catering-quote-tool.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
                 </div>
             </div>
 
@@ -341,6 +363,7 @@
                 </div>
                 <div class="project-links">
                     <a href="shared-table-email-summary/" class="project-link primary">View Files</a>
+                    <button onclick="downloadZip('shared-table-email-summary',['Code.gs'],'shared-table-email-summary.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
                 </div>
             </div>
         </div>
@@ -382,5 +405,32 @@
             </p>
         </footer>
     </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script>
+        async function downloadZip(folder, files, zipName, btn) {
+            const orig = btn.textContent;
+            btn.textContent = 'Packaging\u2026';
+            btn.disabled = true;
+
+            try {
+                const zip = new JSZip();
+                await Promise.all(files.map(async (f) => {
+                    const res = await fetch(folder + '/' + f);
+                    if (!res.ok) throw new Error('Failed: ' + f);
+                    zip.file(f, await res.blob());
+                }));
+                const blob = await zip.generateAsync({ type: 'blob' });
+                saveAs(blob, zipName);
+                btn.textContent = '\u2713 Done!';
+                setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 3000);
+            } catch (e) {
+                btn.textContent = '\u2717 Error';
+                btn.disabled = false;
+                setTimeout(() => { btn.textContent = orig; }, 3000);
+            }
+        }
+    </script>
 </body>
 </html>

@@ -178,6 +178,9 @@
 
         <div class="section">
             <h2>Files in This Project</h2>
+            <div style="margin-bottom: 1rem;">
+                <button onclick="downloadZip()" id="download-btn" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.65rem 1.4rem;background:linear-gradient(135deg,#4CAF50,#8BC34A);border:none;border-radius:8px;color:#fff;font-size:0.95rem;font-weight:600;cursor:pointer;transition:opacity 0.2s;">&#8595; Download All as ZIP</button>
+            </div>
             <div class="file-grid">
                 <a href="Code.gs" class="file-item gs" target="_blank">Code.gs</a>
                 <a href="DashboardModule.gs" class="file-item gs" target="_blank">DashboardModule.gs</a>
@@ -212,5 +215,48 @@
             </div>
         </div>
     </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script>
+        async function downloadZip() {
+            const btn = document.getElementById('download-btn');
+            btn.textContent = 'Packaging files\u2026';
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+
+            const files = [
+                'Code.gs','DashboardModule.gs','PTOModule.gs','ReportsModule.gs',
+                'COMPLETE_SETUP_GUIDE.md',
+                'MainApp.html','MainAppJS.html','MainAppStyles.html','LoginPrompt.html',
+                'JavaScript.html','Styles.html',
+                'EmployeePTORequest.html','EmployeeUniformRequest.html',
+                'View_Dashboard.html','View_PayrollProcessing.html','View_OTUpload.html',
+                'View_OTHistory.html','View_OTTrends.html','View_OTEmployee.html',
+                'View_PTORecords.html','View_PTOSummary.html',
+                'View_UniformOrders.html','View_UniformCatalog.html',
+                'View_UniformDeductions.html','View_UniformSummary.html',
+                'View_PayrollCalendar.html','View_YearEndWizard.html',
+                'View_SettingsPage.html','View_SystemHealth.html','View_Help.html'
+            ];
+
+            try {
+                const zip = new JSZip();
+                await Promise.all(files.map(async (f) => {
+                    const res = await fetch(f);
+                    if (!res.ok) throw new Error('Failed: ' + f);
+                    zip.file(f, await res.blob());
+                }));
+                const blob = await zip.generateAsync({ type: 'blob' });
+                saveAs(blob, 'payroll-system.zip');
+                btn.textContent = '\u2713 Downloaded!';
+                setTimeout(() => { btn.textContent = '\u2195 Download All as ZIP'; btn.disabled = false; btn.style.opacity = '1'; }, 3000);
+            } catch (e) {
+                btn.textContent = '\u2717 Error \u2013 try again';
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            }
+        }
+    </script>
 </body>
 </html>
