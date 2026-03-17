@@ -691,12 +691,47 @@
       setDefaultDates();
     });
 
+    const CACHE_TTL_MS = 5 * 60 * 1000;
+    
+    function getCached(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const payload = JSON.parse(raw);
+        if (!payload || !payload.ts) return null;
+        if (Date.now() - payload.ts > CACHE_TTL_MS) return null;
+        return payload.data;
+      } catch (e) {
+        return null;
+      }
+    }
+    
+    function setCached(key, data) {
+      try {
+        localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data: data }));
+      } catch (e) {}
+    }
+
     /**
      * Loads employees into the dropdown
      */
     function loadEmployees() {
       const select = document.getElementById('employeeSelect');
       select.innerHTML = '<option value="">Loading employees... / Cargando empleados...</option>';
+
+      const cached = getCached('pto_employees');
+      if (cached && cached.length > 0) {
+        select.innerHTML = '<option value="">Select your name / Selecciona tu nombre</option>';
+        cached.forEach(function(emp) {
+          const option = document.createElement('option');
+          option.value = emp.id;
+          option.textContent = emp.name + ' (' + emp.location + ')';
+          option.dataset.name = emp.name;
+          option.dataset.location = emp.location;
+          select.appendChild(option);
+        });
+        return;
+      }
       
       google.script.run
         .withSuccessHandler(function(employees) {
@@ -719,6 +754,8 @@
             select.appendChild(option);
           });
           
+          setCached('pto_employees', employees);
+          
           console.log('Employee dropdown populated with', employees.length, 'employees');
         })
         .withFailureHandler(function(error) {
@@ -739,6 +776,19 @@
       
       const select = document.getElementById('payoutPeriod');
       select.innerHTML = '<option value="">Loading pay periods... / Cargando períodos...</option>';
+
+      const cacheKey = 'pto_paydates_' + (endDate || 'all');
+      const cached = getCached(cacheKey);
+      if (cached && cached.length > 0) {
+        select.innerHTML = '<option value="">Select pay period / Selecciona período</option>';
+        cached.forEach(function(d) {
+          const option = document.createElement('option');
+          option.value = d.date;
+          option.textContent = d.displayEnglish + ' / ' + d.displaySpanish;
+          select.appendChild(option);
+        });
+        return;
+      }
       
       google.script.run
         .withSuccessHandler(function(dates) {
@@ -755,6 +805,10 @@
             option.textContent = d.displayEnglish + ' / ' + d.displaySpanish;
             select.appendChild(option);
           });
+          
+          if (dates && dates.length > 0) {
+            setCached(cacheKey, dates);
+          }
         })
         .withFailureHandler(function(error) {
           console.error('Error loading payroll dates:', error);

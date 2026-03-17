@@ -641,6 +641,47 @@ function getPTORecords(filters = {}) {
 }
 
 /**
+ * Lightweight PTO records for quick search
+ * @param {Object} filters - Optional { limit: number }
+ * @returns {Array} Array of simplified PTO records
+ */
+function getPTORecordsLite(filters = {}) {
+  try {
+    const limit = parseInt(filters.limit, 10);
+    const cache = CacheService.getScriptCache();
+    const cacheKey = 'search_pto_v1_' + (isNaN(limit) ? 'all' : limit);
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('PTO');
+    if (!sheet || sheet.getLastRow() < 2) {
+      return [];
+    }
+
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
+    let records = data
+      .map(row => ({
+        ptoId: row[0] || '',
+        employeeName: row[2] || ''
+      }))
+      .filter(r => r.ptoId);
+
+    if (!isNaN(limit)) {
+      records = records.slice(0, limit);
+    }
+
+    cache.put(cacheKey, JSON.stringify(records), 300);
+    return records;
+  } catch (error) {
+    console.error('Error getting PTO records for search:', error);
+    return [];
+  }
+}
+
+/**
  * Marks a single PTO record as paid
  * 
  * @param {string} ptoId - The PTO_ID to mark as paid
@@ -1133,7 +1174,7 @@ function getPTOSummaryData() {
       .map((emp, index) => ({
         rank: index + 1,
         ...emp,
-        totalHours: Math.round(emp.totalHours * 10) / 10
+        totalHours: Math.floor(emp.totalHours * 10) / 10
       }));
     
     // Sort by location
@@ -1141,7 +1182,7 @@ function getPTOSummaryData() {
       .sort((a, b) => b.hours - a.hours)
       .map(loc => ({
         ...loc,
-        hours: Math.round(loc.hours * 10) / 10
+        hours: Math.floor(loc.hours * 10) / 10
       }));
     
     // Sort recent activity (newest first), limit to 15
@@ -1161,7 +1202,7 @@ function getPTOSummaryData() {
       .slice(-6)
       .map(m => ({
         month: formatMonthDisplay(m.month),
-        hours: Math.round(m.hours * 10) / 10,
+        hours: Math.floor(m.hours * 10) / 10,
         requests: m.requests
       }));
     
@@ -1169,12 +1210,12 @@ function getPTOSummaryData() {
       success: true,
       summary: {
         totalRequests: totalRequests,
-        totalHours: Math.round(totalHours * 10) / 10,
+        totalHours: Math.floor(totalHours * 10) / 10,
         pendingRequests: pendingRequests,
-        pendingHours: Math.round(pendingHours * 10) / 10,
+        pendingHours: Math.floor(pendingHours * 10) / 10,
         paidRequests: paidRequests,
-        paidHours: Math.round(paidHours * 10) / 10,
-        averageHoursPerRequest: totalRequests > 0 ? Math.round((totalHours / totalRequests) * 10) / 10 : 0,
+        paidHours: Math.floor(paidHours * 10) / 10,
+        averageHoursPerRequest: totalRequests > 0 ? Math.floor((totalHours / totalRequests) * 10) / 10 : 0,
         uniqueEmployees: uniqueEmployees.size
       },
       byLocation: byLocation,

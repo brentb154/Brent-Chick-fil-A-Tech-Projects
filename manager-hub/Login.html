@@ -48,6 +48,35 @@
       font-weight: normal;
     }
 
+    .help-link {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 13px;
+      color: #555;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .help-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .help-modal-content {
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px;
+      width: 520px;
+      max-width: calc(100% - 32px);
+      max-height: 80vh;
+      overflow: auto;
+    }
+
     .form-group {
       margin-bottom: 20px;
     }
@@ -182,6 +211,7 @@
     <div class="login-header">
       <h1>CFA Accountability</h1>
       <h2>Manager Hub Login</h2>
+      <div class="help-link" onclick="openHelp()">Need help logging in?</div>
     </div>
 
     <form id="loginForm" onsubmit="return handleLogin(event)">
@@ -207,6 +237,19 @@
     </form>
 
     <div id="messageArea" class="message-area"></div>
+  </div>
+
+  <div class="help-modal" id="helpModal">
+    <div class="help-modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>Login Help</h3>
+        <button class="toggle-password" onclick="closeHelp()">Close</button>
+      </div>
+      <div style="font-size:13px; line-height:1.5;">
+        <p>Select your role, enter the shared password, and click Login.</p>
+        <p>If you forgot the password, contact a director to reset it.</p>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -253,6 +296,9 @@
       const role = document.getElementById('roleSelect').value;
       const password = document.getElementById('passwordInput').value;
       const loginBtn = document.getElementById('loginBtn');
+      let timeoutId = null;
+
+      clearStoredSession();
 
       // Validate inputs
       if (!role) {
@@ -271,11 +317,25 @@
       loginBtn.textContent = 'Logging in...';
       hideMessage();
 
-      // Call server to validate
+      // Safety timeout in case server doesn't respond
+      timeoutId = setTimeout(function() {
+        loginBtn.disabled = false;
+        loginBtn.classList.remove('loading');
+        loginBtn.textContent = 'Login';
+        showMessage('Login timed out. Please try again.', 'error');
+      }, 12000);
+
+      // Call server to validate and get dashboard config
       google.script.run
-        .withSuccessHandler(handleLoginSuccess)
-        .withFailureHandler(handleLoginError)
-        .validateRoleLogin(role, password);
+        .withSuccessHandler(function(result) {
+          clearTimeout(timeoutId);
+          handleLoginSuccess(result);
+        })
+        .withFailureHandler(function(error) {
+          clearTimeout(timeoutId);
+          handleLoginError(error);
+        })
+        .handleDashboardLogin({ role: role, password: password });
 
       return false;
     }
@@ -289,17 +349,37 @@
       loginBtn.classList.remove('loading');
       loginBtn.textContent = 'Login';
 
+      if (!result) {
+        showMessage('Server returned no response. Please try again.', 'error');
+        return;
+      }
+
       if (result.success) {
+        if (!result.token) {
+          showMessage('Login failed: no session token returned. Please try again.', 'error');
+          return;
+        }
         showMessage('Login successful! Redirecting...', 'success');
 
-        // Store role in sessionStorage for client-side use
-        sessionStorage.setItem('cfa_user_role', result.role);
+        // Store role and session token in sessionStorage for client-side use
+        const roleValue = result.user_role || result.role;
+        sessionStorage.setItem('cfa_user_role', roleValue);
+        sessionStorage.setItem('cfa_session_token', result.token);
+        localStorage.setItem('cfa_user_role', roleValue);
+        localStorage.setItem('cfa_session_token', result.token);
 
-        // Redirect to employee list
+        // Redirect to dashboard (home page)
         setTimeout(function() {
           google.script.run
             .withSuccessHandler(function(url) {
-              window.location.href = url + '?page=employees';
+              const targetPage = (roleValue === 'Director' || roleValue === 'Operator')
+                ? 'analytics'
+                : 'dashboard';
+              if (url) {
+                sessionStorage.setItem('cfa_base_url', url);
+                localStorage.setItem('cfa_base_url', url);
+              }
+              redirectTo(appendTokenParam(url + '?page=' + targetPage, result.token));
             })
             .getWebAppUrl();
         }, 500);
@@ -320,23 +400,77 @@
       showMessage('Error: ' + error.message, 'error');
     }
 
+    function openHelp() {
+      document.getElementById('helpModal').style.display = 'flex';
+    }
+
+    function closeHelp() {
+      document.getElementById('helpModal').style.display = 'none';
+    }
+
+    function clearStoredSession() {
+      sessionStorage.removeItem('cfa_session_token');
+      sessionStorage.removeItem('cfa_user_role');
+      sessionStorage.removeItem('cfa_base_url');
+      sessionStorage.removeItem('cfa_language');
+      localStorage.removeItem('cfa_session_token');
+      localStorage.removeItem('cfa_user_role');
+      localStorage.removeItem('cfa_base_url');
+      localStorage.removeItem('cfa_language');
+    }
+
     /**
      * Check if already logged in on page load
      */
     document.addEventListener('DOMContentLoaded', function() {
-      google.script.run
-        .withSuccessHandler(function(result) {
-          if (result.authenticated) {
-            // Already logged in, redirect to employees page
-            google.script.run
-              .withSuccessHandler(function(url) {
-                window.location.href = url + '?page=employees';
-              })
-              .getWebAppUrl();
-          }
-        })
-        .getCurrentRole();
+      // Check for existing session token
+      var token = sessionStorage.getItem('cfa_session_token') || localStorage.getItem('cfa_session_token');
+      if (token) {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result && result.valid) {
+              const role = result.role || sessionStorage.getItem('cfa_user_role');
+              if (result.role) {
+                sessionStorage.setItem('cfa_user_role', result.role);
+                localStorage.setItem('cfa_user_role', result.role);
+              }
+              if (result.language) {
+                sessionStorage.setItem('cfa_language', result.language);
+              }
+              const target = (role === 'Director' || role === 'Operator') ? 'analytics' : 'dashboard';
+              // Already logged in, redirect to the correct dashboard
+              google.script.run
+                .withSuccessHandler(function(url) {
+                  if (url) {
+                    sessionStorage.setItem('cfa_base_url', url);
+                    localStorage.setItem('cfa_base_url', url);
+                  }
+                  redirectTo(appendTokenParam(url + '?page=' + target, token));
+                })
+                .getWebAppUrl();
+            }
+          })
+          .validateSessionToken(token);
+      }
     });
+
+    function appendTokenParam(url, token) {
+      if (!token || !url) return url;
+      const separator = url.indexOf('?') === -1 ? '?' : '&';
+      return url + separator + 'token=' + encodeURIComponent(token);
+    }
+
+    /**
+     * Navigate in the top-level context when embedded in an iframe.
+     */
+    function redirectTo(url) {
+      const inPreview = window.location.href.indexOf('userCodeAppPanel') !== -1;
+      if (window.top && window.top !== window && !inPreview) {
+        window.top.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+    }
   </script>
 </body>
 </html>

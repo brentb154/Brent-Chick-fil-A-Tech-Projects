@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Status</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f9; color: #333; }
+      header { background: #fff; border-bottom: 1px solid #eee; padding: 12px 18px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+      header h1 { margin: 0; font-size: 20px; flex: 1; }
+      .nav-btn { padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; background: #fff; cursor: pointer; }
+      .help-btn { padding: 8px 12px; border-radius: 999px; border: 1px solid #ddd; background: #fff; cursor: pointer; min-width: 44px; min-height: 44px; }
+      .container { padding: 18px; display: grid; gap: 18px; }
+      .card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 16px; }
+      .card h2 { margin: 0 0 12px 0; font-size: 16px; }
+      .status-banner { display: flex; align-items: center; gap: 16px; border-radius: 10px; padding: 16px; font-size: 16px; font-weight: 600; }
+      .status-healthy { background: #e6f6ea; color: #1b5e20; }
+      .status-warning { background: #fff8e1; color: #8a6d3b; }
+      .status-critical { background: #fdecea; color: #b71c1c; }
+      .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+      .metric { background: #f8f9fb; border: 1px solid #eee; border-radius: 8px; padding: 12px; }
+      .metric .value { font-size: 20px; font-weight: 700; color: #E51636; }
+      .metric .label { font-size: 12px; color: #666; margin-top: 4px; }
+      .issues-list { display: grid; gap: 10px; }
+      .issue { border: 1px solid #eee; border-left: 4px solid #ccc; border-radius: 8px; padding: 12px; background: #fff; display: flex; justify-content: space-between; gap: 12px; }
+      .issue.severity-critical { border-left-color: #dc3545; }
+      .issue.severity-high { border-left-color: #fd7e14; }
+      .issue.severity-medium { border-left-color: #ffc107; }
+      .issue.severity-low { border-left-color: #28a745; }
+      .issue h4 { margin: 0 0 6px 0; font-size: 14px; }
+      .issue p { margin: 4px 0; font-size: 12px; color: #555; }
+      .btn-primary { background: #E51636; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
+      .btn-secondary { background: #f0f0f0; border: 1px solid #ddd; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border-bottom: 1px solid #eee; padding: 8px; font-size: 13px; text-align: left; }
+      th { background: #f7f7f7; }
+      .badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+      .badge.error { background: #fdecea; color: #b71c1c; }
+      .badge.warning { background: #fff8e1; color: #8a6d3b; }
+      .badge.info { background: #e3f2fd; color: #0d47a1; }
+      .badge.success { background: #e6f6ea; color: #1b5e20; }
+      .progress { background: #f0f0f0; border-radius: 6px; height: 10px; overflow: hidden; }
+      .progress-bar { height: 10px; background: #E51636; }
+      .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; }
+      .modal-content { background: #fff; border-radius: 10px; padding: 16px; width: 480px; max-width: 95%; }
+      textarea { width: 100%; min-height: 90px; border-radius: 6px; border: 1px solid #ddd; padding: 8px; }
+      input, select { padding: 8px; border-radius: 6px; border: 1px solid #ddd; }
+
+      .chart-container { width: 100%; height: 160px; }
+      .chart-container canvas { width: 100% !important; height: 160px !important; }
+
+      .help-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 2000; }
+      .help-modal-content { background: #fff; border-radius: 10px; padding: 18px; width: 560px; max-width: calc(100% - 32px); max-height: 80vh; overflow: auto; }
+      .help-mode-indicator { position: fixed; bottom: 80px; right: 16px; background: #E51636; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 12px; display: none; z-index: 2001; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>System Status</h1>
+      <button class="help-btn" onclick="openHelp()">?</button>
+      <a class="nav-btn" href="?page=dashboard" onclick="if(window.navigateTo){navigateTo('dashboard'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('dashboard'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'dashboard';window.top.location.href=base+'?page='+target; return false;">Dashboard</a>
+      <a class="nav-btn" href="?page=analytics" onclick="if(window.navigateTo){navigateTo('analytics'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('analytics'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'analytics';window.top.location.href=base+'?page='+target; return false;">Analytics</a>
+      <a class="nav-btn" href="?page=reports" onclick="if(window.navigateTo){navigateTo('reports'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('reports'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'reports';window.top.location.href=base+'?page='+target; return false;">Reports</a>
+      <a class="nav-btn" href="?page=settings" onclick="if(window.navigateTo){navigateTo('settings'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('settings'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'settings';window.top.location.href=base+'?page='+target; return false;">Settings</a>
+      <button class="nav-btn" onclick="logout()">Logout</button>
+    </header>
+
+    <div class="container">
+      <div class="card" id="statusBannerCard">
+        <div id="statusBanner" class="status-banner status-warning">
+          <span id="statusText">Loading status...</span>
+          <span style="font-size:12px; font-weight:400;">Last checked: <span id="lastChecked">--</span></span>
+          <button class="btn-primary" style="margin-left:auto;" onclick="runHealthCheck()"
+            data-help-title="Run Health Check"
+            data-help="Runs a comprehensive health check and logs results to Health_Check_History.">Run Health Check Now</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Quick Metrics</h2>
+        <div class="metrics-grid" id="metricsGrid"></div>
+      </div>
+
+      <div class="card">
+        <h2>Active Issues</h2>
+        <div id="issuesContainer" class="issues-list"></div>
+      </div>
+
+      <div class="card">
+        <h2>System Performance</h2>
+        <div class="row" style="margin-bottom:10px;">
+          <div>Avg function execution time: <strong id="healthExecTime">--</strong></div>
+          <div>Backup last run: <strong id="backupLastRun">--</strong></div>
+          <div>Email success rate: <strong id="emailSuccessRate">N/A</strong></div>
+          <div>Backup success rate: <strong id="backupSuccessRate">N/A</strong></div>
+        </div>
+        <div class="chart-container">
+          <canvas id="performanceChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content: space-between;">
+          <h2>Recent Activity Log</h2>
+          <button class="btn-secondary" onclick="exportLogs()"
+            data-help-title="Export Log"
+            data-help="Download the System Log as CSV for offline review.">Export Log</button>
+        </div>
+        <div class="row" style="margin-bottom:10px;">
+          <select id="filterType" onchange="renderLogs()"
+            data-help-title="Filter by Type"
+            data-help="Filter system logs by event type.">
+            <option value="">All Types</option>
+            <option value="error">Error</option>
+            <option value="warning">Warning</option>
+            <option value="info">Info</option>
+            <option value="success">Success</option>
+          </select>
+          <select id="filterSeverity" onchange="renderLogs()"
+            data-help-title="Filter by Severity"
+            data-help="Filter system logs by severity.">
+            <option value="">All Severities</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <input id="logSearch" type="text" placeholder="Search logs..." oninput="renderLogs()"
+            data-help-title="Search Logs"
+            data-help="Search log details for keywords. Filter and search can be combined." />
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Type</th>
+              <th>Details</th>
+              <th>User</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="logTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Storage Status</h2>
+        <div class="row" style="margin-bottom:8px;">
+          <div style="flex:1;">
+            <div>Sheet Rows: <span id="sheetRowsText">--</span></div>
+            <div class="progress"><div id="sheetRowsBar" class="progress-bar"></div></div>
+          </div>
+          <div style="flex:1;">
+            <div>Drive Storage: <span id="driveStorageText">--</span></div>
+            <div class="progress"><div id="driveStorageBar" class="progress-bar"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Trigger Status</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Last Run</th>
+              <th>Next Run</th>
+            </tr>
+          </thead>
+          <tbody id="triggerTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Health Check History</h2>
+        <div class="chart-container">
+          <canvas id="historyChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div id="resolveModal" class="modal">
+      <div class="modal-content">
+        <h3>Resolve Issue</h3>
+        <div id="resolveDetails" style="font-size:12px; color:#666; margin-bottom:8px;"></div>
+        <textarea id="resolveNotes" placeholder="Resolution notes"></textarea>
+        <div class="row" style="margin-top:12px; justify-content:flex-end;">
+          <button class="btn-secondary" onclick="closeResolveModal()">Cancel</button>
+          <button class="btn-primary" onclick="submitResolution()">Mark as Resolved</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="help-modal" id="helpModal">
+      <div class="help-modal-content">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 id="helpTitle">Help</h3>
+          <button class="btn-secondary" onclick="closeHelp()">Close</button>
+        </div>
+        <div id="helpBody" style="font-size:13px; line-height:1.5;"></div>
+        <div style="margin-top:12px; display:flex; gap:8px;">
+          <button class="btn-secondary" onclick="toggleHelpMode()">What's This?</button>
+          <button class="btn-secondary" onclick="showWhatsNew()">What's New</button>
+        </div>
+      </div>
+    </div>
+    <div class="help-mode-indicator" id="helpModeIndicator">Help Mode: Click any item</div>
+
+    <script>
+      let statusData = null;
+      let performanceChart = null;
+      let historyChart = null;
+      let selectedLogId = null;
+      const RELEASE_NOTES_VERSION = '2026-01-24';
+      let helpModeEnabled = false;
+
+      function getSessionToken() {
+        const urlToken = getTokenFromUrl();
+        if (urlToken) {
+          sessionStorage.setItem('cfa_session_token', urlToken);
+          localStorage.setItem('cfa_session_token', urlToken);
+        }
+        const token = sessionStorage.getItem('cfa_session_token') || localStorage.getItem('cfa_session_token');
+        if (token && !sessionStorage.getItem('cfa_session_token')) {
+          sessionStorage.setItem('cfa_session_token', token);
+        }
+        return token;
+      }
+
+      function getTokenFromUrl() {
+        try {
+          const params = new URLSearchParams(window.location.search);
+          return params.get('token') || params.get('tkn') || '';
+        } catch (error) {
+          return '';
+        }
+      }
+
+      function getBaseUrl() {
+        return window.location.href.split('?')[0];
+      }
+
+      function getStoredBaseUrl() {
+        return sessionStorage.getItem('cfa_base_url') || localStorage.getItem('cfa_base_url');
+      }
+
+      function redirectTo(url) {
+        const inPreview = window.location.href.indexOf('userCodeAppPanel') !== -1;
+        const finalUrl = appendTokenParam(url);
+        if (window.top && window.top !== window && !inPreview) {
+          window.top.location.href = finalUrl;
+        } else {
+          window.location.href = finalUrl;
+        }
+      }
+
+      function appendTokenParam(url) {
+        if (!url) return url;
+        const token = getSessionToken();
+        if (!token) return url;
+        const hasToken = url.indexOf('token=') !== -1 || url.indexOf('tkn=') !== -1;
+        if (hasToken) return url;
+        const separator = url.indexOf('?') === -1 ? '?' : '&';
+        return url + separator + 'token=' + encodeURIComponent(token);
+      }
+
+      function navigateTo(page) {
+      try {
+        console.log('[nav] click', JSON.stringify({page: page, href: window.location.href, role: (sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role')||''), token: (sessionStorage.getItem('cfa_session_token')||localStorage.getItem('cfa_session_token')||''), base: (sessionStorage.getItem('cfa_base_url')||localStorage.getItem('cfa_base_url')||'')}));
+      } catch (e) { console.log('[nav] click log failed', e); }
+
+        const targetPage = resolveDashboardPage(page);
+        const baseUrl = getStoredBaseUrl() || getBaseUrl();
+        const fallbackUrl = baseUrl + '?page=' + targetPage + '&t=' + Date.now();
+        let didNavigate = false;
+        const fallbackTimer = setTimeout(function() {
+          if (!didNavigate) {
+            redirectTo(fallbackUrl);
+          }
+        }, 1500);
+        try {
+          google.script.run
+            .withSuccessHandler(function(url) {
+              didNavigate = true;
+              clearTimeout(fallbackTimer);
+              if (url) {
+                sessionStorage.setItem('cfa_base_url', url);
+                localStorage.setItem('cfa_base_url', url);
+              }
+              redirectTo((url || baseUrl) + '?page=' + targetPage + '&t=' + Date.now());
+            })
+            .withFailureHandler(function() {
+              didNavigate = true;
+              clearTimeout(fallbackTimer);
+              redirectTo(fallbackUrl);
+            })
+            .getWebAppUrl();
+        } catch (error) {
+          didNavigate = true;
+          clearTimeout(fallbackTimer);
+          redirectTo(fallbackUrl);
+        }
+      }
+
+      function resolveDashboardPage(page) {
+        if (page !== 'dashboard') return page;
+        const role = sessionStorage.getItem('cfa_user_role') || localStorage.getItem('cfa_user_role');
+        return (role === 'Director' || role === 'Operator') ? 'analytics' : 'dashboard';
+      }
+
+      function logout() {
+        const token = getSessionToken();
+        sessionStorage.clear();
+        localStorage.removeItem('cfa_session_token');
+        localStorage.removeItem('cfa_user_role');
+        google.script.run
+          .withSuccessHandler(function() {
+            google.script.run.withSuccessHandler(function(url) {
+              window.location.href = url + '?page=login';
+            }).getWebAppUrl();
+          })
+          .logoutRole(token);
+      }
+
+      function loadStatus() {
+        const token = getSessionToken();
+        if (!token) {
+          showStatusError('Session token missing. Please log in again.');
+          return navigateTo('login');
+        }
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (!result || !result.success) {
+              showStatusError(result && result.error ? result.error : 'Failed to load system status.');
+              if (result && result.sessionExpired) {
+                return navigateTo('login');
+              }
+              return;
+            }
+            statusData = result;
+            renderStatus();
+          })
+          .withFailureHandler(function(error) {
+            showStatusError(error && error.message ? error.message : 'System status request failed.');
+          })
+          .getSystemStatusData(token);
+      }
+
+      function runHealthCheck() {
+        const token = getSessionToken();
+        if (!token) {
+          showStatusError('Session token missing. Please log in again.');
+          return;
+        }
+        document.getElementById('statusText').textContent = 'Running health check...';
+        google.script.run
+          .withSuccessHandler(function() {
+            loadStatus();
+          })
+          .withFailureHandler(function(error) {
+            showStatusError(error && error.message ? error.message : 'Health check failed.');
+          })
+          .runHealthCheckNow(token);
+      }
+
+      function renderStatus() {
+        const latest = statusData.latest_check;
+        const overall = latest ? latest.overall_status : 'warning';
+        const banner = document.getElementById('statusBanner');
+        banner.className = 'status-banner ' + (overall === 'healthy' ? 'status-healthy' : (overall === 'critical' ? 'status-critical' : 'status-warning'));
+        document.getElementById('statusText').textContent =
+          overall === 'healthy' ? 'System Healthy ✓' :
+          (overall === 'critical' ? 'Critical Issues ⚠' : 'Warnings Detected ⚠');
+        document.getElementById('lastChecked').textContent = latest ? new Date(latest.check_timestamp).toLocaleString() : '--';
+
+        renderMetrics();
+        renderIssues();
+        renderPerformance();
+        renderLogs();
+        renderStorage();
+        renderTriggers();
+        renderHistory();
+        checkReleaseNotes();
+      }
+
+      function showStatusError(message) {
+        const banner = document.getElementById('statusBanner');
+        banner.className = 'status-banner status-critical';
+        document.getElementById('statusText').textContent = 'System Status Error';
+        document.getElementById('lastChecked').textContent = message || 'Unknown error';
+      }
+
+      function renderMetrics() {
+        const metrics = statusData.metrics || {};
+        const grid = document.getElementById('metricsGrid');
+        const cards = [
+          { label: 'Total Infractions', value: metrics.total_infractions ?? '--' },
+          { label: 'Active Employees', value: metrics.active_employees_count ?? '--' },
+          { label: 'Emails Sent Today', value: metrics.emails_sent_today ?? '--' },
+          { label: 'Storage Used', value: metrics.storage_used_mb != null ? metrics.storage_used_mb + ' MB' : 'N/A' },
+          { label: 'System Uptime', value: metrics.system_uptime != null ? metrics.system_uptime + ' days' : '--' },
+          { label: 'Error Rate', value: metrics.error_rate != null ? metrics.error_rate + '%' : '--' }
+        ];
+        grid.innerHTML = cards.map(c => `
+          <div class="metric">
+            <div class="value">${c.value}</div>
+            <div class="label">${c.label}</div>
+          </div>
+        `).join('');
+      }
+
+      function renderIssues() {
+        const issues = statusData.issues || [];
+        const container = document.getElementById('issuesContainer');
+        if (!issues.length) {
+          container.innerHTML = '<div style="color:#2e7d32;">No active issues ✓</div>';
+          return;
+        }
+        container.innerHTML = issues.map(issue => `
+          <div class="issue severity-${issue.severity}">
+            <div>
+              <h4>${issue.issue_type}</h4>
+              <p><strong>${issue.severity.toUpperCase()}</strong> - ${issue.description}</p>
+              <p>Recommended: ${issue.recommended_action}</p>
+            </div>
+            <div>
+              ${issue.log_id ? `<button class="btn-secondary" onclick="openResolveModal('${issue.log_id}', '${escapeHtml(issue.description)}')">Resolve</button>` : ''}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function renderPerformance() {
+        const metrics = statusData.metrics || {};
+        document.getElementById('healthExecTime').textContent =
+          metrics.average_function_execution_time_ms ? metrics.average_function_execution_time_ms + ' ms' : '--';
+        document.getElementById('backupLastRun').textContent = metrics.backup_last_run || '--';
+        document.getElementById('emailSuccessRate').textContent =
+          metrics.email_success_rate != null ? metrics.email_success_rate + '%' : 'N/A';
+        document.getElementById('backupSuccessRate').textContent =
+          metrics.backup_success_rate != null ? metrics.backup_success_rate + '%' : 'N/A';
+
+        const history = statusData.history || [];
+        const labels = history.map(h => new Date(h.check_timestamp).toLocaleDateString()).reverse();
+        const values = history.map(h => (h.metrics && h.metrics.health_check_execution_ms) ? h.metrics.health_check_execution_ms : 0).reverse();
+
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        if (performanceChart) performanceChart.destroy();
+        performanceChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Health Check Time (ms)',
+              data: values,
+              borderColor: '#E51636',
+              backgroundColor: 'rgba(229, 22, 54, 0.1)',
+              fill: true,
+              tension: 0.3
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+      }
+
+      function renderLogs() {
+        const logs = statusData.logs || [];
+        const typeFilter = document.getElementById('filterType').value;
+        const severityFilter = document.getElementById('filterSeverity').value;
+        const search = document.getElementById('logSearch').value.toLowerCase();
+        const filtered = logs.filter(log => {
+          if (typeFilter && log.event_type !== typeFilter) return false;
+          if (severityFilter && log.severity !== severityFilter) return false;
+          if (search && !String(log.event_details || '').toLowerCase().includes(search)) return false;
+          return true;
+        });
+
+        const body = document.getElementById('logTableBody');
+        if (!filtered.length) {
+          body.innerHTML = '<tr><td colspan="5" style="text-align:center;">No logs found</td></tr>';
+          return;
+        }
+        body.innerHTML = filtered.map(log => `
+          <tr>
+            <td>${log.timestamp ? new Date(log.timestamp).toLocaleString() : ''}</td>
+            <td><span class="badge ${log.event_type}">${log.event_type}</span></td>
+            <td>${escapeHtml(log.event_details)}</td>
+            <td>${escapeHtml(log.user || '')}</td>
+            <td>${log.resolved ? 'Resolved' : 'Open'}</td>
+          </tr>
+        `).join('');
+      }
+
+      function renderStorage() {
+        const metrics = statusData.metrics || {};
+        const rowsUsed = metrics.sheet_rows_used || 0;
+        const rowLimit = 10000000;
+        const percent = rowLimit > 0 ? Math.min(100, Math.round((rowsUsed / rowLimit) * 100)) : 0;
+        document.getElementById('sheetRowsText').textContent = `${rowsUsed} of ${rowLimit} rows (${percent}%)`;
+        document.getElementById('sheetRowsBar').style.width = percent + '%';
+
+        const storage = metrics.storage_used_mb;
+        if (storage == null) {
+          document.getElementById('driveStorageText').textContent = 'N/A';
+          document.getElementById('driveStorageBar').style.width = '0%';
+        } else {
+          const storagePercent = Math.min(100, Math.round((storage / 15000) * 100));
+          document.getElementById('driveStorageText').textContent = `${storage} MB`;
+          document.getElementById('driveStorageBar').style.width = storagePercent + '%';
+        }
+      }
+
+      function renderTriggers() {
+        const triggers = statusData.triggers || [];
+        const body = document.getElementById('triggerTableBody');
+        if (!triggers.length) {
+          body.innerHTML = '<tr><td colspan="4" style="text-align:center;">No triggers found</td></tr>';
+          return;
+        }
+        body.innerHTML = triggers.map(t => `
+          <tr>
+            <td>${t.handler}</td>
+            <td>${t.status}</td>
+            <td>${t.last_run}</td>
+            <td>${t.next_run}</td>
+          </tr>
+        `).join('');
+      }
+
+      function renderHistory() {
+        const history = statusData.history || [];
+        const labels = history.map(h => new Date(h.check_timestamp).toLocaleDateString()).reverse();
+        const values = history.map(h => {
+          if (h.overall_status === 'healthy') return 2;
+          if (h.overall_status === 'warning') return 1;
+          return 0;
+        }).reverse();
+        const ctx = document.getElementById('historyChart').getContext('2d');
+        if (historyChart) historyChart.destroy();
+        historyChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Health Status',
+              data: values,
+              borderColor: '#28a745',
+              backgroundColor: 'rgba(40, 167, 69, 0.1)',
+              fill: true,
+              tension: 0.3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                min: 0,
+                max: 2,
+                ticks: {
+                  callback: function(value) {
+                    return value === 2 ? 'Healthy' : (value === 1 ? 'Warning' : 'Critical');
+                  }
+                }
+              }
+            },
+            plugins: { legend: { display: false } }
+          }
+        });
+      }
+
+      function exportLogs() {
+        const logs = statusData.logs || [];
+        const headers = ['Timestamp', 'Type', 'Details', 'Severity', 'User', 'Function', 'Resolved'];
+        const rows = logs.map(l => [
+          l.timestamp,
+          l.event_type,
+          (l.event_details || '').replace(/"/g, '""'),
+          l.severity,
+          l.user,
+          l.function_name,
+          l.resolved ? 'Yes' : 'No'
+        ]);
+        const csv = [headers].concat(rows).map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'system_log_export.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function openResolveModal(logId, details) {
+        if (!logId) return;
+        selectedLogId = logId;
+        document.getElementById('resolveDetails').textContent = details;
+        document.getElementById('resolveNotes').value = '';
+        document.getElementById('resolveModal').style.display = 'flex';
+      }
+
+      function closeResolveModal() {
+        document.getElementById('resolveModal').style.display = 'none';
+        selectedLogId = null;
+      }
+
+      function submitResolution() {
+        const notes = document.getElementById('resolveNotes').value;
+        if (!selectedLogId) return;
+        const token = getSessionToken();
+        google.script.run
+          .withSuccessHandler(function(result) {
+            closeResolveModal();
+            if (result && result.success) {
+              loadStatus();
+            }
+          })
+          .resolveSystemIssue(selectedLogId, notes, token);
+      }
+
+      function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function openHelp(customText, customTitle) {
+        const modal = document.getElementById('helpModal');
+        const title = document.getElementById('helpTitle');
+        const body = document.getElementById('helpBody');
+        title.textContent = customTitle || 'System Status Help';
+        body.innerHTML = customText || `
+          <p><strong>Purpose:</strong> Monitor system health, triggers, and recent errors.</p>
+          <ul>
+            <li>Run a health check to refresh status.</li>
+            <li>Review active issues and resolve them.</li>
+            <li>Use filters to search the System Log.</li>
+          </ul>
+        `;
+        modal.style.display = 'flex';
+      }
+
+      function closeHelp() {
+        document.getElementById('helpModal').style.display = 'none';
+      }
+
+      function toggleHelpMode() {
+        helpModeEnabled = !helpModeEnabled;
+        document.getElementById('helpModeIndicator').style.display = helpModeEnabled ? 'block' : 'none';
+      }
+
+      function showWhatsNew() {
+        openHelp(
+          '<ul><li>System Status dashboard and health checks.</li><li>System log filtering and export.</li><li>Trigger and storage monitoring.</li></ul>',
+          'What\'s New'
+        );
+      }
+
+      function checkReleaseNotes() {
+        const key = 'cfa_release_notes_version';
+        const current = localStorage.getItem(key);
+        if (current !== RELEASE_NOTES_VERSION) {
+          localStorage.setItem(key, RELEASE_NOTES_VERSION);
+          showWhatsNew();
+        }
+      }
+
+      document.addEventListener('click', function(event) {
+        if (!helpModeEnabled) return;
+        const target = event.target.closest('[data-help]');
+        if (!target) return;
+        event.preventDefault();
+        openHelp(target.getAttribute('data-help'), target.getAttribute('data-help-title') || 'Help');
+      });
+
+      document.addEventListener('DOMContentLoaded', loadStatus);
+    </script>
+  </body>
+</html>

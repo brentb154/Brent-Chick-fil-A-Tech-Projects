@@ -241,6 +241,75 @@ function updatePayrollSetting(settingName, newValue) {
 }
 
 // =====================================================
+// VALIDATION DISMISSAL PERSISTENCE
+// =====================================================
+
+/**
+ * Dismisses a validation check by storing its ID and a signature of the
+ * current details in Payroll_Settings.  The signature ensures the dismissal
+ * auto-invalidates when the underlying issue changes (new items appear, etc.).
+ *
+ * @param {string} checkId - The validation check ID to dismiss
+ * @param {string} detailsSignature - A stable fingerprint of the check's details
+ * @returns {Object} success/error
+ */
+function dismissValidationCheckServer(checkId, detailsSignature) {
+  try {
+    var raw = getPayrollSetting('dismissed_validations');
+    var dismissed = [];
+    if (raw) {
+      try { dismissed = JSON.parse(raw); } catch (e) { dismissed = []; }
+    }
+
+    dismissed = dismissed.filter(function(d) { return d.id !== checkId; });
+    dismissed.push({
+      id: checkId,
+      sig: detailsSignature || '',
+      ts: new Date().toISOString()
+    });
+
+    var json = JSON.stringify(dismissed);
+    var result = updatePayrollSetting('dismissed_validations', json);
+
+    // If the setting row doesn't exist yet, append it
+    if (!result.success && result.error && result.error.indexOf('not found') !== -1) {
+      var ss = SpreadsheetApp.getActiveSpreadsheet();
+      var sheet = ss.getSheetByName(PAYROLL_SETTINGS_SHEET);
+      if (sheet) {
+        sheet.appendRow(['dismissed_validations', json, 'JSON array of dismissed validation check IDs', new Date()]);
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error dismissing validation check:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Retrieves stored validation dismissals from Payroll_Settings.
+ * @returns {Array} Array of {id, sig, ts} objects
+ */
+function getDismissedValidationChecks() {
+  try {
+    var raw = getPayrollSetting('dismissed_validations');
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Clears all validation dismissals (useful for a fresh start).
+ * @returns {Object} success/error
+ */
+function clearDismissedValidationChecks() {
+  return updatePayrollSetting('dismissed_validations', '[]');
+}
+
+// =====================================================
 // PAYROLL DATE FUNCTIONS
 // =====================================================
 
@@ -519,7 +588,11 @@ function generatePayrollProcessingReport(payrollDate) {
     // Calculate unique employees with activity
     const employeeIds = new Set();
     overtimeData.employees.forEach(e => employeeIds.add(e.employeeId));
-    uniformData.orders.forEach(o => employeeIds.add(o.employeeId));
+    uniformData.orders.forEach(o => {
+      const normalizedName = normalizeEmployeeName(o.employeeName || '');
+      const key = normalizedName || (o.employeeName || '').trim() || (o.employeeId || '').toString();
+      if (key) employeeIds.add(key);
+    });
     ptoData.requests.forEach(r => employeeIds.add(r.employeeId));
     transferData.employees.forEach(e => employeeIds.add(e.employeeId));
     
@@ -602,11 +675,11 @@ function getOvertimeForPayroll(ss, periodEndDate) {
         employeeName: employeeName,
         location: location,
         regularHours: regularHours,
-        regularMinutes: Math.round(regularHours * 60),
+        regularMinutes: Math.floor(regularHours * 60),
         otHours: totalOT,
-        otMinutes: Math.round(totalOT * 60),
+        otMinutes: Math.floor(totalOT * 60),
         totalHours: totalHours,
-        totalMinutes: Math.round(totalHours * 60),
+        totalMinutes: Math.floor(totalHours * 60),
         week1OT: week1OT,
         week2OT: week2OT,
         chHours: chHours,
@@ -625,7 +698,7 @@ function getOvertimeForPayroll(ss, periodEndDate) {
     
     return {
       employeeCount: employees.length,
-      totalOTHours: Math.round(totalOTHours * 100) / 100,
+      totalOTHours: Math.floor(totalOTHours * 100) / 100,
       employees: employees
     };
     
@@ -650,17 +723,26 @@ function getUniformDeductionsForPayroll(ss, payday) {
     const paydayStr = formatDateISO(payday);
     console.log(`getUniformDeductionsForPayroll called with payday: ${payday}, formatted as: ${paydayStr}`);
     
-    // First, get all line item totals to calculate correct order totals
+    // Read items sheet once — build both totals map and items-by-order map
     const lineItemTotals = {};
+    const itemsByOrderId = {};
     const itemsSheet = ss.getSheetByName('Uniform_Order_Items');
     if (itemsSheet && itemsSheet.getLastRow() >= 2) {
       const itemsData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, 9).getValues();
       for (const row of itemsData) {
         const orderId = row[1];
+        if (!orderId) continue;
         const lineTotal = parseFloat(row[7]) || 0;
-        if (orderId) {
-          lineItemTotals[orderId] = (lineItemTotals[orderId] || 0) + lineTotal;
-        }
+        lineItemTotals[orderId] = (lineItemTotals[orderId] || 0) + lineTotal;
+        if (!itemsByOrderId[orderId]) itemsByOrderId[orderId] = [];
+        itemsByOrderId[orderId].push({
+          description: row[3] || '',
+          size: row[4] || '',
+          quantity: parseInt(row[5]) || 1,
+          unitPrice: parseFloat(row[6]) || 0,
+          lineTotal: lineTotal,
+          isReplacement: row[8] === true
+        });
       }
     }
     
@@ -739,23 +821,27 @@ function getUniformDeductionsForPayroll(ss, payday) {
       const checkIndex = deductionDateStrs.findIndex(dStr => dStr === paydayStr);
       
       if (checkIndex === -1) return; // No deduction on this date
-      if (checkIndex < checksCompleted) return; // This check already paid
+      
+      const alreadyRecorded = checkIndex < checksCompleted;
       
       const checkNumber = checkIndex + 1;
       const checksRemaining = paymentSchedule - checkNumber;
       const isFinalPayment = checkNumber === paymentSchedule;
       
-      // Calculate deduction amount (last check might be adjusted for rounding)
+      // Calculate deduction amount (last check gets rounding remainder)
+      // Use schedule position (checkNumber - 1) not recorded payments (checksCompleted)
+      // to avoid inflated "catch-up" deductions when prior checks haven't been recorded yet
       let deductionAmount = amountPerCheck;
       if (isFinalPayment) {
-        const paidSoFar = checksCompleted * amountPerCheck;
+        const priorCheckCount = checkNumber - 1;
+        const paidSoFar = priorCheckCount * amountPerCheck;
         deductionAmount = Math.round((totalAmount - paidSoFar) * 100) / 100;
       }
       
-      const amountRemaining = Math.round((totalAmount - (checksCompleted * amountPerCheck) - deductionAmount) * 100) / 100;
+      const priorPayments = (checkNumber - 1) * amountPerCheck;
+      const amountRemaining = Math.round((totalAmount - priorPayments - deductionAmount) * 100) / 100;
       
-      // Get order items
-      const items = getOrderItems(ss, orderId);
+      const items = itemsByOrderId[orderId] || [];
       
       orders.push({
         employeeId: row[1],
@@ -769,9 +855,10 @@ function getUniformDeductionsForPayroll(ss, payday) {
         checkNumber: checkNumber,
         checksCompleted: checksCompleted,
         checksRemaining: checksRemaining,
-        deductionAmount: deductionAmount,
+        deductionAmount: alreadyRecorded ? 0 : deductionAmount,
         amountRemaining: Math.max(0, amountRemaining),
         isFinalPayment: isFinalPayment,
+        alreadyRecorded: alreadyRecorded,
         items: items,
         rowIndex: index + 2
       });
@@ -783,15 +870,61 @@ function getUniformDeductionsForPayroll(ss, payday) {
       return a.employeeName.localeCompare(b.employeeName);
     });
     
-    const totalDeductions = orders.reduce((sum, o) => sum + o.deductionAmount, 0);
-    const uniqueEmployees = new Set(orders.map(o => o.employeeId));
+    const totalDeductions = orders.reduce((sum, o) => sum + (o.alreadyRecorded ? 0 : o.deductionAmount), 0);
+    const uniqueEmployees = new Set(
+      orders.filter(o => !o.alreadyRecorded).map(o => {
+        const normalizedName = normalizeEmployeeName(o.employeeName || '');
+        return normalizedName || (o.employeeName || '').trim() || (o.employeeId || '').toString();
+      }).filter(Boolean)
+    );
+    
+    // Group by employee for payroll processing view (keep per-order breakdown)
+    const groupedMap = {};
+    orders.forEach(order => {
+      const normalizedName = normalizeEmployeeName(order.employeeName || '');
+      const key = normalizedName || (order.employeeName || '').trim() || (order.employeeId || '').toString();
+      if (!groupedMap[key]) {
+        groupedMap[key] = {
+          employeeKey: key,
+          employeeId: order.employeeId,
+          employeeName: order.employeeName,
+          locationSet: new Set(),
+          totalDeduction: 0,
+          orders: []
+        };
+      }
+      
+      const group = groupedMap[key];
+      group.locationSet.add(order.location || 'Unknown');
+      group.totalDeduction += order.deductionAmount || 0;
+      group.orders.push(order);
+    });
+    
+    const groupedOrders = Object.values(groupedMap).map(group => {
+      const locations = Array.from(group.locationSet);
+      return {
+        employeeKey: group.employeeKey,
+        employeeId: group.employeeId,
+        employeeName: group.employeeName,
+        locations: locations,
+        locationSummary: locations.length === 1 ? locations[0] : 'Multiple Locations',
+        totalDeduction: Math.round(group.totalDeduction * 100) / 100,
+        orderCount: group.orders.length,
+        orders: group.orders
+      };
+    });
+    
+    // Sort by name for payroll view
+    groupedOrders.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
     
     console.log(`Summary: ${activeCount} active orders, ${noFirstDeductionCount} missing FirstDeduction, ${orders.length} matched payday ${paydayStr}`);
     
     return {
-      employeeCount: uniqueEmployees.size,
+      employeeCount: groupedOrders.length,
       totalDeductions: Math.round(totalDeductions * 100) / 100,
-      orders: orders
+      totalOrderCount: orders.length,
+      orders: groupedOrders,
+      rawOrders: orders
     };
     
   } catch (error) {
@@ -852,7 +985,6 @@ function getPTOForPayroll(ss, payday) {
       if (payoutPeriod !== paydayStr) return;
       
       const paidOut = row[10] === true || row[10] === 'TRUE';
-      if (paidOut) return; // Already paid
       
       const status = row[11];
       if (status === 'Cancelled' || status === 'Denied') return;
@@ -878,6 +1010,7 @@ function getPTOForPayroll(ss, payday) {
         submissionDate: row[9] ? new Date(row[9]).toISOString() : '',
         hotSchedulesConfirmed: row[8] === true || row[8] === 'TRUE',
         notes: row[12] || '',
+        alreadyRecorded: paidOut,
         rowIndex: index + 2
       });
     });
@@ -888,8 +1021,8 @@ function getPTOForPayroll(ss, payday) {
       return a.employeeName.localeCompare(b.employeeName);
     });
     
-    const totalHours = requests.reduce((sum, r) => sum + r.hoursRequested, 0);
-    const uniqueEmployees = new Set(requests.map(r => r.employeeId));
+    const totalHours = requests.filter(r => !r.alreadyRecorded).reduce((sum, r) => sum + r.hoursRequested, 0);
+    const uniqueEmployees = new Set(requests.filter(r => !r.alreadyRecorded).map(r => r.employeeId));
     
     return {
       employeeCount: uniqueEmployees.size,
@@ -916,13 +1049,15 @@ function getTimeTransfersForPayroll(ss, periodEndDate) {
       return { employeeCount: 0, employees: [] };
     }
     
-    // Get configured location names from settings
     const settings = getSettings();
     const loc1Name = settings.location1Name || 'Location 1';
     const loc2Name = settings.location2Name || 'Location 2';
     
     const periodEndStr = formatDateISO(periodEndDate);
-    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 19).getValues();
+    const colCount = Math.min(sheet.getLastColumn(), 23);
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, colCount).getValues();
+    
+    const floor2 = v => Math.floor(v * 100) / 100;
     
     const employees = [];
     
@@ -935,90 +1070,130 @@ function getTimeTransfersForPayroll(ss, periodEndDate) {
       
       const employeeName = row[1] || '';
       const matchKey = row[2] || employeeName.toLowerCase();
-      const paidFromLocation = row[3] || 'Unknown'; // This is the location they're paid from
       
-      // Column 4 = Location 1 hours, Column 5 = Location 2 hours
       const loc1Hours = parseFloat(row[4]) || 0;
       const loc2Hours = parseFloat(row[5]) || 0;
       const totalHours = parseFloat(row[6]) || 0;
+      const week1Hours = parseFloat(row[8]) || 0;
+      const week2Hours = parseFloat(row[9]) || 0;
       const week1OT = parseFloat(row[10]) || 0;
       const week2OT = parseFloat(row[11]) || 0;
       const totalOT = parseFloat(row[12]) || 0;
       
-      // Determine transfer direction based on where employee worked MORE hours
-      // They should be paid from the location with more hours, and the other hours transfer there
-      let transferFrom = '';
-      let transferTo = '';
-      let transferHours = 0;
-      let actualPaidFromLocation = '';
+      // Per-week-per-location data (columns T-W, indices 19-22)
+      const hasWeeklyBreakdown = colCount >= 23 && ((parseFloat(row[19]) || 0) > 0 || (parseFloat(row[20]) || 0) > 0 || (parseFloat(row[21]) || 0) > 0 || (parseFloat(row[22]) || 0) > 0);
       
+      let w1Loc1, w1Loc2, w2Loc1, w2Loc2;
+      
+      if (hasWeeklyBreakdown) {
+        w1Loc1 = parseFloat(row[19]) || 0;
+        w1Loc2 = parseFloat(row[20]) || 0;
+        w2Loc1 = parseFloat(row[21]) || 0;
+        w2Loc2 = parseFloat(row[22]) || 0;
+      } else {
+        // Fallback: split period totals proportionally across weeks using combined week hours
+        const totalCombined = loc1Hours + loc2Hours;
+        const loc1Ratio = totalCombined > 0 ? loc1Hours / totalCombined : 0;
+        const loc2Ratio = totalCombined > 0 ? loc2Hours / totalCombined : 0;
+        w1Loc1 = floor2(week1Hours * loc1Ratio);
+        w1Loc2 = floor2(week1Hours * loc2Ratio);
+        w2Loc1 = floor2(week2Hours * loc1Ratio);
+        w2Loc2 = floor2(week2Hours * loc2Ratio);
+      }
+      
+      // Per-week proportional OT allocation
+      const w1Total = w1Loc1 + w1Loc2;
+      const w2Total = w2Loc1 + w2Loc2;
+      const w1Loc1Ratio = w1Total > 0 ? w1Loc1 / w1Total : 0;
+      const w1Loc2Ratio = w1Total > 0 ? w1Loc2 / w1Total : 0;
+      const w2Loc1Ratio = w2Total > 0 ? w2Loc1 / w2Total : 0;
+      const w2Loc2Ratio = w2Total > 0 ? w2Loc2 / w2Total : 0;
+      
+      const w1Loc1OT = floor2(week1OT * w1Loc1Ratio);
+      const w1Loc2OT = floor2(week1OT * w1Loc2Ratio);
+      const w2Loc1OT = floor2(week2OT * w2Loc1Ratio);
+      const w2Loc2OT = floor2(week2OT * w2Loc2Ratio);
+      
+      const loc1OTTotal = w1Loc1OT + w2Loc1OT;
+      const loc2OTTotal = w1Loc2OT + w2Loc2OT;
+      
+      const w1Loc1Reg = floor2(Math.max(0, w1Loc1 - w1Loc1OT));
+      const w1Loc2Reg = floor2(Math.max(0, w1Loc2 - w1Loc2OT));
+      const w2Loc1Reg = floor2(Math.max(0, w2Loc1 - w2Loc1OT));
+      const w2Loc2Reg = floor2(Math.max(0, w2Loc2 - w2Loc2OT));
+      
+      const loc1RegTotal = w1Loc1Reg + w2Loc1Reg;
+      const loc2RegTotal = w1Loc2Reg + w2Loc2Reg;
+      
+      // Transfer direction: paid from location with more hours
+      let transferFrom, transferTo, transferHours, actualPaidFromLocation;
       if (loc1Hours >= loc2Hours) {
-        // Worked more at Location 1, so paid from Location 1
-        // Transfer Location 2 hours TO Location 1
         actualPaidFromLocation = loc1Name;
         transferFrom = loc2Name;
         transferTo = loc1Name;
         transferHours = loc2Hours;
       } else {
-        // Worked more at Location 2, so paid from Location 2
-        // Transfer Location 1 hours TO Location 2
         actualPaidFromLocation = loc2Name;
         transferFrom = loc1Name;
         transferTo = loc2Name;
         transferHours = loc1Hours;
       }
       
-      // Calculate total hours across all locations
       const grandTotalHours = loc1Hours + loc2Hours;
-      const grandTotalMinutes = Math.round(grandTotalHours * 60);
-      
-      // Calculate OT per location (approximate split based on hours ratio)
-      const totalLocationHours = loc1Hours + loc2Hours;
-      const loc1Ratio = totalLocationHours > 0 ? loc1Hours / totalLocationHours : 0;
-      const loc2Ratio = totalLocationHours > 0 ? loc2Hours / totalLocationHours : 0;
-      
-      // Regular hours = total - OT
-      const totalRegular = totalHours - totalOT;
-      const loc1Regular = Math.round(Math.min(loc1Hours, totalRegular * loc1Ratio) * 100) / 100;
-      const loc2Regular = Math.round(Math.min(loc2Hours, totalRegular * loc2Ratio) * 100) / 100;
-      const loc1OT = Math.round((loc1Hours - loc1Regular) * 100) / 100;
-      const loc2OT = Math.round((loc2Hours - loc2Regular) * 100) / 100;
+      const grandTotalMinutes = Math.floor(grandTotalHours * 60);
       
       employees.push({
         employeeId: matchKey,
         employeeName: employeeName,
         homeLocation: actualPaidFromLocation,
+        hasWeeklyBreakdown: hasWeeklyBreakdown,
         locations: [
           {
             name: loc1Name,
-            regularHours: Math.max(0, loc1Regular),
-            regularMinutes: Math.round(Math.max(0, loc1Regular) * 60),
-            otHours: Math.max(0, loc1OT),
-            otMinutes: Math.round(Math.max(0, loc1OT) * 60),
+            regularHours: Math.max(0, loc1RegTotal),
+            regularMinutes: Math.floor(Math.max(0, loc1RegTotal) * 60),
+            otHours: Math.max(0, loc1OTTotal),
+            otMinutes: Math.floor(Math.max(0, loc1OTTotal) * 60),
             totalHours: loc1Hours,
-            totalMinutes: Math.round(loc1Hours * 60)
+            totalMinutes: Math.floor(loc1Hours * 60),
+            week1Hours: w1Loc1,
+            week1Regular: w1Loc1Reg,
+            week1OT: w1Loc1OT,
+            week2Hours: w2Loc1,
+            week2Regular: w2Loc1Reg,
+            week2OT: w2Loc1OT
           },
           {
             name: loc2Name,
-            regularHours: Math.max(0, loc2Regular),
-            regularMinutes: Math.round(Math.max(0, loc2Regular) * 60),
-            otHours: Math.max(0, loc2OT),
-            otMinutes: Math.round(Math.max(0, loc2OT) * 60),
+            regularHours: Math.max(0, loc2RegTotal),
+            regularMinutes: Math.floor(Math.max(0, loc2RegTotal) * 60),
+            otHours: Math.max(0, loc2OTTotal),
+            otMinutes: Math.floor(Math.max(0, loc2OTTotal) * 60),
             totalHours: loc2Hours,
-            totalMinutes: Math.round(loc2Hours * 60)
+            totalMinutes: Math.floor(loc2Hours * 60),
+            week1Hours: w1Loc2,
+            week1Regular: w1Loc2Reg,
+            week1OT: w1Loc2OT,
+            week2Hours: w2Loc2,
+            week2Regular: w2Loc2Reg,
+            week2OT: w2Loc2OT
           }
         ],
         paidFromLocation: actualPaidFromLocation,
         grandTotalHours: grandTotalHours,
         grandTotalMinutes: grandTotalMinutes,
+        week1Hours: week1Hours,
+        week2Hours: week2Hours,
+        week1OT: week1OT,
+        week2OT: week2OT,
+        totalOT: totalOT,
         transferFrom: transferFrom,
         transferTo: transferTo,
         transferHours: transferHours,
-        transferMinutes: Math.round(transferHours * 60)
+        transferMinutes: Math.floor(transferHours * 60)
       });
     });
     
-    // Sort by name
     employees.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
     
     return {
@@ -1029,6 +1204,24 @@ function getTimeTransfersForPayroll(ss, periodEndDate) {
   } catch (error) {
     console.error('Error getting time transfers for payroll:', error);
     return { employeeCount: 0, employees: [] };
+  }
+}
+
+/**
+ * On-demand reconciliation for any pay period — callable from the OT Reconciliation view
+ */
+function getReconciliationForPeriod(periodEndStr) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const periodEndDate = new Date(periodEndStr);
+    if (isNaN(periodEndDate.getTime())) {
+      return { success: false, error: 'Invalid period date' };
+    }
+    const result = getTimeTransfersForPayroll(ss, periodEndDate);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error in getReconciliationForPeriod:', error);
+    return { success: false, error: error.message };
   }
 }
 
@@ -1107,39 +1300,69 @@ function markUniformPaymentsComplete(payday, skippedOrderIds = []) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const report = getUniformDeductionsForPayroll(ss, payday);
-    
+    const sheet = ss.getSheetByName('Uniform_Orders');
+    if (!sheet) return { marked: 0, skipped: 0, totalAmount: 0, errors: ['Orders sheet not found'] };
+
+    const skippedSet = new Set(skippedOrderIds);
     let marked = 0;
     let skipped = 0;
     let totalAmount = 0;
     const errors = [];
-    
-    report.orders.forEach(order => {
-      if (skippedOrderIds.includes(order.orderId)) {
+
+    const ordersToProcess = Array.isArray(report.rawOrders) && report.rawOrders.length > 0
+      ? report.rawOrders
+      : report.orders.flatMap(entry => entry.orders || []).filter(o => o && o.orderId);
+
+    // Read orders sheet once for current payment state
+    const ordersData = sheet.getLastRow() >= 2
+      ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 17).getValues()
+      : [];
+    const orderRowMap = {};
+    ordersData.forEach(function(row, idx) {
+      if (row[0]) orderRowMap[row[0]] = { rowIndex: idx + 2, paymentsMade: parseInt(row[9]) || 0, amountPaid: parseFloat(row[10]) || 0, totalAmount: parseFloat(row[5]) || 0, paymentPlan: parseInt(row[6]) || 1, amountPerCheck: parseFloat(row[7]) || 0, status: row[12] };
+    });
+
+    ordersToProcess.forEach(order => {
+      if (skippedSet.has(order.orderId) || order.alreadyRecorded) {
         skipped++;
         return;
       }
-      
+
       try {
-        // Call existing function from Code.gs
-        const result = recordUniformPayment(order.orderId);
-        if (result.success) {
-          marked++;
-          totalAmount += order.deductionAmount;
-        } else {
-          errors.push(`${order.orderId}: ${result.error}`);
+        const current = orderRowMap[order.orderId];
+        if (!current) { errors.push(order.orderId + ': Order not found'); return; }
+        if (current.status === 'Completed' || current.status === 'Cancelled' || current.status === 'Store Paid' || current.status === 'Pending') {
+          errors.push(order.orderId + ': Status is "' + current.status + '"'); return;
         }
+        if (current.paymentsMade >= current.paymentPlan) {
+          errors.push(order.orderId + ': All payments already recorded'); return;
+        }
+
+        const newPaymentsMade = current.paymentsMade + 1;
+        const newAmountPaid = parseFloat((current.amountPaid + current.amountPerCheck).toFixed(2));
+        let newRemaining = parseFloat((current.totalAmount - newAmountPaid).toFixed(2));
+        let newStatus = current.status;
+        if (newPaymentsMade >= current.paymentPlan) { newStatus = 'Completed'; newRemaining = 0; }
+
+        sheet.getRange(current.rowIndex, 10).setValue(newPaymentsMade);
+        sheet.getRange(current.rowIndex, 11).setValue(newAmountPaid);
+        sheet.getRange(current.rowIndex, 12).setValue(newRemaining);
+        sheet.getRange(current.rowIndex, 13).setValue(newStatus);
+
+        marked++;
+        totalAmount += order.deductionAmount;
       } catch (e) {
-        errors.push(`${order.orderId}: ${e.message}`);
+        errors.push(order.orderId + ': ' + e.message);
       }
     });
-    
+
     return {
       marked: marked,
       skipped: skipped,
       totalAmount: Math.round(totalAmount * 100) / 100,
       errors: errors.length > 0 ? errors : null
     };
-    
+
   } catch (error) {
     console.error('Error marking uniform payments complete:', error);
     return { marked: 0, skipped: 0, totalAmount: 0, errors: [error.message] };
@@ -1154,11 +1377,14 @@ function markPTOPaymentsComplete(payday) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const report = getPTOForPayroll(ss, payday);
     
-    if (report.requests.length === 0) {
+    // Only process PTO that hasn't already been recorded
+    const pendingRequests = report.requests.filter(r => !r.alreadyRecorded);
+    
+    if (pendingRequests.length === 0) {
       return { marked: 0, totalHours: 0, errors: null };
     }
     
-    const ptoIds = report.requests.map(r => r.ptoId);
+    const ptoIds = pendingRequests.map(r => r.ptoId);
     const paydayStr = formatDateISO(payday);
     
     // Call existing batch function from PTOModule.gs
@@ -1451,15 +1677,19 @@ function generatePayrollReportHTML(reportData) {
     </div>
     <div class="section-content">
       ${reportData.uniformDeductions.orders.length === 0 ? '<p style="color: #999;">No uniform deductions this period</p>' :
-        reportData.uniformDeductions.orders.map(order => `
+        reportData.uniformDeductions.orders.map(emp => `
           <div class="employee-card">
-            <div class="employee-name">${order.employeeName} ${order.isFinalPayment ? '<span class="badge badge-final">FINAL</span>' : ''}</div>
-            <div class="employee-location">${order.location} • ${order.orderId}</div>
+            <div class="employee-name">${emp.employeeName} <span class="badge" style="background: #f0f0f0; color: #333;">$${emp.totalDeduction.toFixed(2)}</span></div>
+            <div class="employee-location">${emp.locationSummary} • ${emp.orderCount} order${emp.orderCount !== 1 ? 's' : ''}</div>
             <div class="employee-details">
-              <div class="detail-row">Order Date: ${order.orderDate} • Total: $${order.totalOrderCost.toFixed(2)}</div>
-              <div class="detail-row">Payment: Check ${order.checkNumber} of ${order.paymentSchedule} • <strong>Deduct: $${order.deductionAmount.toFixed(2)}</strong></div>
-              <div class="detail-row">Remaining after this: $${order.amountRemaining.toFixed(2)}</div>
-              <div class="items-list">Items: ${order.items.map(i => `${i.description}${i.size ? ' ('+i.size+')' : ''}`).join(', ')}</div>
+              ${emp.orders.map(order => `
+                <div class="detail-row" style="margin-bottom: 6px;">
+                  <strong>${order.orderId}</strong> • ${order.orderDate} • ${order.location}<br>
+                  Check ${order.checkNumber} of ${order.paymentSchedule} • <strong>Deduct: $${order.deductionAmount.toFixed(2)}</strong> ${order.isFinalPayment ? '<span class="badge badge-final">FINAL</span>' : ''}<br>
+                  Remaining after this: $${order.amountRemaining.toFixed(2)}<br>
+                  Items: ${order.items.map(i => `${i.description}${i.size ? ' ('+i.size+')' : ''}`).join(', ')}
+                </div>
+              `).join('')}
             </div>
           </div>
         `).join('')
@@ -1508,7 +1738,7 @@ function generatePayrollReportHTML(reportData) {
           <div class="employee-card">
             <div class="employee-name" style="display: flex; justify-content: space-between; align-items: center;">
               <span>${emp.employeeName}</span>
-              <span style="font-size: 0.85em; color: #666; font-weight: 600;">Total: ${totalTimeFormatted} — Reg: ${totalRegular.toFixed(2)}, OT: ${totalOT.toFixed(2)}</span>
+              <span style="font-size: 0.85em; color: #666; font-weight: 600;">Total: ${totalTimeFormatted} — Reg: ${(Math.floor(totalRegular * 100) / 100).toFixed(2)}, OT: ${(Math.floor(totalOT * 100) / 100).toFixed(2)}</span>
             </div>
             <div class="employee-location">Paid from: ${emp.paidFromLocation}</div>
             <div class="employee-details">
@@ -1535,7 +1765,7 @@ function generatePayrollReportHTML(reportData) {
         <div class="summary-label">${reportData.overtime.totalOTHours} hrs</div>
       </div>
       <div class="summary-item">
-        <div class="summary-value">${reportData.uniformDeductions.orders.length}</div>
+        <div class="summary-value">${reportData.uniformDeductions.employeeCount}</div>
         <div class="summary-label">Uniform Deductions</div>
         <div class="summary-label">$${reportData.uniformDeductions.totalDeductions.toFixed(2)}</div>
       </div>
@@ -1604,20 +1834,24 @@ function generatePayrollReportCSV(reportData) {
   });
   
   // Process uniform deductions
-  reportData.uniformDeductions.orders.forEach(order => {
-    if (!employeeMap.has(order.employeeId)) {
-      employeeMap.set(order.employeeId, {
-        name: order.employeeName,
-        location: order.location,
+  reportData.uniformDeductions.orders.forEach(emp => {
+    const location = emp.locations && emp.locations.length === 1 ? emp.locations[0] : (emp.locationSummary || 'Multiple Locations');
+    const key = emp.employeeKey || normalizeEmployeeName(emp.employeeName || '') || (emp.employeeName || '').trim() || (emp.employeeId || '').toString();
+    if (!employeeMap.has(key)) {
+      employeeMap.set(key, {
+        name: emp.employeeName,
+        location: location,
         otHours: 0,
         uniformDeduction: 0,
         ptoHours: 0,
         notes: []
       });
     }
-    const e = employeeMap.get(order.employeeId);
-    e.uniformDeduction += order.deductionAmount;
-    if (order.isFinalPayment) e.notes.push('Final uniform payment');
+    const e = employeeMap.get(key);
+    e.uniformDeduction += emp.totalDeduction || 0;
+    if ((emp.orders || []).some(o => o.isFinalPayment)) {
+      e.notes.push('Final uniform payment');
+    }
   });
   
   // Process PTO

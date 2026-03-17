@@ -154,6 +154,12 @@ function switchTab(tabId) {
 // DASHBOARD
 // ============================================================================
 function loadDashboardData() {
+  // Prefer the batched dashboard endpoint when available
+  if (typeof loadDashboardDataNew === 'function') {
+    loadDashboardDataNew();
+    return;
+  }
+
   showLoading(true);
   
   // Load periods first
@@ -203,7 +209,7 @@ function renderDashboardStats(trends) {
   document.getElementById('dashAlerts').textContent = AppState.alerts.length || '0';
 }
 
-function renderDashboardAlerts(alerts) {
+function renderDashboardAlerts(alerts, totalCount) {
   const container = document.getElementById('alertsContainer');
   if (!container) return;
   
@@ -215,7 +221,8 @@ function renderDashboardAlerts(alerts) {
   
   // Store alerts for detail view
   AppState.alerts = alerts;
-  document.getElementById('dashAlerts').textContent = alerts.length;
+  const count = typeof totalCount === 'number' ? totalCount : alerts.length;
+  document.getElementById('dashAlerts').textContent = count;
   
   container.innerHTML = alerts.map((a, index) => {
     // Build the details content based on alert type
@@ -930,6 +937,134 @@ function renderDailyBreakdown(employee) {
   `;
 }
 
+/**
+ * Build OT reconciliation records from processed multi-location employees.
+ * Uses the spec algorithm: existing OT per location, true cross-location OT, net new OT.
+ */
+function buildReconRecords(processedData) {
+  if (!processedData || !processedData.allEmployees) return [];
+
+  var floor2 = function(v) { return Math.floor(v * 100) / 100; };
+  var records = [];
+  var settings = AppState.settings || {};
+  var loc1Name = settings.location1Name || 'Cockrell Hill';
+  var loc2Name = settings.location2Name || 'DBU';
+
+  processedData.allEmployees.forEach(function(emp) {
+    if (emp.location !== 'Multi') return;
+
+    var weeks = [];
+    if ((emp.week1CH || 0) > 0 || (emp.week1DBU || 0) > 0) {
+      weeks.push({ num: 1, l1: emp.week1CH || 0, l2: emp.week1DBU || 0 });
+    }
+    if ((emp.week2CH || 0) > 0 || (emp.week2DBU || 0) > 0) {
+      weeks.push({ num: 2, l1: emp.week2CH || 0, l2: emp.week2DBU || 0 });
+    }
+
+    // Determine paid-from location
+    var totalL1 = (emp.chHours || 0);
+    var totalL2 = (emp.dbuHours || 0);
+    var paidFrom = totalL1 >= totalL2 ? loc1Name : loc2Name;
+
+    // Build daily hours per week
+    var chDaily = emp.chDailyHours || {};
+    var dbuDaily = emp.dbuDailyHours || {};
+    var w1Start = emp.week1Start || '';
+    var w1End = emp.week1End || '';
+    var w2Start = emp.week2Start || '';
+    var w2End = emp.week2End || '';
+
+    function getDatesInWeek(start, end) {
+      if (!start || !end) return [];
+      var dates = [];
+      var parts = start.split('-').map(Number);
+      var cur = new Date(parts[0], parts[1] - 1, parts[2]);
+      var endParts = end.split('-').map(Number);
+      var endD = new Date(endParts[0], endParts[1] - 1, endParts[2]);
+      while (cur <= endD) {
+        var y = cur.getFullYear();
+        var m = String(cur.getMonth() + 1).padStart(2, '0');
+        var d = String(cur.getDate()).padStart(2, '0');
+        dates.push(y + '-' + m + '-' + d);
+        cur.setDate(cur.getDate() + 1);
+      }
+      return dates;
+    }
+
+    function buildDailyJSON(dates) {
+      var obj = {};
+      dates.forEach(function(dt) {
+        var ch = chDaily[dt] || 0;
+        var dbu = dbuDaily[dt] || 0;
+        if (ch > 0 || dbu > 0) {
+          obj[dt] = { ch: floor2(ch), dbu: floor2(dbu) };
+        }
+      });
+      return JSON.stringify(obj);
+    }
+
+    var w1Dates = getDatesInWeek(w1Start, w1End);
+    var w2Dates = getDatesInWeek(w2Start, w2End);
+
+    weeks.forEach(function(wk) {
+      var l1 = wk.l1;
+      var l2 = wk.l2;
+      var existingOTL1 = floor2(Math.max(0, l1 - 40));
+      var existingOTL2 = floor2(Math.max(0, l2 - 40));
+      var existingOT = existingOTL1 + existingOTL2;
+
+      var regL1 = floor2(l1 - existingOTL1);
+      var regL2 = floor2(l2 - existingOTL2);
+
+      var totalWorked = floor2(l1 + l2);
+      var trueOT = floor2(Math.max(0, totalWorked - 40));
+      var netNewOT = floor2(Math.max(0, trueOT - existingOT));
+
+      var primaryIdx = regL1 >= regL2 ? 0 : 1;
+      var primaryLoc = primaryIdx === 0 ? loc1Name : loc2Name;
+      var secondaryLoc = primaryIdx === 0 ? loc2Name : loc1Name;
+      var primaryReg = primaryIdx === 0 ? regL1 : regL2;
+      var secondaryReg = primaryIdx === 0 ? regL2 : regL1;
+
+      var adjPrimaryReg = primaryReg;
+      var adjSecondaryReg = secondaryReg;
+      if (netNewOT > 0) {
+        var reduceSecondary = Math.min(netNewOT, secondaryReg);
+        adjSecondaryReg = floor2(secondaryReg - reduceSecondary);
+        var remainder = floor2(netNewOT - reduceSecondary);
+        if (remainder > 0) {
+          adjPrimaryReg = floor2(primaryReg - remainder);
+        }
+      }
+
+      var dailyJSON = buildDailyJSON(wk.num === 1 ? w1Dates : w2Dates);
+
+      records.push({
+        employeeName: emp.employeeName,
+        matchKey: emp.matchKey,
+        paidFromLocation: paidFrom,
+        week: wk.num,
+        loc1Name: loc1Name,
+        loc2Name: loc2Name,
+        loc1WeekHours: floor2(l1),
+        loc2WeekHours: floor2(l2),
+        existingOT: floor2(existingOT),
+        totalWorked: totalWorked,
+        trueOT: trueOT,
+        netNewOT: netNewOT,
+        primaryLocation: primaryLoc,
+        secondaryLocation: secondaryLoc,
+        adjLoc1Reg: primaryIdx === 0 ? adjPrimaryReg : adjSecondaryReg,
+        adjLoc2Reg: primaryIdx === 0 ? adjSecondaryReg : adjPrimaryReg,
+        totalOTAfter: trueOT,
+        dailyHoursJSON: dailyJSON
+      });
+    });
+  });
+
+  return records;
+}
+
 function saveToHistory() {
   if (!AppState.processedData) {
     showToast('No data to save', 'error');
@@ -953,16 +1088,41 @@ function saveSinglePeriod(overwrite) {
   
   google.script.run
     .withSuccessHandler(function(result) {
-      showLoading(false);
       if (result.success) {
-        showToast(result.message, 'success');
-        clearUploadedData();
-        loadDashboardData();
+        // Also save reconciliation records for multi-location employees
+        var reconRecords = buildReconRecords(AppState.processedData);
+        if (reconRecords.length > 0) {
+          google.script.run
+            .withSuccessHandler(function(reconResult) {
+              showLoading(false);
+              var msg = result.message;
+              if (reconResult.success && reconResult.count > 0) {
+                msg += ' | ' + reconResult.count + ' reconciliation records saved';
+              }
+              showToast(msg, 'success');
+              clearUploadedData();
+              loadDashboardData();
+            })
+            .withFailureHandler(function(reconErr) {
+              showLoading(false);
+              showToast(result.message + ' (reconciliation save failed: ' + reconErr.message + ')', 'warning');
+              clearUploadedData();
+              loadDashboardData();
+            })
+            .saveOTReconciliation(reconRecords, AppState.processedData.periodEnd);
+        } else {
+          showLoading(false);
+          showToast(result.message, 'success');
+          clearUploadedData();
+          loadDashboardData();
+        }
       } else if (result.error === 'duplicate') {
+        showLoading(false);
         if (confirm(result.message)) {
           saveSinglePeriod(true);
         }
       } else {
+        showLoading(false);
         showToast(result.error || 'Failed to save', 'error');
       }
     })
@@ -1004,22 +1164,35 @@ function saveBulkPeriods(overwrite) {
       .withSuccessHandler(function(result) {
         if (result.success || result.error === 'duplicate') {
           savedCount++;
+          // Also save reconciliation for this period's multi-location employees
+          var periodRecon = buildReconRecords({ allEmployees: period.employees });
+          if (periodRecon.length > 0) {
+            google.script.run
+              .withSuccessHandler(function() {
+                var progress = Math.round(((index + 1) / totalPeriods) * 100);
+                console.log('Progress: ' + progress + '% (' + (index + 1) + '/' + totalPeriods + ')');
+                setTimeout(function() { saveNextPeriod(index + 1); }, 100);
+              })
+              .withFailureHandler(function(reconErr) {
+                console.error('Recon save failed for period', period.periodEnd, reconErr);
+                setTimeout(function() { saveNextPeriod(index + 1); }, 100);
+              })
+              .saveOTReconciliation(periodRecon, period.periodEnd);
+          } else {
+            var progress = Math.round(((index + 1) / totalPeriods) * 100);
+            console.log('Progress: ' + progress + '% (' + (index + 1) + '/' + totalPeriods + ')');
+            setTimeout(function() { saveNextPeriod(index + 1); }, 100);
+          }
         } else {
           errorCount++;
           console.error('Error saving period', period.periodEnd, result.error);
+          setTimeout(function() { saveNextPeriod(index + 1); }, 100);
         }
-        
-        // Update progress
-        const progress = Math.round(((index + 1) / totalPeriods) * 100);
-        console.log(`Progress: ${progress}% (${index + 1}/${totalPeriods})`);
-        
-        // Save next period
-        setTimeout(() => saveNextPeriod(index + 1), 100); // Small delay to prevent overwhelming
       })
       .withFailureHandler(function(error) {
         errorCount++;
         console.error('Failed to save period', period.periodEnd, error);
-        setTimeout(() => saveNextPeriod(index + 1), 100);
+        setTimeout(function() { saveNextPeriod(index + 1); }, 100);
       })
       .saveOTData(period.employees, period.periodEnd, overwrite);
   }
@@ -1605,6 +1778,8 @@ function parseCSV(content, location) {
     const typeCol = headers.findIndex(h => h === 'PUNCH_TYPE');
     // NEW: Find EMPLOYEE_NUMBER column
     const empNumCol = headers.findIndex(h => h === 'EMPLOYEE_NUMBER' || h === 'EMPLOYEE_NUM' || h === 'EMP_NUMBER');
+    // Find PAY_TYPE column to detect unpaid entries
+    const payTypeCol = headers.findIndex(h => h === 'PAY_TYPE' || h === 'PAYTYPE');
     
     if (nameCol === -1) return { success: false, error: 'Name column not found' };
     if (startCol === -1) return { success: false, error: 'Date column not found' };
@@ -1612,13 +1787,34 @@ function parseCSV(content, location) {
     
     const employees = {};
     let latestDate = null;
+    let skippedBreakRows = 0;
+    let skippedUnpaidRows = 0;
     
     for (let i = 1; i < lines.length; i++) {
       const row = parseCSVLine(lines[i]);
       if (row.length <= Math.max(nameCol, startCol, lengthCol)) continue;
       
-      // Note: Removed 'B' type filter - CFA Home uses 'B' for departments, not breaks
-      // If you need to filter actual breaks, check for PUNCH_TYPE === 'BREAK' explicitly
+      // RULE 1: Exclude B-type (Break Conv To Paid) rows entirely.
+      // B rows represent auto-converted paid breaks whose hours are already
+      // included in the corresponding R (Regular) row's total. Summing B rows
+      // would double-count that time, inflating totals and overtime.
+      if (typeCol !== -1) {
+        const punchType = (row[typeCol] || '').toString().replace(/"/g, '').trim().toUpperCase();
+        if (punchType === 'B') {
+          skippedBreakRows++;
+          continue;
+        }
+      }
+      
+      // RULE 2: Exclude unpaid punch rows (if PAY_TYPE column exists).
+      // Unpaid breaks should not count toward worked hour totals.
+      if (payTypeCol !== -1) {
+        const payType = (row[payTypeCol] || '').toString().replace(/"/g, '').trim().toUpperCase();
+        if (payType === 'UNPAID' || payType === 'U') {
+          skippedUnpaidRows++;
+          continue;
+        }
+      }
       
       const rawName = row[nameCol]?.replace(/"/g, '').trim();
       if (!rawName) continue;
@@ -1656,12 +1852,18 @@ function parseCSV(content, location) {
       employees[matchKey].dailyHours[dateKey] += hours;
     }
     
+    if (skippedBreakRows > 0 || skippedUnpaidRows > 0) {
+      console.log('[parseCSV] ' + location + ': Excluded ' + skippedBreakRows + ' Break (Conv To Paid) rows, ' + skippedUnpaidRows + ' Unpaid rows');
+    }
+    
     return {
       success: true,
       employeeData: employees,
       latestDate: latestDate,
       employeeCount: Object.keys(employees).length,
-      location: location
+      location: location,
+      skippedBreakRows: skippedBreakRows,
+      skippedUnpaidRows: skippedUnpaidRows
     };
   } catch (e) {
     return { success: false, error: e.message };
@@ -1704,13 +1906,13 @@ function parseDate(str) {
 /**
  * Parses hours value from CSV - handles multiple formats robustly:
  * - Decimal: "29.84" or "29,84" -> 29.84
- * - HH:MM: "29:50" -> 29.833...
+ * - HH:MM: "29:50" -> 29.8333
  * - HH:MM:SS: "29:50:24" -> 29.84
  * - H:MM:SS: "5:30:00" -> 5.5
  * - Negative values: "-2:30" -> -2.5
- * - With whitespace: " 29:50 " -> 29.833...
+ * - With whitespace: " 29:50 " -> 29.8333
  * @param {string} value - The hours value from CSV
- * @returns {number} Hours as decimal (rounded to 4 decimal places)
+ * @returns {number} Hours as decimal (floored to 4 decimal places — always rounds DOWN)
  */
 function parseHoursValue(value) {
   if (value === null || value === undefined || value === '') return 0;
@@ -1760,8 +1962,8 @@ function parseHoursValue(value) {
     result = -result;
   }
   
-  // Round to 4 decimal places to avoid floating point issues
-  return Math.round(result * 10000) / 10000;
+  // Floor to 4 decimal places — all time rounding is DOWN per policy
+  return Math.floor(result * 10000) / 10000;
 }
 
 /**
@@ -1827,10 +2029,10 @@ function mergeAdditionalLocationData(existingResult, additionalData) {
       for (var dateKey in empData.dailyHours) {
         additionalHours += empData.dailyHours[dateKey] || 0;
       }
-      existingEmp.totalHours = (existingEmp.totalHours || 0) + additionalHours;
+      existingEmp.totalHours = floorTo2((existingEmp.totalHours || 0) + additionalHours);
       // Recalculate OT
-      existingEmp.regular = Math.min(existingEmp.totalHours, 80);
-      existingEmp.ot = Math.max(existingEmp.totalHours - 80, 0);
+      existingEmp.regular = floorTo2(Math.min(existingEmp.totalHours, 80));
+      existingEmp.ot = floorTo2(Math.max(existingEmp.totalHours - 80, 0));
       // Update multi-location flag
       if (additionalHours > 0) {
         existingEmp.isMultiLocation = true;
@@ -1845,9 +2047,9 @@ function mergeAdditionalLocationData(existingResult, additionalData) {
         name: empData.displayName,
         matchKey: matchKey,
         location: locationName,
-        totalHours: totalHours,
-        regular: Math.min(totalHours, 80),
-        ot: Math.max(totalHours - 80, 0),
+        totalHours: floorTo2(totalHours),
+        regular: floorTo2(Math.min(totalHours, 80)),
+        ot: floorTo2(Math.max(totalHours - 80, 0)),
         isMultiLocation: false
       });
     }
@@ -1861,6 +2063,16 @@ function mergeAdditionalLocationData(existingResult, additionalData) {
   existingResult.locationCount = (existingResult.locationCount || 2) + 1;
   
   return existingResult;
+}
+
+/**
+ * Floor a number to 2 decimal places (always rounds DOWN).
+ * Used for all hour/OT values per payroll policy — never round time up.
+ * @param {number} n
+ * @returns {number}
+ */
+function floorTo2(n) {
+  return Math.floor(n * 100) / 100;
 }
 
 /**
@@ -1910,23 +2122,40 @@ function processOTData(chData, dbuData) {
     // Get next payroll date from settings (stored in AppState)
     // The pay period ends on the Saturday before the payroll date
     var nextPayrollDate = null;
+    var hasPayrollSetting = AppState.settings && AppState.settings.nextPayrollDate;
     
-    if (AppState.settings && AppState.settings.nextPayrollDate) {
-      // Parse the settings date (format: YYYY-MM-DD or similar)
-      var pDateStr = AppState.settings.nextPayrollDate;
-      if (typeof pDateStr === 'string') {
-        var pParts = pDateStr.split(/[-\/]/);
-        if (pParts.length >= 3) {
-          nextPayrollDate = new Date(parseInt(pParts[0]), parseInt(pParts[1]) - 1, parseInt(pParts[2]));
-        }
-      } else if (pDateStr instanceof Date) {
-        nextPayrollDate = pDateStr;
+    function parsePayrollDate(value) {
+      if (!value) return null;
+      if (value instanceof Date) {
+        return new Date(value.getFullYear(), value.getMonth(), value.getDate());
       }
+      if (typeof value === 'string') {
+        var parts = value.split(/[-\/]/).map(function(p) { return p.trim(); });
+        if (parts.length >= 3) {
+          // YYYY-MM-DD
+          if (parts[0].length === 4) {
+            return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        }
+          // MM/DD/YYYY
+          if (parts[2].length === 4) {
+            return new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
+          }
+        }
+      }
+      return null;
     }
     
-    // If no valid payroll date, calculate from latest data date
+    if (hasPayrollSetting) {
+      nextPayrollDate = parsePayrollDate(AppState.settings.nextPayrollDate);
+    }
+    
+    // If no valid payroll date, only fall back when settings are missing
     if (!nextPayrollDate || isNaN(nextPayrollDate.getTime())) {
-      console.log('No valid payroll date in settings, calculating from data');
+      if (hasPayrollSetting) {
+        console.warn('Invalid payroll date in settings. Skipping data-based fallback.');
+        return { allEmployees: [], multiLocation: [], allPeriods: [], stats: { totalEmployees: 0, multiCount: 0, totalOT: 0, highOTCount: 0, periodsDetected: 0 } };
+      }
+      console.log('No payroll date in settings, calculating from data');
       // Find the Saturday on or after the latest date, then add days to next payroll
       var pe = new Date(latestDate);
       var dow = pe.getDay();
@@ -2062,7 +2291,9 @@ function processOTData(chData, dbuData) {
   var allPeriodResults = [];
   var chKeys = chData ? Object.keys(chData.employeeData) : [];
   var dbuKeys = dbuData ? Object.keys(dbuData.employeeData) : [];
-  var multiKeys = chKeys.filter(function(k) { return dbuKeys.includes(k); });
+  var dbuKeySet = new Set(dbuKeys);
+  var multiKeys = chKeys.filter(function(k) { return dbuKeySet.has(k); });
+  var multiKeySet = new Set(multiKeys);
   
   for (var p = 0; p < payPeriods.length; p++) {
     var period = payPeriods[p];
@@ -2082,29 +2313,31 @@ function processOTData(chData, dbuData) {
       var totalHours = chHours.total + dbuHours.total;
       var w1 = chHours.week1 + dbuHours.week1;
       var w2 = chHours.week2 + dbuHours.week2;
-      var w1OT = Math.max(0, w1 - 40);
-      var w2OT = Math.max(0, w2 - 40);
+      var w1OT = Math.max(0, floorTo2(w1) - 40);
+      var w2OT = Math.max(0, floorTo2(w2) - 40);
       var totalOT = w1OT + w2OT;
       
           periodEmployees.push({
             employeeName: ch.displayName,
             matchKey: k,
             location: 'Multi',
-            chHours: +chHours.total.toFixed(2),
-            dbuHours: +dbuHours.total.toFixed(2),
-            totalHours: +totalHours.toFixed(2),
-            regularHours: +Math.min(totalHours, 80).toFixed(2),
-            week1Hours: +w1.toFixed(2),
-            week2Hours: +w2.toFixed(2),
-            week1OT: +w1OT.toFixed(2),
-            week2OT: +w2OT.toFixed(2),
-            totalOT: +totalOT.toFixed(2),
+            chHours: floorTo2(chHours.total),
+            dbuHours: floorTo2(dbuHours.total),
+            totalHours: floorTo2(totalHours),
+            regularHours: floorTo2(Math.min(totalHours, 80)),
+            week1Hours: floorTo2(w1),
+            week2Hours: floorTo2(w2),
+            week1OT: floorTo2(w1OT),
+            week2OT: floorTo2(w2OT),
+            totalOT: floorTo2(totalOT),
             flag: getFlag(totalOT),
             employeeId: ch.employeeId || dbu.employeeId || '',
-            // Daily hours breakdown for accordion view
+            week1CH: floorTo2(chHours.week1),
+            week1DBU: floorTo2(dbuHours.week1),
+            week2CH: floorTo2(chHours.week2),
+            week2DBU: floorTo2(dbuHours.week2),
             chDailyHours: filterDailyHoursForPeriod(ch.dailyHours, period),
             dbuDailyHours: filterDailyHoursForPeriod(dbu.dailyHours, period),
-            // Period dates for week grouping
             week1Start: period.week1Start.toISOString().split('T')[0],
             week1End: period.week1End.toISOString().split('T')[0],
             week2Start: period.week2Start.toISOString().split('T')[0],
@@ -2116,28 +2349,28 @@ function processOTData(chData, dbuData) {
     if (chData) {
       for (var ci = 0; ci < chKeys.length; ci++) {
         var ck = chKeys[ci];
-        if (multiKeys.includes(ck)) continue;
+        if (multiKeySet.has(ck)) continue;
         var emp = chData.employeeData[ck];
         var hours = getHoursInPeriod(emp.dailyHours, period);
         if (hours.total === 0) continue;
         
-        var cw1OT = Math.max(0, hours.week1 - 40);
-        var cw2OT = Math.max(0, hours.week2 - 40);
+        var cw1OT = Math.max(0, floorTo2(hours.week1) - 40);
+        var cw2OT = Math.max(0, floorTo2(hours.week2) - 40);
         var ctotalOT = cw1OT + cw2OT;
         
         periodEmployees.push({
           employeeName: emp.displayName,
           matchKey: ck,
           location: 'Cockrell Hill DTO',
-          chHours: +hours.total.toFixed(2),
+          chHours: floorTo2(hours.total),
           dbuHours: 0,
-          totalHours: +hours.total.toFixed(2),
-          regularHours: +Math.min(hours.total, 80).toFixed(2),
-          week1Hours: +hours.week1.toFixed(2),
-          week2Hours: +hours.week2.toFixed(2),
-          week1OT: +cw1OT.toFixed(2),
-          week2OT: +cw2OT.toFixed(2),
-          totalOT: +ctotalOT.toFixed(2),
+          totalHours: floorTo2(hours.total),
+          regularHours: floorTo2(Math.min(hours.total, 80)),
+          week1Hours: floorTo2(hours.week1),
+          week2Hours: floorTo2(hours.week2),
+          week1OT: floorTo2(cw1OT),
+          week2OT: floorTo2(cw2OT),
+          totalOT: floorTo2(ctotalOT),
           flag: getFlag(ctotalOT),
           employeeId: emp.employeeId || '',
           // Daily hours breakdown for accordion view
@@ -2156,13 +2389,13 @@ function processOTData(chData, dbuData) {
     if (dbuData) {
       for (var di = 0; di < dbuKeys.length; di++) {
         var dk = dbuKeys[di];
-        if (multiKeys.includes(dk)) continue;
+        if (multiKeySet.has(dk)) continue;
         var demp = dbuData.employeeData[dk];
         var dhours = getHoursInPeriod(demp.dailyHours, period);
         if (dhours.total === 0) continue;
         
-        var dw1OT = Math.max(0, dhours.week1 - 40);
-        var dw2OT = Math.max(0, dhours.week2 - 40);
+        var dw1OT = Math.max(0, floorTo2(dhours.week1) - 40);
+        var dw2OT = Math.max(0, floorTo2(dhours.week2) - 40);
         var dtotalOT = dw1OT + dw2OT;
         
         periodEmployees.push({
@@ -2170,14 +2403,14 @@ function processOTData(chData, dbuData) {
           matchKey: dk,
           location: 'DBU',
           chHours: 0,
-          dbuHours: +dhours.total.toFixed(2),
-          totalHours: +dhours.total.toFixed(2),
-          regularHours: +Math.min(dhours.total, 80).toFixed(2),
-          week1Hours: +dhours.week1.toFixed(2),
-          week2Hours: +dhours.week2.toFixed(2),
-          week1OT: +dw1OT.toFixed(2),
-          week2OT: +dw2OT.toFixed(2),
-          totalOT: +dtotalOT.toFixed(2),
+          dbuHours: floorTo2(dhours.total),
+          totalHours: floorTo2(dhours.total),
+          regularHours: floorTo2(Math.min(dhours.total, 80)),
+          week1Hours: floorTo2(dhours.week1),
+          week2Hours: floorTo2(dhours.week2),
+          week1OT: floorTo2(dw1OT),
+          week2OT: floorTo2(dw2OT),
+          totalOT: floorTo2(dtotalOT),
           flag: getFlag(dtotalOT),
           employeeId: demp.employeeId || '',
           // Daily hours breakdown for accordion view
@@ -2212,7 +2445,7 @@ function processOTData(chData, dbuData) {
         stats: {
           totalEmployees: periodEmployees.length,
           multiCount: periodMulti.length,
-          totalOT: +periodTotalOT.toFixed(2),
+          totalOT: floorTo2(periodTotalOT),
           highOTCount: highCount
         }
       });
@@ -2251,7 +2484,7 @@ function processOTData(chData, dbuData) {
       // Bulk stats
       periodsDetected: allPeriodResults.length,
       totalRecordsAllPeriods: totalEmployeesAllPeriods,
-      totalOTAllPeriods: +totalOTAllPeriods.toFixed(2)
+      totalOTAllPeriods: floorTo2(totalOTAllPeriods)
     }
   };
 }
@@ -2271,7 +2504,7 @@ function formatHours(decimalHours) {
     return '0:00';
   }
   const hours = Math.floor(Math.abs(decimalHours));
-  const minutes = Math.round((Math.abs(decimalHours) - hours) * 60);
+  const minutes = Math.floor((Math.abs(decimalHours) - hours) * 60);
   const sign = decimalHours < 0 ? '-' : '';
   return `${sign}${hours}:${minutes.toString().padStart(2, '0')}`;
 }
@@ -2282,6 +2515,17 @@ function formatDate(d) {
   const dateStr = typeof d === 'string' && !d.includes('T') ? d + 'T12:00:00' : d;
   const date = new Date(dateStr);
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/**
+ * Get today's date in local YYYY-MM-DD format for date inputs
+ */
+function getLocalISODate() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function showLoading(show) {
@@ -2501,12 +2745,28 @@ function handleEmployeeSearch() {
 }
 
 /**
+ * Escape user-supplied text before injecting into HTML
+ */
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+let employeeSearchRequestId = 0;
+
+/**
  * Perform fuzzy employee search
  */
 function performEmployeeSearch(query) {
+  const requestId = ++employeeSearchRequestId;
   google.script.run
     .withSuccessHandler(function(results) {
-      renderSearchResults(results, query);
+      if (requestId !== employeeSearchRequestId) return;
+      renderEmployeeSearchResults(results, query);
     })
     .withFailureHandler(function(error) {
       console.error('Search error:', error);
@@ -2516,11 +2776,18 @@ function performEmployeeSearch(query) {
 }
 
 /**
- * Render search results
+ * Render employee search results (for new employee creation flow)
  */
-function renderSearchResults(results, query) {
+function renderEmployeeSearchResults(results, query) {
   const container = document.getElementById('searchResults');
   const createNew = document.getElementById('createNewOption');
+  
+  // Safety check for null/undefined results
+  if (!results || typeof results !== 'object') {
+    results = { exact: [], similar: [], exactMatch: false };
+  }
+  if (!Array.isArray(results.exact)) results.exact = [];
+  if (!Array.isArray(results.similar)) results.similar = [];
   
   NewEmployeeState.searchResults = results;
   
@@ -2528,7 +2795,7 @@ function renderSearchResults(results, query) {
     container.innerHTML = 
       '<div class="search-result-empty">' +
         '<span class="material-icons-round">person_off</span>' +
-        '<p>No employees found matching "' + query + '"</p>' +
+        '<p>No employees found matching "' + escapeHtml(query) + '"</p>' +
       '</div>';
     container.style.display = 'block';
     createNew.style.display = 'block';
@@ -2541,13 +2808,15 @@ function renderSearchResults(results, query) {
   if (results.exact.length > 0) {
     html += '<div class="result-section-header">Matches Found</div>';
     results.exact.forEach(function(emp) {
+      var safeName = escapeHtml(emp.fullName);
+      var safeLocation = escapeHtml(emp.location || '');
       html += 
         '<div class="search-result-item" onclick="selectSearchResult(\'' + 
           emp.matchKey.replace(/'/g, "\\'") + '\', \'' + 
           emp.fullName.replace(/'/g, "\\'") + '\')">' +
           '<div>' +
-            '<strong>' + emp.fullName + '</strong>' +
-            '<span class="result-location">' + (emp.location || '') + '</span>' +
+            '<strong>' + safeName + '</strong>' +
+            '<span class="result-location">' + safeLocation + '</span>' +
           '</div>' +
           '<span class="material-icons-round" style="color: var(--gray-400);">chevron_right</span>' +
         '</div>';
@@ -2558,13 +2827,15 @@ function renderSearchResults(results, query) {
   if (results.similar.length > 0) {
     html += '<div class="result-section-header">Similar Names</div>';
     results.similar.forEach(function(emp) {
+      var safeName = escapeHtml(emp.fullName);
+      var safeLocation = escapeHtml(emp.location || '');
       html += 
         '<div class="search-result-item" onclick="selectSearchResult(\'' + 
           emp.matchKey.replace(/'/g, "\\'") + '\', \'' + 
           emp.fullName.replace(/'/g, "\\'") + '\')">' +
           '<div>' +
-            '<strong>' + emp.fullName + '</strong>' +
-            '<span class="result-location">' + (emp.location || '') + '</span>' +
+            '<strong>' + safeName + '</strong>' +
+            '<span class="result-location">' + safeLocation + '</span>' +
             '<span class="similarity-badge">' + emp.similarity + '% match</span>' +
           '</div>' +
           '<span class="material-icons-round" style="color: var(--gray-400);">chevron_right</span>' +
@@ -3084,32 +3355,30 @@ function updatePantsSizes() {
   
   const gender = genderSelect.value;
   
-  // Check if selected item has custom waist/inseam overrides
-  let itemWaistSizes = null;
-  let itemInseamSizes = null;
-  
+  // Check if selected item has gender-specific waist/inseam overrides
+  let selectedItem = null;
   if (itemSelect && itemSelect.value && UniformState.catalog) {
-    const selectedItem = UniformState.catalog.find(i => i.itemId === itemSelect.value);
-    if (selectedItem) {
-      if (selectedItem.waistSizes && selectedItem.waistSizes.length > 0) {
-        itemWaistSizes = selectedItem.waistSizes;
-      }
-      if (selectedItem.inseamSizes && selectedItem.inseamSizes.length > 0) {
-        itemInseamSizes = selectedItem.inseamSizes;
-      }
-    }
+    selectedItem = UniformState.catalog.find(i => i.itemId === itemSelect.value);
   }
   
-  // Get sizes from settings or use defaults
+  // Get sizes: per-item gender overrides → global settings → hard-coded defaults
   const sizeConfig = AppState.sizeConfig || {};
   const pantsConfig = {
     male: {
-      waist: itemWaistSizes || sizeConfig.pants_male_waist || ['28', '30', '32', '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60'],
-      inseam: itemInseamSizes || sizeConfig.pants_male_inseam || ['28', '30', '32', '34', '36']
+      waist: (selectedItem && selectedItem.maleWaistSizes && selectedItem.maleWaistSizes.length > 0)
+        ? selectedItem.maleWaistSizes
+        : sizeConfig.pants_male_waist || ['28', '30', '32', '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60'],
+      inseam: (selectedItem && selectedItem.maleInseamSizes && selectedItem.maleInseamSizes.length > 0)
+        ? selectedItem.maleInseamSizes
+        : sizeConfig.pants_male_inseam || ['28', '30', '32', '34', '36']
     },
     female: {
-      waist: itemWaistSizes || sizeConfig.pants_female_waist || ['00', '0', '2', '4', '6', '8', '10', '12', '14', '16', '18', '20', '22', '24', '26', '28', '30', '32', '34', '36'],
-      inseam: itemInseamSizes || sizeConfig.pants_female_inseam || ['29', '31', '33', '35']
+      waist: (selectedItem && selectedItem.femaleWaistSizes && selectedItem.femaleWaistSizes.length > 0)
+        ? selectedItem.femaleWaistSizes
+        : sizeConfig.pants_female_waist || ['00', '0', '2', '4', '6', '8', '10', '12', '14', '16', '18', '20', '22', '24', '26', '28', '30', '32', '34', '36'],
+      inseam: (selectedItem && selectedItem.femaleInseamSizes && selectedItem.femaleInseamSizes.length > 0)
+        ? selectedItem.femaleInseamSizes
+        : sizeConfig.pants_female_inseam || ['29', '31', '33', '35']
     }
   };
   
@@ -3492,10 +3761,10 @@ function loadUniformOrders() {
   const statusFilter = document.getElementById('orderStatusFilter');
   const status = statusFilter ? statusFilter.value : 'Current';
   
-  // "Current" = Pending + Active + Store Paid (orders that need attention or are recent)
+  // "Current" = Pending + Pending - Cash + Active + Store Paid (orders that need attention or are recent)
   const filters = {};
   if (status === 'Current') {
-    filters.statuses = ['Pending', 'Active', 'Store Paid'];
+    filters.statuses = ['Pending', 'Pending - Cash', 'Active', 'Store Paid'];
   } else if (status) {
     filters.status = status;
   }
@@ -3532,14 +3801,15 @@ function renderUniformOrders() {
   tbody.innerHTML = UniformState.orders.map(order => {
     const progressPercent = order.paymentPlan > 0 ? (order.paymentsMade / order.paymentPlan) * 100 : 100;
     const statusClass = order.status === 'Active' ? 'moderate' : 
-                        order.status === 'Pending' ? 'flag-pending' :
+                        (order.status === 'Pending' || order.status === 'Pending - Cash') ? 'flag-pending' :
                         order.status === 'Completed' ? 'normal' : 
                         order.status === 'Store Paid' ? 'normal' : 'high';
     
     // Determine which action buttons to show
-    const showMarkReceived = order.status === 'Pending';
+    const showMarkReceived = order.status === 'Pending' || order.status === 'Pending - Cash';
     const showMarkPayment = order.status === 'Active';
-    const showCancel = order.status === 'Pending' || order.status === 'Active';
+    const showCancel = order.status === 'Store Paid';
+    const showChangePlan = order.status === 'Pending' || order.status === 'Pending - Cash' || order.status === 'Active';
     
     return `
       <tr data-employee-name="${order.employeeName}" data-location="${order.location || ''}" data-order-id="${order.orderId}">
@@ -3570,6 +3840,16 @@ function renderUniformOrders() {
                 <span class="material-icons-round" style="font-size: 14px;">paid</span>
               </button>
             ` : ''}
+            ${showChangePlan ? `
+              <button class="btn btn-outline btn-sm" onclick="changeOrderPaymentPlan('${order.orderId}')" title="Change Payment Plan">
+                <span class="material-icons-round" style="font-size: 14px;">sync_alt</span>
+              </button>
+            ` : ''}
+            ${showCancel ? `
+              <button class="btn btn-outline btn-sm" onclick="cancelOrder('${order.orderId}')" title="Cancel Order">
+                <span class="material-icons-round" style="font-size: 14px;">cancel</span>
+              </button>
+            ` : ''}
             <button class="btn btn-outline btn-sm" onclick="viewOrderDetails('${order.orderId}')" title="View Details">
               <span class="material-icons-round" style="font-size: 14px;">visibility</span>
             </button>
@@ -3582,6 +3862,94 @@ function renderUniformOrders() {
   if (countEl) {
     countEl.textContent = `Showing ${UniformState.orders.length} order${UniformState.orders.length !== 1 ? 's' : ''}`;
   }
+}
+
+/**
+ * Change payment plan for an order (admin)
+ */
+let pendingPaymentPlanOrderId = null;
+let pendingPaymentPlanCurrent = null;
+
+function changeOrderPaymentPlan(orderId) {
+  const order = UniformState.orders.find(o => o.orderId === orderId);
+  if (!order) {
+    showToast('Order not found', 'error');
+    return;
+  }
+
+  pendingPaymentPlanOrderId = orderId;
+  pendingPaymentPlanCurrent = order.paymentPlan;
+
+  const details = document.getElementById('paymentPlanModalDetails');
+  const select = document.getElementById('paymentPlanSelect');
+  const modal = document.getElementById('paymentPlanModal');
+  if (!details || !select || !modal) {
+    showToast('Modal not available', 'error');
+    return;
+  }
+
+  details.innerHTML = `Order <strong>${escapeHtml(order.orderId)}</strong> for <strong>${escapeHtml(order.employeeName)}</strong> (current plan: ${order.paymentPlan})`;
+  select.value = String(order.paymentPlan || 1);
+  modal.classList.remove('hidden');
+}
+
+function handlePaymentPlanOverlayClick(event) {
+  if (event.target && event.target.id === 'paymentPlanModal') {
+    closePaymentPlanModal();
+  }
+}
+
+function closePaymentPlanModal() {
+  const modal = document.getElementById('paymentPlanModal');
+  if (modal) modal.classList.add('hidden');
+  pendingPaymentPlanOrderId = null;
+  pendingPaymentPlanCurrent = null;
+}
+
+function confirmPaymentPlanChange() {
+  const orderId = pendingPaymentPlanOrderId;
+  if (!orderId) return;
+
+  const select = document.getElementById('paymentPlanSelect');
+  const newPlan = parseInt(select ? select.value : '', 10);
+  if (![1, 2, 3].includes(newPlan)) {
+    showToast('Payment plan must be 1, 2, or 3', 'error');
+    return;
+  }
+
+  if (newPlan === pendingPaymentPlanCurrent) {
+    showToast('Payment plan unchanged', 'info');
+    closePaymentPlanModal();
+    return;
+  }
+
+  closePaymentPlanModal();
+  showLoading(true);
+  google.script.run
+    .withSuccessHandler(function(result) {
+      showLoading(false);
+      if (result && result.success) {
+        const updated = result.order || {};
+        const order = UniformState.orders.find(o => o.orderId === orderId);
+        if (order) {
+          order.paymentPlan = updated.paymentPlan || newPlan;
+          if (updated.amountPerPaycheck !== undefined) order.amountPerPaycheck = updated.amountPerPaycheck;
+          if (updated.amountRemaining !== undefined) order.amountRemaining = updated.amountRemaining;
+          if (updated.totalAmount !== undefined) order.totalAmount = updated.totalAmount;
+          if (updated.paymentsMade !== undefined) order.paymentsMade = updated.paymentsMade;
+          if (updated.amountPaid !== undefined) order.amountPaid = updated.amountPaid;
+        }
+        renderUniformOrders();
+        showToast('Payment plan updated', 'success');
+      } else {
+        showToast((result && result.error) || 'Failed to update payment plan', 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      showLoading(false);
+      showToast('Error updating payment plan: ' + error.message, 'error');
+    })
+    .updateUniformPaymentPlan(orderId, newPlan);
 }
 
 /**
@@ -3673,11 +4041,15 @@ function updateDeductionPreview() {
 /**
  * Marks an order as received (changes from Pending to Active)
  */
-function markOrderReceived(orderId) {
+function markOrderReceived(orderId, receivedDateOverride = null) {
   const order = UniformState.orders.find(o => o.orderId === orderId);
   if (!order) return;
   
-  if (!confirm(`Mark order ${orderId} for ${order.employeeName} as received?\n\nThis will:\n• Change status to Active\n• Set first deduction date to next payday (7+ days out)`)) {
+  const defaultDate = receivedDateOverride || getLocalISODate();
+  const receivedDate = receivedDateOverride || prompt('Enter received date (YYYY-MM-DD):', defaultDate);
+  if (!receivedDate) return;
+  
+  if (!confirm(`Mark order ${orderId} for ${order.employeeName} as received on ${receivedDate}?\n\nThis will:\n• Change status to Active\n• Set first deduction date based on that pay period`)) {
     return;
   }
   
@@ -3696,7 +4068,7 @@ function markOrderReceived(orderId) {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .markOrderReceived(orderId);
+    .markOrderReceived(orderId, receivedDate);
 }
 
 /**
@@ -3771,7 +4143,10 @@ function viewOrderDetails(orderId) {
 function renderOrderDetailsModal(order) {
   document.getElementById('orderDetailsTitle').textContent = `Order ${order.orderId}`;
   
-  const isPending = order.status === 'Pending';
+  const isPending = order.status === 'Pending' || order.status === 'Pending - Cash';
+  const isPendingCash = order.status === 'Pending - Cash';
+  const showPendingActions = isPending || isPendingCash;
+  const defaultReceivedDate = order.receivedDate || getLocalISODate();
   
   // Build items table with receiving status (and checkboxes for pending orders)
   const itemsHtml = (order.items || []).map(item => {
@@ -3876,12 +4251,18 @@ function renderOrderDetailsModal(order) {
         <label>Status</label>
         <span class="flag ${statusClass}">${order.status}</span>
       </div>
-      ${order.receivedDate ? `
+    ${order.receivedDate ? `
         <div class="order-info-item">
           <label>Received Date</label>
           <strong>${formatDate(order.receivedDate)}</strong>
         </div>
       ` : ''}
+    ${showPendingActions ? `
+      <div class="order-info-item">
+        <label>Set Received Date</label>
+        <input type="date" id="modalReceivedDate" class="form-control" value="${defaultReceivedDate}">
+      </div>
+    ` : ''}
       ${order.notes ? `
         <div class="order-info-item" style="grid-column: span 2;">
           <label>Notes</label>
@@ -3911,7 +4292,7 @@ function renderOrderDetailsModal(order) {
       </table>
     </div>
     
-    ${order.status === 'Pending' ? `
+    ${showPendingActions ? `
       <div id="receivingSummaryAdmin" style="background: var(--success-light); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
         <div>
           <strong>Received Total:</strong> 
@@ -3942,9 +4323,9 @@ function renderOrderDetailsModal(order) {
   
   // Show/hide action buttons based on status
   document.getElementById('cancelOrderBtn').style.display = 
-    (order.status === 'Pending' || order.status === 'Active') ? 'inline-flex' : 'none';
+    (order.status === 'Pending' || order.status === 'Pending - Cash' || order.status === 'Active' || order.status === 'Store Paid') ? 'inline-flex' : 'none';
   document.getElementById('markReceivedBtn').style.display = 
-    order.status === 'Pending' ? 'inline-flex' : 'none';
+    showPendingActions ? 'inline-flex' : 'none';
   document.getElementById('markPaymentBtn').style.display = 
     order.status === 'Active' ? 'inline-flex' : 'none';
   
@@ -3965,8 +4346,9 @@ function closeOrderDetailsModal() {
  */
 function markOrderReceivedFromModal() {
   if (!currentModalOrder) return;
+  const receivedDate = document.getElementById('modalReceivedDate')?.value || getLocalISODate();
   closeOrderDetailsModal();
-  markOrderReceived(currentModalOrder.orderId);
+  markOrderReceived(currentModalOrder.orderId, receivedDate);
 }
 
 /**
@@ -4037,10 +4419,15 @@ function toggleModalItemReceived(lineId, received) {
 function updateModalReceivedTotal() {
   if (!currentModalOrder) return;
   
-  // Count items based on their current itemReceived state (which we update on checkbox change)
-  const activeItems = currentModalOrder.items.filter(i => i.itemStatus !== 'Cancelled');
-  const receivedItems = activeItems.filter(i => i.itemReceived === true);
-  const receivedTotal = receivedItems.reduce((sum, i) => sum + (i.lineTotal || 0), 0);
+  // Single-pass: count active and received items
+  let modalRecvCount = 0, modalActiveCount = 0, receivedTotal = 0;
+  for (const item of currentModalOrder.items) {
+    if (item.itemStatus === 'Cancelled') continue;
+    modalActiveCount++;
+    if (item.itemReceived === true) { modalRecvCount++; receivedTotal += (item.lineTotal || 0); }
+  }
+  const activeItems = { length: modalActiveCount };
+  const receivedItems = { length: modalRecvCount };
   
   currentModalOrder.receivedCount = receivedItems.length;
   currentModalOrder.receivedTotal = receivedTotal;
@@ -4101,10 +4488,14 @@ function saveAndActivateFromModal() {
     itemStatus: i.itemStatus
   })));
   
-  const activeItems = currentModalOrder.items.filter(i => i.itemStatus !== 'Cancelled');
-  // Check for itemReceived being exactly true (boolean)
-  const receivedItems = activeItems.filter(i => i.itemReceived === true);
-  const unreceivedItems = activeItems.filter(i => i.itemReceived !== true);
+  // Single-pass partition into received/unreceived (excluding cancelled)
+  const activeItems = [], receivedItems = [], unreceivedItems = [];
+  for (const item of currentModalOrder.items) {
+    if (item.itemStatus === 'Cancelled') continue;
+    activeItems.push(item);
+    if (item.itemReceived === true) receivedItems.push(item);
+    else unreceivedItems.push(item);
+  }
   
   console.log('Active items:', activeItems.length, 'Received items:', receivedItems.length);
   
@@ -4216,6 +4607,29 @@ function loadPayrollDeductions() {
 /**
  * Renders payroll deductions (includes both paid and due)
  */
+function formatDeductionBreakdown(details) {
+  if (!details || details.length === 0) {
+    return '<span style="color: var(--gray-500);">No orders</span>';
+  }
+  
+  return details.map(detail => {
+    const statusBadge = detail.isPaid
+      ? '<span class="badge badge-success" style="font-size: 0.65rem; padding: 2px 6px;">PAID</span>'
+      : (detail.isDue
+          ? '<span class="badge badge-warning" style="font-size: 0.65rem; padding: 2px 6px;">DUE</span>'
+          : '<span class="badge" style="font-size: 0.65rem; padding: 2px 6px;">—</span>');
+    
+    return `
+      <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+        <strong>${escapeHtml(detail.orderId)}</strong>
+        <span style="color: var(--gray-500); font-size: 0.8rem;">Check ${detail.paymentNumber} of ${detail.totalPayments}</span>
+        <span style="margin-left: auto; font-weight: 600;">$${detail.amount.toFixed(2)}</span>
+        ${statusBadge}
+      </div>
+    `;
+  }).join('');
+}
+
 function renderPayrollDeductions(result) {
   const tbody = document.getElementById('deductionsBody');
   const summary = document.getElementById('deductionsSummary');
@@ -4243,7 +4657,7 @@ function renderPayrollDeductions(result) {
   summary.classList.remove('hidden');
   
   // Only enable "Mark All Paid" if there are due (unpaid) deductions
-  const dueCount = result.dueCount || result.deductions.filter(d => d.isDue).length;
+  const dueCount = result.dueCount || result.deductions.reduce((sum, d) => sum + (d.dueCount || 0), 0);
   markAllBtn.disabled = dueCount === 0;
   
   tbody.innerHTML = result.deductions.map(d => {
@@ -4255,16 +4669,19 @@ function renderPayrollDeductions(result) {
       : (isDue 
           ? '<span class="badge badge-warning" style="font-size: 0.7rem; padding: 2px 6px;">DUE</span>'
           : '<span class="badge" style="font-size: 0.7rem; padding: 2px 6px;">—</span>');
+    const statusText = `Due: ${d.dueCount || 0} • Paid: ${d.paidCount || 0}`;
+    const breakdownHtml = formatDeductionBreakdown(d.details);
+    const dueOrderIds = d.orderIdsDue || [];
     
     return `
       <tr class="${rowClass}" style="${isPaid ? 'opacity: 0.7; background: #f0fff0;' : ''}">
         <td><strong>${d.employeeName}</strong></td>
-        <td>${d.orderId}</td>
-        <td>${d.paymentNumber} of ${d.totalPayments} ${statusBadge}</td>
+        <td>${breakdownHtml}</td>
+        <td>${statusBadge}<div style="font-size: 0.75rem; color: var(--gray-500); margin-top: 4px;">${statusText}</div></td>
         <td class="numeric"><strong>$${d.amount.toFixed(2)}</strong></td>
         <td>
-          ${isDue ? `
-            <button class="btn btn-primary btn-sm" onclick="recordSinglePayment('${d.orderId}')">
+          ${dueOrderIds.length > 0 ? `
+            <button class="btn btn-primary btn-sm" onclick='recordEmployeePayments(${JSON.stringify(dueOrderIds)})'>
               <span class="material-icons-round" style="font-size: 16px;">check</span> Mark Paid
             </button>
           ` : (isPaid ? `
@@ -4279,9 +4696,14 @@ function renderPayrollDeductions(result) {
 }
 
 /**
- * Records a single payment
+ * Records all due payments for a single employee row
  */
-function recordSinglePayment(orderId) {
+function recordEmployeePayments(orderIds) {
+  if (!orderIds || orderIds.length === 0) {
+    showToast('No due deductions to record', 'info');
+    return;
+  }
+  
   showLoading(true);
   
   google.script.run
@@ -4299,7 +4721,7 @@ function recordSinglePayment(orderId) {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .recordUniformPayment(orderId);
+    .recordUniformPayments(orderIds);
 }
 
 /**
@@ -4309,7 +4731,17 @@ function markAllDeductionsPaid() {
   const paydaySelect = document.getElementById('deductionPayday');
   if (!paydaySelect || !paydaySelect.value) return;
   
-  if (!confirm(`Mark all ${UniformState.deductions.length} deductions as paid?`)) return;
+  const dueOrderCount = UniformState.deductions.reduce(
+    (sum, d) => sum + ((d.orderIdsDue && d.orderIdsDue.length) ? d.orderIdsDue.length : (d.dueCount || 0)),
+    0
+  );
+  
+  if (dueOrderCount === 0) {
+    showToast('No due deductions to record', 'info');
+    return;
+  }
+  
+  if (!confirm(`Mark all ${dueOrderCount} deductions as paid?`)) return;
   
   showLoading(true);
   
@@ -4343,13 +4775,17 @@ function exportDeductionsCSV() {
   const paydaySelect = document.getElementById('deductionPayday');
   const payday = paydaySelect ? formatDate(paydaySelect.value) : 'Unknown';
   
-  let csv = 'Employee,Order ID,Payment,Amount\n';
+  let csv = 'Employee,Total Amount,Due Count,Paid Count,Breakdown\n';
   UniformState.deductions.forEach(d => {
-    csv += `"${d.employeeName}","${d.orderId}","${d.paymentNumber} of ${d.totalPayments}","$${d.amount.toFixed(2)}"\n`;
+    const breakdown = (d.details || []).map(detail => {
+      const statusLabel = detail.isPaid ? 'PAID' : (detail.isDue ? 'DUE' : '—');
+      return `${detail.orderId} (Check ${detail.paymentNumber} of ${detail.totalPayments}) $${detail.amount.toFixed(2)} ${statusLabel}`;
+    }).join('; ');
+    csv += `"${d.employeeName}","$${d.amount.toFixed(2)}","${d.dueCount || 0}","${d.paidCount || 0}","${breakdown}"\n`;
   });
   
   const total = UniformState.deductions.reduce((sum, d) => sum + d.amount, 0);
-  csv += `\n"TOTAL","","","$${total.toFixed(2)}"\n`;
+  csv += `\n"TOTAL","$${total.toFixed(2)}","","",""\n`;
   
   const blob = new Blob([csv], { type: 'text/csv' });
   const link = document.createElement('a');
@@ -4633,9 +5069,11 @@ function submitAddCatalogItem(event) {
     sizes = selectedSizes.join(',');
   }
   
-  // Get pants waist/inseam overrides (if applicable)
-  const waistSizes = document.getElementById('newWaistSizes')?.value?.trim() || '';
-  const inseamSizes = document.getElementById('newInseamSizes')?.value?.trim() || '';
+  // Get gender-specific pants waist/inseam overrides (if applicable)
+  const maleWaistSizes = document.getElementById('newMaleWaistSizes')?.value?.trim() || '';
+  const maleInseamSizes = document.getElementById('newMaleInseamSizes')?.value?.trim() || '';
+  const femaleWaistSizes = document.getElementById('newFemaleWaistSizes')?.value?.trim() || '';
+  const femaleInseamSizes = document.getElementById('newFemaleInseamSizes')?.value?.trim() || '';
   
   // Close modal and show loading
   closeAddCatalogItemModal();
@@ -4670,8 +5108,10 @@ function submitAddCatalogItem(event) {
       category: category,
       availableSizes: sizes,
       price: price,
-      waistSizes: waistSizes,
-      inseamSizes: inseamSizes
+      maleWaistSizes: maleWaistSizes,
+      maleInseamSizes: maleInseamSizes,
+      femaleWaistSizes: femaleWaistSizes,
+      femaleInseamSizes: femaleInseamSizes
     });
 }
 
@@ -4759,18 +5199,22 @@ function showEditCatalogItemModal(itemId) {
       // Update size options visibility
       toggleEditSizeOptions();
       
-      // Handle pants waist/inseam overrides
+      // Handle pants gender-specific waist/inseam overrides
       const isPants = item.category.toUpperCase() === 'PANTS' || item.category.toUpperCase().includes('PANT');
       const pantsSection = document.getElementById('editPantsOverrideSection');
       if (pantsSection) {
         pantsSection.style.display = isPants ? 'block' : 'none';
       }
       
-      // Populate waist/inseam values
-      const waistInput = document.getElementById('editWaistSizes');
-      const inseamInput = document.getElementById('editInseamSizes');
-      if (waistInput) waistInput.value = (item.waistSizes || []).join(', ');
-      if (inseamInput) inseamInput.value = (item.inseamSizes || []).join(', ');
+      // Populate gender-specific waist/inseam values
+      const maleWaistInput = document.getElementById('editMaleWaistSizes');
+      const maleInseamInput = document.getElementById('editMaleInseamSizes');
+      const femaleWaistInput = document.getElementById('editFemaleWaistSizes');
+      const femaleInseamInput = document.getElementById('editFemaleInseamSizes');
+      if (maleWaistInput) maleWaistInput.value = (item.maleWaistSizes || []).join(', ');
+      if (maleInseamInput) maleInseamInput.value = (item.maleInseamSizes || []).join(', ');
+      if (femaleWaistInput) femaleWaistInput.value = (item.femaleWaistSizes || []).join(', ');
+      if (femaleInseamInput) femaleInseamInput.value = (item.femaleInseamSizes || []).join(', ');
       
       // Show modal
       modal.style.display = 'flex';
@@ -4903,9 +5347,11 @@ function submitEditCatalogItem(event) {
     sizes = selectedSizes.join(',');
   }
   
-  // Get pants waist/inseam overrides (if applicable)
-  const waistSizes = document.getElementById('editWaistSizes')?.value?.trim() || '';
-  const inseamSizes = document.getElementById('editInseamSizes')?.value?.trim() || '';
+  // Get gender-specific pants waist/inseam overrides (if applicable)
+  const maleWaistSizes = document.getElementById('editMaleWaistSizes')?.value?.trim() || '';
+  const maleInseamSizes = document.getElementById('editMaleInseamSizes')?.value?.trim() || '';
+  const femaleWaistSizes = document.getElementById('editFemaleWaistSizes')?.value?.trim() || '';
+  const femaleInseamSizes = document.getElementById('editFemaleInseamSizes')?.value?.trim() || '';
   
   // Close modal and show loading
   closeEditCatalogItemModal();
@@ -4940,8 +5386,10 @@ function submitEditCatalogItem(event) {
       availableSizes: sizes,
       price: price,
       active: active,
-      waistSizes: waistSizes,
-      inseamSizes: inseamSizes
+      maleWaistSizes: maleWaistSizes,
+      maleInseamSizes: maleInseamSizes,
+      femaleWaistSizes: femaleWaistSizes,
+      femaleInseamSizes: femaleInseamSizes
     });
 }
 
@@ -5121,6 +5569,7 @@ function renderDashboard(data) {
   renderTopOTEmployees(data.topOTEmployees);
   renderUpcomingPayments(data.uniformMetrics.upcomingPayments);
   renderAlertsList(data.alerts);
+  renderDashboardAlerts(data.alerts, data.alertCount);
   updateLastUpdated(data.lastUpdated);
 }
 
@@ -6258,6 +6707,15 @@ function populateSettingsForm() {
   
   // Update notification UI state
   updateNotificationUIState();
+
+  // Weekly summary schedule
+  const weeklyDay = document.getElementById('weeklySummaryDay');
+  const weeklyHour = document.getElementById('weeklySummaryHour');
+  const weeklyMinute = document.getElementById('weeklySummaryMinute');
+  if (weeklyDay) weeklyDay.value = s.weeklySummaryDay || 'Saturday';
+  if (weeklyHour) weeklyHour.value = String(s.weeklySummaryHour ?? 13);
+  if (weeklyMinute) weeklyMinute.value = String(s.weeklySummaryMinute ?? 0);
+  updateWeeklySummarySchedulePreview();
 }
 
 /**
@@ -6348,7 +6806,12 @@ function saveAllSettings(event) {
     notifyOnPTORequest: document.getElementById('notifyPTO')?.checked || false,
     notifyOnHighOT: document.getElementById('notifyHighOT')?.checked || false,
     notifyOnPayrollDue: document.getElementById('notifyPayroll')?.checked || false,
-    notifyOnUniformOrder: document.getElementById('notifyUniform')?.checked || false
+    notifyOnUniformOrder: document.getElementById('notifyUniform')?.checked || false,
+    
+    // Weekly Summary Schedule
+    weeklySummaryDay: document.getElementById('weeklySummaryDay')?.value || 'Saturday',
+    weeklySummaryHour: parseInt(document.getElementById('weeklySummaryHour')?.value, 10) || 13,
+    weeklySummaryMinute: parseInt(document.getElementById('weeklySummaryMinute')?.value, 10) || 0
   };
   
   google.script.run
@@ -6528,6 +6991,30 @@ function sendTestEmail() {
 // =====================================================
 
 /**
+ * Format weekly summary schedule label from form fields
+ */
+function getWeeklySummaryScheduleLabelFromForm() {
+  const day = document.getElementById('weeklySummaryDay')?.value || 'Saturday';
+  const hourValue = parseInt(document.getElementById('weeklySummaryHour')?.value, 10);
+  const minuteValue = parseInt(document.getElementById('weeklySummaryMinute')?.value, 10);
+  const hour = Number.isFinite(hourValue) ? hourValue : 13;
+  const minute = Number.isFinite(minuteValue) ? minuteValue : 0;
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const minuteStr = String(minute).padStart(2, '0');
+  return `${day} at ${hour12}:${minuteStr} ${ampm}`;
+}
+
+/**
+ * Update the schedule preview text in the settings UI
+ */
+function updateWeeklySummarySchedulePreview() {
+  const scheduleEl = document.getElementById('weeklySummaryScheduleText');
+  if (!scheduleEl) return;
+  scheduleEl.textContent = `Every ${getWeeklySummaryScheduleLabelFromForm()}`;
+}
+
+/**
  * Check and display weekly summary status
  */
 function checkWeeklySummaryStatus() {
@@ -6545,6 +7032,13 @@ function checkWeeklySummaryStatus() {
         statusEl.style.background = 'var(--gray-200)';
         statusEl.style.color = 'var(--gray-600)';
       }
+      
+      if (result.nextRun) {
+        const scheduleEl = document.getElementById('weeklySummaryScheduleText');
+        if (scheduleEl) {
+          scheduleEl.textContent = `Every ${result.nextRun}`;
+        }
+      }
     })
     .withFailureHandler(function(error) {
       statusEl.textContent = 'Error';
@@ -6559,12 +7053,16 @@ function checkWeeklySummaryStatus() {
  */
 function setupWeeklySummary() {
   showLoading(true);
+  const day = document.getElementById('weeklySummaryDay')?.value || 'Saturday';
+  const hour = parseInt(document.getElementById('weeklySummaryHour')?.value, 10) || 13;
+  const minute = parseInt(document.getElementById('weeklySummaryMinute')?.value, 10) || 0;
   
   google.script.run
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
-        showToast('Weekly summary enabled! Emails will be sent every Saturday at 1 PM.', 'success');
+        const label = result.scheduleLabel || getWeeklySummaryScheduleLabelFromForm();
+        showToast(`Weekly summary enabled! Emails will be sent every ${label}.`, 'success');
         checkWeeklySummaryStatus();
       } else {
         showToast(result.error || 'Failed to enable weekly summary', 'error');
@@ -6574,7 +7072,7 @@ function setupWeeklySummary() {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .setupWeeklySummaryTrigger();
+    .setupWeeklySummaryTriggerWithSchedule(day, hour, minute);
 }
 
 /**
@@ -8263,6 +8761,8 @@ const PayrollState = {
   reportData: null,
   selectedPayrollDate: null,
   skippedOrderIds: [],
+  dismissedChecks: [],
+  validationResult: null,
   checkStates: {
     ot: {},
     uniform: {},
@@ -8278,6 +8778,8 @@ function initPayrollProcessingView() {
   console.log('Initializing Payroll Processing view');
   PayrollState.reportData = null;
   PayrollState.skippedOrderIds = [];
+  PayrollState.dismissedChecks = [];
+  PayrollState.validationResult = null;
   PayrollState.checkStates = { ot: {}, uniform: {}, pto: {}, transfer: {} };
   
   document.getElementById('reportContent').style.display = 'none';
@@ -8304,6 +8806,9 @@ function runPayrollValidationCheck() {
     }
     
     console.log('Running payroll validation check...');
+    
+    // Dismissals are now loaded from the server, don't reset them
+    PayrollState.validationResult = null;
     
     // Show loading state
     badge.className = 'validation-badge';
@@ -8340,51 +8845,92 @@ function renderPayrollValidation(result) {
     return;
   }
   
-  // Update badge
-  if (result.status === 'ready') {
+  // Store result for re-rendering after dismiss
+  PayrollState.validationResult = result;
+  
+  // Seed local dismissed list from server-provided IDs (first load)
+  if (result.dismissedIds && result.dismissedIds.length > 0) {
+    var existing = PayrollState.dismissedChecks || [];
+    result.dismissedIds.forEach(function(id) {
+      if (existing.indexOf(id) === -1) existing.push(id);
+    });
+    PayrollState.dismissedChecks = existing;
+  }
+  
+  // Recalculate counts excluding dismissed checks
+  const dismissed = PayrollState.dismissedChecks || [];
+  const dismissedSet = new Set(dismissed);
+  let activeErrorCount = 0;
+  let activeWarningCount = 0;
+  let passCount = 0;
+  let dismissedCount = 0;
+  
+  for (const check of result.checks) {
+    const isDismissed = dismissedSet.has(check.id);
+    if (isDismissed) {
+      dismissedCount++;
+    } else if (check.status === 'error') {
+      activeErrorCount++;
+    } else if (check.status === 'warning') {
+      activeWarningCount++;
+    } else {
+      passCount++;
+    }
+  }
+  
+  // Update badge based on non-dismissed counts
+  if (activeErrorCount > 0) {
+    badge.className = 'validation-badge errors';
+    badge.innerHTML = '<span class="material-icons-round" style="font-size: 14px;">error</span> ' + activeErrorCount + ' Error' + (activeErrorCount > 1 ? 's' : '');
+  } else if (activeWarningCount > 0) {
+    badge.className = 'validation-badge warnings';
+    badge.innerHTML = '<span class="material-icons-round" style="font-size: 14px;">warning</span> ' + activeWarningCount + ' Warning' + (activeWarningCount > 1 ? 's' : '');
+  } else {
     badge.className = 'validation-badge ready';
     badge.innerHTML = '<span class="material-icons-round" style="font-size: 14px;">check_circle</span> Ready';
-  } else if (result.status === 'warnings') {
-    badge.className = 'validation-badge warnings';
-    badge.innerHTML = '<span class="material-icons-round" style="font-size: 14px;">warning</span> ' + result.warningCount + ' Warning' + (result.warningCount > 1 ? 's' : '');
-  } else {
-    badge.className = 'validation-badge errors';
-    badge.innerHTML = '<span class="material-icons-round" style="font-size: 14px;">error</span> ' + result.errorCount + ' Error' + (result.errorCount > 1 ? 's' : '');
   }
   
   // Build content
   let html = '<div class="validation-summary">';
-  html += '<div class="validation-stat success"><span class="material-icons-round" style="font-size: 18px;">check_circle</span> ' + result.passCount + ' Passed</div>';
-  if (result.warningCount > 0) {
-    html += '<div class="validation-stat warning"><span class="material-icons-round" style="font-size: 18px;">warning</span> ' + result.warningCount + ' Warning' + (result.warningCount > 1 ? 's' : '') + '</div>';
+  html += '<div class="validation-stat success"><span class="material-icons-round" style="font-size: 18px;">check_circle</span> ' + (passCount + dismissedCount) + ' Passed</div>';
+  if (activeWarningCount > 0) {
+    html += '<div class="validation-stat warning"><span class="material-icons-round" style="font-size: 18px;">warning</span> ' + activeWarningCount + ' Warning' + (activeWarningCount > 1 ? 's' : '') + '</div>';
   }
-  if (result.errorCount > 0) {
-    html += '<div class="validation-stat error"><span class="material-icons-round" style="font-size: 18px;">error</span> ' + result.errorCount + ' Error' + (result.errorCount > 1 ? 's' : '') + '</div>';
+  if (activeErrorCount > 0) {
+    html += '<div class="validation-stat error"><span class="material-icons-round" style="font-size: 18px;">error</span> ' + activeErrorCount + ' Error' + (activeErrorCount > 1 ? 's' : '') + '</div>';
   }
   html += '</div>';
   
-  // Sort checks: errors first, then warnings, then success
+  // Sort checks: errors first, then warnings, then dismissed, then success
   const sortedChecks = [...result.checks].sort((a, b) => {
-    const order = { error: 0, warning: 1, success: 2 };
-    return order[a.status] - order[b.status];
+    const aIsDismissed = dismissedSet.has(a.id);
+    const bIsDismissed = dismissedSet.has(b.id);
+    const order = { error: 0, warning: 1, success: 3 };
+    const aOrder = aIsDismissed ? 2 : (order[a.status] ?? 3);
+    const bOrder = bIsDismissed ? 2 : (order[b.status] ?? 3);
+    return aOrder - bOrder;
   });
   
   html += '<div class="validation-checks">';
   for (let i = 0; i < sortedChecks.length; i++) {
     const check = sortedChecks[i];
-    const icon = check.status === 'success' ? 'check_circle' : check.status === 'warning' ? 'warning' : 'error';
+    const isDismissed = dismissedSet.has(check.id);
+    const icon = isDismissed ? 'check_circle' : (check.status === 'success' ? 'check_circle' : check.status === 'warning' ? 'warning' : 'error');
     const hasDetails = check.details && check.details.length > 0;
     const hasHowToFix = check.howToFix;
-    const isExpandable = hasDetails || hasHowToFix;
+    const canDismiss = !isDismissed && check.status !== 'success';
+    const isExpandable = hasDetails || hasHowToFix || canDismiss;
     
-    html += '<div class="validation-accordion ' + check.status + '">';
+    const displayClass = isDismissed ? 'dismissed' : check.status;
+    
+    html += '<div class="validation-accordion ' + displayClass + '">';
     
     // Accordion Header (clickable if has details)
     html += '<div class="validation-accordion-header' + (isExpandable ? ' expandable' : '') + '"' + 
             (isExpandable ? ' onclick="toggleValidationAccordion(' + i + ')"' : '') + '>';
-    html += '<div class="validation-check-icon ' + check.status + '"><span class="material-icons-round">' + icon + '</span></div>';
+    html += '<div class="validation-check-icon ' + displayClass + '"><span class="material-icons-round">' + icon + '</span></div>';
     html += '<div class="validation-check-content">';
-    html += '<div class="validation-check-title">' + check.title + '</div>';
+    html += '<div class="validation-check-title">' + check.title + (isDismissed ? ' <span class="dismissed-label">Reviewed</span>' : '') + '</div>';
     html += '<div class="validation-check-message">' + check.message + '</div>';
     html += '</div>';
     if (isExpandable) {
@@ -8416,13 +8962,24 @@ function renderPayrollValidation(result) {
         html += '</div>';
       }
       
+      // Action buttons row
+      html += '<div style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">';
+      
       // Show action button if present
-      if (check.action && check.status !== 'success') {
-        html += '<button class="btn btn-sm btn-outline" onclick="navigateTo(\'' + check.action + '\')" style="margin-top: 12px;">';
+      if (check.action && !isDismissed) {
+        html += '<button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); navigateTo(\'' + check.action + '\')">';
         html += '<span class="material-icons-round" style="font-size: 16px;">arrow_forward</span> Go to ' + check.action.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
         html += '</button>';
       }
       
+      // Dismiss button for errors/warnings that haven't been dismissed
+      if (canDismiss) {
+        html += '<button class="btn btn-sm btn-dismiss" onclick="event.stopPropagation(); dismissValidationCheck(\'' + check.id + '\')">';
+        html += '<span class="material-icons-round" style="font-size: 16px;">task_alt</span> Reviewed &mdash; Dismiss';
+        html += '</button>';
+      }
+      
+      html += '</div>';
       html += '</div>';
     }
     
@@ -8431,6 +8988,39 @@ function renderPayrollValidation(result) {
   html += '</div>';
   
   content.innerHTML = html;
+}
+
+/**
+ * Dismiss a validation check — persists to the spreadsheet so it stays
+ * dismissed across refreshes.  Auto-invalidates if the details change.
+ */
+function dismissValidationCheck(checkId) {
+  // Immediately update local state for responsive UI
+  if (!PayrollState.dismissedChecks.includes(checkId)) {
+    PayrollState.dismissedChecks.push(checkId);
+  }
+  if (PayrollState.validationResult) {
+    renderPayrollValidation(PayrollState.validationResult);
+  }
+
+  // Compute a stable signature from the check's current details
+  var sig = '';
+  if (PayrollState.validationResult && PayrollState.validationResult.checks) {
+    var check = PayrollState.validationResult.checks.find(function(c) { return c.id === checkId; });
+    if (check && check.details) {
+      sig = check.details.slice().sort().join('|');
+    }
+  }
+
+  // Persist to spreadsheet
+  google.script.run
+    .withSuccessHandler(function() {
+      showToast('Check dismissed and saved', 'success');
+    })
+    .withFailureHandler(function(error) {
+      showToast('Dismissed locally but failed to save: ' + error.message, 'warning');
+    })
+    .dismissValidationCheckServer(checkId, sig);
 }
 
 /**
@@ -8444,6 +9034,145 @@ function toggleValidationAccordion(index) {
     const isExpanded = accordion.classList.toggle('expanded');
     body.style.maxHeight = isExpanded ? body.scrollHeight + 'px' : '0';
   }
+}
+
+// ============================================================
+// PAYMENT RECONCILIATION
+// ============================================================
+
+/**
+ * Run reconciliation dry-run and show results in modal
+ */
+function runReconciliation() {
+  var modal = document.getElementById('reconcileModal');
+  var body = document.getElementById('reconcileModalBody');
+  var footer = document.getElementById('reconcileModalFooter');
+  var applyBtn = document.getElementById('applyReconcileBtn');
+
+  modal.style.display = 'flex';
+  footer.style.display = 'none';
+  applyBtn.style.display = 'none';
+  body.innerHTML = '<div class="validation-loading"><span class="material-icons-round spin">sync</span><span>Scanning for discrepancies...</span></div>';
+
+  var reconcileBtn = document.getElementById('reconcileBtn');
+  if (reconcileBtn) reconcileBtn.disabled = true;
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (reconcileBtn) reconcileBtn.disabled = false;
+      renderReconciliationResult(result);
+    })
+    .withFailureHandler(function(error) {
+      if (reconcileBtn) reconcileBtn.disabled = false;
+      body.innerHTML = '<div class="reconcile-summary has-issues"><span class="material-icons-round" style="font-size: 24px;">error_outline</span><p>Error: ' + escapeHtml(error.message || 'Unknown error') + '</p></div>';
+      footer.style.display = 'flex';
+    })
+    .reconcileUniformPayments(true);
+}
+
+/**
+ * Render reconciliation dry-run result in the modal
+ */
+function renderReconciliationResult(result) {
+  var body = document.getElementById('reconcileModalBody');
+  var footer = document.getElementById('reconcileModalFooter');
+  var applyBtn = document.getElementById('applyReconcileBtn');
+
+  footer.style.display = 'flex';
+
+  if (!result || !result.success) {
+    body.innerHTML = '<div class="reconcile-summary has-issues"><span class="material-icons-round" style="font-size: 24px;">error_outline</span><p>' + escapeHtml(result ? result.error : 'Unknown error') + '</p></div>';
+    return;
+  }
+
+  var html = '';
+
+  if (result.discrepancies.length === 0) {
+    html += '<div class="reconcile-summary all-good">';
+    html += '<span class="material-icons-round" style="font-size: 36px;">check_circle</span>';
+    html += '<p style="margin-top: 8px; font-weight: 600;">' + escapeHtml(result.summary) + '</p>';
+    html += '<p style="font-size: 0.85rem; margin-top: 4px;">Cutoff: next payroll on ' + escapeHtml(result.nextPayrollDate) + '</p>';
+    html += '</div>';
+    applyBtn.style.display = 'none';
+  } else {
+    html += '<div class="reconcile-summary has-issues">';
+    html += '<span class="material-icons-round" style="font-size: 24px;">warning</span>';
+    html += '<p style="font-weight: 600;">' + result.discrepancies.length + ' order(s) have payment discrepancies</p>';
+    html += '<p style="font-size: 0.85rem;">Based on deduction dates before next payroll (' + escapeHtml(result.nextPayrollDate) + ')</p>';
+    html += '</div>';
+
+    html += '<div style="max-height: 350px; overflow-y: auto;">';
+    for (var i = 0; i < result.discrepancies.length; i++) {
+      var d = result.discrepancies[i];
+      html += '<div class="reconcile-item">';
+      html += '<div class="reconcile-item-header">';
+      html += '<span class="reconcile-item-name">' + escapeHtml(d.employeeName) + '</span>';
+      html += '<span class="reconcile-item-id">' + escapeHtml(d.orderId) + '</span>';
+      html += '</div>';
+      html += '<div class="reconcile-detail">';
+      html += 'Total: $' + d.totalAmount.toFixed(2) + ' (' + d.paymentPlan + ' payments of $' + d.amountPerCheck.toFixed(2) + ')<br>';
+      html += 'Schedule: ' + d.schedule.join(', ') + '<br>';
+      html += 'Payments recorded: <strong>' + d.actualPayments + '</strong> &mdash; Expected: <strong>' + d.expectedPayments + '</strong>';
+      html += '</div>';
+      html += '<div class="reconcile-fix">';
+      html += '<strong>Fix:</strong> ';
+      html += 'Payments_Made ' + d.actualPayments + ' &rarr; ' + d.correctedPayments;
+      html += ' &bull; Amount_Paid $' + d.actualPaid.toFixed(2) + ' &rarr; $' + d.correctedPaid.toFixed(2);
+      html += ' &bull; Remaining $' + d.correctedRemaining.toFixed(2);
+      if (d.correctedStatus !== 'Active') {
+        html += ' &bull; Status &rarr; ' + d.correctedStatus;
+      }
+      html += '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+
+    applyBtn.style.display = 'inline-flex';
+  }
+
+  body.innerHTML = html;
+}
+
+/**
+ * Apply reconciliation fixes (non-dry-run)
+ */
+function applyReconciliation() {
+  var body = document.getElementById('reconcileModalBody');
+  var applyBtn = document.getElementById('applyReconcileBtn');
+
+  applyBtn.disabled = true;
+  applyBtn.innerHTML = '<span class="spinner" style="width: 14px; height: 14px;"></span> Applying...';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      applyBtn.disabled = false;
+      applyBtn.innerHTML = '<span class="material-icons-round" style="font-size: 16px;">check_circle</span> Apply Fixes';
+
+      if (result && result.success) {
+        applyBtn.style.display = 'none';
+        body.innerHTML = '<div class="reconcile-summary all-good">' +
+          '<span class="material-icons-round" style="font-size: 36px;">check_circle</span>' +
+          '<p style="margin-top: 8px; font-weight: 600;">' + escapeHtml(result.summary) + '</p>' +
+          '</div>';
+        showToast(result.fixedCount + ' order(s) reconciled successfully', 'success');
+        runPayrollValidationCheck();
+      } else {
+        showToast(result ? result.error : 'Unknown error', 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      applyBtn.disabled = false;
+      applyBtn.innerHTML = '<span class="material-icons-round" style="font-size: 16px;">check_circle</span> Apply Fixes';
+      showToast('Error applying fixes: ' + error.message, 'error');
+    })
+    .reconcileUniformPayments(false);
+}
+
+/**
+ * Close the reconciliation modal
+ */
+function closeReconcileModal() {
+  document.getElementById('reconcileModal').style.display = 'none';
 }
 
 /**
@@ -8579,7 +9308,7 @@ function renderPayrollReport(report) {
   // Update summary cards
   document.getElementById('summaryOTCount').textContent = report.overtime.employeeCount;
   document.getElementById('summaryOTHours').textContent = report.overtime.totalOTHours + ' hours';
-  document.getElementById('summaryUniformCount').textContent = report.uniformDeductions.orders.length;
+  document.getElementById('summaryUniformCount').textContent = report.uniformDeductions.employeeCount;
   document.getElementById('summaryUniformTotal').textContent = '$' + report.uniformDeductions.totalDeductions.toFixed(2);
   document.getElementById('summaryPTOCount').textContent = report.ptoPayout.employeeCount;
   document.getElementById('summaryPTOHours').textContent = report.ptoPayout.totalHours + ' hours';
@@ -8587,15 +9316,56 @@ function renderPayrollReport(report) {
   
   // Update badges
   document.getElementById('otBadge').textContent = report.overtime.employeeCount + ' employees';
-  document.getElementById('uniformBadge').textContent = report.uniformDeductions.orders.length + ' orders';
+  document.getElementById('uniformBadge').textContent = report.uniformDeductions.employeeCount + ' employees';
   document.getElementById('ptoBadge').textContent = report.ptoPayout.requests.length + ' requests';
   document.getElementById('transferBadge').textContent = report.timeTransfers.employeeCount + ' employees';
+  
+  // Restore check states for already-recorded uniform orders before rendering
+  if (report.uniformDeductions && report.uniformDeductions.orders) {
+    report.uniformDeductions.orders.forEach(function(group) {
+      var key = group.employeeKey || group.employeeId || group.employeeName;
+      var allRecorded = group.orders && group.orders.length > 0 &&
+        group.orders.every(function(o) { return o.alreadyRecorded; });
+      if (allRecorded) {
+        PayrollState.checkStates.uniform[key] = true;
+      }
+    });
+  }
+  
+  // Restore check states for already-recorded PTO requests before rendering
+  if (report.ptoPayout && report.ptoPayout.requests) {
+    report.ptoPayout.requests.forEach(function(req) {
+      if (req.alreadyRecorded) {
+        PayrollState.checkStates.pto[req.ptoId] = true;
+      }
+    });
+  }
   
   // Render sections
   renderOTSection(report.overtime);
   renderUniformSection(report.uniformDeductions);
   renderPTOSection(report.ptoPayout);
   renderTransferSection(report.timeTransfers);
+
+  // Fetch OT reconciliation from the dedicated sheet (with daily breakdown)
+  var reconSection = document.getElementById('otReconSection');
+  var reconContent = document.getElementById('otReconContent');
+  if (reconSection && reconContent) {
+    reconContent.innerHTML = '<div style="text-align:center; padding:20px; color:var(--gray-400);"><span class="material-icons-round" style="font-size:24px;">hourglass_top</span><br>Loading reconciliation data...</div>';
+    reconSection.style.display = '';
+    google.script.run
+      .withSuccessHandler(function(reconData) {
+        if (reconData && reconData.success !== false) {
+          renderOTReconciliationSection(reconData);
+        } else {
+          reconSection.style.display = 'none';
+        }
+      })
+      .withFailureHandler(function() {
+        reconSection.style.display = 'none';
+      })
+      .getOTReconciliationForPayroll(report.payPeriodEnd || report.payrollDate || PayrollState.selectedPayrollDate);
+  }
 }
 
 /**
@@ -8655,32 +9425,58 @@ function renderUniformSection(data) {
     return;
   }
   
-  content.innerHTML = data.orders.map((order, index) => {
-    const isSkipped = PayrollState.skippedOrderIds.includes(order.orderId);
+  const skippedSet = new Set(PayrollState.skippedOrderIds);
+  content.innerHTML = data.orders.map((employee, index) => {
+    const employeeId = employee.employeeKey || employee.employeeId || employee.employeeName;
+    const orderDetailsHtml = (employee.orders || []).map(order => {
+    const isSkipped = skippedSet.has(order.orderId);
+    const isOrderRecorded = !!order.alreadyRecorded;
+    const cardBg = isOrderRecorded ? 'var(--success-light, #f0fdf4)' : (isSkipped ? 'var(--gray-50)' : 'white');
+      return `
+        <div style="margin-top: 10px; padding: 10px 12px; border: 1px solid ${isOrderRecorded ? 'var(--success, #22c55e)' : 'var(--gray-200)'}; border-radius: 8px; background: ${cardBg}; ${isOrderRecorded ? 'opacity: 0.7;' : ''}">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+            <div style="font-weight: 600;">
+              ${escapeHtml(order.orderId)} • ${escapeHtml(order.location || 'Unknown')}
+              ${order.isFinalPayment ? '<span class="badge-final" style="margin-left: 6px;">FINAL</span>' : ''}
+              ${isSkipped ? '<span class="skipped-badge" style="margin-left: 6px;">SKIPPED</span>' : ''}
+              ${isOrderRecorded ? '<span style="font-size: 0.7rem; background: var(--success-light, #f0fdf4); color: var(--success, #22c55e); padding: 2px 8px; border-radius: 4px; margin-left: 6px;">RECORDED</span>' : ''}
+            </div>
+            ${!isSkipped && !isOrderRecorded ? `<button class="skip-btn" onclick="showSkipModal('${order.orderId}', '${escapeHtml(order.employeeName)}', ${order.deductionAmount})">Skip</button>` : ''}
+          </div>
+          <div class="payroll-item-details" style="margin-top: 6px;">
+            <div>Order Date: ${order.orderDate} • Total: $${order.totalOrderCost.toFixed(2)}</div>
+            <div>Payment: Check ${order.checkNumber} of ${order.paymentSchedule} • <strong>Deduct: $${isOrderRecorded ? '0.00 (already paid)' : order.deductionAmount.toFixed(2)}</strong></div>
+            <div>Remaining after this: $${order.amountRemaining.toFixed(2)}</div>
+            <div class="items-summary">Items: ${order.items.map(i => escapeHtml(i.description) + (i.size ? ' ('+escapeHtml(i.size)+')' : '')).join(', ')}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    const allSkipped = (employee.orders || []).every(o => skippedSet.has(o.orderId));
+    const isRecorded = !!PayrollState.checkStates.uniform[employeeId];
+    const isDisabled = allSkipped || isRecorded;
     
     return `
-    <div class="payroll-item ${isSkipped ? 'item-skipped' : ''}" data-id="${order.orderId}">
+    <div class="payroll-item ${allSkipped ? 'item-skipped' : ''}" data-id="${employeeId}"
+         style="${isRecorded ? 'opacity: 0.6; border-left: 3px solid var(--success);' : ''}">
       <div class="payroll-checkbox">
-        <input type="checkbox" id="uniform-${index}" data-section="uniform" data-id="${order.orderId}"
-               ${PayrollState.checkStates.uniform[order.orderId] ? 'checked' : ''} 
-               ${isSkipped ? 'disabled' : ''}
-               onchange="toggleCheck('uniform', '${order.orderId}')">
+        <input type="checkbox" id="uniform-${index}" data-section="uniform" data-id="${employeeId}"
+               ${isRecorded || PayrollState.checkStates.uniform[employeeId] ? 'checked' : ''} 
+               ${isDisabled ? 'disabled' : ''}
+               onchange="toggleCheck('uniform', '${employeeId}')">
       </div>
       <div class="payroll-item-content">
         <div class="payroll-item-header">
           <span class="payroll-item-name">
-            ${order.employeeName}
-            ${order.isFinalPayment ? '<span class="badge-final">FINAL</span>' : ''}
-            ${isSkipped ? '<span class="skipped-badge">SKIPPED</span>' : ''}
+            ${escapeHtml(employee.employeeName)}
+            ${isRecorded ? '<span style="font-size: 0.75rem; background: var(--success-light); color: var(--success); padding: 2px 8px; border-radius: 4px; margin-left: 8px;">Recorded</span>' : ''}
           </span>
-          ${!isSkipped ? `<button class="skip-btn" onclick="showSkipModal('${order.orderId}', '${order.employeeName}', ${order.deductionAmount})">Skip</button>` : ''}
+          <span style="font-weight: 700; color: ${isRecorded ? 'var(--success)' : 'var(--cfa-red)'};">$${employee.totalDeduction.toFixed(2)}</span>
         </div>
-        <div class="payroll-item-location">${order.location} • ${order.orderId}</div>
+        <div class="payroll-item-location">${escapeHtml(employee.locationSummary || 'Multiple Locations')} • ${employee.orderCount} order${employee.orderCount !== 1 ? 's' : ''}</div>
         <div class="payroll-item-details">
-          <div>Order Date: ${order.orderDate} • Total: $${order.totalOrderCost.toFixed(2)}</div>
-          <div>Payment: Check ${order.checkNumber} of ${order.paymentSchedule} • <strong>Deduct: $${order.deductionAmount.toFixed(2)}</strong></div>
-          <div>Remaining after this: $${order.amountRemaining.toFixed(2)}</div>
-          <div class="items-summary">Items: ${order.items.map(i => i.description + (i.size ? ' ('+i.size+')' : '')).join(', ')}</div>
+          ${orderDetailsHtml}
         </div>
       </div>
     </div>
@@ -8704,17 +9500,21 @@ function renderPTOSection(data) {
     return;
   }
   
-  content.innerHTML = data.requests.map((pto, index) => `
-    <div class="payroll-item" data-id="${pto.ptoId}">
+  content.innerHTML = data.requests.map((pto, index) => {
+    const isRecorded = !!PayrollState.checkStates.pto[pto.ptoId];
+    return `
+    <div class="payroll-item" data-id="${pto.ptoId}"
+         style="${isRecorded ? 'opacity: 0.6; border-left: 3px solid var(--success);' : ''}">
       <div class="payroll-checkbox">
         <input type="checkbox" id="pto-${index}" data-section="pto" data-id="${pto.ptoId}"
-               ${PayrollState.checkStates.pto[pto.ptoId] ? 'checked' : ''} 
+               ${isRecorded ? 'checked disabled' : ''} 
                onchange="toggleCheck('pto', '${pto.ptoId}')">
       </div>
       <div class="payroll-item-content">
         <div class="payroll-item-header">
           <span class="payroll-item-name">
             ${pto.employeeName}
+            ${isRecorded ? '<span style="font-size: 0.75rem; background: var(--success-light); color: var(--success); padding: 2px 8px; border-radius: 4px; margin-left: 8px;">Paid</span>' : ''}
             <span class="badge-hs ${pto.hotSchedulesConfirmed ? 'confirmed' : 'not-confirmed'}">
               <span class="material-icons-round" style="font-size: 14px;">${pto.hotSchedulesConfirmed ? 'check_circle' : 'warning'}</span>
               ${pto.hotSchedulesConfirmed ? 'HS ✓' : 'HS ?'}
@@ -8728,11 +9528,12 @@ function renderPTOSection(data) {
         </div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 /**
- * Render the Time Transfers section
+ * Render the Time Transfers section with per-week OT allocation breakdown
  */
 function renderTransferSection(data) {
   const content = document.getElementById('transferContent');
@@ -8747,26 +9548,76 @@ function renderTransferSection(data) {
     return;
   }
   
+  function fmtDec(decimalHours) {
+    const h = Math.floor(Math.abs(decimalHours));
+    const m = Math.floor((Math.abs(decimalHours) - h) * 60);
+    return h + ':' + m.toString().padStart(2, '0');
+  }
+  
   content.innerHTML = data.employees.map((emp, index) => {
-    // Format total time as hours and minutes
     const totalMins = emp.grandTotalMinutes || 0;
     const totalHrs = Math.floor(totalMins / 60);
     const remainingMins = totalMins % 60;
-    const totalTimeFormatted = `${totalHrs} hrs ${remainingMins} min`;
+    const totalTimeFormatted = totalHrs + ' hrs ' + remainingMins + ' min';
     
-    // Calculate total regular and OT across all locations
     const totalRegular = emp.locations.reduce((sum, loc) => sum + (loc.regularHours || 0), 0);
     const totalOT = emp.locations.reduce((sum, loc) => sum + (loc.otHours || 0), 0);
     
-    // Helper to convert decimal hours to hours:minutes format
-    function formatDecimalHours(decimalHours) {
-      const hours = Math.floor(decimalHours);
-      const minutes = Math.round((decimalHours - hours) * 60);
-      return `${hours}:${minutes.toString().padStart(2, '0')}`;
-    }
+    const hasWeekly = emp.locations.some(loc => loc.week1Hours !== undefined);
     
-    const regFormatted = formatDecimalHours(totalRegular);
-    const otFormatted = formatDecimalHours(totalOT);
+    let weeklyBreakdownHTML = '';
+    if (hasWeekly) {
+      weeklyBreakdownHTML = `
+        <div class="transfer-weekly-breakdown" id="weekly-${index}" style="display:none; margin-top: 8px;">
+          <table style="width:100%; font-size:0.8rem; border-collapse:collapse;">
+            <thead>
+              <tr style="background: var(--gray-50); border-bottom: 1px solid var(--gray-200);">
+                <th style="text-align:left; padding:4px 8px;">Week</th>
+                ${emp.locations.map(loc => '<th style="text-align:center; padding:4px 8px;" colspan="3">' + loc.name + '</th>').join('')}
+                <th style="text-align:center; padding:4px 8px;" colspan="2">Combined</th>
+              </tr>
+              <tr style="border-bottom: 1px solid var(--gray-200);">
+                <th style="text-align:left; padding:2px 8px;"></th>
+                ${emp.locations.map(() => '<th style="text-align:center; padding:2px 6px; font-size:0.75rem; color:var(--gray-500);">Hrs</th><th style="text-align:center; padding:2px 6px; font-size:0.75rem; color:var(--gray-500);">Reg</th><th style="text-align:center; padding:2px 6px; font-size:0.75rem; color:var(--gray-500);">OT</th>').join('')}
+                <th style="text-align:center; padding:2px 6px; font-size:0.75rem; color:var(--gray-500);">Total</th>
+                <th style="text-align:center; padding:2px 6px; font-size:0.75rem; color:var(--gray-500);">OT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom: 1px solid var(--gray-100);">
+                <td style="padding:4px 8px; font-weight:500;">Wk 1</td>
+                ${emp.locations.map(loc => 
+                  '<td style="text-align:center; padding:4px 6px;">' + fmtDec(loc.week1Hours || 0) + '</td>' +
+                  '<td style="text-align:center; padding:4px 6px;">' + fmtDec(loc.week1Regular || 0) + '</td>' +
+                  '<td style="text-align:center; padding:4px 6px; color:' + ((loc.week1OT || 0) > 0 ? 'var(--warning-500)' : 'inherit') + ';">' + fmtDec(loc.week1OT || 0) + '</td>'
+                ).join('')}
+                <td style="text-align:center; padding:4px 6px; font-weight:500;">${fmtDec(emp.week1Hours || 0)}</td>
+                <td style="text-align:center; padding:4px 6px; font-weight:500; color:${(emp.week1OT || 0) > 0 ? 'var(--warning-500)' : 'inherit'};">${fmtDec(emp.week1OT || 0)}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid var(--gray-100);">
+                <td style="padding:4px 8px; font-weight:500;">Wk 2</td>
+                ${emp.locations.map(loc => 
+                  '<td style="text-align:center; padding:4px 6px;">' + fmtDec(loc.week2Hours || 0) + '</td>' +
+                  '<td style="text-align:center; padding:4px 6px;">' + fmtDec(loc.week2Regular || 0) + '</td>' +
+                  '<td style="text-align:center; padding:4px 6px; color:' + ((loc.week2OT || 0) > 0 ? 'var(--warning-500)' : 'inherit') + ';">' + fmtDec(loc.week2OT || 0) + '</td>'
+                ).join('')}
+                <td style="text-align:center; padding:4px 6px; font-weight:500;">${fmtDec(emp.week2Hours || 0)}</td>
+                <td style="text-align:center; padding:4px 6px; font-weight:500; color:${(emp.week2OT || 0) > 0 ? 'var(--warning-500)' : 'inherit'};">${fmtDec(emp.week2OT || 0)}</td>
+              </tr>
+              <tr style="background: var(--gray-50); font-weight:600;">
+                <td style="padding:4px 8px;">Total</td>
+                ${emp.locations.map(loc => 
+                  '<td style="text-align:center; padding:4px 6px;">' + fmtDec(loc.totalHours || 0) + '</td>' +
+                  '<td style="text-align:center; padding:4px 6px;">' + fmtDec(loc.regularHours || 0) + '</td>' +
+                  '<td style="text-align:center; padding:4px 6px; color:' + ((loc.otHours || 0) > 0 ? 'var(--warning-500)' : 'inherit') + ';">' + fmtDec(loc.otHours || 0) + '</td>'
+                ).join('')}
+                <td style="text-align:center; padding:4px 6px;">${fmtDec(emp.grandTotalHours || 0)}</td>
+                <td style="text-align:center; padding:4px 6px; color:${totalOT > 0 ? 'var(--warning-500)' : 'inherit'};">${fmtDec(totalOT)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>`;
+    }
     
     return `
     <div class="payroll-item" data-id="${emp.employeeId}">
@@ -8778,55 +9629,683 @@ function renderTransferSection(data) {
       <div class="payroll-item-content">
         <div class="payroll-item-header">
           <span class="payroll-item-name">${emp.employeeName}</span>
-          <span style="font-size: 0.85rem; color: var(--gray-600); font-weight: 600;">Total: ${totalTimeFormatted} — Reg: ${regFormatted}, OT: ${otFormatted}</span>
+          <span style="font-size: 0.85rem; color: var(--gray-600); font-weight: 600;">Total: ${totalTimeFormatted} — Reg: ${fmtDec(totalRegular)}, OT: ${fmtDec(totalOT)}</span>
         </div>
         <div class="payroll-item-location">Paid from: ${emp.paidFromLocation}</div>
         <div class="transfer-locations">
           ${emp.locations.map(loc => {
-            const locRegHrs = Math.floor(loc.regularHours || 0);
-            const locRegMins = Math.round(((loc.regularHours || 0) - locRegHrs) * 60);
-            const locOtHrs = Math.floor(loc.otHours || 0);
-            const locOtMins = Math.round(((loc.otHours || 0) - locOtHrs) * 60);
-            const locRegFormatted = locRegHrs + ':' + locRegMins.toString().padStart(2, '0');
-            const locOtFormatted = locOtHrs + ':' + locOtMins.toString().padStart(2, '0');
             return `
             <div class="transfer-location">
-              <strong>${loc.name}:</strong> ${loc.totalHours} hrs (${loc.totalMinutes} min) — Reg: ${locRegFormatted}, OT: ${locOtFormatted}
+              <strong>${loc.name}:</strong> ${fmtDec(loc.totalHours)} total — Reg: ${fmtDec(loc.regularHours)}, OT: ${fmtDec(loc.otHours)}
             </div>
           `}).join('')}
         </div>
         <div class="transfer-summary">
-          Transfer: ${emp.transferHours} hrs (${emp.transferMinutes} min) from ${emp.transferFrom} → ${emp.transferTo}
+          Transfer: ${emp.transferHours} hrs (${emp.transferMinutes} min) from ${emp.transferFrom} &rarr; ${emp.transferTo}
         </div>
+        ${hasWeekly ? '<button class="btn btn-sm btn-outline" style="margin-top:6px; font-size:0.78rem; padding:3px 10px;" onclick="var el=document.getElementById(\'weekly-' + index + '\'); el.style.display=el.style.display===\'none\'?\'block\':\'none\'; this.textContent=el.style.display===\'none\'?\'Show Weekly Breakdown\':\'Hide Weekly Breakdown\';">Show Weekly Breakdown</button>' : ''}
+        ${weeklyBreakdownHTML}
       </div>
     </div>
   `}).join('');
 }
 
 /**
- * Toggle a single checkbox
+ * Compute cross-location OT reconciliation per the FLSA spec.
+ * For each multi-location employee per week:
+ *   1. Estimate "existing system OT" = OT the payroll system auto-computed per-location
+ *      (i.e., max(0, singleLocationWeekHours - 40) for each location)
+ *   2. True cross-location OT = max(0, combinedWeekHours - 40)
+ *   3. Net new OT = max(0, trueOT - existingOT)
+ *   4. Subtract net new OT from secondary location regular, add to primary location OT
+ */
+function computeOTReconciliation(transferData) {
+  if (!transferData || !transferData.employees || transferData.employees.length === 0) {
+    return { adjustments: [], totalNetNewOT: 0, employeesNeedingAdjustment: 0 };
+  }
+
+  var floor2 = function(v) { return Math.floor(v * 100) / 100; };
+
+  var adjustments = [];
+
+  transferData.employees.forEach(function(emp) {
+    if (!emp.locations || emp.locations.length < 2) return;
+    var loc0 = emp.locations[0];
+    var loc1 = emp.locations[1];
+    var hasWeekly = (loc0.week1Hours !== undefined);
+
+    var weeks = [];
+    if (hasWeekly) {
+      weeks.push({ label: 'Week 1', loc0Hrs: loc0.week1Hours || 0, loc1Hrs: loc1.week1Hours || 0 });
+      weeks.push({ label: 'Week 2', loc0Hrs: loc0.week2Hours || 0, loc1Hrs: loc1.week2Hours || 0 });
+    } else {
+      weeks.push({ label: 'Period', loc0Hrs: loc0.totalHours || 0, loc1Hrs: loc1.totalHours || 0 });
+    }
+
+    var empWeeks = [];
+    var empTotalNetNew = 0;
+
+    weeks.forEach(function(wk) {
+      var existingOTLoc0 = floor2(Math.max(0, wk.loc0Hrs - 40));
+      var existingOTLoc1 = floor2(Math.max(0, wk.loc1Hrs - 40));
+      var existingOT = existingOTLoc0 + existingOTLoc1;
+
+      var regularLoc0 = floor2(wk.loc0Hrs - existingOTLoc0);
+      var regularLoc1 = floor2(wk.loc1Hrs - existingOTLoc1);
+
+      var totalWorked = floor2(wk.loc0Hrs + wk.loc1Hrs);
+      var trueOT = floor2(Math.max(0, totalWorked - 40));
+      var netNewOT = floor2(Math.max(0, trueOT - existingOT));
+
+      var primaryIdx, secondaryIdx;
+      if (regularLoc0 >= regularLoc1) {
+        primaryIdx = 0; secondaryIdx = 1;
+      } else {
+        primaryIdx = 1; secondaryIdx = 0;
+      }
+
+      var primaryName = emp.locations[primaryIdx].name;
+      var secondaryName = emp.locations[secondaryIdx].name;
+      var secondaryReg = primaryIdx === 0 ? regularLoc1 : regularLoc0;
+      var primaryReg = primaryIdx === 0 ? regularLoc0 : regularLoc1;
+
+      var adjSecondaryReg = secondaryReg;
+      var adjPrimaryReg = primaryReg;
+      var actions = [];
+
+      if (netNewOT > 0) {
+        var reduceFromSecondary = Math.min(netNewOT, secondaryReg);
+        adjSecondaryReg = floor2(secondaryReg - reduceFromSecondary);
+        var remainder = floor2(netNewOT - reduceFromSecondary);
+        if (remainder > 0) {
+          adjPrimaryReg = floor2(primaryReg - remainder);
+        }
+
+        if (reduceFromSecondary > 0) {
+          actions.push({
+            type: 'reduce',
+            location: secondaryName,
+            from: secondaryReg,
+            to: adjSecondaryReg,
+            amount: reduceFromSecondary
+          });
+        }
+        if (remainder > 0) {
+          actions.push({
+            type: 'reduce',
+            location: primaryName,
+            from: primaryReg,
+            to: adjPrimaryReg,
+            amount: remainder
+          });
+        }
+        actions.push({
+          type: 'add_ot',
+          location: primaryName,
+          amount: netNewOT,
+          existingOT: existingOT,
+          totalOT: trueOT
+        });
+      }
+
+      empTotalNetNew += netNewOT;
+
+      empWeeks.push({
+        label: wk.label,
+        loc0Name: loc0.name,
+        loc1Name: loc1.name,
+        loc0Hrs: wk.loc0Hrs,
+        loc1Hrs: wk.loc1Hrs,
+        existingOT: existingOT,
+        totalWorked: totalWorked,
+        trueOT: trueOT,
+        netNewOT: netNewOT,
+        primaryName: primaryName,
+        secondaryName: secondaryName,
+        before: {
+          loc0Reg: primaryIdx === 0 ? primaryReg : secondaryReg,
+          loc1Reg: primaryIdx === 0 ? secondaryReg : primaryReg,
+          existingOT: existingOT
+        },
+        after: {
+          loc0Reg: primaryIdx === 0 ? adjPrimaryReg : adjSecondaryReg,
+          loc1Reg: primaryIdx === 0 ? adjSecondaryReg : adjPrimaryReg,
+          totalOT: trueOT
+        },
+        actions: actions
+      });
+    });
+
+    if (empTotalNetNew > 0) {
+      adjustments.push({
+        employeeName: emp.employeeName,
+        employeeId: emp.employeeId,
+        paidFromLocation: emp.paidFromLocation,
+        totalNetNewOT: floor2(empTotalNetNew),
+        weeks: empWeeks
+      });
+    }
+  });
+
+  var totalNetNewOT = adjustments.reduce(function(s, a) { return s + a.totalNetNewOT; }, 0);
+
+  return {
+    adjustments: adjustments,
+    totalNetNewOT: floor2(totalNetNewOT),
+    employeesNeedingAdjustment: adjustments.length
+  };
+}
+
+function toHHMM(decimal) {
+  var h = Math.floor(Math.abs(decimal));
+  var m = Math.round((Math.abs(decimal) - h) * 60);
+  if (m === 60) { h++; m = 0; }
+  return h + ':' + m.toString().padStart(2, '0');
+}
+
+/**
+ * Render OT reconciliation section using data from the OT_Reconciliation sheet.
+ * Accepts the result object from getOTReconciliationForPayroll (or falls back to
+ * computing from transferData for backwards compat).
+ *
+ * reconData shape: { adjustments: [...], allEmployees: [...], totalNetNewOT, employeesNeedingAdjustment }
+ * Each employee: { employeeName, matchKey, paidFromLocation, totalNetNewOT, weeks: [...] }
+ * Each week: { week, loc1Name, loc2Name, loc1WeekHours, loc2WeekHours, existingOT,
+ *              totalWorked, trueOT, netNewOT, primaryLocation, secondaryLocation,
+ *              adjLoc1Reg, adjLoc2Reg, totalOTAfter, dailyHours: { "2026-03-01": { ch: 8.5, dbu: 4 }, ... } }
+ */
+function renderOTReconciliationSection(reconData) {
+  var section = document.getElementById('otReconSection');
+  var content = document.getElementById('otReconContent');
+  var badge = document.getElementById('reconBadge');
+  var summaryCard = document.getElementById('summaryReconCard');
+  var summaryCount = document.getElementById('summaryReconCount');
+  var summaryHours = document.getElementById('summaryReconHours');
+
+  var allEmps = (reconData && reconData.allEmployees) || [];
+  var adjs = (reconData && reconData.adjustments) || [];
+
+  if (!reconData || (adjs.length === 0 && allEmps.length === 0)) {
+    if (section) section.style.display = 'none';
+    if (summaryCard) summaryCard.style.display = 'none';
+    return;
+  }
+
+  section.style.display = '';
+  var adjCount = reconData.employeesNeedingAdjustment || adjs.length;
+
+  if (adjCount === 0) {
+    badge.textContent = allEmps.length + ' multi-location — no adjustments needed';
+    badge.style.background = 'var(--success-100, #dcfce7)';
+    badge.style.color = 'var(--success-700, #15803d)';
+    if (summaryCard) summaryCard.style.display = 'none';
+    content.innerHTML = '<div style="text-align:center; padding:24px; color:var(--success-700, #15803d);"><span class="material-icons-round" style="font-size:36px; display:block; margin-bottom:8px;">check_circle</span>' +
+      '<strong>' + allEmps.length + ' multi-location employee' + (allEmps.length !== 1 ? 's' : '') + ' checked</strong> — no cross-location OT adjustments needed this period.</div>';
+    return;
+  }
+
+  badge.style.background = '';
+  badge.style.color = '';
+  badge.textContent = adjCount + ' adjustment' + (adjCount !== 1 ? 's' : '') + ' needed';
+
+  if (summaryCard) {
+    summaryCard.style.display = '';
+    summaryCount.textContent = adjCount;
+    summaryHours.textContent = toHHMM(reconData.totalNetNewOT || 0) + ' to add';
+    document.getElementById('summaryCards').style.gridTemplateColumns = 'repeat(5, 1fr)';
+  }
+
+  var floor2 = function(v) { return Math.floor(v * 100) / 100; };
+
+  var html = '<div style="margin-bottom:12px; padding:10px 14px; background:var(--warning-50, #fffbeb); border:1px solid var(--warning-200, #fde68a); border-radius:8px; font-size:0.85rem; color:var(--warning-800, #92400e);">' +
+    '<strong>Action Required:</strong> The following employees worked across multiple locations and have overtime that the payroll system did not capture. Follow the instructions below to correct each employee\'s pay in the payroll system.' +
+    '</div>';
+
+  reconData.adjustments.forEach(function(emp) {
+    html += '<div style="background:white; border:1px solid var(--gray-200); border-radius:10px; padding:16px; margin-bottom:14px;">';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">';
+    html += '<span style="font-weight:700; font-size:1.05rem;">' + emp.employeeName + '</span>';
+    html += '<span style="font-size:0.8rem; padding:3px 10px; border-radius:12px; background:var(--warning-100, #fef3c7); color:var(--warning-700, #b45309); font-weight:600;">' + toHHMM(emp.totalNetNewOT) + ' (' + emp.totalNetNewOT.toFixed(2) + ' hrs) OT to add</span>';
+    html += '</div>';
+
+    emp.weeks.forEach(function(wk) {
+      var weekNum = wk.week || 1;
+      var loc1Name = wk.loc1Name || 'Loc 1';
+      var loc2Name = wk.loc2Name || 'Loc 2';
+      var loc1Hrs = wk.loc1WeekHours || 0;
+      var loc2Hrs = wk.loc2WeekHours || 0;
+      var existingOT = wk.existingOT || 0;
+      var totalWorked = wk.totalWorked || 0;
+      var trueOT = wk.trueOT || 0;
+      var netNewOT = wk.netNewOT || 0;
+      var primaryLoc = wk.primaryLocation || loc1Name;
+      var secondaryLoc = wk.secondaryLocation || loc2Name;
+      var adjLoc1Reg = wk.adjLoc1Reg || 0;
+      var adjLoc2Reg = wk.adjLoc2Reg || 0;
+
+      var existingOTL1 = floor2(Math.max(0, loc1Hrs - 40));
+      var existingOTL2 = floor2(Math.max(0, loc2Hrs - 40));
+      var regLoc1 = floor2(loc1Hrs - existingOTL1);
+      var regLoc2 = floor2(loc2Hrs - existingOTL2);
+
+      html += '<div style="margin-bottom:14px;">';
+      html += '<div style="font-weight:600; font-size:0.9rem; margin-bottom:8px; color:var(--gray-700);">Week ' + weekNum + '</div>';
+
+      // Daily breakdown grid
+      var dailyHours = wk.dailyHours || {};
+      var dayKeys = Object.keys(dailyHours).sort();
+      if (dayKeys.length > 0) {
+        html += '<div style="margin-bottom:10px;">';
+        html += '<div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:4px;">';
+        dayKeys.forEach(function(dt) {
+          var dh = dailyHours[dt];
+          var chVal = dh.ch || 0;
+          var dbuVal = dh.dbu || 0;
+          var dayTotal = floor2(chVal + dbuVal);
+          var hasHrs = dayTotal > 0;
+
+          var dateParts = dt.split('-');
+          var dateObj = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+          var dayLabel = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dateObj.getDay()];
+          var monthDay = parseInt(dateParts[1]) + '/' + parseInt(dateParts[2]);
+
+          html += '<div style="background:' + (hasHrs ? 'var(--gray-50)' : '#fafafa') + '; border:1px solid ' + (hasHrs ? 'var(--gray-200)' : 'var(--gray-100)') + '; border-radius:6px; padding:6px 4px; text-align:center; opacity:' + (hasHrs ? '1' : '0.5') + ';">';
+          html += '<div style="font-size:0.68rem; font-weight:600; color:var(--gray-500);">' + dayLabel + '</div>';
+          html += '<div style="font-size:0.65rem; color:var(--gray-400); margin-bottom:2px;">' + monthDay + '</div>';
+          html += '<div style="font-weight:700; font-size:0.85rem; color:' + (hasHrs ? 'var(--gray-800)' : 'var(--gray-300)') + ';">' + (hasHrs ? dayTotal.toFixed(1) : '-') + '</div>';
+          if (hasHrs && (chVal > 0 || dbuVal > 0)) {
+            html += '<div style="margin-top:2px; font-size:0.65rem; line-height:1.3;">';
+            if (chVal > 0) html += '<span style="color:#e04e39; font-weight:600;">' + loc1Name.substring(0,2).toUpperCase() + ':' + chVal.toFixed(1) + '</span> ';
+            if (dbuVal > 0) html += '<span style="color:#004f71; font-weight:600;">' + loc2Name.substring(0,3).toUpperCase() + ':' + dbuVal.toFixed(1) + '</span>';
+            html += '</div>';
+          }
+          html += '</div>';
+        });
+        html += '</div>';
+
+        // Week totals row
+        var weekTotalCH = 0, weekTotalDBU = 0;
+        dayKeys.forEach(function(dt) { weekTotalCH += (dailyHours[dt].ch || 0); weekTotalDBU += (dailyHours[dt].dbu || 0); });
+        html += '<div style="display:flex; gap:12px; margin-top:6px; font-size:0.78rem; color:var(--gray-600);">';
+        html += '<span><strong>' + loc1Name + ':</strong> ' + floor2(weekTotalCH).toFixed(2) + ' hrs</span>';
+        html += '<span><strong>' + loc2Name + ':</strong> ' + floor2(weekTotalDBU).toFixed(2) + ' hrs</span>';
+        html += '<span><strong>Total:</strong> ' + floor2(weekTotalCH + weekTotalDBU).toFixed(2) + ' hrs</span>';
+        html += '</div>';
+        html += '</div>';
+      }
+
+      // Summary stats
+      html += '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:10px;">';
+      html += '<div style="background:var(--gray-50); padding:8px; border-radius:6px; text-align:center;"><div style="font-size:0.72rem; color:var(--gray-500); text-transform:uppercase;">Total Worked</div><div style="font-weight:700;">' + toHHMM(totalWorked) + '</div><div style="font-size:0.75rem; color:var(--gray-500);">' + totalWorked.toFixed(2) + ' hrs</div></div>';
+      html += '<div style="background:var(--gray-50); padding:8px; border-radius:6px; text-align:center;"><div style="font-size:0.72rem; color:var(--gray-500); text-transform:uppercase;">True OT</div><div style="font-weight:700; color:var(--warning-600, #d97706);">' + toHHMM(trueOT) + '</div><div style="font-size:0.75rem; color:var(--gray-500);">' + trueOT.toFixed(2) + ' hrs</div></div>';
+      html += '<div style="background:var(--gray-50); padding:8px; border-radius:6px; text-align:center;"><div style="font-size:0.72rem; color:var(--gray-500); text-transform:uppercase;">System Has</div><div style="font-weight:700;">' + toHHMM(existingOT) + '</div><div style="font-size:0.75rem; color:var(--gray-500);">' + existingOT.toFixed(2) + ' hrs</div></div>';
+      html += '<div style="background:var(--cfa-red-light, #fef2f2); padding:8px; border-radius:6px; text-align:center;"><div style="font-size:0.72rem; color:var(--cfa-red); text-transform:uppercase;">Net to Add</div><div style="font-weight:700; color:var(--cfa-red);">' + toHHMM(netNewOT) + '</div><div style="font-size:0.75rem; color:var(--gray-500);">' + netNewOT.toFixed(2) + ' hrs</div></div>';
+      html += '</div>';
+
+      // Action items in plain English
+      if (netNewOT > 0) {
+        var actions = [];
+        var primaryIsLoc1 = (primaryLoc === loc1Name);
+        var primaryReg = primaryIsLoc1 ? regLoc1 : regLoc2;
+        var secondaryReg = primaryIsLoc1 ? regLoc2 : regLoc1;
+        var adjPrimaryReg = primaryIsLoc1 ? adjLoc1Reg : adjLoc2Reg;
+        var adjSecondaryReg = primaryIsLoc1 ? adjLoc2Reg : adjLoc1Reg;
+
+        if (secondaryReg > adjSecondaryReg + 0.001) {
+          actions.push({ type: 'reduce', location: secondaryLoc, from: secondaryReg, to: adjSecondaryReg });
+        }
+        if (primaryReg > adjPrimaryReg + 0.001) {
+          actions.push({ type: 'reduce', location: primaryLoc, from: primaryReg, to: adjPrimaryReg });
+        }
+        actions.push({ type: 'add_ot', location: primaryLoc, amount: netNewOT });
+
+        html += '<div style="background:var(--blue-50, #eff6ff); border:1px solid var(--blue-200, #bfdbfe); border-radius:8px; padding:12px;">';
+        html += '<div style="font-weight:600; font-size:0.82rem; color:var(--blue-800, #1e40af); margin-bottom:8px;">Steps to take in the payroll system:</div>';
+        html += '<ol style="margin:0; padding-left:20px; font-size:0.88rem; line-height:1.7; color:var(--gray-800);">';
+
+        actions.forEach(function(action) {
+          if (action.type === 'reduce') {
+            html += '<li>Reduce <strong>' + action.location + '</strong> Regular Pay from <strong>' + toHHMM(action.from) + ' (' + action.from.toFixed(2) + ')</strong> to <strong>' + toHHMM(action.to) + ' (' + action.to.toFixed(2) + ')</strong></li>';
+          } else if (action.type === 'add_ot') {
+            html += '<li>Add <strong>Overtime Regular</strong> at <strong>' + action.location + '</strong> for <strong>' + toHHMM(action.amount) + ' (' + action.amount.toFixed(2) + ' hrs)</strong></li>';
+          }
+        });
+        html += '</ol></div>';
+      }
+
+      html += '</div>';
+    });
+
+    // Before/After comparison table
+    html += '<details style="margin-top:8px;"><summary style="cursor:pointer; font-size:0.82rem; color:var(--gray-500); font-weight:500;">Show before/after comparison</summary>';
+    html += '<table style="width:100%; font-size:0.82rem; border-collapse:collapse; margin-top:8px;">';
+    html += '<thead><tr style="background:var(--gray-50); border-bottom:1px solid var(--gray-200);">';
+    var hdrLoc1 = emp.weeks[0] ? emp.weeks[0].loc1Name : 'Loc 1';
+    var hdrLoc2 = emp.weeks[0] ? emp.weeks[0].loc2Name : 'Loc 2';
+    html += '<th style="text-align:left; padding:6px 8px;">Week</th><th style="padding:6px 8px;">State</th>';
+    html += '<th style="padding:6px 8px;">' + hdrLoc1 + ' Reg</th>';
+    html += '<th style="padding:6px 8px;">' + hdrLoc2 + ' Reg</th>';
+    html += '<th style="padding:6px 8px;">OT</th>';
+    html += '</tr></thead><tbody>';
+
+    emp.weeks.forEach(function(wk) {
+      if ((wk.netNewOT || 0) <= 0) return;
+      var l1h = wk.loc1WeekHours || 0;
+      var l2h = wk.loc2WeekHours || 0;
+      var existOTL1 = floor2(Math.max(0, l1h - 40));
+      var existOTL2 = floor2(Math.max(0, l2h - 40));
+      var beforeLoc1Reg = floor2(l1h - existOTL1);
+      var beforeLoc2Reg = floor2(l2h - existOTL2);
+      var beforeOT = floor2(existOTL1 + existOTL2);
+
+      html += '<tr style="border-bottom:1px solid var(--gray-100);">';
+      html += '<td style="padding:5px 8px; font-weight:500;" rowspan="2">Week ' + (wk.week || 1) + '</td>';
+      html += '<td style="padding:5px 8px; color:var(--gray-500);">Before</td>';
+      html += '<td style="text-align:center; padding:5px 8px;">' + toHHMM(beforeLoc1Reg) + '</td>';
+      html += '<td style="text-align:center; padding:5px 8px;">' + toHHMM(beforeLoc2Reg) + '</td>';
+      html += '<td style="text-align:center; padding:5px 8px;">' + toHHMM(beforeOT) + '</td>';
+      html += '</tr>';
+      html += '<tr style="border-bottom:1px solid var(--gray-200); background:var(--success-50, #f0fdf4);">';
+      html += '<td style="padding:5px 8px; color:var(--success-700, #15803d); font-weight:600;">After</td>';
+      html += '<td style="text-align:center; padding:5px 8px; font-weight:600;">' + toHHMM(wk.adjLoc1Reg || 0) + '</td>';
+      html += '<td style="text-align:center; padding:5px 8px; font-weight:600;">' + toHHMM(wk.adjLoc2Reg || 0) + '</td>';
+      html += '<td style="text-align:center; padding:5px 8px; font-weight:700; color:var(--warning-600, #d97706);">' + toHHMM(wk.totalOTAfter || wk.trueOT || 0) + '</td>';
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></details>';
+    html += '</div>';
+  });
+
+  // HH:MM reference chart
+  html += '<details style="margin-top:10px;"><summary style="cursor:pointer; font-size:0.82rem; color:var(--gray-500);">HH:MM to decimal reference</summary>';
+  html += '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; font-size:0.78rem;">';
+  var ref = [['05','.08'],['10','.17'],['15','.25'],['20','.33'],['25','.42'],['30','.50'],['35','.58'],['40','.67'],['45','.75'],['50','.83'],['55','.92']];
+  ref.forEach(function(r) {
+    html += '<span style="background:var(--gray-50); padding:3px 8px; border-radius:4px; border:1px solid var(--gray-200);">:' + r[0] + ' = ' + r[1] + '</span>';
+  });
+  html += '</div></details>';
+
+  content.innerHTML = html;
+}
+
+/**
+ * Toggle a single checkbox — for uniform and PTO sections, records payments on the server
  */
 function toggleCheck(section, id) {
+  if (section === 'uniform') {
+    processUniformPaymentCheck(id);
+    return;
+  }
+  if (section === 'pto') {
+    processPTOPaymentCheck(id);
+    return;
+  }
   PayrollState.checkStates[section][id] = !PayrollState.checkStates[section][id];
 }
 
 /**
- * Toggle all checkboxes in a section
+ * Records a PTO payout on the server when a checkbox is checked.
+ * Prevents unchecking since PTO payouts cannot be reversed.
+ */
+function processPTOPaymentCheck(ptoId) {
+  var cb = document.querySelector('input[data-section="pto"][data-id="' + ptoId + '"]');
+
+  if (PayrollState.checkStates.pto[ptoId]) {
+    showToast('PTO already marked as paid — cannot undo', 'warning');
+    if (cb) cb.checked = true;
+    return;
+  }
+
+  var ptoData = PayrollState.reportData && PayrollState.reportData.ptoPayout;
+  if (!ptoData || !ptoData.requests) {
+    showToast('No report data available', 'error');
+    if (cb) cb.checked = false;
+    return;
+  }
+
+  var request = ptoData.requests.find(function(r) { return r.ptoId === ptoId; });
+  if (!request) {
+    showToast('PTO request not found', 'error');
+    if (cb) cb.checked = false;
+    return;
+  }
+
+  if (cb) cb.disabled = true;
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success) {
+        PayrollState.checkStates.pto[ptoId] = true;
+        showToast('PTO marked as paid for ' + request.employeeName + ' (' + request.hoursRequested + ' hrs)', 'success');
+        if (cb) { cb.checked = true; cb.disabled = true; }
+        var item = cb && cb.closest('.payroll-item');
+        if (item) {
+          item.style.opacity = '0.6';
+          item.style.borderLeft = '3px solid var(--success)';
+        }
+      } else {
+        showToast(result.error || 'Error marking PTO as paid', 'error');
+        if (cb) { cb.checked = false; cb.disabled = false; }
+      }
+    })
+    .withFailureHandler(function(error) {
+      showToast('Error: ' + error.message, 'error');
+      if (cb) { cb.checked = false; cb.disabled = false; }
+    })
+    .markPTOPaid(ptoId, 'Recorded from payroll processing');
+}
+
+/**
+ * Records uniform payment(s) on the server when a checkbox is checked.
+ * Prevents unchecking since payments cannot be reversed.
+ */
+function processUniformPaymentCheck(employeeKey) {
+  const cb = document.querySelector('input[data-section="uniform"][data-id="' + employeeKey + '"]');
+
+  if (PayrollState.checkStates.uniform[employeeKey]) {
+    showToast('Payment already recorded — cannot undo', 'warning');
+    if (cb) cb.checked = true;
+    return;
+  }
+
+  const uniformData = PayrollState.reportData && PayrollState.reportData.uniformDeductions;
+  if (!uniformData || !uniformData.orders) {
+    showToast('No report data available', 'error');
+    if (cb) cb.checked = false;
+    return;
+  }
+
+  const employeeGroup = uniformData.orders.find(function(e) {
+    return (e.employeeKey || e.employeeId || e.employeeName) === employeeKey;
+  });
+
+  if (!employeeGroup || !employeeGroup.orders || employeeGroup.orders.length === 0) {
+    showToast('No orders found for this employee', 'error');
+    if (cb) cb.checked = false;
+    return;
+  }
+
+  var skipSet = new Set(PayrollState.skippedOrderIds);
+  var orderIds = employeeGroup.orders
+    .filter(function(o) { return !skipSet.has(o.orderId); })
+    .map(function(o) { return o.orderId; });
+
+  if (orderIds.length === 0) {
+    showToast('All orders for this employee are skipped', 'info');
+    if (cb) cb.checked = false;
+    return;
+  }
+
+  if (cb) cb.disabled = true;
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success || result.recorded > 0) {
+        PayrollState.checkStates.uniform[employeeKey] = true;
+        showToast('Payment recorded for ' + employeeGroup.employeeName +
+          ' (' + result.recorded + ' order' + (result.recorded !== 1 ? 's' : '') + ')', 'success');
+        if (cb) { cb.checked = true; cb.disabled = true; }
+        var item = cb && cb.closest('.payroll-item');
+        if (item) {
+          item.style.opacity = '0.6';
+          item.style.borderLeft = '3px solid var(--success)';
+        }
+      } else {
+        showToast(result.error || 'Error recording payment', 'error');
+        if (cb) { cb.checked = false; cb.disabled = false; }
+      }
+    })
+    .withFailureHandler(function(error) {
+      showToast('Error: ' + error.message, 'error');
+      if (cb) { cb.checked = false; cb.disabled = false; }
+    })
+    .recordUniformPayments(orderIds);
+}
+
+/**
+ * Toggle all checkboxes in a section.
+ * For uniform and PTO sections, processes unchecked items as a batch.
  */
 function toggleAllChecks(section) {
-  const checkboxes = document.querySelectorAll(`input[data-section="${section}"]:not(:disabled)`);
+  if (section === 'uniform') {
+    batchProcessUniformPayments();
+    return;
+  }
+  if (section === 'pto') {
+    batchProcessPTOPayments();
+    return;
+  }
+
+  const checkboxes = document.querySelectorAll('input[data-section="' + section + '"]:not(:disabled)');
   
-  // Determine if we're checking or unchecking (if any unchecked, check all)
   let anyUnchecked = false;
-  checkboxes.forEach(cb => {
+  checkboxes.forEach(function(cb) {
     if (!cb.checked) anyUnchecked = true;
   });
   
-  checkboxes.forEach(cb => {
+  checkboxes.forEach(function(cb) {
     cb.checked = anyUnchecked;
-    const id = cb.dataset.id;
+    var id = cb.dataset.id;
     PayrollState.checkStates[section][id] = anyUnchecked;
   });
+}
+
+/**
+ * Batch-marks all unchecked PTO requests as paid.
+ */
+function batchProcessPTOPayments() {
+  var ptoData = PayrollState.reportData && PayrollState.reportData.ptoPayout;
+  if (!ptoData || !ptoData.requests) {
+    showToast('Generate a report first', 'error');
+    return;
+  }
+
+  var ptoIds = [];
+  ptoData.requests.forEach(function(req) {
+    if (!PayrollState.checkStates.pto[req.ptoId]) {
+      ptoIds.push(req.ptoId);
+    }
+  });
+
+  if (ptoIds.length === 0) {
+    showToast('All PTO payouts already recorded', 'info');
+    return;
+  }
+
+  var checkboxes = document.querySelectorAll('input[data-section="pto"]:not(:disabled)');
+  checkboxes.forEach(function(cb) { cb.disabled = true; });
+
+  var payrollDate = PayrollState.selectedPayrollDate || '';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success || result.updatedCount > 0) {
+        ptoIds.forEach(function(id) { PayrollState.checkStates.pto[id] = true; });
+
+        checkboxes.forEach(function(cb) {
+          cb.checked = true;
+          cb.disabled = true;
+          var item = cb.closest('.payroll-item');
+          if (item) {
+            item.style.opacity = '0.6';
+            item.style.borderLeft = '3px solid var(--success)';
+          }
+        });
+        showToast('All PTO payouts recorded (' + (result.updatedCount || ptoIds.length) + ' requests, ' + (result.totalHours || 0) + ' hrs)', 'success');
+      } else {
+        showToast(result.error || 'Error recording PTO payouts', 'error');
+        checkboxes.forEach(function(cb) { cb.disabled = false; });
+      }
+    })
+    .withFailureHandler(function(error) {
+      showToast('Error: ' + error.message, 'error');
+      checkboxes.forEach(function(cb) { cb.disabled = false; });
+    })
+    .batchMarkPTOPaid(ptoIds, payrollDate);
+}
+
+/**
+ * Batch-records payments for all unchecked uniform deduction employees.
+ */
+function batchProcessUniformPayments() {
+  const uniformData = PayrollState.reportData && PayrollState.reportData.uniformDeductions;
+  if (!uniformData || !uniformData.orders) {
+    showToast('Generate a report first', 'error');
+    return;
+  }
+
+  var allOrderIds = [];
+  var employeeKeys = [];
+  var batchSkipSet = new Set(PayrollState.skippedOrderIds);
+
+  uniformData.orders.forEach(function(employee) {
+    var key = employee.employeeKey || employee.employeeId || employee.employeeName;
+    if (PayrollState.checkStates.uniform[key]) return;
+
+    var ids = (employee.orders || [])
+      .filter(function(o) { return !batchSkipSet.has(o.orderId); })
+      .map(function(o) { return o.orderId; });
+
+    if (ids.length > 0) {
+      allOrderIds = allOrderIds.concat(ids);
+      employeeKeys.push(key);
+    }
+  });
+
+  if (allOrderIds.length === 0) {
+    showToast('All uniform payments already recorded', 'info');
+    return;
+  }
+
+  var checkboxes = document.querySelectorAll('input[data-section="uniform"]:not(:disabled)');
+  checkboxes.forEach(function(cb) { cb.disabled = true; });
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success || result.recorded > 0) {
+        employeeKeys.forEach(function(key) { PayrollState.checkStates.uniform[key] = true; });
+
+        checkboxes.forEach(function(cb) {
+          cb.checked = true;
+          cb.disabled = true;
+          var item = cb.closest('.payroll-item');
+          if (item) {
+            item.style.opacity = '0.6';
+            item.style.borderLeft = '3px solid var(--success)';
+          }
+        });
+        showToast('All uniform payments recorded (' + result.recorded + ' orders)', 'success');
+      } else {
+        showToast(result.error || 'Error recording payments', 'error');
+        checkboxes.forEach(function(cb) { cb.disabled = false; });
+      }
+    })
+    .withFailureHandler(function(error) {
+      showToast('Error: ' + error.message, 'error');
+      checkboxes.forEach(function(cb) { cb.disabled = false; });
+    })
+    .recordUniformPayments(allOrderIds);
 }
 
 /**
@@ -8886,35 +10365,101 @@ function executeSkipPayment(orderId) {
 function confirmMarkComplete() {
   if (!PayrollState.reportData) return;
   
-  // Validate we have a selected payroll date
   if (!PayrollState.selectedPayrollDate) {
     showToast('Please select a payroll date first', 'error');
     return;
   }
   
-  const report = PayrollState.reportData;
-  const activeUniformCount = report.uniformDeductions.orders.length - PayrollState.skippedOrderIds.length;
-  const ptoCount = report.ptoPayout.requests.length;
+  var report = PayrollState.reportData;
+  var allSkipIds = getFullSkipList();
+  var totalOrderCount = report.uniformDeductions.totalOrderCount || report.uniformDeductions.orders.length;
+  var remainingUniformCount = Math.max(0, totalOrderCount - allSkipIds.length);
+  var alreadyRecordedPTO = countAlreadyRecordedPTO();
+  var remainingPTOCount = report.ptoPayout.requests.length - alreadyRecordedPTO;
   
-  // Calculate next payroll date with validation
-  let nextDateStr = 'Next payroll date';
+  var nextDateStr = 'Next payroll date';
   try {
-  const currentDate = new Date(PayrollState.selectedPayrollDate + 'T12:00:00');
+    var currentDate = new Date(PayrollState.selectedPayrollDate + 'T12:00:00');
     if (!isNaN(currentDate.getTime())) {
-  const nextDate = new Date(currentDate);
-  nextDate.setDate(nextDate.getDate() + 14);
+      var nextDate = new Date(currentDate);
+      nextDate.setDate(nextDate.getDate() + 14);
       nextDateStr = nextDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     }
   } catch (e) {
     console.error('Error calculating next date:', e);
   }
   
-  document.getElementById('completeUniformCount').textContent = activeUniformCount;
-  document.getElementById('completePTOCount').textContent = ptoCount;
+  document.getElementById('completeUniformCount').textContent = remainingUniformCount;
+  document.getElementById('completePTOCount').textContent = remainingPTOCount;
   document.getElementById('completeNextDate').textContent = nextDateStr;
-  document.getElementById('completeSkippedCount').textContent = PayrollState.skippedOrderIds.length;
+
+  var alreadyRecordedUniforms = countAlreadyRecordedOrders();
+  var totalAlready = alreadyRecordedUniforms + alreadyRecordedPTO;
+  var skippedDisplay = PayrollState.skippedOrderIds.length +
+    (totalAlready > 0 ? ' (+ ' + totalAlready + ' already recorded)' : '');
+  document.getElementById('completeSkippedCount').textContent = skippedDisplay;
   
   document.getElementById('completeModal').style.display = 'flex';
+}
+
+/**
+ * Builds the full skip list for uniform orders:
+ *   explicitly skipped + already-recorded via checkbox + already-recorded from server
+ */
+function getFullSkipList() {
+  var allSkipIds = PayrollState.skippedOrderIds.slice();
+
+  var uniformData = PayrollState.reportData && PayrollState.reportData.uniformDeductions;
+  if (uniformData && uniformData.orders) {
+    uniformData.orders.forEach(function(employee) {
+      var key = employee.employeeKey || employee.employeeId || employee.employeeName;
+      (employee.orders || []).forEach(function(order) {
+        if (allSkipIds.indexOf(order.orderId) !== -1) return;
+        // Skip if employee was checked off via checkbox OR order was already recorded on the server
+        if (PayrollState.checkStates.uniform[key] || order.alreadyRecorded) {
+          allSkipIds.push(order.orderId);
+        }
+      });
+    });
+  }
+  return allSkipIds;
+}
+
+/**
+ * Count uniform orders already recorded via checkbox or server-side flag
+ */
+function countAlreadyRecordedOrders() {
+  var count = 0;
+  var uniformData = PayrollState.reportData && PayrollState.reportData.uniformDeductions;
+  if (uniformData && uniformData.orders) {
+    var countSkipSet = new Set(PayrollState.skippedOrderIds);
+    uniformData.orders.forEach(function(employee) {
+      var key = employee.employeeKey || employee.employeeId || employee.employeeName;
+      (employee.orders || []).forEach(function(o) {
+        if (countSkipSet.has(o.orderId)) return;
+        if (PayrollState.checkStates.uniform[key] || o.alreadyRecorded) {
+          count++;
+        }
+      });
+    });
+  }
+  return count;
+}
+
+/**
+ * Count PTO requests already recorded via individual checkbox clicks
+ */
+function countAlreadyRecordedPTO() {
+  var count = 0;
+  var ptoData = PayrollState.reportData && PayrollState.reportData.ptoPayout;
+  if (ptoData && ptoData.requests) {
+    ptoData.requests.forEach(function(req) {
+      if (PayrollState.checkStates.pto[req.ptoId] || req.alreadyRecorded) {
+        count++;
+      }
+    });
+  }
+  return count;
 }
 
 /**
@@ -8925,25 +10470,31 @@ function closeCompleteModal() {
 }
 
 /**
- * Execute mark complete
+ * Execute mark complete — uses full skip list so already-recorded payments aren't duplicated
  */
 function executeMarkComplete() {
   closeCompleteModal();
   showLoading(true);
   
+  var allSkipIds = getFullSkipList();
+  
   google.script.run
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
-        // Show success modal
+        var alreadyRecordedUniforms = countAlreadyRecordedOrders();
+        var alreadyRecordedPTO = countAlreadyRecordedPTO();
+        var totalUniform = result.uniformPayments.marked + alreadyRecordedUniforms;
+        var totalPTO = result.ptoPayouts.marked + alreadyRecordedPTO;
+        var totalPTOHours = result.ptoPayouts.totalHours || 0;
+
         document.getElementById('successPayrollDate').textContent = result.payrollDate;
-        document.getElementById('successUniformCount').textContent = result.uniformPayments.marked + ' ($' + result.uniformPayments.totalAmount.toFixed(2) + ')';
-        document.getElementById('successPTOCount').textContent = result.ptoPayouts.marked + ' (' + result.ptoPayouts.totalHours + ' hrs)';
+        document.getElementById('successUniformCount').textContent = totalUniform + ' ($' + result.uniformPayments.totalAmount.toFixed(2) + ')';
+        document.getElementById('successPTOCount').textContent = totalPTO + ' (' + totalPTOHours + ' hrs)';
         document.getElementById('successNextDate').textContent = result.newPayrollDate;
         
         document.getElementById('successModal').style.display = 'flex';
         
-        // Reload payroll dates to reflect new next date
         loadPayrollDates();
       } else {
         showToast(result.error || 'Error marking complete', 'error');
@@ -8953,7 +10504,7 @@ function executeMarkComplete() {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .markPayrollComplete(PayrollState.selectedPayrollDate, PayrollState.skippedOrderIds);
+    .markPayrollComplete(PayrollState.selectedPayrollDate, allSkipIds);
 }
 
 /**
@@ -9614,8 +11165,8 @@ function renderPayrollCalendarWidget(data, container) {
         <div class="label">This Cycle Deductions</div>
       </div>
       <div class="cycle-stat blue">
-        <div class="value">${nextPayday.employeeCount}</div>
-        <div class="label">Employees</div>
+      <div class="value">${nextPayday.deductionCount ?? nextPayday.employeeCount}</div>
+      <div class="label">Deductions</div>
       </div>
       <div class="cycle-stat purple">
         <div class="value">${nextPayday.completingOrders}</div>
@@ -9655,7 +11206,7 @@ function renderPayrollCalendarWidget(data, container) {
         </div>
         <div class="details">
           <div class="amount">$${payday.totalAmount.toFixed(2)}</div>
-          <div class="meta">${payday.employeeCount} employee${payday.employeeCount !== 1 ? 's' : ''} with deductions</div>
+          <div class="meta">${payday.deductionCount ?? payday.employeeCount} deduction${(payday.deductionCount ?? payday.employeeCount) !== 1 ? 's' : ''} due</div>
         </div>
         ${payday.completingOrders > 0 ? `<span class="completing-badge">${payday.completingOrders} completing</span>` : ''}
       </div>
@@ -9850,8 +11401,8 @@ function renderCalendarSidebar(data) {
         <div class="label">Total Deductions</div>
       </div>
       <div class="next-payday-stat">
-        <div class="value">${nextPayday.employeeCount}</div>
-        <div class="label">Employees</div>
+        <div class="value">${nextPayday.deductionCount ?? nextPayday.employeeCount}</div>
+        <div class="label">Deductions</div>
       </div>
     `;
   }

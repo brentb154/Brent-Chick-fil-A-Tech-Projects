@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFA Accountability - Unified Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+      color: #333;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fff;
+      padding: 16px 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .header-title h1 {
+      margin: 0;
+      color: #E51636;
+      font-size: 22px;
+    }
+
+    .header-subtitle {
+      color: #666;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .status-pill {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+
+    .status-pill.healthy { background: #e6f6ea; color: #1b5e20; }
+    .status-pill.warning { background: #fff8e1; color: #8a6d3b; }
+    .status-pill.critical { background: #fdecea; color: #b71c1c; }
+
+    .help-btn {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 14px;
+      background: #f0f0f0;
+      color: #333;
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    .help-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .help-modal-content {
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px;
+      width: 560px;
+      max-width: calc(100% - 32px);
+      max-height: 80vh;
+      overflow: auto;
+    }
+
+    .help-mode-indicator {
+      position: fixed;
+      bottom: 80px;
+      right: 16px;
+      background: #E51636;
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      display: none;
+      z-index: 2001;
+    }
+
+    .btn {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      min-height: 44px;
+    }
+
+    .btn-primary {
+      background-color: #E51636;
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background-color: #f0f0f0;
+      color: #333;
+    }
+
+    .section {
+      background: #fff;
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+
+    .section h2 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+      color: #333;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: #f8f9fa;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 600;
+      color: #E51636;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+    }
+
+    .menu-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #eee;
+      background: #fff;
+      cursor: pointer;
+      text-align: left;
+      min-height: 48px;
+    }
+
+    .quick-links-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    .mobile-menu-btn {
+      display: none;
+      border: none;
+      background: #f0f0f0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 18px;
+      cursor: pointer;
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    .mobile-menu-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 1600;
+    }
+
+    .mobile-menu-drawer {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 260px;
+      background: #fff;
+      padding: 16px;
+      transform: translateX(-100%);
+      transition: transform 0.2s ease;
+      z-index: 1700;
+      overflow-y: auto;
+    }
+
+    .mobile-menu-drawer.open {
+      transform: translateX(0);
+    }
+
+    .mobile-menu-header {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #333;
+    }
+
+    .mobile-menu-list button {
+      width: 100%;
+      text-align: left;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #eee;
+      background: #fff;
+      cursor: pointer;
+      min-height: 48px;
+    }
+
+    .quick-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #eee;
+      background: #fff;
+      text-decoration: none;
+      color: #333;
+    }
+
+    .quick-link-icon {
+      font-size: 18px;
+      width: 26px;
+      text-align: center;
+    }
+
+    .house-banner {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      max-width: 520px;
+      width: calc(100% - 40px);
+    }
+
+    .house-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .house-card {
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      background: #f8f9fa;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 12px;
+      }
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+      }
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+      .quick-links-grid {
+        grid-template-columns: 1fr;
+      }
+      .menu-grid {
+        display: none;
+      }
+      .mobile-menu-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .house-options {
+        grid-template-columns: 1fr;
+      }
+      #changeHouseBtn,
+      #logoutBtn {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-title">
+      <h1 id="dashboardTitle">Manager Dashboard</h1>
+      <div class="header-subtitle" id="welcomeText">Welcome</div>
+      <div class="house-banner" id="houseBanner"></div>
+    </div>
+    <div class="header-actions">
+      <button class="help-btn" onclick="openHelp()">?</button>
+      <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileMenu()">☰</button>
+      <button id="systemStatusBtn" class="btn btn-secondary" onclick="if(window.navigateTo){navigateTo('system-status'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('system-status'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'system-status';window.top.location.href=base+'?page='+target; return false;" style="display:none;">
+        System Status <span id="systemStatusBadge" class="status-pill warning">--</span>
+      </button>
+      <select id="languageSelect" class="btn btn-secondary" onchange="onLanguageChange()">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+      </select>
+      <button id="changeHouseBtn" class="btn btn-secondary" onclick="openHouseModal()" style="display:none;">Change Area</button>
+      <button class="btn btn-primary" id="logoutBtn" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div id="mobileMenuOverlay" class="mobile-menu-overlay" onclick="toggleMobileMenu(false)"></div>
+  <div id="mobileMenuDrawer" class="mobile-menu-drawer">
+    <div class="mobile-menu-header" id="mobileMenuHeader">Menu</div>
+    <div class="mobile-menu-list" id="mobileMenuList"></div>
+  </div>
+
+  <div id="statsSection" class="section">
+    <h2 id="statsHeader">Quick Stats</h2>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="statToday">--</div>
+        <div class="stat-label" id="statTodayLabel">Today's Infractions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statAtRisk">--</div>
+        <div class="stat-label" id="statAtRiskLabel">Employees at Risk</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statEntries">--</div>
+        <div class="stat-label" id="statEntriesLabel">My Entries This Month</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 id="menuHeader">Main Menu</h2>
+    <div class="menu-grid" id="menuGrid"></div>
+  </div>
+
+  <div class="section">
+    <h2 id="linksHeader">Quick Links</h2>
+    <div id="linksContainer"></div>
+  </div>
+
+  <div id="errorPanel" class="section" style="display: none;">
+    <h2>Dashboard Error</h2>
+    <p id="errorMessage">An error occurred while loading the dashboard.</p>
+    <a id="errorLink" href="#" target="_blank" rel="noopener noreferrer">Open Dashboard</a>
+  </div>
+
+  <div id="houseModal" class="modal-overlay">
+    <div class="modal">
+      <h3 id="houseSelectHeader">Select Your Area</h3>
+      <p id="houseSelectInstructions" style="margin: 6px 0 16px 0; color: #666; font-size: 13px;">
+        Choose your area to continue.
+      </p>
+      <div class="house-options">
+        <div class="house-card" onclick="selectHouse('FOH')">
+          <strong id="houseFoh">Front of House</strong>
+          <div id="houseFohAction">Enter</div>
+        </div>
+        <div class="house-card" onclick="selectHouse('BOH')">
+          <strong id="houseBoh">Back of House</strong>
+          <div id="houseBohAction">Entrar</div>
+        </div>
+      </div>
+      <div style="margin-top: 16px; text-align: right;">
+        <button class="btn btn-secondary" id="houseCancelBtn" onclick="closeHouseModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="help-modal" id="helpModal">
+    <div class="help-modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 id="helpTitle">Help</h3>
+        <button class="btn btn-secondary" id="helpCloseBtn" onclick="closeHelp()">Close</button>
+      </div>
+      <div id="helpBody" style="font-size:13px; line-height:1.5;"></div>
+      <div style="margin-top:12px; display:flex; gap:8px;">
+        <button class="btn btn-secondary" id="helpWhatsThisBtn" onclick="toggleHelpMode()">What's This?</button>
+        <button class="btn btn-secondary" id="helpWhatsNewBtn" onclick="showWhatsNew()">What's New</button>
+      </div>
+    </div>
+  </div>
+  <div class="help-mode-indicator" id="helpModeIndicator">Help Mode: Click any item</div>
+
+  <script>
+    let dashboardConfig = null;
+    let translations = {};
+    let configAttempts = 0;
+    const RELEASE_NOTES_VERSION = '2026-01-24';
+    let helpModeEnabled = false;
+    function t(key, fallback) {
+      return translations[key] || fallback || key;
+    }
+
+    function getSessionToken() {
+      const urlToken = getTokenFromUrl();
+      if (urlToken) {
+        sessionStorage.setItem('cfa_session_token', urlToken);
+        localStorage.setItem('cfa_session_token', urlToken);
+      }
+      const token = sessionStorage.getItem('cfa_session_token') || localStorage.getItem('cfa_session_token');
+      if (token && !sessionStorage.getItem('cfa_session_token')) {
+        sessionStorage.setItem('cfa_session_token', token);
+      }
+      return token;
+    }
+
+    function getTokenFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('token') || params.get('tkn') || '';
+      } catch (error) {
+        return '';
+      }
+    }
+
+    function redirectTo(url) {
+      const inPreview = window.location.href.indexOf('userCodeAppPanel') !== -1;
+      const inIframe = window.top && window.top !== window;
+      const finalUrl = appendTokenParam(url);
+      if (inPreview) {
+        window.location.href = finalUrl;
+        return;
+      }
+      if (inIframe) {
+        window.top.location.href = finalUrl;
+        return;
+      }
+      window.location.href = finalUrl;
+    }
+
+    function getBaseUrl() {
+      return window.location.href.split('?')[0];
+    }
+
+    function appendTokenParam(url) {
+      if (!url) return url;
+      const token = getSessionToken();
+      if (!token) return url;
+      const hasToken = url.indexOf('token=') !== -1 || url.indexOf('tkn=') !== -1;
+      if (hasToken) return url;
+      const separator = url.indexOf('?') === -1 ? '?' : '&';
+      return url + separator + 'token=' + encodeURIComponent(token);
+    }
+
+    function navigateTo(page) {
+      try {
+        console.log('[nav] click', JSON.stringify({page: page, href: window.location.href, role: (sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role')||''), token: (sessionStorage.getItem('cfa_session_token')||localStorage.getItem('cfa_session_token')||''), base: (sessionStorage.getItem('cfa_base_url')||localStorage.getItem('cfa_base_url')||'')}));
+      } catch (e) { console.log('[nav] click log failed', e); }
+
+      const storedBase = sessionStorage.getItem('cfa_base_url') || localStorage.getItem('cfa_base_url');
+      const baseUrl = storedBase || getBaseUrl();
+      const fallbackUrl = (baseUrl || '') + '?page=' + page + '&t=' + Date.now();
+      if (baseUrl) {
+        redirectTo(fallbackUrl);
+        return;
+      }
+      let didNavigate = false;
+      const fallbackTimer = setTimeout(function() {
+        if (!didNavigate && fallbackUrl) {
+          redirectTo(fallbackUrl);
+        }
+      }, 1500);
+      google.script.run
+        .withSuccessHandler(function(url) {
+          didNavigate = true;
+          clearTimeout(fallbackTimer);
+          if (url) {
+            sessionStorage.setItem('cfa_base_url', url);
+            localStorage.setItem('cfa_base_url', url);
+          }
+          redirectTo(url + '?page=' + page + '&t=' + Date.now());
+        })
+        .withFailureHandler(function(error) {
+          didNavigate = true;
+          clearTimeout(fallbackTimer);
+          console.error('Navigation failed:', error);
+          if (fallbackUrl) {
+            redirectTo(fallbackUrl);
+            return;
+          }
+          showError('Navigation failed. Please use the link below to continue.');
+        })
+        .getWebAppUrl();
+    }
+
+    function getNavUrl(page) {
+      const storedBase = sessionStorage.getItem('cfa_base_url') || localStorage.getItem('cfa_base_url');
+      const baseUrl = storedBase || getBaseUrl();
+      if (!baseUrl) return '';
+      return appendTokenParam(baseUrl + '?page=' + page + '&t=' + Date.now());
+    }
+
+    function logout() {
+      const token = getSessionToken();
+      sessionStorage.clear();
+      localStorage.removeItem('cfa_session_token');
+      localStorage.removeItem('cfa_user_role');
+      google.script.run
+        .withSuccessHandler(function() {
+          google.script.run
+            .withSuccessHandler(function(url) {
+              redirectTo(url + '?page=login');
+            })
+            .getWebAppUrl();
+        })
+        .logoutRole(token);
+    }
+
+    function openHouseModal() {
+      document.getElementById('houseModal').style.display = 'flex';
+    }
+
+    function closeHouseModal() {
+      document.getElementById('houseModal').style.display = 'none';
+    }
+
+    function selectHouse(house) {
+      const token = getSessionToken();
+      if (!token) return;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          closeHouseModal();
+          if (result && result.success) {
+            dashboardConfig = result;
+            applyConfig();
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to switch house:', error);
+        })
+        .switchHouse(token, house);
+    }
+
+    function applyTranslations(onComplete) {
+      if (!dashboardConfig) return;
+      const language = dashboardConfig.language || 'en';
+      const keys = [
+        'dashboard.title',
+        'dashboard.welcome',
+        'dashboard.subtitle.foh',
+        'dashboard.subtitle.boh',
+        'dashboard.subtitle.all',
+        'section.stats',
+        'section.menu',
+        'section.links',
+        'section.quick_stats',
+        'section.main_menu',
+        'section.quick_links',
+        'stats.today',
+        'stats.today_infractions',
+        'stats.at_risk',
+        'stats.my_entries',
+        'stats.total_employees',
+        'nav.add_infraction',
+        'nav.view_employees',
+        'nav.my_activity',
+        'nav.reports',
+        'nav.settings',
+        'nav.user_management',
+        'nav.logout',
+        'house.select',
+        'house.select_prompt',
+        'house.select_instructions',
+        'house.foh',
+        'house.foh_full',
+        'house.boh',
+        'house.boh_full',
+        'house.change',
+        'button.enter',
+        'button.cancel',
+        'button.logout',
+        'button.change_area',
+        'links.foh',
+        'links.boh',
+        'links.both',
+        'links.empty',
+        'nav.menu',
+        'help.title',
+        'help.close',
+        'help.whats_this',
+        'help.whats_new',
+        'help.mode_indicator',
+        'help.dashboard_title',
+        'help.dashboard_body',
+        'help.whats_new_body',
+        'help.menu_action',
+        'help.menu.add_infraction',
+        'help.menu.view_employees',
+        'help.menu.my_activity',
+        'help.menu.reports',
+        'help.menu.settings',
+        'help.menu.user_management',
+        'help.menu.system_status'
+      ];
+      google.script.run
+        .withSuccessHandler(function(result) {
+          translations = result || {};
+          document.getElementById('dashboardTitle').textContent = translations['dashboard.title'] || 'Manager Dashboard';
+          document.getElementById('welcomeText').textContent = (translations['dashboard.welcome'] || 'Welcome') + ', ' + (dashboardConfig.user_name || '');
+          document.getElementById('statsHeader').textContent = translations['section.quick_stats'] || translations['section.stats'] || 'Quick Stats';
+          document.getElementById('menuHeader').textContent = translations['section.main_menu'] || translations['section.menu'] || 'Main Menu';
+          document.getElementById('linksHeader').textContent = translations['section.quick_links'] || translations['section.links'] || 'Quick Links';
+          document.getElementById('statTodayLabel').textContent = translations['stats.today_infractions'] || translations['stats.today'] || "Today's Infractions";
+          document.getElementById('statAtRiskLabel').textContent = translations['stats.at_risk'] || 'Employees at Risk';
+          const entriesLabel = dashboardConfig.user_role === 'Manager'
+            ? (translations['stats.my_entries'] || 'My Entries This Month')
+            : (translations['stats.total_employees'] || 'Total Active Employees');
+          document.getElementById('statEntriesLabel').textContent = entriesLabel;
+          document.getElementById('houseSelectHeader').textContent = translations['house.select_prompt'] || translations['house.select'] || 'Select Your Area';
+          document.getElementById('houseSelectInstructions').textContent = translations['house.select_instructions'] || 'Choose your area to continue.';
+          document.getElementById('houseFoh').textContent = translations['house.foh_full'] || translations['house.foh'] || 'Front of House';
+          document.getElementById('houseBoh').textContent = translations['house.boh_full'] || translations['house.boh'] || 'Back of House';
+          document.getElementById('houseFohAction').textContent = translations['button.enter'] || 'Enter';
+          document.getElementById('houseBohAction').textContent = translations['button.enter'] || 'Enter';
+          document.getElementById('houseCancelBtn').textContent = translations['button.cancel'] || 'Cancel';
+          document.getElementById('changeHouseBtn').textContent = translations['button.change_area'] || translations['house.change'] || 'Change Area';
+          document.getElementById('logoutBtn').textContent = translations['button.logout'] || translations['nav.logout'] || 'Logout';
+          const mobileHeader = document.getElementById('mobileMenuHeader');
+          if (mobileHeader) {
+            mobileHeader.textContent = translations['nav.menu'] || 'Menu';
+          }
+          const helpTitle = document.getElementById('helpTitle');
+          if (helpTitle) {
+            helpTitle.textContent = translations['help.title'] || 'Help';
+          }
+          const helpClose = document.getElementById('helpCloseBtn');
+          if (helpClose) {
+            helpClose.textContent = translations['help.close'] || 'Close';
+          }
+          const helpWhatsThis = document.getElementById('helpWhatsThisBtn');
+          if (helpWhatsThis) {
+            helpWhatsThis.textContent = translations['help.whats_this'] || "What's This?";
+          }
+          const helpWhatsNew = document.getElementById('helpWhatsNewBtn');
+          if (helpWhatsNew) {
+            helpWhatsNew.textContent = translations['help.whats_new'] || "What's New";
+          }
+          const helpIndicator = document.getElementById('helpModeIndicator');
+          if (helpIndicator) {
+            helpIndicator.textContent = translations['help.mode_indicator'] || 'Help Mode: Click any item';
+          }
+          if (typeof onComplete === 'function') {
+            onComplete();
+          }
+        })
+        .getTranslations(keys, language);
+    }
+
+    function applyConfig() {
+      if (!dashboardConfig) return;
+
+      if (dashboardConfig.houseRequired) {
+        openHouseModal();
+        return;
+      }
+
+      if (dashboardConfig.user_role === 'Manager') {
+        document.getElementById('changeHouseBtn').style.display = 'inline-block';
+      } else {
+        document.getElementById('changeHouseBtn').style.display = 'none';
+      }
+
+      const languageSelect = document.getElementById('languageSelect');
+      if (languageSelect) {
+        languageSelect.value = dashboardConfig.language || 'en';
+      }
+
+      applyTranslations(function() {
+        updateHouseBanner();
+        renderMenu();
+        renderQuickLinks();
+        loadStats();
+        loadSystemStatusBadge();
+        checkReleaseNotes();
+      });
+    }
+
+    function updateHouseBanner() {
+      const banner = document.getElementById('houseBanner');
+      if (!banner || !dashboardConfig) return;
+      banner.textContent =
+        dashboardConfig.house === 'ALL'
+          ? (translations['dashboard.subtitle.all'] || 'Full System Access')
+          : (dashboardConfig.house === 'BOH'
+            ? (translations['dashboard.subtitle.boh'] || 'Back of House (BOH)')
+            : (translations['dashboard.subtitle.foh'] || 'Front of House (FOH)'));
+    }
+
+    function loadSystemStatusBadge() {
+      const token = getSessionToken();
+      if (!token || !dashboardConfig) return;
+      if (dashboardConfig.user_role === 'Manager') {
+        document.getElementById('systemStatusBtn').style.display = 'none';
+        return;
+      }
+      const btn = document.getElementById('systemStatusBtn');
+      const badge = document.getElementById('systemStatusBadge');
+      btn.style.display = 'inline-flex';
+      badge.textContent = '...';
+      badge.className = 'status-pill warning';
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result || !result.visible) return;
+          btn.style.display = 'inline-flex';
+          const status = result.overall_status || 'warning';
+          badge.textContent = status === 'healthy' ? 'Healthy' : (status === 'critical' ? 'Critical' : 'Warning');
+          badge.className = 'status-pill ' + status;
+        })
+        .withFailureHandler(function() {
+          btn.style.display = 'inline-flex';
+          badge.textContent = 'Unknown';
+          badge.className = 'status-pill warning';
+        })
+        .getSystemStatusBadge(token);
+    }
+
+    function showError(message) {
+      const panel = document.getElementById('errorPanel');
+      const msg = document.getElementById('errorMessage');
+      const link = document.getElementById('errorLink');
+      const base = window.location.href.split('?')[0];
+      if (msg) msg.textContent = message || t('error.network_error', 'An error occurred while loading the dashboard.');
+      if (link) link.href = base + '?page=dashboard';
+      if (panel) panel.style.display = 'block';
+    }
+
+    function openHelp(customText, customTitle) {
+      const modal = document.getElementById('helpModal');
+      const title = document.getElementById('helpTitle');
+      const body = document.getElementById('helpBody');
+      title.textContent = customTitle || t('help.dashboard_title', 'Manager Dashboard Help');
+      body.innerHTML = customText || t(
+        'help.dashboard_body',
+        '<p><strong>Purpose:</strong> This dashboard gives quick access to key actions.</p><ul><li>Add infractions from the Main Menu.</li><li>Use Quick Links for frequently used resources.</li><li>Switch house (FOH/BOH) if prompted.</li></ul>'
+      );
+      modal.style.display = 'flex';
+    }
+
+    function closeHelp() {
+      document.getElementById('helpModal').style.display = 'none';
+    }
+
+    function toggleMobileMenu(forceState) {
+      const drawer = document.getElementById('mobileMenuDrawer');
+      const overlay = document.getElementById('mobileMenuOverlay');
+      if (!drawer || !overlay) return;
+      const shouldOpen = typeof forceState === 'boolean' ? forceState : !drawer.classList.contains('open');
+      drawer.classList.toggle('open', shouldOpen);
+      drawer.style.display = shouldOpen ? 'block' : 'none';
+      overlay.style.display = shouldOpen ? 'block' : 'none';
+      document.body.style.overflow = shouldOpen ? 'hidden' : '';
+    }
+
+    function toggleHelpMode() {
+      helpModeEnabled = !helpModeEnabled;
+      const indicator = document.getElementById('helpModeIndicator');
+      indicator.style.display = helpModeEnabled ? 'block' : 'none';
+    }
+
+    function showWhatsNew() {
+      openHelp(
+        t('help.whats_new_body', '<ul><li>System Status page with health checks and logs.</li><li>System Status badge in header.</li><li>System monitoring and log cleanup automation.</li></ul>'),
+        t('help.whats_new', "What's New")
+      );
+    }
+
+    function checkReleaseNotes() {
+      const key = 'cfa_release_notes_version';
+      const current = localStorage.getItem(key);
+      if (current !== RELEASE_NOTES_VERSION) {
+        localStorage.setItem(key, RELEASE_NOTES_VERSION);
+        showWhatsNew();
+      }
+    }
+
+    document.addEventListener('click', function(event) {
+      if (!helpModeEnabled) return;
+      const target = event.target.closest('[data-help]');
+      if (!target) return;
+      event.preventDefault();
+      openHelp(target.getAttribute('data-help'), target.getAttribute('data-help-title') || t('help.title', 'Help'));
+    });
+
+    function onLanguageChange() {
+      const select = document.getElementById('languageSelect');
+      if (!select) return;
+      const token = getSessionToken();
+      if (!token) return;
+      const language = select.value;
+      sessionStorage.setItem('cfa_language', language);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.success) {
+            dashboardConfig.language = language;
+            applyTranslations(function() {
+              renderMenu();
+              renderQuickLinks();
+              loadStats();
+            });
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to update language:', error);
+        })
+        .setLanguage(token, language);
+    }
+
+    function renderMenu() {
+      const grid = document.getElementById('menuGrid');
+      const mobileList = document.getElementById('mobileMenuList');
+      grid.innerHTML = '';
+      if (mobileList) {
+        mobileList.innerHTML = '';
+      }
+      const role = dashboardConfig.user_role;
+      const items = [
+        { key: 'nav.add_infraction', icon: 'fa-pen', page: 'form' },
+        { key: 'nav.view_employees', icon: 'fa-users', page: 'employees' }
+      ];
+
+      const menuHelp = {
+        'nav.add_infraction': t('help.menu.add_infraction', 'Open the infraction form to record a new accountability event.'),
+        'nav.view_employees': t('help.menu.view_employees', 'View and search employee records, infractions, and point totals.'),
+        'nav.my_activity': t('help.menu.my_activity', 'View your entry totals and recent activity.'),
+        'nav.reports': t('help.menu.reports', 'Access reports, exports, and scheduled report settings.'),
+        'nav.settings': t('help.menu.settings', 'Configure system settings, email templates, and thresholds.'),
+        'nav.user_management': t('help.menu.user_management', 'Manage users, roles, and permissions.'),
+        'nav.logout': t('help.menu_action', 'Menu action')
+      };
+
+      if (role === 'Manager') {
+        items.push({ key: 'nav.my_activity', icon: 'fa-chart-line', page: 'analytics' });
+      } else {
+        items.push({ key: 'nav.reports', icon: 'fa-chart-bar', page: 'analytics' });
+        items.push({ key: 'nav.user_management', icon: 'fa-user-cog', page: 'users' });
+        items.push({ key: 'nav.settings', icon: 'fa-cog', page: 'settings' });
+        items.push({ key: 'nav.logout', icon: 'fa-sign-out-alt', action: logout });
+      }
+
+      items.forEach(item => {
+        const label = translations[item.key] || item.key;
+        if (item.action) {
+          const btn = document.createElement('button');
+          btn.className = 'menu-btn';
+          btn.setAttribute('data-help-title', label);
+          btn.setAttribute('data-help', menuHelp[item.key] || t('help.menu_action', 'Menu action'));
+          btn.innerHTML = `<i class="fas ${item.icon}"></i> <span>${label}</span>`;
+          btn.onclick = function() {
+            return item.action();
+          };
+          grid.appendChild(btn);
+
+          if (mobileList) {
+            const mobileBtn = document.createElement('button');
+            mobileBtn.innerHTML = `<i class="fas ${item.icon}"></i> <span>${label}</span>`;
+            mobileBtn.onclick = function() {
+              toggleMobileMenu(false);
+              return item.action();
+            };
+            mobileList.appendChild(mobileBtn);
+          }
+          return;
+        }
+
+        const href = getNavUrl(item.page);
+        const link = document.createElement('a');
+        link.className = 'menu-btn';
+        link.setAttribute('data-help-title', label);
+        link.setAttribute('data-help', menuHelp[item.key] || t('help.menu_action', 'Menu action'));
+        if (href) {
+          link.href = href;
+          link.target = '_top';
+        } else {
+          link.href = '#';
+          link.onclick = function(e) {
+            e.preventDefault();
+            navigateTo(item.page);
+          };
+        }
+        link.innerHTML = `<i class="fas ${item.icon}"></i> <span>${label}</span>`;
+        grid.appendChild(link);
+
+        if (mobileList) {
+          const mobileBtn = document.createElement('button');
+          mobileBtn.innerHTML = `<i class="fas ${item.icon}"></i> <span>${label}</span>`;
+          mobileBtn.onclick = function() {
+            toggleMobileMenu(false);
+            navigateTo(item.page);
+          };
+          mobileList.appendChild(mobileBtn);
+        }
+      });
+
+      if (mobileList) {
+        const extras = [];
+        if (role === 'Manager') {
+          extras.push({ key: 'button.change_area', icon: 'fa-exchange-alt', action: openHouseModal });
+        }
+        extras.push({ key: 'nav.logout', icon: 'fa-sign-out-alt', action: logout });
+        extras.forEach(item => {
+          const label = translations[item.key] || item.key;
+          const mobileBtn = document.createElement('button');
+          mobileBtn.innerHTML = `<i class="fas ${item.icon}"></i> <span>${label}</span>`;
+          mobileBtn.onclick = function() {
+            toggleMobileMenu(false);
+            item.action();
+          };
+          mobileList.appendChild(mobileBtn);
+        });
+      }
+    }
+
+    function renderQuickLinks() {
+      const container = document.getElementById('linksContainer');
+      container.innerHTML = '';
+      const links = dashboardConfig.quick_links || [];
+
+      if (dashboardConfig.house === 'ALL' && links && typeof links === 'object') {
+        container.appendChild(renderLinkGroup(translations['links.foh'] || 'FOH Links', links.foh || []));
+        container.appendChild(renderLinkGroup(translations['links.boh'] || 'BOH Links', links.boh || []));
+        return;
+      }
+
+      container.appendChild(renderLinkGrid(links));
+    }
+
+    function renderLinkGroup(title, links) {
+      const section = document.createElement('div');
+      section.style.marginBottom = '12px';
+      const header = document.createElement('div');
+      header.style.fontWeight = '600';
+      header.style.marginBottom = '8px';
+      header.textContent = title;
+      section.appendChild(header);
+      section.appendChild(renderLinkGrid(links));
+      return section;
+    }
+
+    function renderLinkGrid(links) {
+      const grid = document.createElement('div');
+      grid.className = 'quick-links-grid';
+      if (!links || links.length === 0) {
+        grid.innerHTML = '<div style="color:#888;font-size:13px;">' + (translations['links.empty'] || 'No quick links configured.') + '</div>';
+        return grid;
+      }
+      links.forEach(link => {
+        const a = document.createElement('a');
+        a.className = 'quick-link';
+        a.href = link.url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        const iconHtml = renderIcon(link.icon);
+        const label = link.name || link.title || '';
+        a.innerHTML = `<span class="quick-link-icon">${iconHtml}</span><span>${label}</span>`;
+        grid.appendChild(a);
+      });
+      return grid;
+    }
+
+    function renderIcon(icon) {
+      if (!icon) return '<i class="fas fa-link"></i>';
+      if (icon.startsWith('fa-')) {
+        return `<i class="fas ${icon}"></i>`;
+      }
+      if (icon.indexOf(' ') !== -1 && icon.indexOf('fa-') !== -1) {
+        return `<i class="${icon}"></i>`;
+      }
+      return `<span>${icon}</span>`;
+    }
+
+    function loadStats() {
+      const token = getSessionToken();
+      if (!token) return;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result || !result.success) return;
+          const today = result.recent && result.recent.infractions_added_today !== undefined
+            ? result.recent.infractions_added_today
+            : '--';
+          const atRisk = (result.thresholds ? (result.thresholds.employees_at_6_8_points || 0) + (result.thresholds.employees_at_9_plus_points || 0) : '--');
+          document.getElementById('statToday').textContent = today;
+          document.getElementById('statAtRisk').textContent = atRisk;
+          if (dashboardConfig.user_role !== 'Manager') {
+            document.getElementById('statEntries').textContent = result.overall ? result.overall.total_active_employees : '--';
+          }
+        })
+        .getDashboardStatistics(token);
+
+      if (dashboardConfig.user_role === 'Manager') {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result && result.success) {
+              document.getElementById('statEntries').textContent = result.entries_this_month || '--';
+            }
+          })
+          .getManagerActivity(token);
+      }
+    }
+
+    function initialize() {
+      const token = getSessionToken();
+      if (!token) {
+        showError('Session token missing. Please log in again.');
+        return;
+      }
+      configAttempts += 1;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.sessionExpired) {
+            showError('Session expired. Please log in again.');
+            return;
+          }
+          if (result && (result.user_role === 'Director' || result.user_role === 'Operator')) {
+            navigateTo('analytics');
+            return;
+          }
+          if (!result || !result.success) {
+            if (configAttempts < 2) {
+              setTimeout(initialize, 800);
+              return;
+            }
+            showError('Failed to load dashboard configuration.');
+            return;
+          }
+          dashboardConfig = result;
+          applyConfig();
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to load dashboard config:', error);
+          if (configAttempts < 2) {
+            setTimeout(initialize, 800);
+            return;
+          }
+          showError('Failed to load dashboard configuration.');
+        })
+        .getDashboardConfig(token);
+    }
+
+    document.addEventListener('DOMContentLoaded', initialize);
+  </script>
+</body>
+</html>

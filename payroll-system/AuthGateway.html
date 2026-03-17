@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payroll Review - Access</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <?!= include('Styles'); ?>
+  <style>
+    body { background: #f7f7f7; }
+    .auth-container { max-width: 520px; margin: 6vh auto; padding: 24px; }
+    .auth-card { background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+    .auth-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .auth-title { font-size: 1.4rem; font-weight: 700; }
+    .auth-sub { color: #6b7280; margin-bottom: 18px; }
+    .auth-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .auth-status { margin-top: 14px; color: #6b7280; }
+  </style>
+</head>
+<body data-mode="<?= mode ?>" data-return-url="<?= returnUrl ?>" data-base-url="<?= baseUrl ?>">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <span class="material-icons-round">payments</span>
+        <div class="auth-title">Payroll Review</div>
+      </div>
+      <div class="auth-sub" id="authSubtitle"></div>
+
+      <div class="auth-actions" id="authActions"></div>
+
+      <div class="auth-status" id="authStatus"></div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const MODE = document.body.dataset.mode || params.get('mode') || 'login';
+    const BASE_URL = document.body.dataset.baseUrl || params.get('baseUrl') || window.location.href.split('?')[0];
+    const RETURN_URL = document.body.dataset.returnUrl || params.get('returnUrl') || BASE_URL;
+
+    function goHome() {
+      window.top.location.href = BASE_URL;
+    }
+
+    function goToLogin() {
+      window.top.location.href = BASE_URL + '?view=auth&mode=login&returnUrl=' + encodeURIComponent(RETURN_URL || BASE_URL);
+    }
+
+    function renderMode() {
+      const subtitle = document.getElementById('authSubtitle');
+      const actions = document.getElementById('authActions');
+      actions.innerHTML = '';
+
+      if (MODE === 'logout') {
+        subtitle.textContent = 'You have been signed out.';
+
+        const signInBtn = document.createElement('button');
+        signInBtn.className = 'btn btn-primary';
+        signInBtn.textContent = 'Sign In Again';
+        signInBtn.onclick = goToLogin;
+        actions.appendChild(signInBtn);
+
+        const homeBtn = document.createElement('button');
+        homeBtn.className = 'btn btn-outline';
+        homeBtn.textContent = 'Back to Home';
+        homeBtn.onclick = goHome;
+        actions.appendChild(homeBtn);
+      } else {
+        subtitle.textContent = 'Sign in to access the admin dashboard.';
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-primary';
+        btn.id = 'signInBtn';
+        btn.textContent = 'Sign in with Google';
+        btn.onclick = initiateSignIn;
+        actions.appendChild(btn);
+      }
+    }
+
+    function initiateSignIn() {
+      const btn = document.getElementById('signInBtn');
+      const status = document.getElementById('authStatus');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Signing in...';
+      }
+      status.textContent = 'Authorizing with Google...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result || !result.authenticated) {
+            if (btn) { btn.disabled = false; btn.textContent = 'Sign in with Google'; }
+            status.textContent = 'Sign in failed. Please try again.';
+            return;
+          }
+          google.script.run
+            .withSuccessHandler(function() {
+              status.textContent = 'Sign in successful.';
+              showContinue(result.email);
+              google.script.run.logAuthEvent('LOGIN_SUCCESS', result.email, 'AuthGateway');
+            })
+            .withFailureHandler(function() {
+              if (btn) { btn.disabled = false; btn.textContent = 'Sign in with Google'; }
+              status.textContent = 'Could not create session. Please try again.';
+            })
+            .createAuthSession(result.email);
+        })
+        .withFailureHandler(function() {
+          if (btn) { btn.disabled = false; btn.textContent = 'Sign in with Google'; }
+          status.textContent = 'Sign in failed. Please try again.';
+        })
+        .authenticateUser();
+    }
+
+    function showContinue(email) {
+      const actions = document.getElementById('authActions');
+      actions.innerHTML = '';
+      const continueLink = document.createElement('a');
+      continueLink.className = 'btn btn-primary';
+      continueLink.textContent = 'Continue to Dashboard';
+      continueLink.href = RETURN_URL || BASE_URL;
+      continueLink.target = '_top';
+      actions.appendChild(continueLink);
+
+      if (email) {
+        const status = document.getElementById('authStatus');
+        status.textContent = 'Signed in as ' + email;
+      }
+    }
+
+    renderMode();
+  </script>
+</body>
+</html>

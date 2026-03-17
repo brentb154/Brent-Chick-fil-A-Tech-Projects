@@ -21,10 +21,16 @@
         Checking...
       </span>
     </div>
-    <button class="btn btn-outline btn-sm" onclick="runPayrollValidationCheck()" id="refreshValidationBtn">
-      <span class="material-icons-round" style="font-size: 16px;">refresh</span>
-      Re-check
-    </button>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn btn-outline btn-sm" onclick="runReconciliation()" id="reconcileBtn">
+        <span class="material-icons-round" style="font-size: 16px;">sync_alt</span>
+        Reconcile Payments
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="runPayrollValidationCheck()" id="refreshValidationBtn">
+        <span class="material-icons-round" style="font-size: 16px;">refresh</span>
+        Re-check
+      </button>
+    </div>
   </div>
   <div class="card-body" id="validationContent">
     <div class="validation-loading">
@@ -120,6 +126,11 @@
       <div style="font-size: 0.85rem; color: var(--gray-600);">Time Transfers</div>
       <div style="font-size: 0.75rem; color: var(--gray-500);">Multi-location</div>
     </div>
+    <div class="stat-card" id="summaryReconCard" style="display:none; background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); text-align: center;">
+      <div style="font-size: 2rem; font-weight: 700; color: var(--warning-500, #f59e0b);" id="summaryReconCount">0</div>
+      <div style="font-size: 0.85rem; color: var(--gray-600);">OT Adjustments</div>
+      <div style="font-size: 0.75rem; color: var(--gray-500);" id="summaryReconHours">0 hrs to move</div>
+    </div>
   </div>
 
   <!-- SECTION 1: OVERTIME (View Only - sorted by highest OT) -->
@@ -182,7 +193,24 @@
     </div>
   </div>
 
-  <!-- SECTION 4: TIME TRANSFERS -->
+  <!-- SECTION 4: OT RECONCILIATION (Cross-Location) -->
+  <div class="card mb-lg" id="otReconSection" style="display:none;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="material-icons-round" style="color: var(--warning-500);">calculate</span>
+        <span style="font-weight: 600;">OT RECONCILIATION</span>
+        <span class="badge" style="background: var(--warning-100, #fef3c7); color: var(--warning-700, #b45309);" id="reconBadge">0 adjustments</span>
+      </div>
+    </div>
+    <div class="card-body" id="otReconContent">
+      <div class="empty-state" style="padding: 40px;">
+        <span class="material-icons-round" style="font-size: 48px; color: var(--gray-300);">calculate</span>
+        <p style="color: var(--gray-500);">No cross-location OT adjustments needed</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 5: TIME TRANSFERS -->
   <div class="card mb-lg" id="transferSection">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
       <div style="display: flex; align-items: center; gap: 8px;">
@@ -300,6 +328,34 @@
           View Next Payroll
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reconciliation Modal -->
+<div class="modal-overlay" id="reconcileModal" style="display: none;">
+  <div class="modal-content" style="max-width: 640px;">
+    <div class="modal-header">
+      <h3 style="display: flex; align-items: center; gap: 8px;">
+        <span class="material-icons-round" style="color: var(--cfa-red);">sync_alt</span>
+        Payment Reconciliation
+      </h3>
+      <button class="btn-icon" onclick="closeReconcileModal()">
+        <span class="material-icons-round">close</span>
+      </button>
+    </div>
+    <div class="modal-body" id="reconcileModalBody">
+      <div class="validation-loading">
+        <span class="material-icons-round spin">sync</span>
+        <span>Scanning for discrepancies...</span>
+      </div>
+    </div>
+    <div class="modal-footer" id="reconcileModalFooter" style="display: none;">
+      <button class="btn btn-outline" onclick="closeReconcileModal()">Close</button>
+      <button class="btn btn-primary" id="applyReconcileBtn" onclick="applyReconciliation()" style="display: none;">
+        <span class="material-icons-round" style="font-size: 16px;">check_circle</span>
+        Apply Fixes
+      </button>
     </div>
   </div>
 </div>
@@ -452,6 +508,104 @@
   .validation-accordion.error {
     border-color: #DC2626;
     background: rgba(220, 38, 38, 0.05);
+  }
+  
+  .validation-accordion.dismissed {
+    border-color: var(--success);
+    background: rgba(16, 185, 129, 0.05);
+    opacity: 0.7;
+  }
+  
+  .validation-check-icon.dismissed { color: var(--success); }
+  
+  .dismissed-label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    background: var(--success-light);
+    color: var(--success);
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  
+  .reconcile-item {
+    padding: 12px;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: white;
+  }
+  
+  .reconcile-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  
+  .reconcile-item-name {
+    font-weight: 600;
+    color: var(--gray-800);
+  }
+  
+  .reconcile-item-id {
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    font-family: monospace;
+  }
+  
+  .reconcile-detail {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    line-height: 1.6;
+  }
+  
+  .reconcile-fix {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: #FEF3C7;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #92400E;
+  }
+  
+  .reconcile-summary {
+    padding: 16px;
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  
+  .reconcile-summary.has-issues {
+    background: #FEF3C7;
+    color: #92400E;
+  }
+  
+  .reconcile-summary.all-good {
+    background: var(--success-light);
+    color: var(--success);
+  }
+
+  .btn-dismiss {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-300);
+    color: var(--gray-600);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  
+  .btn-dismiss:hover {
+    background: var(--success-light);
+    border-color: var(--success);
+    color: var(--success);
   }
   
   .validation-accordion-header {

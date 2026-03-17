@@ -17,6 +17,7 @@
 // Sheet names - these will be created automatically if they don't exist
 const SHEET_NAMES = {
   OT_HISTORY: 'OT_History',
+  OT_RECONCILIATION: 'OT_Reconciliation',
   SETTINGS: 'Settings',
   EMPLOYEES: 'Employees',
   UNIFORM_CATALOG: 'Uniform_Catalog',
@@ -53,7 +54,11 @@ const DEFAULT_SETTINGS = {
   notifyOnUniformOrder: false,
   // Uniform settings
   paydayReference: '2024-11-29',  // Friday - bi-weekly pay dates
-  weeklyEmailRecipients: ''
+  weeklyEmailRecipients: '',
+  // Weekly summary schedule
+  weeklySummaryDay: 'Saturday',
+  weeklySummaryHour: 13,
+  weeklySummaryMinute: 0
 };
 
 // ============================================================================
@@ -99,6 +104,25 @@ function doGet(e) {
     // Check for URL parameters for routing
     const view = e && e.parameter && e.parameter.view ? e.parameter.view : 'default';
     
+    // Auth gateway route
+    if (view === 'auth') {
+      const template = HtmlService.createTemplateFromFile('AuthGateway');
+      template.mode = e.parameter.mode || 'login';
+      template.baseUrl = ScriptApp.getService().getUrl();
+      template.returnUrl = e.parameter.returnUrl || template.baseUrl;
+      if (template.mode === 'logout') {
+        const email = getSessionEmail();
+        clearAuthSession();
+        if (email) {
+          logActivity('LOGOUT', 'AUTH', `User logged out: ${email}`, '');
+        }
+      }
+      return template.evaluate()
+        .setTitle('Access - Payroll Review')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+        .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+    }
+
     // Public routes (no auth required)
     if (view === 'pto-request') {
       // Serve the employee PTO request form (public access via QR code)
@@ -119,14 +143,14 @@ function doGet(e) {
     }
     
     // Admin routes - require Google authentication
-    // Check for valid session (created after OAuth via google.script.run)
+    // Require a valid session created after OAuth via google.script.run
     const hasSession = checkAuthSession();
-    const auth = isUserAuthenticated();
     
-    if (!hasSession && !auth.authenticated) {
+    if (!hasSession) {
       // User is not signed in - show login prompt
-      return HtmlService.createTemplateFromFile('LoginPrompt')
-        .evaluate()
+      const loginTemplate = HtmlService.createTemplateFromFile('LoginPrompt');
+      loginTemplate.baseUrl = ScriptApp.getService().getUrl();
+      return loginTemplate.evaluate()
         .setTitle('Sign In - Payroll Review')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
         .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -289,6 +313,23 @@ function clearAuthSession() {
 }
 
 /**
+ * Logs authentication events
+ * @param {string} action - LOGIN_SUCCESS|LOGOUT|LOGIN_FAILED
+ * @param {string} email - User email
+ * @param {string} details - Optional details
+ */
+function logAuthEvent(action, email, details) {
+  try {
+    const desc = `${action}: ${email || 'Unknown'}${details ? ' - ' + details : ''}`;
+    logActivity(action, 'AUTH', desc, '');
+    return true;
+  } catch (e) {
+    console.error('Error logging auth event:', e);
+    return false;
+  }
+}
+
+/**
  * Returns HTML content for a view template
  * Used by the MainApp to load views dynamically
  * @param {string} templateName - Name of the template file (without .html)
@@ -314,7 +355,8 @@ function getViewTemplate(templateName) {
       'SettingsPage',
       'SystemHealth',
       'Help',
-      'YearEndWizard'
+      'YearEndWizard',
+      'OTReconciliation'
     ];
     
     if (!allowedTemplates.includes(templateName)) {
@@ -354,26 +396,54 @@ function initializeSheets() {
   let historySheet = ss.getSheetByName(SHEET_NAMES.OT_HISTORY);
   if (!historySheet) {
     historySheet = ss.insertSheet(SHEET_NAMES.OT_HISTORY);
-    // Add headers (19 columns: A-S, with Employee_ID as column S)
+    // Add headers (23 columns: A-W, with per-week-per-location breakdown)
     const headers = [
       'Period End', 'Employee Name', 'Match Key', 'Location', 
       'CH Hours', 'DBU Hours', 'Total Hours', 'Regular Hours',
       'Week 1 Hours', 'Week 2 Hours', 'Week 1 OT', 'Week 2 OT',
       'Total OT', 'OT Cost', 'Flag', 'Is Multi-Location',
-      'Import Date', 'Imported By', 'Employee_ID'
+      'Import Date', 'Imported By', 'Employee_ID',
+      'Week1_CH', 'Week1_DBU', 'Week2_CH', 'Week2_DBU'
     ];
     historySheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     historySheet.setFrozenRows(1);
     historySheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
   } else {
-    // Check if Employee_ID column exists (column S = 19), add if missing
     const lastCol = historySheet.getLastColumn();
     if (lastCol < 19) {
       historySheet.getRange(1, 19).setValue('Employee_ID');
       historySheet.getRange(1, 19).setFontWeight('bold');
     }
+    if (lastCol < 23) {
+      const newHeaders = ['Week1_CH', 'Week1_DBU', 'Week2_CH', 'Week2_DBU'];
+      for (let i = 0; i < newHeaders.length; i++) {
+        const col = 20 + i;
+        if (lastCol < col) {
+          historySheet.getRange(1, col).setValue(newHeaders[i]);
+          historySheet.getRange(1, col).setFontWeight('bold');
+        }
+      }
+    }
   }
   
+  // Create OT_Reconciliation sheet if it doesn't exist
+  let reconSheet = ss.getSheetByName(SHEET_NAMES.OT_RECONCILIATION);
+  if (!reconSheet) {
+    reconSheet = ss.insertSheet(SHEET_NAMES.OT_RECONCILIATION);
+    const reconHeaders = [
+      'Period_End', 'Employee_Name', 'Match_Key', 'Paid_From_Location',
+      'Week', 'Loc1_Name', 'Loc2_Name',
+      'Loc1_Week_Hours', 'Loc2_Week_Hours',
+      'Existing_OT', 'Total_Worked', 'True_OT', 'Net_New_OT',
+      'Primary_Location', 'Secondary_Location',
+      'Adj_Loc1_Reg', 'Adj_Loc2_Reg', 'Total_OT_After',
+      'Daily_Hours_JSON', 'Import_Date'
+    ];
+    reconSheet.getRange(1, 1, 1, reconHeaders.length).setValues([reconHeaders]);
+    reconSheet.setFrozenRows(1);
+    reconSheet.getRange(1, 1, 1, reconHeaders.length).setFontWeight('bold');
+  }
+
   // Create Settings sheet if it doesn't exist
   let settingsSheet = ss.getSheetByName(SHEET_NAMES.SETTINGS);
   if (!settingsSheet) {
@@ -393,7 +463,10 @@ function initializeSheets() {
       ['consecutiveAlertPeriods', DEFAULT_SETTINGS.consecutiveAlertPeriods],
       ['monthlyIncreaseAlertPercent', DEFAULT_SETTINGS.monthlyIncreaseAlertPercent],
       ['notificationsEnabled', DEFAULT_SETTINGS.notificationsEnabled],
-      ['adminEmails', DEFAULT_SETTINGS.adminEmails]
+      ['adminEmails', DEFAULT_SETTINGS.adminEmails],
+      ['weeklySummaryDay', DEFAULT_SETTINGS.weeklySummaryDay],
+      ['weeklySummaryHour', DEFAULT_SETTINGS.weeklySummaryHour],
+      ['weeklySummaryMinute', DEFAULT_SETTINGS.weeklySummaryMinute]
     ];
     settingsSheet.getRange(1, 1, settingsData.length, 2).setValues(settingsData);
     settingsSheet.setFrozenRows(1);
@@ -566,8 +639,8 @@ function populateUniformCatalog(sheet) {
     // CHEF WEAR
     ['CHEFCOAT', 'Chef Coat', 'Chef Wear', 'XS,S,M,L,XL,2XL,3XL', 30.00, true],
     
-    // PANTS
-    ['PANTS', 'Pants', 'Pants', '24,26,28,30,32,34,36,38,40,42', 28.85, true],
+    // PANTS (Available_Sizes left empty so gender/waist/inseam flow is used)
+    ['PANTS', 'Pants', 'Pants', '', 28.85, true],
     ['MATERNITY', 'Maternity Pelham Pants', 'Pants', 'XS,S,M,L,XL,2XL', 27.00, true],
     
     // SHORTS
@@ -940,6 +1013,12 @@ function setManagerReceivingPasscode(newPasscode) {
  */
 function getSettings() {
   try {
+    const cache = CacheService.getScriptCache();
+    const cached = cache.get('settings_v1');
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAMES.SETTINGS);
     
@@ -958,7 +1037,7 @@ function getSettings() {
       // Convert numeric values
       if (['hourlyWage', 'otMultiplier', 'moderateThreshold', 'highThreshold', 'reallyHighThreshold',
            'consecutiveAlertPeriods', 'monthlyIncreaseAlertPercent', 'pendingPTOAlertThreshold',
-           'payrollUrgencyDays', 'numberOfLocations'].includes(key)) {
+           'payrollUrgencyDays', 'numberOfLocations', 'weeklySummaryHour', 'weeklySummaryMinute'].includes(key)) {
         value = parseFloat(value) || DEFAULT_SETTINGS[key];
       }
       
@@ -985,7 +1064,7 @@ function getSettings() {
         const payrollData = payrollSheet.getDataRange().getValues();
         for (let i = 1; i < payrollData.length; i++) {
           if (payrollData[i][0] === 'next_payroll_date' && payrollData[i][1]) {
-            settings.nextPayrollDate = payrollData[i][1];
+            settings.nextPayrollDate = formatDateISO(payrollData[i][1]);
             break;
           }
         }
@@ -994,6 +1073,7 @@ function getSettings() {
       console.log('Could not get payroll date:', e);
     }
     
+    cache.put('settings_v1', JSON.stringify(settings), 300);
     return settings;
   } catch (error) {
     console.error('Error getting settings:', error);
@@ -1083,6 +1163,7 @@ function updateSettings(newSettings) {
       }
     }
     
+    CacheService.getScriptCache().remove('settings_v1');
     return { success: true };
   } catch (error) {
     console.error('Error updating settings:', error);
@@ -1133,6 +1214,7 @@ function saveSettings(newSettings) {
     // Log the settings change
     logActivity('UPDATE', 'SETTINGS', 'Settings updated', '');
     
+    CacheService.getScriptCache().remove('settings_v1');
     return { success: true };
   } catch (error) {
     console.error('Error saving settings:', error);
@@ -1470,6 +1552,75 @@ function getEmployees(filters = {}) {
 }
 
 /**
+ * Lightweight employee list for quick search
+ * @returns {Array} Array of simplified employee objects
+ */
+function getEmployeesForSearch() {
+  try {
+    const cache = CacheService.getScriptCache();
+    const cached = cache.get('search_employees_v1');
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
+    const employees = getEmployees();
+    const lite = employees.map(e => ({
+      employeeId: e.employeeId || e.matchKey || '',
+      matchKey: e.matchKey || e.employeeId || '',
+      fullName: e.fullName || '',
+      location: e.primaryLocation || ''
+    }));
+
+    cache.put('search_employees_v1', JSON.stringify(lite), 300);
+    return lite;
+  } catch (error) {
+    console.error('Error getting employees for search:', error);
+    return [];
+  }
+}
+
+/**
+ * Lightweight uniform orders list for quick search
+ * @param {Object} filters - Optional { limit: number }
+ * @returns {Array} Array of simplified order objects
+ */
+function getUniformOrdersLite(filters = {}) {
+  try {
+    const limit = parseInt(filters.limit, 10);
+    const cache = CacheService.getScriptCache();
+    const cacheKey = 'search_orders_v1_' + (isNaN(limit) ? 'all' : limit);
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
+    if (!sheet || sheet.getLastRow() < 2) {
+      return [];
+    }
+
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
+    let orders = data
+      .map(row => ({
+        orderId: row[0] || '',
+        employeeName: row[2] || ''
+      }))
+      .filter(o => o.orderId);
+
+    if (!isNaN(limit)) {
+      orders = orders.slice(0, limit);
+    }
+
+    cache.put(cacheKey, JSON.stringify(orders), 300);
+    return orders;
+  } catch (error) {
+    console.error('Error getting uniform orders for search:', error);
+    return [];
+  }
+}
+
+/**
  * Gets a single employee by their Employee_ID
  * @param {string} employeeId - The Employee_ID to look up
  * @returns {Object|null} Employee object or null if not found
@@ -1773,7 +1924,9 @@ function searchEmployeesFuzzy(searchTerm) {
  * @returns {Object} { success, employee, warnings }
  */
 function addNewEmployee(employeeData) {
+  const lock = LockService.getDocumentLock();
   try {
+    lock.waitLock(10000);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let empSheet = ss.getSheetByName(SHEET_NAMES.EMPLOYEES);
     
@@ -1823,6 +1976,7 @@ function addNewEmployee(employeeData) {
     ];
     
     empSheet.appendRow(newRow);
+    CacheService.getScriptCache().remove('search_employees_v1');
     
     // Log the creation
     logEmployeeCreation({
@@ -1851,6 +2005,10 @@ function addNewEmployee(employeeData) {
   } catch (error) {
     console.error('Error adding new employee:', error);
     return { success: false, error: error.message };
+  } finally {
+    try {
+      lock.releaseLock();
+    } catch (e) {}
   }
 }
 
@@ -2517,8 +2675,8 @@ function getCatalogItems(activeOnly = true) {
       return [];
     }
     
-    // Get up to 8 columns (added Waist_Sizes and Inseam_Sizes for pants)
-    const numCols = Math.min(sheet.getLastColumn(), 8);
+    // Get up to 10 columns (gender-specific waist/inseam overrides for pants)
+    const numCols = Math.min(sheet.getLastColumn(), 10);
     const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, numCols).getValues();
     
     let items = data.map((row, index) => ({
@@ -2528,9 +2686,11 @@ function getCatalogItems(activeOnly = true) {
       availableSizes: row[3] ? String(row[3]).split(',').map(s => s.trim()) : [],
       price: parseFloat(row[4]) || 0,
       active: row[5] === true || row[5] === 'TRUE' || row[5] === true,
-      // Columns 7 & 8: Optional waist/inseam overrides for pants
-      waistSizes: row[6] ? String(row[6]).split(',').map(s => s.trim()) : [],
-      inseamSizes: row[7] ? String(row[7]).split(',').map(s => s.trim()) : [],
+      // Columns 7-10: Gender-specific waist/inseam overrides for pants
+      maleWaistSizes:   row[6] ? String(row[6]).split(',').map(s => s.trim()) : [],
+      maleInseamSizes:  row[7] ? String(row[7]).split(',').map(s => s.trim()) : [],
+      femaleWaistSizes: row[8] ? String(row[8]).split(',').map(s => s.trim()) : [],
+      femaleInseamSizes:row[9] ? String(row[9]).split(',').map(s => s.trim()) : [],
       rowIndex: index + 2
     })).filter(item => item.itemId);
     
@@ -2555,15 +2715,18 @@ function getUniformCatalog() {
   try {
     const items = getCatalogItems(true);
     // Return data for employee form including prices for payment preview
-    // Also include waist/inseam overrides for pants
+    // Also include gender-specific waist/inseam overrides for pants
     return items.map(item => ({
       itemName: item.itemName,
       category: item.category,
       itemId: item.itemId,
       price: item.price,
-      // Include waist/inseam overrides (empty arrays mean use defaults from Settings)
-      waistSizes: item.waistSizes || [],
-      inseamSizes: item.inseamSizes || []
+      availableSizes: item.availableSizes || [],
+      // Gender-specific overrides (empty arrays mean use defaults from Settings)
+      maleWaistSizes: item.maleWaistSizes || [],
+      maleInseamSizes: item.maleInseamSizes || [],
+      femaleWaistSizes: item.femaleWaistSizes || [],
+      femaleInseamSizes: item.femaleInseamSizes || []
     }));
   } catch (error) {
     console.error('Error getting uniform catalog:', error);
@@ -2708,6 +2871,8 @@ function submitEmployeeUniformRequest(orderData) {
     ];
     
     ordersSheet.appendRow(orderRow);
+    CacheService.getScriptCache().remove('search_orders_v1_100');
+    CacheService.getScriptCache().remove('search_orders_v1_all');
     
     // Create line item rows (9 columns)
     const lineRows = enrichedItems.map(item => {
@@ -2889,9 +3054,11 @@ function addCatalogItem(item) {
       Array.isArray(item.availableSizes) ? item.availableSizes.join(',') : (item.availableSizes || ''),
       item.price,
       true,
-      // Waist and Inseam sizes for pants (optional overrides)
-      Array.isArray(item.waistSizes) ? item.waistSizes.join(',') : (item.waistSizes || ''),
-      Array.isArray(item.inseamSizes) ? item.inseamSizes.join(',') : (item.inseamSizes || '')
+      // Gender-specific waist/inseam sizes for pants (optional overrides)
+      Array.isArray(item.maleWaistSizes) ? item.maleWaistSizes.join(',') : (item.maleWaistSizes || ''),
+      Array.isArray(item.maleInseamSizes) ? item.maleInseamSizes.join(',') : (item.maleInseamSizes || ''),
+      Array.isArray(item.femaleWaistSizes) ? item.femaleWaistSizes.join(',') : (item.femaleWaistSizes || ''),
+      Array.isArray(item.femaleInseamSizes) ? item.femaleInseamSizes.join(',') : (item.femaleInseamSizes || '')
     ];
     
     sheet.appendRow(newRow);
@@ -2905,12 +3072,25 @@ function addCatalogItem(item) {
 }
 
 /**
- * Ensures the catalog sheet has headers for waist/inseam columns
+ * Ensures the catalog sheet has headers for gender-specific waist/inseam columns.
+ * Can be called with a sheet parameter (internal use) or without (run from dropdown).
  */
 function ensureCatalogHeaders(sheet) {
-  const headers = sheet.getRange(1, 1, 1, 8).getValues()[0];
-  if (!headers[6]) sheet.getRange(1, 7).setValue('Waist_Sizes');
-  if (!headers[7]) sheet.getRange(1, 8).setValue('Inseam_Sizes');
+  if (!sheet) {
+    // Called from the dropdown with no argument — look up the sheet ourselves
+    sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.UNIFORM_CATALOG);
+    if (!sheet) {
+      Logger.log('Uniform_Catalog sheet not found.');
+      return;
+    }
+  }
+  const headers = sheet.getRange(1, 1, 1, 10).getValues()[0];
+  // Gender-specific columns (cols 7-10)
+  if (!headers[6] || headers[6] === 'Waist_Sizes')  sheet.getRange(1, 7).setValue('Male_Waist_Sizes');
+  if (!headers[7] || headers[7] === 'Inseam_Sizes')  sheet.getRange(1, 8).setValue('Male_Inseam_Sizes');
+  if (!headers[8])  sheet.getRange(1, 9).setValue('Female_Waist_Sizes');
+  if (!headers[9])  sheet.getRange(1, 10).setValue('Female_Inseam_Sizes');
+  Logger.log('Catalog headers updated: Male_Waist_Sizes, Male_Inseam_Sizes, Female_Waist_Sizes, Female_Inseam_Sizes');
 }
 
 /**
@@ -2949,14 +3129,22 @@ function updateCatalogItem(itemId, updates) {
     if (updates.price !== undefined) sheet.getRange(row, 5).setValue(updates.price);
     if (updates.active !== undefined) sheet.getRange(row, 6).setValue(updates.active);
     
-    // Waist and Inseam sizes for pants (optional overrides)
-    if (updates.waistSizes !== undefined) {
-      const waist = Array.isArray(updates.waistSizes) ? updates.waistSizes.join(',') : updates.waistSizes;
-      sheet.getRange(row, 7).setValue(waist);
+    // Gender-specific waist/inseam sizes for pants (optional overrides)
+    if (updates.maleWaistSizes !== undefined) {
+      const val = Array.isArray(updates.maleWaistSizes) ? updates.maleWaistSizes.join(',') : updates.maleWaistSizes;
+      sheet.getRange(row, 7).setValue(val);
     }
-    if (updates.inseamSizes !== undefined) {
-      const inseam = Array.isArray(updates.inseamSizes) ? updates.inseamSizes.join(',') : updates.inseamSizes;
-      sheet.getRange(row, 8).setValue(inseam);
+    if (updates.maleInseamSizes !== undefined) {
+      const val = Array.isArray(updates.maleInseamSizes) ? updates.maleInseamSizes.join(',') : updates.maleInseamSizes;
+      sheet.getRange(row, 8).setValue(val);
+    }
+    if (updates.femaleWaistSizes !== undefined) {
+      const val = Array.isArray(updates.femaleWaistSizes) ? updates.femaleWaistSizes.join(',') : updates.femaleWaistSizes;
+      sheet.getRange(row, 9).setValue(val);
+    }
+    if (updates.femaleInseamSizes !== undefined) {
+      const val = Array.isArray(updates.femaleInseamSizes) ? updates.femaleInseamSizes.join(',') : updates.femaleInseamSizes;
+      sheet.getRange(row, 10).setValue(val);
     }
     
     return { success: true, message: 'Item updated successfully' };
@@ -3264,7 +3452,9 @@ function getUpcomingPaydays(futureCount = 8, historyCount = 26) {
  * @returns {Object} Result with order ID
  */
 function createUniformOrder(orderData) {
+  const lock = LockService.getDocumentLock();
   try {
+    lock.waitLock(10000);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
     const itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
@@ -3405,6 +3595,10 @@ function createUniformOrder(orderData) {
   } catch (error) {
     console.error('Error creating uniform order:', error);
     return { success: false, error: error.message };
+  } finally {
+    try {
+      lock.releaseLock();
+    } catch (e) {}
   }
 }
 
@@ -3478,22 +3672,19 @@ function getUniformOrders(filters = {}) {
       };
     }).filter(o => o.orderId);
     
-    // Apply filters
-    if (filters.statuses && Array.isArray(filters.statuses)) {
-      // Multiple statuses (e.g., "Current" = Pending + Active)
-      orders = orders.filter(o => filters.statuses.includes(o.status));
-    } else if (filters.status) {
-      // Single status
-      orders = orders.filter(o => o.status === filters.status);
-    }
-    if (filters.employeeId) {
-      orders = orders.filter(o => o.employeeId === filters.employeeId);
-    }
-    if (filters.employeeName) {
-      orders = orders.filter(o => o.employeeName.toLowerCase().includes(filters.employeeName.toLowerCase()));
-    }
-    if (filters.location) {
-      orders = orders.filter(o => o.location === filters.location);
+    // Apply all filters in a single pass
+    const hasFilters = filters.statuses || filters.status || filters.employeeId || filters.employeeName || filters.location;
+    if (hasFilters) {
+      const statusSet = filters.statuses ? new Set(filters.statuses) : null;
+      const empNameLower = filters.employeeName ? filters.employeeName.toLowerCase() : null;
+      orders = orders.filter(o => {
+        if (statusSet && !statusSet.has(o.status)) return false;
+        if (!statusSet && filters.status && o.status !== filters.status) return false;
+        if (filters.employeeId && o.employeeId !== filters.employeeId) return false;
+        if (empNameLower && !o.employeeName.toLowerCase().includes(empNameLower)) return false;
+        if (filters.location && o.location !== filters.location) return false;
+        return true;
+      });
     }
     
     // Sort by order date descending
@@ -3508,12 +3699,106 @@ function getUniformOrders(filters = {}) {
 }
 
 /**
+ * Updates the payment plan for a uniform order
+ * @param {string} orderId
+ * @param {number} newPlan
+ * @returns {Object} Result with updated amounts
+ */
+function updateUniformPaymentPlan(orderId, newPlan) {
+  const lock = LockService.getDocumentLock();
+  try {
+    lock.waitLock(10000);
+
+    const plan = parseInt(newPlan, 10);
+    if (!orderId || isNaN(plan) || plan < 1 || plan > 3) {
+      return { success: false, error: 'Payment plan must be 1, 2, or 3.' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
+    if (!ordersSheet || ordersSheet.getLastRow() < 2) {
+      return { success: false, error: 'No orders found.' };
+    }
+
+    const ordersData = ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, 17).getValues();
+    let rowIndex = -1;
+    let row = null;
+    for (let i = 0; i < ordersData.length; i++) {
+      if (ordersData[i][0] === orderId) {
+        rowIndex = i + 2;
+        row = ordersData[i];
+        break;
+      }
+    }
+
+    if (!row) {
+      return { success: false, error: 'Order not found.' };
+    }
+
+    const status = row[12] || 'Pending';
+    if (['Completed', 'Cancelled', 'Store Paid'].includes(status)) {
+      return { success: false, error: 'Cannot change payment plan for this order status.' };
+    }
+
+    const paymentsMade = parseInt(row[9]) || 0;
+    if (paymentsMade > plan) {
+      return { success: false, error: 'New plan is less than payments already made.' };
+    }
+
+    // Calculate total from line items if available
+    let totalAmount = parseFloat(row[5]) || 0;
+    const itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
+    if (itemsSheet && itemsSheet.getLastRow() >= 2) {
+      const itemsData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, 9).getValues();
+      let calculatedTotal = 0;
+      for (const item of itemsData) {
+        if (item[1] === orderId) {
+          calculatedTotal += parseFloat(item[7]) || 0;
+        }
+      }
+      if (calculatedTotal > 0 || totalAmount === 0) {
+        totalAmount = parseFloat(calculatedTotal.toFixed(2));
+      }
+    }
+
+    const amountPaid = parseFloat(row[10]) || 0;
+    const amountPerPaycheck = totalAmount > 0 ? parseFloat((totalAmount / plan).toFixed(2)) : 0;
+    const amountRemaining = parseFloat(Math.max(totalAmount - amountPaid, 0).toFixed(2));
+
+    ordersSheet.getRange(rowIndex, 7).setValue(plan);               // G: Payment_Plan
+    ordersSheet.getRange(rowIndex, 8).setValue(amountPerPaycheck);  // H: Amount_Per_Paycheck
+    ordersSheet.getRange(rowIndex, 12).setValue(amountRemaining);   // L: Amount_Remaining
+
+    return {
+      success: true,
+      order: {
+        orderId: orderId,
+        paymentPlan: plan,
+        amountPerPaycheck: amountPerPaycheck,
+        amountRemaining: amountRemaining,
+        totalAmount: totalAmount,
+        paymentsMade: paymentsMade,
+        amountPaid: amountPaid
+      }
+    };
+  } catch (error) {
+    console.error('Error updating payment plan:', error);
+    return { success: false, error: error.message };
+  } finally {
+    try {
+      lock.releaseLock();
+    } catch (e) {}
+  }
+}
+
+/**
  * Marks an order as received - changes status from "Pending" to "Active"
  * and sets First_Deduction_Date to next payday at least 7 days away
  * @param {string} orderId - The Order_ID
+ * @param {string|Date} receivedDateOverride - Optional received date (YYYY-MM-DD)
  * @returns {Object} Result
  */
-function markOrderReceived(orderId) {
+function markOrderReceived(orderId, receivedDateOverride = null) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
@@ -3529,22 +3814,25 @@ function markOrderReceived(orderId) {
       return { success: false, error: 'Order not found' };
     }
     
-    // Allow marking Pending and Store Paid orders as received
-    if (order.status !== 'Pending' && order.status !== 'Store Paid') {
+    // Allow marking Pending, Pending - Cash, and Store Paid orders as received
+    if (order.status !== 'Pending' && order.status !== 'Pending - Cash' && order.status !== 'Store Paid') {
       return { success: false, error: `Cannot mark as received - current status is "${order.status}"` };
     }
     
     const row = order.rowIndex;
-    const now = new Date();
+    const receivedDate = receivedDateOverride
+      ? new Date(String(receivedDateOverride).includes('T') ? receivedDateOverride : receivedDateOverride + 'T12:00:00')
+      : new Date();
+    receivedDate.setHours(12, 0, 0, 0);
     
     // Calculate first deduction date based on which pay period the order was received in
     // Orders received during a pay period are deducted on that period's pay date
-    const firstDeductionDate = getPaydayForReceivedDate(now);
+    const firstDeductionDate = getPaydayForReceivedDate(receivedDate);
     
     // Update the order
-    sheet.getRange(row, 9).setValue(new Date(firstDeductionDate));  // I: First_Deduction_Date
+    sheet.getRange(row, 9).setValue(parseLocalDate_(firstDeductionDate));  // I: First_Deduction_Date
     sheet.getRange(row, 13).setValue('Active');                      // M: Status
-    sheet.getRange(row, 17).setValue(now);                           // Q: Received_Date
+    sheet.getRange(row, 17).setValue(receivedDate);                  // Q: Received_Date
     
     return {
       success: true,
@@ -3597,15 +3885,34 @@ function bulkActivateOrders(orderIds) {
     }
     const beforeState = { orders: beforeStateOrders };
     
-    // Get all orders
+    // Get all orders — build Map for O(1) lookup
     const allOrders = getUniformOrders();
+    const orderMap = {};
+    allOrders.forEach(function(o) { orderMap[o.orderId] = o; });
     const activatedOrders = [];
     let totalAmount = 0;
     let cashTotal = 0;
     let deductionTotal = 0;
-    
+
+    // Read items sheet once before the loop
+    const itemsData = itemsSheet.getDataRange().getValues();
+    const itemHeaders = itemsData[0];
+    const receivedColIdx = itemHeaders.indexOf('Item_Received');
+    const receivedDateColIdx = itemHeaders.indexOf('Item_Received_Date');
+    const statusColIdx = itemHeaders.indexOf('Item_Status');
+
+    // Pre-build map of orderId -> [row indices] for items
+    const itemRowsByOrder = {};
+    for (let i = 1; i < itemsData.length; i++) {
+      const oid = itemsData[i][1];
+      if (oid) {
+        if (!itemRowsByOrder[oid]) itemRowsByOrder[oid] = [];
+        itemRowsByOrder[oid].push(i);
+      }
+    }
+
     for (const orderId of orderIds) {
-      const order = allOrders.find(o => o.orderId === orderId);
+      const order = orderMap[orderId];
       
       if (!order) {
         console.log('Order not found:', orderId);
@@ -3622,32 +3929,24 @@ function bulkActivateOrders(orderIds) {
       const isStorePaid = order.status === 'Store Paid';
       const row = order.rowIndex;
       
-      // Mark all items as received for this order
-      const itemsData = itemsSheet.getDataRange().getValues();
-      const headers = itemsData[0];
-      const receivedColIdx = headers.indexOf('Item_Received');
-      const receivedDateColIdx = headers.indexOf('Item_Received_Date');
-      const statusColIdx = headers.indexOf('Item_Status');
-      
-      for (let i = 1; i < itemsData.length; i++) {
-        if (itemsData[i][1] === orderId) {
-          const itemStatus = itemsData[i][statusColIdx];
-          // Only mark non-cancelled items as received
-          if (itemStatus !== 'Cancelled') {
-            itemsSheet.getRange(i + 1, receivedColIdx + 1).setValue(true);
-            itemsSheet.getRange(i + 1, receivedDateColIdx + 1).setValue(now);
-            if (statusColIdx >= 0) {
-              itemsSheet.getRange(i + 1, statusColIdx + 1).setValue('Received');
-            }
+      // Mark all items as received for this order (using pre-built index)
+      const itemRows = itemRowsByOrder[orderId] || [];
+      for (const i of itemRows) {
+        const itemStatus = itemsData[i][statusColIdx];
+        if (itemStatus !== 'Cancelled') {
+          itemsSheet.getRange(i + 1, receivedColIdx + 1).setValue(true);
+          itemsSheet.getRange(i + 1, receivedDateColIdx + 1).setValue(now);
+          if (statusColIdx >= 0) {
+            itemsSheet.getRange(i + 1, statusColIdx + 1).setValue('Received');
           }
         }
       }
       
       // Calculate order total from items (excluding cancelled)
       let orderTotal = 0;
-      for (let i = 1; i < itemsData.length; i++) {
-        if (itemsData[i][1] === orderId && itemsData[i][statusColIdx] !== 'Cancelled') {
-          orderTotal += parseFloat(itemsData[i][7]) || 0; // Line_Total column
+      for (const i of itemRows) {
+        if (itemsData[i][statusColIdx] !== 'Cancelled') {
+          orderTotal += parseFloat(itemsData[i][7]) || 0;
         }
       }
       
@@ -3661,7 +3960,7 @@ function bulkActivateOrders(orderIds) {
         cashTotal += orderTotal;
       } else {
         // Regular orders become "Active" for paycheck deductions
-        ordersSheet.getRange(row, 9).setValue(new Date(firstDeductionDate));  // I: First_Deduction_Date
+        ordersSheet.getRange(row, 9).setValue(parseLocalDate_(firstDeductionDate));  // I: First_Deduction_Date
         ordersSheet.getRange(row, 13).setValue('Active');                      // M: Status
         deductionTotal += orderTotal;
       }
@@ -3993,16 +4292,7 @@ function repairFirstDeductionDates() {
       const correctPayday = getPaydayForReceivedDate(receivedDate);
       
       // Format current date for comparison
-      let currentDateStr = '';
-      if (currentFirstDeduction) {
-        const d = new Date(currentFirstDeduction);
-        if (!isNaN(d.getTime())) {
-          const year = d.getFullYear();
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const day = String(d.getDate()).padStart(2, '0');
-          currentDateStr = `${year}-${month}-${day}`;
-        }
-      }
+      const currentDateStr = toLocalDateString_(currentFirstDeduction) || '';
       
       // Check if repair is needed
       if (currentDateStr !== correctPayday) {
@@ -4011,10 +4301,7 @@ function repairFirstDeductionDates() {
         const colNum = cols.firstDeduction + 1; // 1-indexed for sheet
         
         // Parse the correct date and set it
-        const [year, month, day] = correctPayday.split('-').map(Number);
-        const correctDate = new Date(year, month - 1, day, 12, 0, 0);
-        
-        sheet.getRange(rowNum, colNum).setValue(correctDate);
+        sheet.getRange(rowNum, colNum).setValue(parseLocalDate_(correctPayday));
         
         repairs.push({
           orderId,
@@ -4049,64 +4336,202 @@ function repairFirstDeductionDates() {
 }
 
 /**
- * Gets order details including line items with receiving status
+ * Generates a repair report for First_Deduction_Date mismatches in Uniform_Orders.
+ * Optionally applies updates for eligible rows.
+ * @param {Object} options
+ * @param {string} options.sheetName
+ * @param {boolean} options.apply
+ * @param {boolean} options.includePaid
+ * @param {Array} options.statuses
+ * @returns {Object} Summary of report generation
+ */
+function generateUniformFirstDeductionRepairReport(options = {}) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
+  if (!ordersSheet) return { success: false, error: 'UNIFORM_ORDERS sheet not found' };
+
+  const reportName = options.sheetName || 'Uniform_First_Deduction_Repair';
+  const applyChanges = options.apply === true;
+  const includePaid = options.includePaid === true;
+  const statusesArr = Array.isArray(options.statuses) && options.statuses.length > 0
+    ? options.statuses
+    : ['Active'];
+  const statuses = new Set(statusesArr);
+
+  const data = ordersSheet.getDataRange().getValues();
+  if (data.length < 2) return { success: true, sheetName: reportName, totalIssues: 0, updated: 0 };
+
+  const headers = data[0];
+  const cols = {
+    orderId: headers.indexOf('Order_ID'),
+    employeeName: headers.indexOf('Employee_Name'),
+    status: headers.indexOf('Status'),
+    receivedDate: headers.indexOf('Received_Date'),
+    firstDeduction: headers.indexOf('First_Deduction_Date'),
+    paymentsMade: headers.indexOf('Payments_Made'),
+    paymentPlan: headers.indexOf('Payment_Plan'),
+    amountPaid: headers.indexOf('Amount_Paid'),
+    amountRemaining: headers.indexOf('Amount_Remaining')
+  };
+
+  if (cols.orderId === -1 || cols.receivedDate === -1 || cols.firstDeduction === -1 || cols.status === -1) {
+    return { success: false, error: 'Required columns not found in Uniform_Orders' };
+  }
+
+  const rows = [[
+    'Row',
+    'Order_ID',
+    'Employee_Name',
+    'Status',
+    'Payments_Made',
+    'Payment_Plan',
+    'Amount_Paid',
+    'Amount_Remaining',
+    'Received_Date',
+    'Current_First_Deduction',
+    'Expected_First_Deduction',
+    'Action',
+    'Reason'
+  ]];
+
+  let updated = 0;
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const status = row[cols.status];
+    if (!statuses.has(status)) continue;
+
+    const orderId = row[cols.orderId];
+    const receivedDate = row[cols.receivedDate];
+    if (!orderId || !receivedDate) continue;
+
+    const expected = getPaydayForReceivedDate(receivedDate);
+    const current = toLocalDateString_(row[cols.firstDeduction]) || '';
+
+    if (current !== expected) {
+      const paymentsMade = parseInt(row[cols.paymentsMade]) || 0;
+      const paymentPlan = parseInt(row[cols.paymentPlan]) || 0;
+      const amountPaid = parseFloat(row[cols.amountPaid]) || 0;
+      const amountRemaining = parseFloat(row[cols.amountRemaining]) || 0;
+      const canUpdate = includePaid || paymentsMade === 0;
+      const action = applyChanges && canUpdate ? 'UPDATED' : 'PREVIEW';
+      const reason = canUpdate ? 'Mismatch from received date' : 'Skipped: payments already recorded';
+
+      if (applyChanges && canUpdate) {
+        ordersSheet.getRange(i + 1, cols.firstDeduction + 1).setValue(parseLocalDate_(expected));
+        updated++;
+      }
+
+      rows.push([
+        i + 1,
+        orderId,
+        row[cols.employeeName] || '',
+        status,
+        paymentsMade,
+        paymentPlan,
+        amountPaid,
+        amountRemaining,
+        toLocalDateString_(receivedDate) || String(receivedDate),
+        current,
+        expected,
+        action,
+        reason
+      ]);
+    }
+  }
+
+  let reportSheet = ss.getSheetByName(reportName);
+  if (!reportSheet) {
+    reportSheet = ss.insertSheet(reportName);
+  } else {
+    reportSheet.clearContents();
+  }
+
+  if (rows.length === 1) {
+    rows.push(['', '', '', '', '', '', '', '', '', '', '', 'NONE', 'No mismatches found.']);
+  }
+
+  reportSheet.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
+  reportSheet.getRange(1, 1, 1, rows[0].length).setFontWeight('bold');
+  reportSheet.autoResizeColumns(1, rows[0].length);
+
+  return {
+    success: true,
+    sheetName: reportName,
+    totalIssues: rows.length - 1,
+    updated: updated,
+    applied: applyChanges
+  };
+}
+
+/**
+ * Helper to run the repair with apply=true from the Apps Script dropdown.
+ * Keeps the advanced options available via generateUniformFirstDeductionRepairReport().
+ */
+function runUniformFirstDeductionRepairApply() {
+  return generateUniformFirstDeductionRepairReport({ apply: true });
+}
+
+/**
+ * Gets order details including line items with receiving status.
  * @param {string} orderId - The Order_ID to look up
+ * @param {Array} [preloadedOrders] - Optional pre-fetched orders array (avoids re-reading sheet)
+ * @param {Object} [preloadedItemsByOrder] - Optional map of orderId -> items[] (avoids re-reading items sheet)
  * @returns {Object} Order with items array
  */
-function getOrderDetails(orderId) {
+function getOrderDetails(orderId, preloadedOrders, preloadedItemsByOrder) {
   try {
-    const orders = getUniformOrders();
+    const orders = preloadedOrders || getUniformOrders();
     const order = orders.find(o => o.orderId === orderId);
     
     if (!order) {
       return { success: false, error: 'Order not found' };
     }
     
-    // Get line items with receiving columns
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
-    
-    if (!itemsSheet || itemsSheet.getLastRow() < 2) {
-      order.items = [];
+    // Use preloaded items map if provided, otherwise read from sheet
+    if (preloadedItemsByOrder) {
+      order.items = preloadedItemsByOrder[orderId] || [];
     } else {
-      // Check if receiving columns exist, get headers
-      const headers = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
-      const hasReceivingCols = headers.includes('Item_Received');
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
       
-      // If no receiving columns, auto-migrate
-      if (!hasReceivingCols) {
-        console.log('Receiving columns not found in getOrderDetails, running migration...');
-        migrateUniformItemsForReceiving();
-        addManagerReceivingPasscode();
-        // Re-get headers after migration
-        const newHeaders = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
+      if (!itemsSheet || itemsSheet.getLastRow() < 2) {
+        order.items = [];
+      } else {
+        const headers = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
+        const hasReceivingCols = headers.includes('Item_Received');
+        
+        if (!hasReceivingCols) {
+          console.log('Receiving columns not found in getOrderDetails, running migration...');
+          migrateUniformItemsForReceiving();
+          addManagerReceivingPasscode();
+        }
+        
+        const numCols = itemsSheet.getLastColumn();
+        const receivedColIdx = headers.indexOf('Item_Received');
+        const receivedDateColIdx = headers.indexOf('Item_Received_Date');
+        const receivedByColIdx = headers.indexOf('Item_Received_By');
+        const statusColIdx = headers.indexOf('Item_Status');
+        
+        const data = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, numCols).getValues();
+        order.items = data
+          .filter(row => row[1] === orderId)
+          .map(row => ({
+            lineId: row[0],
+            orderId: row[1],
+            itemId: row[2],
+            itemName: row[3],
+            size: row[4],
+            quantity: parseInt(row[5]) || 1,
+            unitPrice: parseFloat(row[6]) || 0,
+            lineTotal: parseFloat(row[7]) || 0,
+            isReplacement: row[8] === true || row[8] === 'TRUE',
+            itemReceived: receivedColIdx >= 0 ? (row[receivedColIdx] === true || row[receivedColIdx] === 'TRUE') : false,
+            itemReceivedDate: receivedDateColIdx >= 0 ? row[receivedDateColIdx] : null,
+            itemReceivedBy: receivedByColIdx >= 0 ? row[receivedByColIdx] : '',
+            itemStatus: statusColIdx >= 0 ? (row[statusColIdx] || 'Pending') : 'Pending'
+          }));
       }
-      
-      // Get column indices
-      const numCols = itemsSheet.getLastColumn();
-      const receivedColIdx = headers.indexOf('Item_Received');
-      const receivedDateColIdx = headers.indexOf('Item_Received_Date');
-      const receivedByColIdx = headers.indexOf('Item_Received_By');
-      const statusColIdx = headers.indexOf('Item_Status');
-      
-      const data = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, numCols).getValues();
-      order.items = data
-        .filter(row => row[1] === orderId)
-        .map(row => ({
-          lineId: row[0],
-          orderId: row[1],
-          itemId: row[2],
-          itemName: row[3],
-          size: row[4],
-          quantity: parseInt(row[5]) || 1,
-          unitPrice: parseFloat(row[6]) || 0,
-          lineTotal: parseFloat(row[7]) || 0,
-          isReplacement: row[8] === true || row[8] === 'TRUE',
-          itemReceived: receivedColIdx >= 0 ? (row[receivedColIdx] === true || row[receivedColIdx] === 'TRUE') : false,
-          itemReceivedDate: receivedDateColIdx >= 0 ? row[receivedDateColIdx] : null,
-          itemReceivedBy: receivedByColIdx >= 0 ? row[receivedByColIdx] : '',
-          itemStatus: statusColIdx >= 0 ? (row[statusColIdx] || 'Pending') : 'Pending'
-        }));
     }
     
     // Calculate receiving stats
@@ -4159,9 +4584,7 @@ function getPendingOrdersForReceiving(location) {
     // Get all pending orders
     const ordersData = ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, 17).getValues();
     
-    console.log('Total orders in sheet:', ordersData.length);
-    
-    // Include both "Pending" and "Store Paid" orders that need to be received
+    // Include "Pending", "Pending - Cash", and "Store Paid" orders that need to be received
     // Store Paid orders are $0 orders that still need to be marked as received/given to employee
     let pendingOrders = ordersData
       .map((row, index) => ({
@@ -4169,34 +4592,34 @@ function getPendingOrdersForReceiving(location) {
         orderId: row[0],
         employeeId: row[1],
         employeeName: row[2],
-        location: row[3],
+        location: (row[3] || '').toString().trim(),
         orderDate: row[4] instanceof Date ? row[4].toISOString() : row[4],
         totalAmount: parseFloat(row[5]) || 0,
         paymentPlan: parseInt(row[6]) || 1,
-        status: row[12],
+        status: (row[12] || '').toString().trim(),
         notes: row[13],
         receivedDate: row[16] // Column Q: Received_Date
       }))
       .filter(order => {
         // Include orders that are:
         // 1. Pending (waiting to be received)
-        // 2. Store Paid but NOT yet received (no received date)
+        // 2. Pending - Cash (cash orders waiting to be received)
+        // 3. Store Paid but NOT yet received (no received date)
         if (!order.orderId) return false;
         if (order.status === 'Pending') return true;
+        if (order.status === 'Pending - Cash') return true;
         if (order.status === 'Store Paid' && !order.receivedDate) return true;
         return false;
       });
     
-    console.log('Pending/receivable orders found:', pendingOrders.length);
-    if (pendingOrders.length > 0) {
-      console.log('First pending order:', JSON.stringify(pendingOrders[0]));
-    }
-    
-    // Filter by location if specified
+    // Filter by location if specified (case-insensitive, trimmed)
     if (location && location !== '' && location !== 'All') {
-      pendingOrders = pendingOrders.filter(o => o.location === location);
+      const filterLoc = location.trim().toLowerCase();
+      pendingOrders = pendingOrders.filter(o => (o.location || '').toLowerCase() === filterLoc);
     }
     
+    // Initialize items to empty array for all orders (safety net for rendering)
+    pendingOrders.forEach(function(o) { o.items = []; });
     // Get items for each order
     if (itemsSheet && itemsSheet.getLastRow() >= 2) {
       const numCols = Math.max(13, itemsSheet.getLastColumn());
@@ -4209,50 +4632,57 @@ function getPendingOrdersForReceiving(location) {
       const receivedByCol = headers.indexOf('Item_Received_By');
       const statusCol = headers.indexOf('Item_Status');
       
+      // Pre-build map of orderId -> parsed items with row indices (single pass)
+      const itemsByOid = {};
+      for (let i = 0; i < itemsData.length; i++) {
+        const oid = itemsData[i][1];
+        if (!oid) continue;
+        var rawRecDate = receivedDateCol >= 0 ? itemsData[i][receivedDateCol] : null;
+        if (rawRecDate instanceof Date) rawRecDate = rawRecDate.toISOString();
+        if (!itemsByOid[oid]) itemsByOid[oid] = [];
+        itemsByOid[oid].push({
+          lineId: String(itemsData[i][0] || ''),
+          rowIndex: i + 2,
+          orderId: String(oid),
+          itemId: String(itemsData[i][2] || ''),
+          itemName: String(itemsData[i][3] || ''),
+          size: String(itemsData[i][4] || ''),
+          quantity: parseInt(itemsData[i][5]) || 1,
+          unitPrice: parseFloat(itemsData[i][6]) || 0,
+          lineTotal: parseFloat(itemsData[i][7]) || 0,
+          isReplacement: itemsData[i][8] === true || itemsData[i][8] === 'TRUE',
+          itemReceived: receivedCol >= 0 ? (itemsData[i][receivedCol] === true || itemsData[i][receivedCol] === 'TRUE') : false,
+          itemReceivedDate: rawRecDate || '',
+          itemReceivedBy: receivedByCol >= 0 ? String(itemsData[i][receivedByCol] || '') : '',
+          itemStatus: statusCol >= 0 ? String(itemsData[i][statusCol] || 'Pending') : 'Pending'
+        });
+      }
+
       for (const order of pendingOrders) {
-        order.items = itemsData
-          .filter(row => row[1] === order.orderId)
-          .map((row, idx) => {
-            // Find the actual row number in the sheet for this item
-            let actualRowNum = 2;
-            let matchCount = 0;
-            for (let i = 0; i < itemsData.length; i++) {
-              if (itemsData[i][1] === order.orderId) {
-                if (matchCount === idx) {
-                  actualRowNum = i + 2;
-                  break;
-                }
-                matchCount++;
-              }
-            }
-            
-            return {
-              lineId: row[0],
-              rowIndex: actualRowNum,
-              orderId: row[1],
-              itemId: row[2],
-              itemName: row[3],
-              size: row[4],
-              quantity: parseInt(row[5]) || 1,
-              unitPrice: parseFloat(row[6]) || 0,
-              lineTotal: parseFloat(row[7]) || 0,
-              isReplacement: row[8] === true || row[8] === 'TRUE',
-              itemReceived: receivedCol >= 0 ? (row[receivedCol] === true || row[receivedCol] === 'TRUE') : false,
-              itemReceivedDate: receivedDateCol >= 0 ? row[receivedDateCol] : null,
-              itemReceivedBy: receivedByCol >= 0 ? row[receivedByCol] : '',
-              itemStatus: statusCol >= 0 ? (row[statusCol] || 'Pending') : 'Pending'
-            };
-          });
-        
-        // Calculate receiving stats
-        const receivedItems = order.items.filter(i => i.itemReceived && i.itemStatus !== 'Cancelled');
-        const activeItems = order.items.filter(i => i.itemStatus !== 'Cancelled');
-        order.receivedCount = receivedItems.length;
-        order.totalItemCount = activeItems.length;
-        order.receivedTotal = parseFloat(receivedItems.reduce((sum, i) => sum + i.lineTotal, 0).toFixed(2));
-        order.pendingTotal = parseFloat(activeItems.filter(i => !i.itemReceived).reduce((sum, i) => sum + i.lineTotal, 0).toFixed(2));
+        order.items = itemsByOid[order.orderId] || [];
+
+        // Calculate receiving stats (single pass)
+        let recvCount = 0, activeCount = 0, recvTotal = 0, pendTotal = 0;
+        for (const it of order.items) {
+          if (it.itemStatus === 'Cancelled') continue;
+          activeCount++;
+          if (it.itemReceived) { recvCount++; recvTotal += it.lineTotal; }
+          else { pendTotal += it.lineTotal; }
+        }
+        order.receivedCount = recvCount;
+        order.totalItemCount = activeCount;
+        order.receivedTotal = parseFloat(recvTotal.toFixed(2));
+        order.pendingTotal = parseFloat(pendTotal.toFixed(2));
       }
     }
+    
+    // Sanitize all order fields — convert any remaining Dates to strings
+    // (google.script.run can fail silently if Date objects are in the response)
+    pendingOrders.forEach(function(o) {
+      if (o.receivedDate instanceof Date) o.receivedDate = o.receivedDate.toISOString();
+      else o.receivedDate = o.receivedDate ? String(o.receivedDate) : '';
+      o.notes = o.notes ? String(o.notes) : '';
+    });
     
     // Sort by order date descending
     pendingOrders.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
@@ -4261,7 +4691,7 @@ function getPendingOrdersForReceiving(location) {
     
   } catch (error) {
     console.error('Error getting pending orders for receiving:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -4450,8 +4880,13 @@ function activateOrderWithReceivedItems(orderId) {
     const lineTotalCol = itemHeaders.indexOf('Line_Total') + 1;
     const receivedQtyCol = itemHeaders.indexOf('Received_Quantity') + 1;
     
-    // Get all item data to read received quantities
+    // Get all item data and build map of lineId -> row data for O(1) lookup
     const allItemData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, itemsSheet.getLastColumn()).getValues();
+    const itemDataByLineId = {};
+    for (let i = 0; i < allItemData.length; i++) {
+      const lid = allItemData[i][lineIdCol - 1];
+      if (lid) itemDataByLineId[lid] = allItemData[i];
+    }
     
     // Process items with partial quantity support
     let receivedTotal = 0;
@@ -4465,16 +4900,10 @@ function activateOrderWithReceivedItems(orderId) {
       
       const orderedQty = item.quantity || 1;
       
-      // Find the item row to get received quantity
       let receivedQty = item.itemReceived ? orderedQty : 0;
-      for (let i = 0; i < allItemData.length; i++) {
-        if (allItemData[i][lineIdCol - 1] === item.lineId) {
-          // Check if there's a Received_Quantity value
-          if (receivedQtyCol > 0 && allItemData[i][receivedQtyCol - 1] !== '' && allItemData[i][receivedQtyCol - 1] !== null) {
-            receivedQty = parseInt(allItemData[i][receivedQtyCol - 1]) || 0;
-          }
-          break;
-        }
+      const itemRow = itemDataByLineId[item.lineId];
+      if (itemRow && receivedQtyCol > 0 && itemRow[receivedQtyCol - 1] !== '' && itemRow[receivedQtyCol - 1] !== null) {
+        receivedQty = parseInt(itemRow[receivedQtyCol - 1]) || 0;
       }
       
       const unitPrice = item.lineTotal / orderedQty;
@@ -4557,7 +4986,7 @@ function activateOrderWithReceivedItems(orderId) {
     ordersSheet.getRange(orderRowNum, 6).setValue(newTotal);                    // F: Total_Amount
     ordersSheet.getRange(orderRowNum, 8).setValue(newAmountPerPaycheck);        // H: Amount_Per_Paycheck
     if (!isCashOrder) {
-      ordersSheet.getRange(orderRowNum, 9).setValue(new Date(firstDeductionDate)); // I: First_Deduction_Date
+      ordersSheet.getRange(orderRowNum, 9).setValue(parseLocalDate_(firstDeductionDate)); // I: First_Deduction_Date
     }
     ordersSheet.getRange(orderRowNum, 12).setValue(isCashOrder ? 0 : newTotal); // L: Amount_Remaining (0 for cash - paid in full)
     ordersSheet.getRange(orderRowNum, 13).setValue(newStatus);                  // M: Status
@@ -5053,27 +5482,115 @@ function getPayrollDeductions(payday) {
       });
     }
     
-    // Sort by employee name
-    deductions.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+    // Group by employee for payroll processing (payroll side only)
+    const grouped = {};
+    for (const d of deductions) {
+      const key = d.employeeId ? `id:${d.employeeId}` : `name:${d.employeeName}`;
+      if (!grouped[key]) {
+        grouped[key] = {
+          employeeId: d.employeeId,
+          employeeName: d.employeeName,
+          amount: 0,
+          dueAmount: 0,
+          paidAmount: 0,
+          dueCount: 0,
+          paidCount: 0,
+          orderIdsDue: [],
+          details: []
+        };
+      }
+      
+      const group = grouped[key];
+      group.amount += d.amount || 0;
+      group.details.push({
+        orderId: d.orderId,
+        paymentNumber: d.paymentNumber,
+        totalPayments: d.totalPayments,
+        amount: d.amount,
+        isPaid: d.isPaid,
+        isDue: d.isDue
+      });
+      
+      if (d.isDue) {
+        group.dueCount += 1;
+        group.dueAmount += d.amount || 0;
+        group.orderIdsDue.push(d.orderId);
+      }
+      
+      if (d.isPaid) {
+        group.paidCount += 1;
+        group.paidAmount += d.amount || 0;
+      }
+    }
     
-    const totalDeductions = deductions.reduce((sum, d) => sum + d.amount, 0);
-    const paidDeductions = deductions.filter(d => d.isPaid);
-    const dueDeductions = deductions.filter(d => d.isDue);
+    const groupedDeductions = Object.values(grouped).map(group => {
+      group.amount = parseFloat(group.amount.toFixed(2));
+      group.dueAmount = parseFloat(group.dueAmount.toFixed(2));
+      group.paidAmount = parseFloat(group.paidAmount.toFixed(2));
+      group.isDue = group.dueCount > 0;
+      group.isPaid = group.dueCount === 0 && group.paidCount > 0;
+      return group;
+    });
+    
+    // Sort by employee name
+    groupedDeductions.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+    
+    const totalDeductions = groupedDeductions.reduce((sum, d) => sum + d.amount, 0);
+    const totalPaidCount = groupedDeductions.reduce((sum, d) => sum + (d.paidCount || 0), 0);
+    const totalDueCount = groupedDeductions.reduce((sum, d) => sum + (d.dueCount || 0), 0);
+    const totalPaidAmount = groupedDeductions.reduce((sum, d) => sum + (d.paidAmount || 0), 0);
+    const totalDueAmount = groupedDeductions.reduce((sum, d) => sum + (d.dueAmount || 0), 0);
     
     return {
       success: true,
       payday: payday,
-      deductions: deductions,
-      count: deductions.length,
+      deductions: groupedDeductions,
+      count: groupedDeductions.length,
       total: parseFloat(totalDeductions.toFixed(2)),
-      paidCount: paidDeductions.length,
-      paidTotal: parseFloat(paidDeductions.reduce((sum, d) => sum + d.amount, 0).toFixed(2)),
-      dueCount: dueDeductions.length,
-      dueTotal: parseFloat(dueDeductions.reduce((sum, d) => sum + d.amount, 0).toFixed(2))
+      paidCount: totalPaidCount,
+      paidTotal: parseFloat(totalPaidAmount.toFixed(2)),
+      dueCount: totalDueCount,
+      dueTotal: parseFloat(totalDueAmount.toFixed(2))
     };
     
   } catch (error) {
     console.error('Error getting payroll deductions:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Marks all deductions for a payday as paid
+ * @param {string} payday - The payday date (YYYY-MM-DD)
+ * @returns {Object} Result
+ */
+function recordUniformPayments(orderIds) {
+  try {
+    if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+      return { success: false, error: 'No orders provided' };
+    }
+    
+    let recorded = 0;
+    const errors = [];
+    
+    for (const orderId of orderIds) {
+      const paymentResult = recordUniformPayment(orderId);
+      if (paymentResult.success) {
+        recorded++;
+      } else {
+        errors.push(`${orderId}: ${paymentResult.error}`);
+      }
+    }
+    
+    return {
+      success: errors.length === 0,
+      message: `Recorded ${recorded} of ${orderIds.length} payments`,
+      recorded: recorded,
+      errors: errors
+    };
+    
+  } catch (error) {
+    console.error('Error recording multiple payments:', error);
     return { success: false, error: error.message };
   }
 }
@@ -5091,23 +5608,24 @@ function markAllDeductionsPaid(payday) {
       return result;
     }
     
-    let recorded = 0;
-    const errors = [];
-    
+    const orderIds = [];
     for (const deduction of result.deductions) {
-      const paymentResult = recordUniformPayment(deduction.orderId);
-      if (paymentResult.success) {
-        recorded++;
-      } else {
-        errors.push(`${deduction.employeeName}: ${paymentResult.error}`);
+      if (deduction.orderIdsDue && deduction.orderIdsDue.length > 0) {
+        orderIds.push(...deduction.orderIdsDue);
       }
     }
     
+    if (orderIds.length === 0) {
+      return { success: true, message: 'No due deductions to record', recorded: 0, errors: [] };
+    }
+    
+    const paymentResult = recordUniformPayments(orderIds);
+    
     return {
       success: true,
-      message: `Recorded ${recorded} of ${result.deductions.length} payments`,
-      recorded: recorded,
-      errors: errors
+      message: paymentResult.message || `Recorded ${paymentResult.recorded || 0} of ${orderIds.length} payments`,
+      recorded: paymentResult.recorded || 0,
+      errors: paymentResult.errors || []
     };
     
   } catch (error) {
@@ -5132,15 +5650,46 @@ function getRecentOrders(days = 7) {
       const orderDate = new Date(o.orderDate);
       return orderDate >= cutoffDate;
     });
-    
-    // Get items for each order
-    for (const order of recentOrders) {
-      const details = getOrderDetails(order.orderId);
-      if (details.success) {
-        order.items = details.order.items;
+
+    if (recentOrders.length === 0) return recentOrders;
+
+    // Read items sheet once, build map of orderId -> items[]
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
+    const itemsByOrder = {};
+    if (itemsSheet && itemsSheet.getLastRow() >= 2) {
+      const numCols = itemsSheet.getLastColumn();
+      const headers = itemsSheet.getRange(1, 1, 1, numCols).getValues()[0];
+      const receivedColIdx = headers.indexOf('Item_Received');
+      const receivedDateColIdx = headers.indexOf('Item_Received_Date');
+      const receivedByColIdx = headers.indexOf('Item_Received_By');
+      const statusColIdx = headers.indexOf('Item_Status');
+      const data = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, numCols).getValues();
+      for (const row of data) {
+        const oid = row[1];
+        if (!oid) continue;
+        if (!itemsByOrder[oid]) itemsByOrder[oid] = [];
+        itemsByOrder[oid].push({
+          lineId: row[0], orderId: oid, itemId: row[2], itemName: row[3],
+          size: row[4], quantity: parseInt(row[5]) || 1,
+          unitPrice: parseFloat(row[6]) || 0, lineTotal: parseFloat(row[7]) || 0,
+          isReplacement: row[8] === true || row[8] === 'TRUE',
+          itemReceived: receivedColIdx >= 0 ? (row[receivedColIdx] === true || row[receivedColIdx] === 'TRUE') : false,
+          itemReceivedDate: receivedDateColIdx >= 0 ? row[receivedDateColIdx] : null,
+          itemReceivedBy: receivedByColIdx >= 0 ? row[receivedByColIdx] : '',
+          itemStatus: statusColIdx >= 0 ? (row[statusColIdx] || 'Pending') : 'Pending'
+        });
       }
     }
-    
+
+    for (const order of recentOrders) {
+      order.items = itemsByOrder[order.orderId] || [];
+      const receivedItems = order.items.filter(i => i.itemReceived);
+      order.receivedCount = receivedItems.length;
+      order.totalItemCount = order.items.length;
+      order.receivedTotal = parseFloat(receivedItems.reduce((s, i) => s + i.lineTotal, 0).toFixed(2));
+    }
+
     return recentOrders;
     
   } catch (error) {
@@ -5312,7 +5861,7 @@ function saveOTData(employees, periodEnd, overwrite) {
     const activeMatchKeys = new Set(employees.map(e => (e.matchKey || '').toLowerCase()));
     
     // ========== SAVE OT DATA ==========
-    // Prepare new rows (now with 19 columns, including Employee_ID)
+    // Prepare new rows (23 columns: A-W, with per-week-per-location breakdown)
     const newRows = employees.map(emp => {
       const otCost = emp.totalOT * settings.hourlyWage * settings.otMultiplier;
       
@@ -5335,7 +5884,11 @@ function saveOTData(employees, periodEnd, overwrite) {
         emp.location === 'Multi',      // P: Is Multi-Location
         importDate,                    // Q: Import Date
         importedBy,                    // R: Imported By
-        emp.employeeId || ''           // S: Employee_ID (new!)
+        emp.employeeId || '',          // S: Employee_ID
+        emp.week1CH || 0,              // T: Week1_CH
+        emp.week1DBU || 0,             // U: Week1_DBU
+        emp.week2CH || 0,              // V: Week2_CH
+        emp.week2DBU || 0              // W: Week2_DBU
       ];
     });
     
@@ -5405,6 +5958,208 @@ function saveOTData(employees, periodEnd, overwrite) {
   }
 }
 
+/**
+ * Save OT reconciliation records for multi-location employees.
+ * Called from the client after processOTData completes.
+ */
+function saveOTReconciliation(reconRecords, periodEnd) {
+  try {
+    if (!reconRecords || reconRecords.length === 0) {
+      return { success: true, message: 'No reconciliation records to save', count: 0 };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    initializeSheets();
+    const sheet = ss.getSheetByName(SHEET_NAMES.OT_RECONCILIATION);
+
+    // Parse with T12:00:00 to avoid UTC-midnight timezone shift on YYYY-MM-DD strings
+    const periodDate = (typeof periodEnd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(periodEnd))
+      ? new Date(periodEnd + 'T12:00:00')
+      : new Date(periodEnd);
+    const periodKey = periodDate.getFullYear() + '-' + String(periodDate.getMonth() + 1).padStart(2, '0') + '-' + String(periodDate.getDate()).padStart(2, '0');
+
+    // Delete existing rows for this period (overwrite)
+    if (sheet.getLastRow() >= 2) {
+      const existing = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+      const rowsToDelete = [];
+      for (let i = existing.length - 1; i >= 0; i--) {
+        if (existing[i][0]) {
+          var ed = new Date(existing[i][0]);
+          var ek = ed.getFullYear() + '-' + String(ed.getMonth() + 1).padStart(2, '0') + '-' + String(ed.getDate()).padStart(2, '0');
+          if (ek === periodKey) rowsToDelete.push(i + 2);
+        }
+      }
+      for (const row of rowsToDelete) {
+        sheet.deleteRow(row);
+      }
+    }
+
+    const importDate = new Date();
+    const newRows = reconRecords.map(function(r) {
+      return [
+        periodDate,
+        r.employeeName || '',
+        r.matchKey || '',
+        r.paidFromLocation || '',
+        r.week || 1,
+        r.loc1Name || '',
+        r.loc2Name || '',
+        r.loc1WeekHours || 0,
+        r.loc2WeekHours || 0,
+        r.existingOT || 0,
+        r.totalWorked || 0,
+        r.trueOT || 0,
+        r.netNewOT || 0,
+        r.primaryLocation || '',
+        r.secondaryLocation || '',
+        r.adjLoc1Reg || 0,
+        r.adjLoc2Reg || 0,
+        r.totalOTAfter || 0,
+        r.dailyHoursJSON || '{}',
+        importDate
+      ];
+    });
+
+    if (newRows.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, newRows[0].length).setValues(newRows);
+    }
+
+    return { success: true, count: newRows.length };
+  } catch (error) {
+    console.error('Error saving OT reconciliation:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Read OT reconciliation data for a specific pay period.
+ * Returns structured data with daily breakdown for the Payroll Processing view.
+ */
+function getOTReconciliationForPayroll(periodEndStr) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_NAMES.OT_RECONCILIATION);
+
+    if (!sheet || sheet.getLastRow() < 2) {
+      return { success: true, adjustments: [] };
+    }
+
+    // Parse with T12:00:00 to avoid UTC-midnight timezone shift
+    const periodDate = typeof periodEndStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(periodEndStr)
+      ? new Date(periodEndStr + 'T12:00:00')
+      : new Date(periodEndStr);
+    if (isNaN(periodDate.getTime())) {
+      return { success: false, error: 'Invalid period date' };
+    }
+    // Compare using local YYYY-MM-DD to avoid toDateString day-of-week ambiguity
+    const periodKey = periodDate.getFullYear() + '-' + String(periodDate.getMonth() + 1).padStart(2, '0') + '-' + String(periodDate.getDate()).padStart(2, '0');
+
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 20).getValues();
+    const byEmployee = {};
+
+    data.forEach(function(row) {
+      if (!row[0]) return;
+      var rd = new Date(row[0]);
+      var rowKey = rd.getFullYear() + '-' + String(rd.getMonth() + 1).padStart(2, '0') + '-' + String(rd.getDate()).padStart(2, '0');
+      if (rowKey !== periodKey) return;
+
+      const matchKey = row[2] || '';
+      if (!byEmployee[matchKey]) {
+        byEmployee[matchKey] = {
+          employeeName: row[1] || '',
+          matchKey: matchKey,
+          paidFromLocation: row[3] || '',
+          weeks: [],
+          totalNetNewOT: 0
+        };
+      }
+
+      var dailyHours = {};
+      try { dailyHours = JSON.parse(row[18] || '{}'); } catch (e) { dailyHours = {}; }
+
+      var weekData = {
+        week: parseInt(row[4]) || 1,
+        loc1Name: row[5] || '',
+        loc2Name: row[6] || '',
+        loc1WeekHours: parseFloat(row[7]) || 0,
+        loc2WeekHours: parseFloat(row[8]) || 0,
+        existingOT: parseFloat(row[9]) || 0,
+        totalWorked: parseFloat(row[10]) || 0,
+        trueOT: parseFloat(row[11]) || 0,
+        netNewOT: parseFloat(row[12]) || 0,
+        primaryLocation: row[13] || '',
+        secondaryLocation: row[14] || '',
+        adjLoc1Reg: parseFloat(row[15]) || 0,
+        adjLoc2Reg: parseFloat(row[16]) || 0,
+        totalOTAfter: parseFloat(row[17]) || 0,
+        dailyHours: dailyHours
+      };
+
+      byEmployee[matchKey].weeks.push(weekData);
+      byEmployee[matchKey].totalNetNewOT += weekData.netNewOT;
+    });
+
+    var adjustments = Object.values(byEmployee)
+      .filter(function(emp) { return emp.totalNetNewOT > 0; })
+      .sort(function(a, b) { return a.employeeName.localeCompare(b.employeeName); });
+
+    var allEmployees = Object.values(byEmployee)
+      .sort(function(a, b) { return a.employeeName.localeCompare(b.employeeName); });
+
+    return {
+      success: true,
+      adjustments: adjustments,
+      allEmployees: allEmployees,
+      totalNetNewOT: adjustments.reduce(function(s, a) { return s + a.totalNetNewOT; }, 0),
+      employeesNeedingAdjustment: adjustments.length
+    };
+  } catch (error) {
+    console.error('Error reading OT reconciliation:', error);
+    return { success: false, error: error.message, adjustments: [] };
+  }
+}
+
+/**
+ * Returns distinct period-end dates from the OT_Reconciliation sheet,
+ * sorted descending (newest first). Used by the standalone OT
+ * Reconciliation view to populate its period dropdown.
+ */
+function getOTHistoryPeriods() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_NAMES.OT_RECONCILIATION);
+
+    if (!sheet || sheet.getLastRow() < 2) {
+      const otSheet = ss.getSheetByName(SHEET_NAMES.OT_HISTORY);
+      if (!otSheet || otSheet.getLastRow() < 2) return [];
+      const otDates = otSheet.getRange(2, 1, otSheet.getLastRow() - 1, 1).getValues();
+      const seen = {};
+      otDates.forEach(function(r) {
+        if (r[0]) {
+          var d = new Date(r[0]);
+          var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+          seen[key] = true;
+        }
+      });
+      return Object.keys(seen).sort().reverse();
+    }
+
+    const dates = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    const seen = {};
+    dates.forEach(function(r) {
+      if (r[0]) {
+        var d = new Date(r[0]);
+        var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        seen[key] = true;
+      }
+    });
+    return Object.keys(seen).sort().reverse();
+  } catch (error) {
+    console.error('Error getting OT history periods:', error);
+    return [];
+  }
+}
+
 // ============================================================================
 // DATA RETRIEVAL FUNCTIONS
 // ============================================================================
@@ -5467,7 +6222,11 @@ function getOTHistory(filters = {}) {
         isMultiLocation: row[15] === true || row[15] === 'TRUE' || String(row[15]).toUpperCase() === 'TRUE',
         importDate: importDateVal ? importDateVal.toISOString() : null,
         importedBy: row[17] || '',
-        employeeId: row[18] || ''  // Column S: Employee_ID
+        employeeId: row[18] || '',
+        week1CH: parseFloat(row[19]) || 0,
+        week1DBU: parseFloat(row[20]) || 0,
+        week2CH: parseFloat(row[21]) || 0,
+        week2DBU: parseFloat(row[22]) || 0
       };
       
       // Apply filters
@@ -6391,7 +7150,7 @@ function formatHoursDisplay(decimalHours) {
     return '0:00';
   }
   const hours = Math.floor(Math.abs(decimalHours));
-  const minutes = Math.round((Math.abs(decimalHours) - hours) * 60);
+  const minutes = Math.floor((Math.abs(decimalHours) - hours) * 60);
   const sign = decimalHours < 0 ? '-' : '';
   return sign + hours + ':' + (minutes < 10 ? '0' : '') + minutes;
 }
@@ -7029,41 +7788,63 @@ function getUpcomingUniformDeductions() {
     const data = ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, 17).getValues();
     const activeOrders = data.filter(r => r[12] === 'Active');
     
-    // Get next 2 paydays
+    // Get next 2 paydays (these are YYYY-MM-DD strings built from local components)
     const paydays = getUpcomingPaydays(2);
     const results = [];
     
     paydays.forEach(paydayStr => {
-      const paydayDate = new Date(paydayStr);
       let totalAmount = 0;
       const employees = new Set();
       
       activeOrders.forEach(order => {
         const orderId = order[0];
-        const firstDeduction = order[8] ? new Date(order[8]) : null;
+        const firstDeductionDate = order[8];
         const paymentPlan = parseInt(order[6]) || 1;
         const paymentsMade = parseInt(order[9]) || 0;
         const employeeName = order[2];
         
-        // Use calculated total from line items
         const storedTotal = parseFloat(order[5]) || 0;
         const correctTotal = lineItemTotals[orderId] !== undefined ? lineItemTotals[orderId] : storedTotal;
         const amountPerPaycheck = correctTotal > 0 ? Math.round((correctTotal / paymentPlan) * 100) / 100 : 0;
         
-        if (!firstDeduction || paymentsMade >= paymentPlan) return;
+        if (!firstDeductionDate || paymentsMade >= paymentPlan) return;
         
-        const daysDiff = Math.round((paydayDate - firstDeduction) / (1000 * 60 * 60 * 24));
-        const paymentNumber = Math.floor(daysDiff / 14) + 1;
+        // Extract first deduction date using UTC components (sheet dates are UTC midnight)
+        let firstDeductionStr;
+        if (firstDeductionDate instanceof Date && !isNaN(firstDeductionDate.getTime())) {
+          const fy = firstDeductionDate.getUTCFullYear();
+          const fm = String(firstDeductionDate.getUTCMonth() + 1).padStart(2, '0');
+          const fd = String(firstDeductionDate.getUTCDate()).padStart(2, '0');
+          firstDeductionStr = `${fy}-${fm}-${fd}`;
+        } else if (typeof firstDeductionDate === 'string') {
+          const parsed = new Date(firstDeductionDate + 'T12:00:00');
+          if (isNaN(parsed.getTime())) return;
+          firstDeductionStr = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+        } else {
+          return;
+        }
         
-        if (daysDiff >= 0 && paymentNumber > paymentsMade && paymentNumber <= paymentPlan) {
-          totalAmount += amountPerPaycheck;
-          employees.add(employeeName);
+        // Generate deduction date strings and check for a match on this payday
+        const baseDate = new Date(firstDeductionStr + 'T12:00:00');
+        for (let i = 0; i < paymentPlan; i++) {
+          const d = new Date(baseDate);
+          d.setDate(d.getDate() + (i * 14));
+          const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          if (dStr === paydayStr) {
+            const paymentNumber = i + 1;
+            if (paymentNumber > paymentsMade && paymentNumber <= paymentPlan) {
+              totalAmount += amountPerPaycheck;
+              employees.add(employeeName);
+            }
+            break;
+          }
         }
       });
       
       if (employees.size > 0) {
+        const pd = new Date(paydayStr + 'T12:00:00');
         results.push({
-          date: paydayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          date: pd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
           dateISO: paydayStr,
           amount: Math.round(totalAmount * 100) / 100,
           employeeCount: employees.size
@@ -7905,7 +8686,8 @@ function getRecentUniformOrders(sinceDate) {
         if (orderItems.length > 0) {
           itemSummary = orderItems.map(item => {
             const size = item.size && item.size !== 'One Size' ? ` (${item.size})` : '';
-            return `${item.itemName}${size}`;
+            const qty = parseInt(item.quantity, 10) || 1;
+            return `${qty}x ${item.itemName}${size}`;
           }).join(', ');
         }
         
@@ -8101,10 +8883,53 @@ function formatDateRange(start, end) {
 }
 
 /**
- * Sets up the weekly summary trigger for Saturday at 1PM
+ * Get configured weekly summary schedule from settings
+ */
+function getWeeklySummaryScheduleSettings() {
+  const settings = getSettings();
+  const day = (settings.weeklySummaryDay || DEFAULT_SETTINGS.weeklySummaryDay || 'Saturday').toString();
+  const hour = Math.min(Math.max(parseInt(settings.weeklySummaryHour, 10) || 13, 0), 23);
+  const minute = Math.min(Math.max(parseInt(settings.weeklySummaryMinute, 10) || 0, 0), 59);
+  return { day, hour, minute };
+}
+
+/**
+ * Converts a day string to ScriptApp.WeekDay
+ */
+function mapWeekdayString(day) {
+  const normalized = (day || '').toString().trim().toLowerCase();
+  const map = {
+    sunday: ScriptApp.WeekDay.SUNDAY,
+    monday: ScriptApp.WeekDay.MONDAY,
+    tuesday: ScriptApp.WeekDay.TUESDAY,
+    wednesday: ScriptApp.WeekDay.WEDNESDAY,
+    thursday: ScriptApp.WeekDay.THURSDAY,
+    friday: ScriptApp.WeekDay.FRIDAY,
+    saturday: ScriptApp.WeekDay.SATURDAY
+  };
+  return map[normalized] || ScriptApp.WeekDay.SATURDAY;
+}
+
+/**
+ * Formats the weekly summary schedule as a readable label
+ */
+function formatWeeklySummaryScheduleLabel(day, hour, minute) {
+  const safeDay = (day || 'Saturday').toString().trim();
+  const safeMinute = Math.min(Math.max(parseInt(minute, 10) || 0, 0), 59);
+  const safeHour = Math.min(Math.max(parseInt(hour, 10) || 13, 0), 23);
+  const hour12 = safeHour % 12 === 0 ? 12 : safeHour % 12;
+  const ampm = safeHour >= 12 ? 'PM' : 'AM';
+  const minuteStr = String(safeMinute).padStart(2, '0');
+  return `${safeDay} at ${hour12}:${minuteStr} ${ampm}`;
+}
+
+/**
+ * Sets up the weekly summary trigger using configured schedule
  * Call this once to initialize the trigger
  */
-function setupWeeklySummaryTrigger() {
+function configureWeeklySummaryTrigger(schedule) {
+  const scheduleLabel = formatWeeklySummaryScheduleLabel(schedule.day, schedule.hour, schedule.minute);
+
   // First, remove any existing weekly summary triggers
   const triggers = ScriptApp.getProjectTriggers();
   for (const trigger of triggers) {
@@ -8114,20 +8939,50 @@ function setupWeeklySummaryTrigger() {
     }
   }
   
-  // Create new trigger for Saturday at 1 PM
+  // Create new trigger for selected day/time
+  const weekday = mapWeekdayString(schedule.day);
   ScriptApp.newTrigger('sendWeeklySummaryEmail')
     .timeBased()
-    .onWeekDay(ScriptApp.WeekDay.SATURDAY)
-    .atHour(13) // 1 PM
+    .onWeekDay(weekday)
+    .atHour(schedule.hour)
+    .nearMinute(schedule.minute)
     .create();
   
-  console.log('Weekly summary trigger created for Saturday at 1 PM');
-  logActivity('system', 'Weekly summary trigger configured', 'Saturday at 1 PM');
+  console.log(`Weekly summary trigger created for ${scheduleLabel}`);
+  logActivity('system', 'Weekly summary trigger configured', scheduleLabel);
   
   return { 
     success: true, 
-    message: 'Weekly summary email scheduled for Saturday at 1 PM' 
+    message: `Weekly summary email scheduled for ${scheduleLabel}`,
+    scheduleLabel: scheduleLabel
   };
+}
+
+/**
+ * Sets up the weekly summary trigger using stored schedule
+ */
+function setupWeeklySummaryTrigger() {
+  const schedule = getWeeklySummaryScheduleSettings();
+  return configureWeeklySummaryTrigger(schedule);
+}
+
+/**
+ * Sets up the weekly summary trigger using provided schedule (and saves it)
+ */
+function setupWeeklySummaryTriggerWithSchedule(day, hour, minute) {
+  const schedule = {
+    day: (day || DEFAULT_SETTINGS.weeklySummaryDay || 'Saturday').toString(),
+    hour: Math.min(Math.max(parseInt(hour, 10) || 13, 0), 23),
+    minute: Math.min(Math.max(parseInt(minute, 10) || 0, 0), 59)
+  };
+
+  updateSettings({
+    weeklySummaryDay: schedule.day,
+    weeklySummaryHour: schedule.hour,
+    weeklySummaryMinute: schedule.minute
+  });
+
+  return configureWeeklySummaryTrigger(schedule);
 }
 
 /**
@@ -8153,12 +9008,14 @@ function removeWeeklySummaryTrigger() {
  */
 function isWeeklySummaryTriggerActive() {
   const triggers = ScriptApp.getProjectTriggers();
+  const schedule = getWeeklySummaryScheduleSettings();
+  const scheduleLabel = formatWeeklySummaryScheduleLabel(schedule.day, schedule.hour, schedule.minute);
   
   for (const trigger of triggers) {
     if (trigger.getHandlerFunction() === 'sendWeeklySummaryEmail') {
       return { 
         active: true, 
-        nextRun: 'Saturday at 1 PM' 
+        nextRun: scheduleLabel
       };
     }
   }
@@ -8488,10 +9345,13 @@ function generatePDFReport(reportType, options = {}) {
     let reportTitle = '';
     
     switch (reportType) {
-      case 'payroll':
+      case 'payroll': {
         reportTitle = 'Payroll Report';
-        htmlContent = generatePayrollReportHTML(options);
+        const payrollDate = options.payrollDate || getPayrollSetting('next_payroll_date');
+        const reportData = generatePayrollProcessingReport(payrollDate);
+        htmlContent = generatePayrollReportHTML(reportData);
         break;
+      }
       case 'ot-summary':
         reportTitle = 'OT Summary Report';
         htmlContent = generateOTSummaryHTML(options);
@@ -8508,37 +9368,42 @@ function generatePDFReport(reportType, options = {}) {
         return { success: false, error: 'Unknown report type: ' + reportType };
     }
     
-    // Create HTML for PDF
-    const fullHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
-          h1 { color: #E51636; border-bottom: 2px solid #E51636; padding-bottom: 10px; }
-          h2 { color: #374151; margin-top: 30px; }
-          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-          th { background: #F3F4F6; text-align: left; padding: 10px; border: 1px solid #E5E7EB; }
-          td { padding: 10px; border: 1px solid #E5E7EB; }
-          .header-info { display: flex; justify-content: space-between; margin-bottom: 20px; }
-          .stat-box { background: #F9FAFB; padding: 15px; border-radius: 8px; margin: 10px 0; }
-          .stat-value { font-size: 24px; font-weight: bold; color: #E51636; }
-          .stat-label { font-size: 12px; color: #6B7280; text-transform: uppercase; }
-          .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #E5E7EB; font-size: 12px; color: #9CA3AF; }
-        </style>
-      </head>
-      <body>
-        <h1>📋 ${reportTitle}</h1>
-        <div class="header-info">
-          <div>Generated: ${new Date().toLocaleString()}</div>
-        </div>
-        ${htmlContent}
-        <div class="footer">
-          Generated by Payroll Review System
-        </div>
-      </body>
-      </html>
-    `;
+    // For payroll reports, generatePayrollReportHTML returns a full standalone HTML document
+    let fullHtml;
+    if (reportType === 'payroll') {
+      fullHtml = htmlContent;
+    } else {
+      fullHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
+            h1 { color: #E51636; border-bottom: 2px solid #E51636; padding-bottom: 10px; }
+            h2 { color: #374151; margin-top: 30px; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th { background: #F3F4F6; text-align: left; padding: 10px; border: 1px solid #E5E7EB; }
+            td { padding: 10px; border: 1px solid #E5E7EB; }
+            .header-info { display: flex; justify-content: space-between; margin-bottom: 20px; }
+            .stat-box { background: #F9FAFB; padding: 15px; border-radius: 8px; margin: 10px 0; }
+            .stat-value { font-size: 24px; font-weight: bold; color: #E51636; }
+            .stat-label { font-size: 12px; color: #6B7280; text-transform: uppercase; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #E5E7EB; font-size: 12px; color: #9CA3AF; }
+          </style>
+        </head>
+        <body>
+          <h1>${reportTitle}</h1>
+          <div class="header-info">
+            <div>Generated: ${new Date().toLocaleString()}</div>
+          </div>
+          ${htmlContent}
+          <div class="footer">
+            Generated by Payroll Review System
+          </div>
+        </body>
+        </html>
+      `;
+    }
     
     // Convert to PDF blob
     const blob = HtmlService.createHtmlOutput(fullHtml).getBlob().setName(`${reportTitle.replace(/\s+/g, '_')}_${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd')}.pdf`).getAs('application/pdf');
@@ -8566,7 +9431,7 @@ function generatePDFReport(reportType, options = {}) {
 /**
  * Generate Payroll Report HTML
  */
-function generatePayrollReportHTML(options) {
+function generatePayrollReportHTMLLegacy(options) {
   const payrollDate = options.payrollDate || getPayrollSetting('next_payroll_date');
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
@@ -9195,12 +10060,36 @@ function runSystemHealthCheck() {
     console.log('Could not run conflict detection:', e);
   }
   
+  // ========== CHECK X: Date Integrity Across Sheets ==========
+  const dateIntegrity = scanDateIntegrityAllSheets(ss, { maxSamples: 25 });
+  if (dateIntegrity.totalIssues === 0) {
+    checks.push({
+      id: 'date_integrity',
+      status: 'success',
+      title: 'Date Fields Look Healthy',
+      message: 'No suspicious date formatting or payroll cadence issues found.',
+      details: null,
+      howToFix: null
+    });
+  } else {
+    warningCount++;
+    checks.push({
+      id: 'date_integrity',
+      status: 'warning',
+      title: 'Date Integrity Warnings',
+      message: `${dateIntegrity.totalIssues} possible date issue(s) found across sheets.`,
+      details: dateIntegrity.samples,
+      howToFix: 'Review flagged rows for text-formatted dates or off-cadence payroll dates. If First_Deduction_Date values are off, run "repairFirstDeductionDates()" to re-calc from Received_Date.'
+    });
+  }
+  
   // ========== Determine Overall Status ==========
   let overallStatus = 'healthy';
   if (warningCount > 0) overallStatus = 'warnings';
   if (errorCount > 0) overallStatus = 'errors';
   
   console.log('Health check complete. Status: ' + overallStatus);
+  logHealthCheckSummary_(checks, { maxDetails: 10 });
   
   return {
     success: true,
@@ -9232,9 +10121,461 @@ function runSystemHealthCheck() {
   }
 }
 
+/**
+ * Scans all sheets for potential date-format and payroll-cadence issues.
+ * This is read-only and returns a summary with sample findings.
+ * @param {SpreadsheetApp.Spreadsheet} ss
+ * @param {Object} options
+ * @param {number} options.maxSamples
+ * @returns {Object} Summary of issues
+ */
+function scanDateIntegrityAllSheets(ss, options = {}) {
+  const maxSamples = options.maxSamples || 25;
+  const includeDetails = options.includeDetails === true;
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const referencePayday = getReferencePayday_();
+  const samples = [];
+  const details = [];
+  const issueCounts = {
+    textDates: 0,
+    nonDateText: 0,
+    timeComponent: 0,
+    payrollMisaligned: 0
+  };
+
+  const isDateHeader = (header) => {
+    const lower = header.toLowerCase();
+    return lower.includes('date');
+  };
+
+  const isDateOnlyHeader = (header) => {
+    const lower = header.toLowerCase();
+    if (lower.includes('order_date') || lower.includes('created_date') || lower.includes('request_date')) {
+      return false;
+    }
+    return lower.includes('first_deduction') || lower.includes('payday') || lower.includes('payroll') || lower.endsWith('_date');
+  };
+
+  const isPayrollAlignedHeader = (header) => {
+    const lower = header.toLowerCase();
+    return lower.includes('first_deduction') || lower.includes('payday') || lower.includes('payroll');
+  };
+
+  const formatLocalDate = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const tryParseDateString = (value) => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parseValue = trimmed.includes('T') ? trimmed : `${trimmed}T12:00:00`;
+    const parsed = new Date(parseValue);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  ss.getSheets().forEach(sheet => {
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    if (lastRow < 2 || lastCol < 1) return;
+
+    const data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+    const headers = data[0].map(h => (h || '').toString().trim());
+    const dateColumns = [];
+
+    headers.forEach((header, idx) => {
+      if (header && isDateHeader(header)) {
+        dateColumns.push({ index: idx, header: header });
+      }
+    });
+
+    if (dateColumns.length === 0) return;
+
+    for (let row = 1; row < data.length; row++) {
+      const rowValues = data[row];
+      dateColumns.forEach(col => {
+        const value = rowValues[col.index];
+        if (value === '' || value === null || value === undefined) return;
+
+        const header = col.header;
+        const sheetName = sheet.getName();
+        const rowNumber = row + 1;
+
+        if (value instanceof Date) {
+          if (isDateOnlyHeader(header)) {
+            const hours = value.getHours();
+            if (hours !== 0 && hours !== 12) {
+              issueCounts.timeComponent++;
+              if (samples.length < maxSamples) {
+                samples.push(`${sheetName} • ${header} row ${rowNumber}: time component ${hours}:00`);
+              }
+              if (includeDetails) {
+                details.push({
+                  sheet: sheetName,
+                  column: header,
+                  row: rowNumber,
+                  issueType: 'time_component',
+                  value: value,
+                  note: `Time component ${hours}:00`
+                });
+              }
+            }
+          }
+
+          if (referencePayday && isPayrollAlignedHeader(header)) {
+            const localDate = new Date(value.getFullYear(), value.getMonth(), value.getDate(), 12, 0, 0);
+            const diffDays = Math.round((localDate - referencePayday) / msPerDay);
+            const isFriday = localDate.getDay() === 5;
+            const onCadence = diffDays % 14 === 0;
+            if (!isFriday || !onCadence) {
+              issueCounts.payrollMisaligned++;
+              if (samples.length < maxSamples) {
+                samples.push(`${sheetName} • ${header} row ${rowNumber}: ${formatLocalDate(localDate)} not aligned to Friday payroll cadence`);
+              }
+              if (includeDetails) {
+                details.push({
+                  sheet: sheetName,
+                  column: header,
+                  row: rowNumber,
+                  issueType: 'payroll_misaligned',
+                  value: formatLocalDate(localDate),
+                  note: 'Not aligned to Friday payroll cadence'
+                });
+              }
+            }
+          }
+          return;
+        }
+
+        const parsed = tryParseDateString(value);
+        if (parsed) {
+          issueCounts.textDates++;
+          if (samples.length < maxSamples) {
+            samples.push(`${sheetName} • ${header} row ${rowNumber}: text date "${value}"`);
+          }
+          if (includeDetails) {
+            details.push({
+              sheet: sheetName,
+              column: header,
+              row: rowNumber,
+              issueType: 'text_date',
+              value: value,
+              note: 'Text date stored as string'
+            });
+          }
+        } else if (typeof value === 'string') {
+          issueCounts.nonDateText++;
+          if (samples.length < maxSamples) {
+            samples.push(`${sheetName} • ${header} row ${rowNumber}: non-date text "${value}"`);
+          }
+          if (includeDetails) {
+            details.push({
+              sheet: sheetName,
+              column: header,
+              row: rowNumber,
+              issueType: 'non_date_text',
+              value: value,
+              note: 'Non-date text in date column'
+            });
+          }
+        }
+      });
+    }
+  });
+
+  const totalIssues = Object.values(issueCounts).reduce((sum, count) => sum + count, 0);
+  return {
+    totalIssues: totalIssues,
+    issueCounts: issueCounts,
+    samples: samples,
+    details: includeDetails ? details : null
+  };
+}
+
+/**
+ * Resolves the reference payday for cadence checks.
+ * @returns {Date|null}
+ */
+function getReferencePayday_() {
+  if (typeof REFERENCE_PAYDAY !== 'undefined' && REFERENCE_PAYDAY instanceof Date) {
+    return new Date(REFERENCE_PAYDAY.getFullYear(), REFERENCE_PAYDAY.getMonth(), REFERENCE_PAYDAY.getDate(), 12, 0, 0);
+  }
+  if (DEFAULT_SETTINGS && DEFAULT_SETTINGS.paydayReference) {
+    const parsed = new Date(DEFAULT_SETTINGS.paydayReference + 'T12:00:00');
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  return null;
+}
+
+/**
+ * Parses a date input into a local noon Date to avoid timezone shifts.
+ * @param {Date|string} value
+ * @returns {Date|null}
+ */
+function parseLocalDate_(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    const d = new Date(value.getTime());
+    d.setHours(12, 0, 0, 0);
+    return d;
+  }
+  const text = String(value).trim();
+  if (!text) return null;
+  const parsed = new Date(text.includes('T') ? text : `${text}T12:00:00`);
+  if (isNaN(parsed.getTime())) return null;
+  parsed.setHours(12, 0, 0, 0);
+  return parsed;
+}
+
+/**
+ * Formats a date input as YYYY-MM-DD using local components.
+ * @param {Date|string} value
+ * @returns {string|null}
+ */
+function toLocalDateString_(value) {
+  const d = parseLocalDate_(value);
+  if (!d) return null;
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Generates a full Date Integrity report sheet.
+ * @param {Object} options
+ * @param {string} options.sheetName
+ * @returns {Object} Summary of report generation
+ */
+function generateDateIntegrityReport(options = {}) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetName = options.sheetName || 'Date_Integrity_Report';
+  const report = scanDateIntegrityAllSheets(ss, { includeDetails: true, maxSamples: 0 });
+
+  let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+  } else {
+    sheet.clearContents();
+  }
+
+  const headers = ['Timestamp', 'Sheet', 'Column', 'Row', 'Issue_Type', 'Value', 'Note'];
+  const rows = [headers];
+  const timestamp = new Date();
+
+  (report.details || []).forEach(item => {
+    rows.push([
+      timestamp,
+      item.sheet,
+      item.column,
+      item.row,
+      item.issueType,
+      item.value,
+      item.note
+    ]);
+  });
+
+  if (rows.length === 1) {
+    rows.push([timestamp, '', '', '', 'no_issues', '', 'No date integrity issues found.']);
+  }
+
+  sheet.getRange(1, 1, rows.length, headers.length).setValues(rows);
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+  sheet.autoResizeColumns(1, headers.length);
+
+  return {
+    success: true,
+    sheetName: sheetName,
+    totalIssues: report.totalIssues
+  };
+}
+
+/**
+ * Logs a compact summary of non-success health checks for cloud logs.
+ * @param {Array} checks
+ * @param {Object} options
+ * @param {number} options.maxDetails
+ */
+function logHealthCheckSummary_(checks, options = {}) {
+  const maxDetails = options.maxDetails || 10;
+  if (!checks || checks.length === 0) return;
+
+  const issues = checks.filter(c => c && c.status && c.status !== 'success');
+  if (issues.length === 0) {
+    console.log('Health check details: no warnings or errors.');
+    return;
+  }
+
+  console.log(`Health check details: ${issues.length} issue(s).`);
+  issues.forEach(issue => {
+    const details = Array.isArray(issue.details) ? issue.details.slice(0, maxDetails) : null;
+    const detailText = details && details.length > 0 ? ` Details: ${details.join(' | ')}` : '';
+    console.log(`[${issue.status}] ${issue.title}: ${issue.message}${detailText}`);
+  });
+}
+
 // ============================================================
 // CHUNK 7: AUTO-ARCHIVE & SELF-CLEANING FUNCTIONS
 // ============================================================
+
+/**
+ * Reconcile uniform payment records against the expected deduction schedule.
+ * Compares actual Payments_Made to the number of deduction dates that should
+ * have already been processed (before the next payroll date).
+ * @param {boolean} dryRun - If true (default), only reports discrepancies without fixing
+ * @returns {Object} Result with discrepancies array and summary
+ */
+function reconcileUniformPayments(dryRun = true) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
+
+    if (!ordersSheet || ordersSheet.getLastRow() < 2) {
+      return { success: true, discrepancies: [], summary: 'No orders to reconcile.' };
+    }
+
+    const nextPayrollDate = getPayrollSetting('next_payroll_date');
+    if (!nextPayrollDate) {
+      return { success: false, error: 'No next_payroll_date configured in settings.' };
+    }
+    const npd = new Date(nextPayrollDate);
+    if (isNaN(npd.getTime())) {
+      return { success: false, error: 'Invalid next_payroll_date in settings.' };
+    }
+    const npdYear = npd.getFullYear();
+    const npdMonth = String(npd.getMonth() + 1).padStart(2, '0');
+    const npdDay = String(npd.getDate()).padStart(2, '0');
+    const nextPayrollStr = `${npdYear}-${npdMonth}-${npdDay}`;
+
+    const data = ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, 17).getValues();
+    const discrepancies = [];
+    let fixedCount = 0;
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      const orderId = row[0];
+      if (!orderId) continue;
+
+      const status = row[12];
+      if (status !== 'Active') continue;
+
+      const employeeName = row[2] || '';
+      const totalAmount = parseFloat(row[5]) || 0;
+      const paymentPlan = parseInt(row[6]) || 1;
+      const firstDeductionDate = row[8];
+      const paymentsMade = parseInt(row[9]) || 0;
+      const amountPaid = parseFloat(row[10]) || 0;
+
+      if (!firstDeductionDate || totalAmount <= 0) continue;
+
+      // Parse first deduction date using UTC components (matches sheet storage)
+      let firstDeductionStr;
+      if (firstDeductionDate instanceof Date && !isNaN(firstDeductionDate.getTime())) {
+        const fy = firstDeductionDate.getUTCFullYear();
+        const fm = String(firstDeductionDate.getUTCMonth() + 1).padStart(2, '0');
+        const fd = String(firstDeductionDate.getUTCDate()).padStart(2, '0');
+        firstDeductionStr = `${fy}-${fm}-${fd}`;
+      } else if (typeof firstDeductionDate === 'string') {
+        const parsed = new Date(firstDeductionDate + 'T12:00:00');
+        if (isNaN(parsed.getTime())) continue;
+        const py = parsed.getFullYear();
+        const pm = String(parsed.getMonth() + 1).padStart(2, '0');
+        const pd = String(parsed.getDate()).padStart(2, '0');
+        firstDeductionStr = `${py}-${pm}-${pd}`;
+      } else {
+        continue;
+      }
+
+      const amountPerCheck = Math.round((totalAmount / paymentPlan) * 100) / 100;
+      const baseDate = new Date(firstDeductionStr + 'T12:00:00');
+      const scheduleDates = [];
+      let expectedPayments = 0;
+
+      for (let j = 0; j < paymentPlan; j++) {
+        const d = new Date(baseDate);
+        d.setDate(d.getDate() + (j * 14));
+        const dy = d.getFullYear();
+        const dm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const dStr = `${dy}-${dm}-${dd}`;
+        scheduleDates.push(dStr);
+        if (dStr < nextPayrollStr) {
+          expectedPayments++;
+        }
+      }
+
+      // Cap at payment plan
+      expectedPayments = Math.min(expectedPayments, paymentPlan);
+
+      if (expectedPayments === paymentsMade) continue;
+
+      // Only flag under-payments (never reduce recorded payments)
+      if (expectedPayments <= paymentsMade) continue;
+
+      const correctedPaid = expectedPayments * amountPerCheck;
+      // Handle rounding on final payment
+      const correctedPaidFinal = expectedPayments >= paymentPlan
+        ? totalAmount
+        : Math.round(correctedPaid * 100) / 100;
+      const correctedRemaining = Math.max(0, Math.round((totalAmount - correctedPaidFinal) * 100) / 100);
+      const correctedStatus = expectedPayments >= paymentPlan ? 'Completed' : 'Active';
+
+      const entry = {
+        orderId: orderId,
+        employeeName: employeeName,
+        totalAmount: totalAmount,
+        paymentPlan: paymentPlan,
+        amountPerCheck: amountPerCheck,
+        firstDeduction: firstDeductionStr,
+        schedule: scheduleDates,
+        nextPayroll: nextPayrollStr,
+        expectedPayments: expectedPayments,
+        actualPayments: paymentsMade,
+        actualPaid: amountPaid,
+        correctedPayments: expectedPayments,
+        correctedPaid: correctedPaidFinal,
+        correctedRemaining: correctedRemaining,
+        correctedStatus: correctedStatus,
+        rowIndex: i + 2
+      };
+
+      discrepancies.push(entry);
+
+      if (!dryRun) {
+        const rowNum = i + 2;
+        ordersSheet.getRange(rowNum, 10).setValue(expectedPayments);      // J: Payments_Made
+        ordersSheet.getRange(rowNum, 11).setValue(correctedPaidFinal);    // K: Amount_Paid
+        ordersSheet.getRange(rowNum, 12).setValue(correctedRemaining);    // L: Amount_Remaining
+        ordersSheet.getRange(rowNum, 13).setValue(correctedStatus);       // M: Status
+        fixedCount++;
+      }
+    }
+
+    if (!dryRun && fixedCount > 0) {
+      logActivity('RECONCILE', 'UNIFORM',
+        `Reconciled ${fixedCount} order(s) with payment discrepancies (cutoff: ${nextPayrollStr})`);
+    }
+
+    return {
+      success: true,
+      dryRun: dryRun,
+      nextPayrollDate: nextPayrollStr,
+      discrepancyCount: discrepancies.length,
+      fixedCount: dryRun ? 0 : fixedCount,
+      discrepancies: discrepancies,
+      summary: discrepancies.length === 0
+        ? 'All payments are in sync — no discrepancies found.'
+        : `${discrepancies.length} order(s) with payment discrepancies${dryRun ? ' (dry run — no changes made)' : ` — ${fixedCount} fixed`}.`
+    };
+
+  } catch (error) {
+    console.error('Error reconciling uniform payments:', error);
+    return { success: false, error: error.message };
+  }
+}
 
 /**
  * Archive completed orders from prior years
@@ -9334,19 +10675,18 @@ function archiveCompletedOrders(dryRun = false) {
     if (itemsSheet) {
       const itemsData = itemsSheet.getDataRange().getValues();
       const itemsHeaders = itemsData[0];
-      const archivedOrderIds = ordersToArchive.map(o => o.orderId);
-      
+      const archivedOrderMap = {};
+      for (const o of ordersToArchive) { archivedOrderMap[o.orderId] = o.year; }
+
       const itemsToArchive = [];
       const itemRowsToDelete = [];
       
       for (let i = 1; i < itemsData.length; i++) {
-        const orderId = itemsData[i][1]; // Order_ID is column B
-        if (archivedOrderIds.includes(orderId)) {
-          const orderYear = ordersToArchive.find(o => o.orderId === orderId)?.year;
-          if (orderYear) {
-            itemsToArchive.push({ data: itemsData[i], year: orderYear });
-            itemRowsToDelete.push(i + 1);
-          }
+        const orderId = itemsData[i][1];
+        const orderYear = archivedOrderMap[orderId];
+        if (orderYear) {
+          itemsToArchive.push({ data: itemsData[i], year: orderYear });
+          itemRowsToDelete.push(i + 1);
         }
       }
       
@@ -9927,7 +11267,10 @@ function runPayrollValidation() {
       if (nextPayrollDate) {
         const npd = new Date(nextPayrollDate);
         if (!isNaN(npd.getTime())) {
-          nextPayrollDateStr = npd.toISOString().split('T')[0];
+          const ny = npd.getFullYear();
+          const nm = String(npd.getMonth() + 1).padStart(2, '0');
+          const nd = String(npd.getDate()).padStart(2, '0');
+          nextPayrollDateStr = `${ny}-${nm}-${nd}`;
         }
       }
     } catch (e) {
@@ -9947,34 +11290,60 @@ function runPayrollValidation() {
         const amountRemaining = parseFloat(row[11]) || 0;
         const totalAmount = parseFloat(row[5]) || 0;
         const amountPaid = parseFloat(row[10]) || 0;
-        const nextPaymentDate = row[8]; // Column I = Next Payment Date
+        const firstDeductionDate = row[8]; // Column I = First_Deduction_Date
+        const paymentPlan = parseInt(row[6]) || 1;
+        const paymentsMade = parseInt(row[9]) || 0;
         
         if (status === 'Active') {
           activeCount++;
           totalRemaining += amountRemaining;
           totalExpected += (totalAmount - amountPaid);
           
-          // Check if this order has a payment due on the next payroll date
-          if (nextPaymentDate && nextPayrollDateStr) {
-            try {
-              let nextPaymentStr = null;
-              if (nextPaymentDate instanceof Date && !isNaN(nextPaymentDate.getTime())) {
-                nextPaymentStr = nextPaymentDate.toISOString().split('T')[0];
-              } else if (typeof nextPaymentDate === 'string') {
-                const parsed = new Date(nextPaymentDate);
-                if (!isNaN(parsed.getTime())) {
-                  nextPaymentStr = parsed.toISOString().split('T')[0];
-                }
+          if (!firstDeductionDate || !nextPayrollDateStr) continue;
+          
+          // Get first deduction date as consistent ISO string (UTC components for sheet dates)
+          let firstDeductionStr;
+          if (firstDeductionDate instanceof Date && !isNaN(firstDeductionDate.getTime())) {
+            const fy = firstDeductionDate.getUTCFullYear();
+            const fm = String(firstDeductionDate.getUTCMonth() + 1).padStart(2, '0');
+            const fd = String(firstDeductionDate.getUTCDate()).padStart(2, '0');
+            firstDeductionStr = `${fy}-${fm}-${fd}`;
+          } else if (typeof firstDeductionDate === 'string') {
+            const parsed = new Date(firstDeductionDate + 'T12:00:00');
+            if (isNaN(parsed.getTime())) continue;
+            const py = parsed.getFullYear();
+            const pm = String(parsed.getMonth() + 1).padStart(2, '0');
+            const pd = String(parsed.getDate()).padStart(2, '0');
+            firstDeductionStr = `${py}-${pm}-${pd}`;
+          } else {
+            continue;
+          }
+          
+          // Calculate all scheduled deduction dates and check for match
+          const amountPerCheck = totalAmount > 0 ? Math.round((totalAmount / paymentPlan) * 100) / 100 : 0;
+          const baseDate = new Date(firstDeductionStr + 'T12:00:00');
+          
+          for (let i = 0; i < paymentPlan; i++) {
+            const checkNumber = i + 1;
+            if (checkNumber <= paymentsMade) continue; // Already paid
+            
+            const deductionDate = new Date(baseDate);
+            deductionDate.setDate(deductionDate.getDate() + (i * 14));
+            const dy = deductionDate.getFullYear();
+            const dm = String(deductionDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(deductionDate.getDate()).padStart(2, '0');
+            const deductionDateStr = `${dy}-${dm}-${dd}`;
+            
+            if (deductionDateStr === nextPayrollDateStr) {
+              dueThisPeriodCount++;
+              const isFinal = checkNumber === paymentPlan;
+              let deductionAmount = amountPerCheck;
+              if (isFinal) {
+                const priorPayments = (checkNumber - 1) * amountPerCheck;
+                deductionAmount = Math.round((totalAmount - priorPayments) * 100) / 100;
               }
-              
-              if (nextPaymentStr === nextPayrollDateStr) {
-                dueThisPeriodCount++;
-                const paymentAmount = parseFloat(row[7]) || 0; // Amount_Per_Paycheck (column H, index 7)
-                dueThisPeriodAmount += Math.min(paymentAmount, amountRemaining);
-              }
-            } catch (e) {
-              // Skip this row if date parsing fails
-              console.log('Skipping row due to date parse error');
+              dueThisPeriodAmount += deductionAmount;
+              break;
             }
           }
         }
@@ -9995,7 +11364,6 @@ function runPayrollValidation() {
           action: 'uniforms-orders'
         });
       } else if (dueThisPeriodCount > 0) {
-        // Show what's due this period
         checks.push({
           id: 'deduction_reconcile',
           status: 'success',
@@ -10005,7 +11373,6 @@ function runPayrollValidation() {
           action: null
         });
       } else if (activeCount > 0) {
-        // No deductions due this period, but there are future ones
         checks.push({
           id: 'deduction_reconcile',
           status: 'success',
@@ -10015,7 +11382,6 @@ function runPayrollValidation() {
           action: null
         });
       } else {
-        // No active orders at all
         checks.push({
           id: 'deduction_reconcile',
           status: 'success',
@@ -10092,6 +11458,25 @@ function runPayrollValidation() {
       });
     }
     
+    // Load persisted dismissals and match against current checks
+    const storedDismissals = getDismissedValidationChecks();
+    const dismissedIds = [];
+    
+    for (const check of checks) {
+      if (check.status === 'success') continue;
+      const match = storedDismissals.find(function(d) { return d.id === check.id; });
+      if (!match) continue;
+      
+      // Build a signature from current details to compare against stored
+      const currentSig = (check.details || []).slice().sort().join('|');
+      if (match.sig === currentSig) {
+        dismissedIds.push(check.id);
+        // Adjust counts since this check is dismissed
+        if (check.status === 'error') errorCount--;
+        if (check.status === 'warning') warningCount--;
+      }
+    }
+    
     // Determine overall status
     let overallStatus = 'ready';
     if (warningCount > 0) overallStatus = 'warnings';
@@ -10104,6 +11489,7 @@ function runPayrollValidation() {
       warningCount: warningCount,
       passCount: checks.filter(c => c.status === 'success').length,
       checks: checks,
+      dismissedIds: dismissedIds,
       timestamp: new Date().toISOString()
     };
     
@@ -10140,7 +11526,10 @@ function runPayrollValidation() {
 function getPayrollCalendarData(monthsAhead = 3) {
   try {
     const settings = getSettings();
-    const referenceDate = new Date(settings.paydayReference || '2024-11-29');
+    // Parse reference date as LOCAL noon to avoid UTC timezone shift
+    const refStr = settings.paydayReference || '2024-11-29';
+    const refParts = refStr.split('-');
+    const referenceDate = new Date(parseInt(refParts[0]), parseInt(refParts[1]) - 1, parseInt(refParts[2]), 12, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -10176,11 +11565,15 @@ function getPayrollCalendarData(monthsAhead = 3) {
       // Get preview for this payday
       const preview = getPayrollDatePreview(paydayDate);
       
+      const pdYear = paydayDate.getFullYear();
+      const pdMonth = String(paydayDate.getMonth() + 1).padStart(2, '0');
+      const pdDay = String(paydayDate.getDate()).padStart(2, '0');
       paydays.push({
-        date: paydayDate.toISOString().split('T')[0],
+        date: `${pdYear}-${pdMonth}-${pdDay}`,
         dateFormatted: formatDateShort(paydayDate),
         dayOfWeek: paydayDate.toLocaleDateString('en-US', { weekday: 'short' }),
         employeeCount: preview.employeeCount,
+        deductionCount: preview.deductionCount,
         totalAmount: preview.totalAmount,
         completingOrders: preview.completingOrders,
         isPast: paydayDate < today,
@@ -10204,8 +11597,11 @@ function getPayrollCalendarData(monthsAhead = 3) {
       const mondayOfPayweek = new Date(paydayDateObj);
       mondayOfPayweek.setDate(paydayDateObj.getDate() - 4);
       
+      const otY = mondayOfPayweek.getFullYear();
+      const otM = String(mondayOfPayweek.getMonth() + 1).padStart(2, '0');
+      const otD = String(mondayOfPayweek.getDate()).padStart(2, '0');
       otDueDates.push({
-        date: mondayOfPayweek.toISOString().split('T')[0],
+        date: `${otY}-${otM}-${otD}`,
         dateFormatted: formatDateShort(mondayOfPayweek)
       });
     }
@@ -10213,19 +11609,23 @@ function getPayrollCalendarData(monthsAhead = 3) {
     // ========== Current Cycle Stats ==========
     const nextPaydayPreview = paydays.length > 0 ? paydays[0] : null;
     
+    // Format dates using local components (not toISOString which uses UTC)
+    const fmtLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    
     return {
       success: true,
       currentPeriod: {
-        start: currentPeriodStart.toISOString().split('T')[0],
-        end: currentPeriodEnd.toISOString().split('T')[0],
+        start: fmtLocal(currentPeriodStart),
+        end: fmtLocal(currentPeriodEnd),
         startFormatted: formatDateShort(currentPeriodStart),
         endFormatted: formatDateShort(currentPeriodEnd)
       },
       nextPayday: {
-        date: nextPayday.toISOString().split('T')[0],
+        date: fmtLocal(nextPayday),
         dateFormatted: formatDateShort(nextPayday),
         daysUntil: daysUntilPayday,
         employeeCount: nextPaydayPreview ? nextPaydayPreview.employeeCount : 0,
+        deductionCount: nextPaydayPreview ? nextPaydayPreview.deductionCount : 0,
         totalAmount: nextPaydayPreview ? nextPaydayPreview.totalAmount : 0,
         completingOrders: nextPaydayPreview ? nextPaydayPreview.completingOrders : 0
       },
@@ -10257,8 +11657,9 @@ function getPayrollDatePreview(paydayDate) {
       return { employeeCount: 0, totalAmount: 0, completingOrders: 0, orders: [] };
     }
     
-    const targetDate = new Date(paydayDate);
-    targetDate.setHours(0, 0, 0, 0);
+    // Build payday string using local components (paydayDate comes from local Date arithmetic)
+    const td = new Date(paydayDate);
+    const paydayStr = `${td.getFullYear()}-${String(td.getMonth() + 1).padStart(2, '0')}-${String(td.getDate()).padStart(2, '0')}`;
     
     const ordersData = ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, 13).getValues();
     
@@ -10271,7 +11672,7 @@ function getPayrollDatePreview(paydayDate) {
       const orderId = row[0];
       const employeeName = row[2];
       const amountPerPaycheck = parseFloat(row[7]) || 0;
-      const firstDeductionDate = row[8] ? new Date(row[8]) : null;
+      const firstDeductionDate = row[8];
       const paymentsMade = parseInt(row[9]) || 0;
       const paymentPlan = parseInt(row[6]) || 1;
       const amountRemaining = parseFloat(row[11]) || 0;
@@ -10281,46 +11682,68 @@ function getPayrollDatePreview(paydayDate) {
         continue;
       }
       
-      // Check if this payday falls on a scheduled deduction
-      firstDeductionDate.setHours(0, 0, 0, 0);
+      // Extract first deduction date using UTC components (sheet dates are UTC midnight)
+      let firstDeductionStr;
+      if (firstDeductionDate instanceof Date && !isNaN(firstDeductionDate.getTime())) {
+        const fy = firstDeductionDate.getUTCFullYear();
+        const fm = String(firstDeductionDate.getUTCMonth() + 1).padStart(2, '0');
+        const fd = String(firstDeductionDate.getUTCDate()).padStart(2, '0');
+        firstDeductionStr = `${fy}-${fm}-${fd}`;
+      } else if (typeof firstDeductionDate === 'string') {
+        const parsed = new Date(firstDeductionDate + 'T12:00:00');
+        if (isNaN(parsed.getTime())) continue;
+        firstDeductionStr = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+      } else {
+        continue;
+      }
       
-      // Calculate days between first deduction and target date
-      const daysDiff = Math.round((targetDate - firstDeductionDate) / (1000 * 60 * 60 * 24));
-      
-      // If daysDiff is non-negative and divisible by 14, it's a scheduled deduction
-      if (daysDiff >= 0 && daysDiff % 14 === 0) {
-        // Calculate which payment number this would be
-        const paymentNumber = Math.floor(daysDiff / 14) + 1;
-        
-        // Only include if we haven't exceeded the payment plan
-        if (paymentNumber <= paymentPlan && paymentsMade < paymentPlan) {
-          employeeSet.add(employeeName);
-          
-          // Calculate actual deduction amount (might be less for final payment)
-          const deductionAmount = Math.min(amountPerPaycheck, amountRemaining);
-          totalAmount += deductionAmount;
-          
-          // Check if this is the final payment
-          const isFinalPayment = paymentNumber === paymentPlan || deductionAmount >= amountRemaining - 0.01;
-          if (isFinalPayment) {
-            completingOrders++;
-          }
-          
-          affectedOrders.push({
-            orderId,
-            employeeName,
-            deductionAmount,
-            paymentNumber,
-            totalPayments: paymentPlan,
-            isFinalPayment,
-            amountRemaining
-          });
+      // Generate all deduction date strings and check for a match
+      const baseDate = new Date(firstDeductionStr + 'T12:00:00');
+      let matchedPaymentNumber = -1;
+      for (let i = 0; i < paymentPlan; i++) {
+        const d = new Date(baseDate);
+        d.setDate(d.getDate() + (i * 14));
+        const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if (dStr === paydayStr) {
+          matchedPaymentNumber = i + 1;
+          break;
         }
       }
+      
+      if (matchedPaymentNumber === -1) continue;
+      if (paymentsMade >= paymentPlan) continue;
+      
+      const normalizedName = normalizeEmployeeName(employeeName || '');
+      if (normalizedName) {
+        employeeSet.add(normalizedName);
+      } else if (employeeName) {
+        employeeSet.add(String(employeeName).trim());
+      }
+      
+      const isFinalPayment = matchedPaymentNumber === paymentPlan;
+      const deductionAmount = isFinalPayment
+        ? Math.round((amountRemaining) * 100) / 100
+        : Math.min(amountPerPaycheck, amountRemaining);
+      totalAmount += deductionAmount;
+      
+      if (isFinalPayment) {
+        completingOrders++;
+      }
+      
+      affectedOrders.push({
+        orderId,
+        employeeName,
+        deductionAmount,
+        paymentNumber: matchedPaymentNumber,
+        totalPayments: paymentPlan,
+        isFinalPayment,
+        amountRemaining
+      });
     }
     
     return {
       employeeCount: employeeSet.size,
+      deductionCount: affectedOrders.length,
       totalAmount: parseFloat(totalAmount.toFixed(2)),
       completingOrders,
       orders: affectedOrders
@@ -10363,6 +11786,7 @@ function getPastPayrollCycles(cyclesBack = 6) {
         date: payday.toISOString().split('T')[0],
         dateFormatted: formatDateShort(payday),
         employeeCount: preview.employeeCount,
+        deductionCount: preview.deductionCount,
         totalAmount: preview.totalAmount,
         completingOrders: preview.completingOrders
       });

@@ -1,0 +1,634 @@
+<!-- ============================================================
+     PIPELINE VIEW — PipelineView.html
+     ============================================================
+     Add this as a new HTML file in Apps Script:
+     Click + next to "Files" → HTML → name it "PipelineView"
+     ============================================================ -->
+
+<style>
+  /* ── Pipeline Scoped Styles ─────────────────────────────── */
+  #pipelineView {
+    display: none;
+    padding: 0;
+    font-family: 'Georgia', serif;
+  }
+
+  /* Stats Bar */
+  .pipeline-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    padding: 20px 24px 16px;
+    background: #fafafa;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .stat-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px 16px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: #DD0033;
+  }
+  .stat-card.confirmed::before { background: #16a34a; }
+  .stat-card.warning::before   { background: #dc2626; }
+  .stat-card.value::before     { background: #1d4ed8; }
+  .stat-number {
+    font-size: 26px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1;
+    margin-bottom: 4px;
+    font-family: 'Courier New', monospace;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: system-ui, sans-serif;
+  }
+
+  /* Filter Tabs */
+  .pipeline-filters {
+    display: flex;
+    gap: 0;
+    padding: 16px 24px 0;
+    border-bottom: 2px solid #e5e7eb;
+  }
+  .filter-tab {
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.15s;
+    font-family: system-ui, sans-serif;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    user-select: none;
+  }
+  .filter-tab:hover { color: #DD0033; }
+  .filter-tab.active {
+    color: #DD0033;
+    border-bottom-color: #DD0033;
+  }
+  .filter-tab .badge {
+    display: inline-block;
+    background: #f3f4f6;
+    color: #374151;
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 11px;
+    margin-left: 6px;
+    font-weight: 700;
+  }
+  .filter-tab.active .badge { background: #fde8ee; color: #DD0033; }
+
+  /* Pipeline Table */
+  .pipeline-table-wrap {
+    padding: 16px 24px 32px;
+    overflow-x: auto;
+  }
+  .pipeline-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    font-family: system-ui, sans-serif;
+  }
+  .pipeline-table thead tr {
+    background: #f9fafb;
+    border-bottom: 2px solid #e5e7eb;
+  }
+  .pipeline-table th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #6b7280;
+    white-space: nowrap;
+  }
+  .pipeline-table tbody tr {
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.1s;
+  }
+  .pipeline-table tbody tr:hover { background: #fffbfc; }
+  .pipeline-table tbody tr.row-overdue { background: #fff5f5; }
+  .pipeline-table tbody tr.row-overdue:hover { background: #fee2e2; }
+  .pipeline-table td {
+    padding: 12px 14px;
+    vertical-align: middle;
+    color: #111827;
+  }
+
+  /* Quote ID */
+  .quote-id-cell {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 600;
+  }
+
+  /* Customer name */
+  .customer-cell {
+    font-weight: 600;
+    color: #111827;
+  }
+
+  /* Total */
+  .total-cell {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  /* Status Badge */
+  .status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .status-badge.quoted   { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .status-badge.awaiting { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+  .status-badge.confirmed{ background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+
+  /* Follow-up cell */
+  .followup-cell { white-space: nowrap; }
+  .followup-overdue { color: #dc2626; font-weight: 700; }
+  .followup-soon    { color: #b45309; font-weight: 600; }
+  .followup-ok      { color: #374151; }
+
+  /* Action Buttons */
+  .btn-edit {
+    background: none;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: system-ui, sans-serif;
+  }
+  .btn-edit:hover { border-color: #DD0033; color: #DD0033; background: #fff5f7; }
+
+  .btn-remove {
+    background: none;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: system-ui, sans-serif;
+  }
+  .btn-remove:hover { border-color: #dc2626; color: #dc2626; background: #fff5f5; }
+
+  /* Empty State */
+  .pipeline-empty {
+    text-align: center;
+    padding: 60px 24px;
+    color: #9ca3af;
+    font-family: system-ui, sans-serif;
+  }
+  .pipeline-empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .pipeline-empty h3 { font-size: 16px; font-weight: 600; color: #374151; margin: 0 0 6px; }
+  .pipeline-empty p { font-size: 13px; margin: 0; }
+
+  /* Edit Modal */
+  .pipeline-modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+  }
+  .pipeline-modal-backdrop.open { display: flex; }
+  .pipeline-modal {
+    background: #fff;
+    border-radius: 14px;
+    padding: 28px;
+    width: 440px;
+    max-width: 95vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    position: relative;
+  }
+  .pipeline-modal h3 {
+    margin: 0 0 4px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #111827;
+    font-family: 'Georgia', serif;
+  }
+  .pipeline-modal .modal-subtitle {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 0 0 20px;
+    font-family: system-ui, sans-serif;
+  }
+  .modal-field { margin-bottom: 16px; }
+  .modal-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: system-ui, sans-serif;
+  }
+  .modal-field select,
+  .modal-field input,
+  .modal-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    padding: 9px 12px;
+    font-size: 14px;
+    color: #111827;
+    font-family: system-ui, sans-serif;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .modal-field select:focus,
+  .modal-field input:focus,
+  .modal-field textarea:focus { border-color: #DD0033; }
+  .modal-field textarea { resize: vertical; min-height: 80px; }
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 22px;
+  }
+  .btn-modal-cancel {
+    padding: 9px 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 7px;
+    background: #fff;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: system-ui, sans-serif;
+  }
+  .btn-modal-save {
+    padding: 9px 22px;
+    border: none;
+    border-radius: 7px;
+    background: #DD0033;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: system-ui, sans-serif;
+    transition: background 0.15s;
+  }
+  .btn-modal-save:hover { background: #b8002a; }
+  .btn-modal-save:disabled { background: #f3a0b2; cursor: not-allowed; }
+
+  /* Refresh button */
+  .pipeline-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px 0;
+  }
+  .pipeline-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+    font-family: system-ui, sans-serif;
+  }
+  .btn-refresh {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1px solid #e5e7eb;
+    border-radius: 7px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #6b7280;
+    cursor: pointer;
+    font-family: system-ui, sans-serif;
+    transition: all 0.15s;
+  }
+  .btn-refresh:hover { border-color: #DD0033; color: #DD0033; }
+  .btn-refresh.spinning svg { animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<!-- Pipeline View Container -->
+<div id="pipelineView">
+
+  <!-- Stats Bar -->
+  <div class="pipeline-stats" id="pipelineStats">
+    <div class="stat-card">
+      <div class="stat-number" id="statTotal">—</div>
+      <div class="stat-label">Open Quotes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="statQuoted">—</div>
+      <div class="stat-label">Quoted / Sent</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="statAwaiting">—</div>
+      <div class="stat-label">Awaiting Response</div>
+    </div>
+    <div class="stat-card confirmed">
+      <div class="stat-number" id="statConfirmed">—</div>
+      <div class="stat-label">Confirmed</div>
+    </div>
+    <div class="stat-card value">
+      <div class="stat-number" id="statValue">—</div>
+      <div class="stat-label">Pipeline Value</div>
+    </div>
+    <div class="stat-card warning">
+      <div class="stat-number" id="statOverdue">—</div>
+      <div class="stat-label">Overdue Follow-Ups</div>
+    </div>
+  </div>
+
+  <!-- Header Row -->
+  <div class="pipeline-header-row">
+    <div class="pipeline-title">Active Pipeline</div>
+    <button class="btn-refresh" id="pipelineRefreshBtn" onclick="loadPipeline()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <polyline points="1 20 1 14 7 14"></polyline>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+      </svg>
+      Refresh
+    </button>
+  </div>
+
+  <!-- Filter Tabs -->
+  <div class="pipeline-filters">
+    <button class="filter-tab active" data-filter="all" onclick="setPipelineFilter('all', this)">
+      All <span class="badge" id="badgeAll">0</span>
+    </button>
+    <button class="filter-tab" data-filter="Quoted / Sent" onclick="setPipelineFilter('Quoted / Sent', this)">
+      Quoted / Sent <span class="badge" id="badgeQuoted">0</span>
+    </button>
+    <button class="filter-tab" data-filter="Awaiting Response" onclick="setPipelineFilter('Awaiting Response', this)">
+      Awaiting Response <span class="badge" id="badgeAwaiting">0</span>
+    </button>
+    <button class="filter-tab" data-filter="Confirmed / Booked" onclick="setPipelineFilter('Confirmed / Booked', this)">
+      Confirmed <span class="badge" id="badgeConfirmed">0</span>
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="pipeline-table-wrap">
+    <table class="pipeline-table">
+      <thead>
+        <tr>
+          <th>Quote ID</th>
+          <th>Customer</th>
+          <th>Location</th>
+          <th>Total</th>
+          <th>Event Date</th>
+          <th>Status</th>
+          <th>Follow-Up</th>
+          <th>Notes</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="pipelineTbody">
+        <tr><td colspan="9" style="text-align:center;padding:40px;color:#9ca3af;font-family:system-ui,sans-serif;">Loading pipeline...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="pipeline-modal-backdrop" id="pipelineModalBackdrop" onclick="closePipelineModal(event)">
+  <div class="pipeline-modal">
+    <h3 id="modalTitle">Update Quote</h3>
+    <div class="modal-subtitle" id="modalSubtitle"></div>
+    <input type="hidden" id="modalQuoteId">
+
+    <div class="modal-field">
+      <label>Status</label>
+      <select id="modalStatus">
+        <option value="Quoted / Sent">Quoted / Sent</option>
+        <option value="Awaiting Response">Awaiting Response</option>
+        <option value="Confirmed / Booked">Confirmed / Booked</option>
+      </select>
+    </div>
+
+    <div class="modal-field">
+      <label>Follow-Up Date</label>
+      <input type="date" id="modalFollowUp">
+    </div>
+
+    <div class="modal-field">
+      <label>Notes</label>
+      <textarea id="modalNotes" placeholder="Add context, call notes, customer feedback..."></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="closePipelineModal()">Cancel</button>
+      <button class="btn-modal-save" id="modalSaveBtn" onclick="savePipelineEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Pipeline State ──────────────────────────────────────────
+  var _pipelineEntries = [];
+  var _pipelineFilter  = 'all';
+
+  // ── Load & Render ───────────────────────────────────────────
+  function loadPipeline() {
+    var btn = document.getElementById('pipelineRefreshBtn');
+    if (btn) btn.classList.add('spinning');
+
+    google.script.run
+      .withSuccessHandler(function(data) {
+        _pipelineEntries = data.entries || [];
+        renderPipelineStats(data.stats || {});
+        renderPipelineTable();
+        if (btn) btn.classList.remove('spinning');
+      })
+      .withFailureHandler(function(err) {
+        console.error('Pipeline load error:', err);
+        if (btn) btn.classList.remove('spinning');
+      })
+      .getPipelineData();
+  }
+
+  function renderPipelineStats(s) {
+    var fmt = function(n) { return n !== undefined ? n : '—'; };
+    var fmtDollar = function(n) {
+      if (n === undefined) return '—';
+      if (n >= 1000) return '$' + (n / 1000).toFixed(1) + 'k';
+      return '$' + n.toFixed(0);
+    };
+    document.getElementById('statTotal').textContent     = fmt(s.total);
+    document.getElementById('statQuoted').textContent    = fmt(s.quoted);
+    document.getElementById('statAwaiting').textContent  = fmt(s.awaiting);
+    document.getElementById('statConfirmed').textContent = fmt(s.confirmed);
+    document.getElementById('statValue').textContent     = fmtDollar(s.totalValue);
+    document.getElementById('statOverdue').textContent   = fmt(s.overdueFollowUps);
+  }
+
+  function renderPipelineTable() {
+    var filtered = _pipelineFilter === 'all'
+      ? _pipelineEntries
+      : _pipelineEntries.filter(function(e) { return e.status === _pipelineFilter; });
+
+    // Update badges
+    document.getElementById('badgeAll').textContent      = _pipelineEntries.length;
+    var q = _pipelineEntries.filter(function(e){ return e.status === 'Quoted / Sent'; }).length;
+    var a = _pipelineEntries.filter(function(e){ return e.status === 'Awaiting Response'; }).length;
+    var c = _pipelineEntries.filter(function(e){ return e.status === 'Confirmed / Booked'; }).length;
+    document.getElementById('badgeQuoted').textContent    = q;
+    document.getElementById('badgeAwaiting').textContent  = a;
+    document.getElementById('badgeConfirmed').textContent = c;
+
+    var tbody = document.getElementById('pipelineTbody');
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9">' +
+        '<div class="pipeline-empty">' +
+        '<div class="pipeline-empty-icon">📋</div>' +
+        '<h3>No quotes in this stage</h3>' +
+        '<p>Quotes appear here automatically when you send them.</p>' +
+        '</div></td></tr>';
+      return;
+    }
+
+    var html = '';
+    filtered.forEach(function(e) {
+      var rowClass = e.followUpDue && e.status !== 'Confirmed / Booked' ? 'row-overdue' : '';
+
+      var statusClass = 'quoted';
+      if (e.status === 'Awaiting Response')  statusClass = 'awaiting';
+      if (e.status === 'Confirmed / Booked') statusClass = 'confirmed';
+
+      var followUpHtml = '—';
+      if (e.followUpDate) {
+        var fuClass = e.followUpDue ? 'followup-overdue' : (e.followUpSoon ? 'followup-soon' : 'followup-ok');
+        var fuPrefix = e.followUpDue ? '⚠ ' : (e.followUpSoon ? '→ ' : '');
+        followUpHtml = '<span class="' + fuClass + '">' + fuPrefix + e.followUpDate + '</span>';
+      }
+
+      var notesHtml = e.notes
+        ? '<span title="' + e.notes.replace(/"/g,'&quot;') + '">' + (e.notes.length > 30 ? e.notes.substring(0,30) + '…' : e.notes) + '</span>'
+        : '<span style="color:#d1d5db;">—</span>';
+
+      html += '<tr class="' + rowClass + '">' +
+        '<td class="quote-id-cell">' + e.quoteId + '</td>' +
+        '<td class="customer-cell">' + e.customer + '</td>' +
+        '<td style="color:#6b7280;">' + (e.location || '—') + '</td>' +
+        '<td class="total-cell">$' + e.total.toFixed(2) + '</td>' +
+        '<td style="color:#374151;">' + (e.eventDate || '—') + '</td>' +
+        '<td><span class="status-badge ' + statusClass + '">' + e.status + '</span></td>' +
+        '<td class="followup-cell">' + followUpHtml + '</td>' +
+        '<td style="font-size:12.5px;color:#6b7280;max-width:180px;">' + notesHtml + '</td>' +
+        '<td style="white-space:nowrap;">' +
+          '<button class="btn-edit" onclick="openPipelineModal(\'' + e.quoteId + '\')">Edit</button> ' +
+          '<button class="btn-remove" onclick="confirmRemove(\'' + e.quoteId + '\',\'' + e.customer.replace(/'/g,"\\'") + '\')">✕</button>' +
+        '</td>' +
+        '</tr>';
+    });
+
+    tbody.innerHTML = html;
+  }
+
+  function setPipelineFilter(filter, el) {
+    _pipelineFilter = filter;
+    document.querySelectorAll('.filter-tab').forEach(function(t){ t.classList.remove('active'); });
+    if (el) el.classList.add('active');
+    renderPipelineTable();
+  }
+
+  // ── Edit Modal ───────────────────────────────────────────────
+  function openPipelineModal(quoteId) {
+    var entry = _pipelineEntries.find(function(e){ return e.quoteId === quoteId; });
+    if (!entry) return;
+
+    document.getElementById('modalQuoteId').value = quoteId;
+    document.getElementById('modalTitle').textContent = entry.customer;
+    document.getElementById('modalSubtitle').textContent = quoteId + ' · $' + entry.total.toFixed(2) + (entry.eventDate ? ' · Event: ' + entry.eventDate : '');
+    document.getElementById('modalStatus').value = entry.status;
+    document.getElementById('modalNotes').value = entry.notes || '';
+
+    // Convert date string to yyyy-mm-dd for input[type=date]
+    if (entry.followUpDate) {
+      try {
+        var d = new Date(entry.followUpDate);
+        var yyyy = d.getFullYear();
+        var mm = String(d.getMonth()+1).padStart(2,'0');
+        var dd = String(d.getDate()).padStart(2,'0');
+        document.getElementById('modalFollowUp').value = yyyy + '-' + mm + '-' + dd;
+      } catch(ex) {
+        document.getElementById('modalFollowUp').value = '';
+      }
+    } else {
+      document.getElementById('modalFollowUp').value = '';
+    }
+
+    document.getElementById('pipelineModalBackdrop').classList.add('open');
+  }
+
+  function closePipelineModal(e) {
+    if (e && e.target !== document.getElementById('pipelineModalBackdrop')) return;
+    document.getElementById('pipelineModalBackdrop').classList.remove('open');
+  }
+
+  function savePipelineEdit() {
+    var quoteId    = document.getElementById('modalQuoteId').value;
+    var status     = document.getElementById('modalStatus').value;
+    var followUp   = document.getElementById('modalFollowUp').value;
+    var notes      = document.getElementById('modalNotes').value;
+    var saveBtn    = document.getElementById('modalSaveBtn');
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        document.getElementById('pipelineModalBackdrop').classList.remove('open');
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Changes';
+        loadPipeline();
+      })
+      .withFailureHandler(function(err) {
+        alert('Save failed: ' + err.message);
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Changes';
+      })
+      .updatePipelineEntry(quoteId, { status: status, followUpDate: followUp, notes: notes });
+  }
+
+  function confirmRemove(quoteId, customerName) {
+    if (!confirm('Remove ' + customerName + ' (' + quoteId + ') from the pipeline?\n\nThis only removes it from tracking — the quote record is kept.')) return;
+    google.script.run
+      .withSuccessHandler(function() { loadPipeline(); })
+      .withFailureHandler(function(err) { alert('Error: ' + err.message); })
+      .deletePipelineEntry(quoteId);
+  }
+</script>

@@ -60,6 +60,10 @@
               <span class="material-icons-round">trending_up</span>
               <span>Trends</span>
             </a>
+            <a href="#ot-reconciliation" class="nav-item sub-item" data-view="ot-reconciliation">
+              <span class="material-icons-round">swap_horiz</span>
+              <span>Reconciliation</span>
+            </a>
           </div>
         </div>
 
@@ -168,6 +172,14 @@
           <span>Uniform Request Form</span>
           <span class="material-icons-round external-icon">open_in_new</span>
         </a>
+
+        <div class="nav-divider"></div>
+
+        <!-- Sign Out -->
+        <a href="#" class="nav-item" onclick="logoutUser(); return false;">
+          <span class="material-icons-round">logout</span>
+          <span>Sign Out</span>
+        </a>
       </nav>
 
       <!-- Sidebar Footer -->
@@ -226,6 +238,33 @@
 
   <!-- Toast Container -->
   <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Change Payment Plan Modal -->
+  <div id="paymentPlanModal" class="modal-overlay hidden" onclick="handlePaymentPlanOverlayClick(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Change Payment Plan</h3>
+        <button class="btn btn-outline btn-sm" onclick="closePaymentPlanModal()" title="Close">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="paymentPlanModalDetails" class="mb-md"></p>
+        <div class="form-group">
+          <label for="paymentPlanSelect">New Payment Plan</label>
+          <select id="paymentPlanSelect" class="form-control form-select">
+            <option value="1">1 paycheck</option>
+            <option value="2">2 paychecks</option>
+            <option value="3">3 paychecks</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closePaymentPlanModal()">Cancel</button>
+        <button class="btn btn-primary" id="paymentPlanConfirmBtn" onclick="confirmPaymentPlanChange()">Confirm</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Quick Search Modal (⌘K) -->
   <div id="searchOverlay" class="search-overlay" onclick="closeQuickSearch(event)">

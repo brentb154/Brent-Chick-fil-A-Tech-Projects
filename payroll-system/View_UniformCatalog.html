@@ -163,22 +163,44 @@
           </div>
         </div>
         
-        <!-- Pants-specific: Waist and Inseam Overrides -->
+        <!-- Pants-specific: Gender-Specific Waist and Inseam Overrides -->
         <div id="pantsOverrideSection" style="display: none; padding: 16px; background: var(--gray-50); border-radius: 8px; margin-bottom: 16px;">
-          <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--gray-700); display: flex; align-items: center; gap: 8px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 14px; color: var(--gray-700); display: flex; align-items: center; gap: 8px;">
             <span class="material-icons-round" style="font-size: 18px;">straighten</span>
-            Pants Size Options
+            Pants Size Overrides
           </h4>
-          <p style="font-size: 12px; color: var(--gray-500); margin-bottom: 12px;">
+          <p style="font-size: 12px; color: var(--gray-500); margin-bottom: 16px;">
             Leave blank to use global defaults from Settings. Fill in to override for this specific item.
           </p>
-          <div class="form-group" style="margin-bottom: 12px;">
-            <label class="form-label" style="font-size: 13px;">Waist Sizes (comma-separated)</label>
-            <input type="text" id="newWaistSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34, 36">
+          
+          <!-- Male sizes -->
+          <div style="margin-bottom: 14px; padding: 12px; background: white; border-radius: 6px; border: 1px solid var(--gray-200);">
+            <h5 style="margin: 0 0 10px 0; font-size: 13px; color: var(--gray-600); display: flex; align-items: center; gap: 6px;">
+              <span class="material-icons-round" style="font-size: 16px;">male</span> Male Sizes
+            </h5>
+            <div class="form-group" style="margin-bottom: 8px;">
+              <label class="form-label" style="font-size: 12px;">Waist Sizes (comma-separated)</label>
+              <input type="text" id="newMaleWaistSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34, 36">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 12px;">Inseam Sizes (comma-separated)</label>
+              <input type="text" id="newMaleInseamSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34, 36">
+            </div>
           </div>
-          <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" style="font-size: 13px;">Inseam Sizes (comma-separated)</label>
-            <input type="text" id="newInseamSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34">
+          
+          <!-- Female sizes -->
+          <div style="padding: 12px; background: white; border-radius: 6px; border: 1px solid var(--gray-200);">
+            <h5 style="margin: 0 0 10px 0; font-size: 13px; color: var(--gray-600); display: flex; align-items: center; gap: 6px;">
+              <span class="material-icons-round" style="font-size: 16px;">female</span> Female Sizes
+            </h5>
+            <div class="form-group" style="margin-bottom: 8px;">
+              <label class="form-label" style="font-size: 12px;">Waist Sizes (comma-separated)</label>
+              <input type="text" id="newFemaleWaistSizes" class="form-control" placeholder="e.g., 00, 0, 2, 4, 6, 8, 10">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 12px;">Inseam Sizes (comma-separated)</label>
+              <input type="text" id="newFemaleInseamSizes" class="form-control" placeholder="e.g., 29, 31, 33, 35">
+            </div>
           </div>
         </div>
       </form>
@@ -414,22 +436,44 @@
           </div>
         </div>
         
-        <!-- Pants-specific: Waist and Inseam Overrides -->
+        <!-- Pants-specific: Gender-Specific Waist and Inseam Overrides -->
         <div id="editPantsOverrideSection" style="display: none; padding: 16px; background: var(--gray-50); border-radius: 8px; margin-bottom: 16px;">
-          <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--gray-700); display: flex; align-items: center; gap: 8px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 14px; color: var(--gray-700); display: flex; align-items: center; gap: 8px;">
             <span class="material-icons-round" style="font-size: 18px;">straighten</span>
-            Pants Size Options
+            Pants Size Overrides
           </h4>
-          <p style="font-size: 12px; color: var(--gray-500); margin-bottom: 12px;">
+          <p style="font-size: 12px; color: var(--gray-500); margin-bottom: 16px;">
             Leave blank to use global defaults from Settings. Fill in to override for this specific item.
           </p>
-          <div class="form-group" style="margin-bottom: 12px;">
-            <label class="form-label" style="font-size: 13px;">Waist Sizes (comma-separated)</label>
-            <input type="text" id="editWaistSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34, 36">
+          
+          <!-- Male sizes -->
+          <div style="margin-bottom: 14px; padding: 12px; background: white; border-radius: 6px; border: 1px solid var(--gray-200);">
+            <h5 style="margin: 0 0 10px 0; font-size: 13px; color: var(--gray-600); display: flex; align-items: center; gap: 6px;">
+              <span class="material-icons-round" style="font-size: 16px;">male</span> Male Sizes
+            </h5>
+            <div class="form-group" style="margin-bottom: 8px;">
+              <label class="form-label" style="font-size: 12px;">Waist Sizes (comma-separated)</label>
+              <input type="text" id="editMaleWaistSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34, 36">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 12px;">Inseam Sizes (comma-separated)</label>
+              <input type="text" id="editMaleInseamSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34, 36">
+            </div>
           </div>
-          <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" style="font-size: 13px;">Inseam Sizes (comma-separated)</label>
-            <input type="text" id="editInseamSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34">
+          
+          <!-- Female sizes -->
+          <div style="padding: 12px; background: white; border-radius: 6px; border: 1px solid var(--gray-200);">
+            <h5 style="margin: 0 0 10px 0; font-size: 13px; color: var(--gray-600); display: flex; align-items: center; gap: 6px;">
+              <span class="material-icons-round" style="font-size: 16px;">female</span> Female Sizes
+            </h5>
+            <div class="form-group" style="margin-bottom: 8px;">
+              <label class="form-label" style="font-size: 12px;">Waist Sizes (comma-separated)</label>
+              <input type="text" id="editFemaleWaistSizes" class="form-control" placeholder="e.g., 00, 0, 2, 4, 6, 8, 10">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 12px;">Inseam Sizes (comma-separated)</label>
+              <input type="text" id="editFemaleInseamSizes" class="form-control" placeholder="e.g., 29, 31, 33, 35">
+            </div>
           </div>
         </div>
         

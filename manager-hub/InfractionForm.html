@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CFA Accountability - Add Infraction</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <style>
     .header-bar {
       display: flex;
@@ -67,6 +68,37 @@
       background-color: #c41230;
     }
 
+    .help-btn {
+      padding: 8px 12px;
+      background-color: #f0f0f0;
+      color: #333;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+    }
+
+    .help-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .help-modal-content {
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px;
+      width: 560px;
+      max-width: calc(100% - 32px);
+      max-height: 80vh;
+      overflow: auto;
+    }
+
     /* Session Expired Modal */
     .modal-overlay {
       display: none;
@@ -108,44 +140,213 @@
     .modal-btn:hover {
       background-color: #c41230;
     }
+
+    /* Signature Pad Styles */
+    .signature-section {
+      margin: 20px 0;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+    }
+
+    .signature-section h3 {
+      margin: 0 0 15px 0;
+      color: #333;
+      font-size: 18px;
+    }
+
+    .signature-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .signature-pad-wrapper {
+      background: white;
+      padding: 15px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+    }
+
+    .signature-pad-wrapper label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .signature-canvas {
+      border: 2px solid #ccc;
+      border-radius: 4px;
+      background: white;
+      cursor: crosshair;
+      touch-action: none;
+      width: 100%;
+      height: 120px;
+    }
+
+    .signature-canvas:focus {
+      outline: none;
+      border-color: #E51636;
+    }
+
+    .signature-controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .signature-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background-color 0.2s;
+    }
+
+    .signature-btn.clear {
+      background: #6c757d;
+      color: white;
+    }
+
+    .signature-btn.clear:hover {
+      background: #5a6268;
+    }
+
+    .signature-status {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .signature-status.signed {
+      color: #28a745;
+      font-weight: 500;
+    }
+
+    @media (max-width: 600px) {
+      .signature-container {
+        grid-template-columns: 1fr;
+      }
+
+      .signature-canvas {
+        height: 100px;
+      }
+    }
+
+    /* Mobile Optimization */
+    @media (max-width: 767px) {
+      body {
+        padding: 12px;
+        padding-bottom: 72px;
+      }
+
+      .header-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .nav-btn,
+      .logout-btn,
+      .modal-btn,
+      button {
+        min-height: 44px;
+      }
+
+      input,
+      select,
+      textarea {
+        font-size: 16px;
+      }
+    }
+
+    /* Mobile Bottom Nav */
+    .mobile-bottom-nav {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: #fff;
+      border-top: 1px solid #e0e0e0;
+      z-index: 999;
+      justify-content: space-around;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .mobile-bottom-nav button {
+      background: none;
+      border: none;
+      color: #555;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      min-height: 44px;
+      gap: 4px;
+    }
+
+    .mobile-bottom-nav button.active {
+      color: #E51636;
+    }
+
+    @media (max-width: 767px) {
+      .mobile-bottom-nav {
+        display: flex;
+      }
+    }
   </style>
 </head>
 <body>
   <!-- Session Expired Modal -->
   <div id="sessionExpiredModal" class="modal-overlay">
     <div class="modal-content">
-      <h3>Session Expired</h3>
-      <p>Your session has expired due to inactivity. Please login again to continue.</p>
-      <button class="modal-btn" onclick="returnToLogin()">Return to Login</button>
+      <h3 id="sessionExpiredTitle">Session Expired</h3>
+      <p id="sessionExpiredMessage">Your session has expired due to inactivity. Please login again to continue.</p>
+      <button class="modal-btn" id="sessionExpiredBtn" onclick="returnToLogin()">Return to Login</button>
     </div>
   </div>
 
   <!-- Header with user info and logout -->
   <div class="header-bar">
     <div class="header-title">
-      <h1>CFA Accountability System</h1>
-      <h2>Add New Infraction</h2>
+      <h1 id="formTitle">CFA Accountability System</h1>
+      <h2 id="formSubtitle">Add New Infraction</h2>
     </div>
     <div class="header-user">
-      <div class="user-role">Logged in as: <strong id="userRoleDisplay">--</strong></div>
-      <a href="#" id="employeeListLink" class="nav-btn">← Employee List</a>
-      <button class="logout-btn" onclick="logout()">Logout</button>
+      <div class="user-role"><span id="loggedInAsLabel">Logged in as:</span> <strong id="userRoleDisplay">--</strong></div>
+      <select id="languageSelect" class="nav-btn" onchange="onLanguageChange()" style="background-color: #f0f0f0; color: #333;">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+      </select>
+      <button class="help-btn" onclick="openHelp()">?</button>
+      <a class="nav-btn" id="dashboardBtn" href="?page=dashboard" onclick="if(window.navigateTo){navigateTo('dashboard'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('dashboard'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'dashboard';window.top.location.href=base+'?page='+target; return false;">Dashboard</a>
+      <a class="nav-btn" id="employeesBtn" href="?page=employees" onclick="if(window.navigateTo){navigateTo('employees'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('employees'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'employees';window.top.location.href=base+'?page='+target; return false;">Employee List</a>
+      <a class="nav-btn" id="settingsBtn" href="?page=settings" onclick="if(window.navigateTo){navigateTo('settings'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('settings'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'settings';window.top.location.href=base+'?page='+target; return false;">Settings</a>
+      <a class="nav-btn" id="userManagementBtn" href="?page=users" onclick="if(window.navigateTo){navigateTo('users'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('users'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'users';window.top.location.href=base+'?page='+target; return false;" style="display: none;">User Management</a>
+      <button class="logout-btn" id="logoutBtn" onclick="logout()">Logout</button>
     </div>
   </div>
 
   <form id="infractionForm">
     <!-- Manager/Director Name -->
     <div>
-      <label for="enteredBy">Manager/Director Name: *</label><br>
+      <label for="enteredBy" id="labelEnteredBy">Manager/Director Name: *</label><br>
       <input type="text" id="enteredBy" name="enteredBy" placeholder="Your full name" required>
     </div>
     <br>
 
     <!-- Employee Selection -->
     <div>
-      <label for="employeeSelect">Employee: *</label><br>
+      <label for="employeeSelect" id="labelEmployee">Employee: *</label><br>
       <select id="employeeSelect" name="employeeSelect" required>
-        <option value="">-- Select Employee --</option>
+        <option value="" id="employeePlaceholder">-- Select Employee --</option>
         <!-- Options populated via JavaScript -->
       </select>
       <span id="employeeLoading"> (Loading employees...)</span>
@@ -154,16 +355,16 @@
 
     <!-- Date of Infraction -->
     <div>
-      <label for="infractionDate">Date of Infraction: *</label><br>
+      <label for="infractionDate" id="labelDate">Date of Infraction: *</label><br>
       <input type="date" id="infractionDate" name="infractionDate" required>
     </div>
     <br>
 
     <!-- Location -->
     <div>
-      <label for="location">Location: *</label><br>
+      <label for="location" id="labelLocation">Location: *</label><br>
       <select id="location" name="location" required>
-        <option value="">-- Select Location --</option>
+        <option value="" id="locationPlaceholder">-- Select Location --</option>
         <option value="Cockrell Hill DTO">Cockrell Hill DTO</option>
         <option value="Dallas Baptist University OCV">Dallas Baptist University OCV</option>
       </select>
@@ -172,9 +373,9 @@
 
     <!-- Infraction Type -->
     <div>
-      <label for="infractionType">Infraction Type: *</label><br>
+      <label for="infractionType" id="labelInfractionType">Infraction Type: *</label><br>
       <select id="infractionType" name="infractionType" required>
-        <option value="">-- Select Infraction Type --</option>
+        <option value="" id="infractionTypePlaceholder">-- Select Infraction Type --</option>
         <!-- Options populated via JavaScript -->
       </select>
       <span id="typeLoading"> (Loading infraction types...)</span>
@@ -183,11 +384,48 @@
 
     <!-- Description -->
     <div>
-      <label for="description">Description: * (minimum 240 characters)</label><br>
+      <label for="description" id="labelDescription">Description: * (minimum 240 characters)</label><br>
       <textarea id="description" name="description" rows="6" cols="60"
         placeholder="Provide detailed description of the incident (minimum 240 characters)" required></textarea>
       <br>
       <span id="charCounter" style="color: red;">0 / 240 characters</span>
+    </div>
+    <br>
+
+    <!-- Signature Section -->
+    <div class="signature-section">
+      <h3 id="signatureHeader">Required Signatures</h3>
+      <div class="signature-container">
+        <!-- Manager/Director Signature -->
+        <div class="signature-pad-wrapper">
+          <label id="managerSignatureLabel">Manager/Director Signature *</label>
+          <canvas id="managerSignature" class="signature-canvas"></canvas>
+          <div class="signature-controls">
+            <button type="button" class="signature-btn clear" id="managerSignatureClearBtn" onclick="clearSignature('managerSignature')">Clear</button>
+          </div>
+          <div id="managerSignatureStatus" class="signature-status">Sign above</div>
+        </div>
+
+        <!-- Witness Signature -->
+        <div class="signature-pad-wrapper">
+          <label id="witnessSignatureLabel">Witness Signature *</label>
+          <canvas id="witnessSignature" class="signature-canvas"></canvas>
+          <div class="signature-controls">
+            <button type="button" class="signature-btn clear" id="witnessSignatureClearBtn" onclick="clearSignature('witnessSignature')">Clear</button>
+          </div>
+          <div id="witnessSignatureStatus" class="signature-status">Sign above</div>
+        </div>
+
+        <!-- Employee Signature -->
+        <div class="signature-pad-wrapper">
+          <label id="employeeSignatureLabel">Employee Signature *</label>
+          <canvas id="employeeSignature" class="signature-canvas"></canvas>
+          <div class="signature-controls">
+            <button type="button" class="signature-btn clear" id="employeeSignatureClearBtn" onclick="clearSignature('employeeSignature')">Clear</button>
+          </div>
+          <div id="employeeSignatureStatus" class="signature-status">Sign above</div>
+        </div>
+      </div>
     </div>
     <br>
 
@@ -203,6 +441,43 @@
     </div>
   </form>
 
+  <div class="help-modal" id="helpModal">
+    <div class="help-modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>Add Infraction Help</h3>
+        <button class="nav-btn" onclick="closeHelp()">Close</button>
+      </div>
+      <div style="font-size:13px; line-height:1.5;">
+        <p>Complete all required fields and ensure the description is at least 240 characters.</p>
+        <ul>
+          <li>Select the correct employee and infraction type.</li>
+          <li>Backdating is limited to the last 7 days.</li>
+          <li>Submit to record the infraction and trigger notifications if needed.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom Nav -->
+  <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+    <button onclick="if(window.navigateTo){navigateTo('dashboard'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('dashboard'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'dashboard';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-home"></i>
+      <span>Home</span>
+    </button>
+    <button onclick="if(window.navigateTo){navigateTo('employees'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('employees'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'employees';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-users"></i>
+      <span>Employees</span>
+    </button>
+    <button class="active" onclick="if(window.navigateTo){navigateTo('form'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('form'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'form';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-plus-circle"></i>
+      <span>Add</span>
+    </button>
+    <button onclick="if(window.navigateTo){navigateTo('settings'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('settings'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'settings';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-cog"></i>
+      <span>Settings</span>
+    </button>
+  </nav>
+
   <script>
     // ============================================
     // GLOBAL VARIABLES
@@ -213,6 +488,55 @@
     let messageTimeout = null; // For auto-hiding messages
     let sessionCheckInterval = null; // For session monitoring
     let userRole = null; // Current user's role
+    let formTranslations = {};
+    function tForm(key, fallback) {
+      return formTranslations[key] || fallback || key;
+    }
+
+    // Signature pad state
+    let signaturePads = {};
+    let signatureData = {
+      managerSignature: null,
+      witnessSignature: null,
+      employeeSignature: null
+    };
+
+    // ============================================
+    // SESSION TOKEN HELPERS
+    // ============================================
+
+    /**
+     * Get the session token from sessionStorage
+     */
+    function getSessionToken() {
+      const urlToken = getTokenFromUrl();
+      if (urlToken) {
+        sessionStorage.setItem('cfa_session_token', urlToken);
+        localStorage.setItem('cfa_session_token', urlToken);
+      }
+      const token = sessionStorage.getItem('cfa_session_token') || localStorage.getItem('cfa_session_token');
+      if (token && !sessionStorage.getItem('cfa_session_token')) {
+        sessionStorage.setItem('cfa_session_token', token);
+      }
+      return token;
+    }
+
+    function getTokenFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('token') || params.get('tkn') || '';
+      } catch (error) {
+        return '';
+      }
+    }
+
+    /**
+     * Clear all session data
+     */
+    function clearSessionData() {
+      sessionStorage.removeItem('cfa_session_token');
+      sessionStorage.removeItem('cfa_user_role');
+    }
 
     // ============================================
     // INITIALIZATION
@@ -221,32 +545,51 @@
     // Set date constraints on page load
     document.addEventListener('DOMContentLoaded', function() {
       initializeDateInput();
-      loadFormData();
       setupCharacterCounter();
-      initializeSession();
-      startSessionMonitoring();
+      initializeSessionThenLoad();
       setupActivityListeners();
-      setupNavigationLinks();
+      initializeSignaturePads();
     });
 
     /**
-     * Initialize session - get user role from session storage or server
+     * Initialize session and load data only after session is validated.
+     * This prevents race conditions where data loading happens before
+     * session validation completes.
      */
-    function initializeSession() {
-      // Check session storage first
+    function initializeSessionThenLoad() {
+      // Check session storage first for faster UI
       var storedRole = sessionStorage.getItem('cfa_user_role');
       if (storedRole) {
         userRole = storedRole;
         document.getElementById('userRoleDisplay').textContent = storedRole;
       }
 
-      // Always validate with server to ensure session is still valid
+      // Get the session token
+      var token = getSessionToken();
+      if (!token) {
+        // No token - redirect to login
+        handleSessionExpired();
+        return;
+      }
+
+      // Validate token with server
+      // IMPORTANT: Only load form data AFTER session is confirmed valid
       google.script.run
         .withSuccessHandler(function(result) {
-          if (result.valid) {
+          if (result && result.valid) {
             userRole = result.role;
             document.getElementById('userRoleDisplay').textContent = result.role;
             sessionStorage.setItem('cfa_user_role', result.role);
+            applyFormTranslations(result.language || 'en');
+            const languageSelect = document.getElementById('languageSelect');
+            if (languageSelect) {
+              languageSelect.value = result.language || 'en';
+            }
+
+            // NOW load data and start monitoring after session is confirmed valid
+            loadFormData();
+            startSessionMonitoring();
+            setupNavigationLinks();
           } else {
             // Session invalid - redirect to login
             handleSessionExpired();
@@ -254,25 +597,126 @@
         })
         .withFailureHandler(function(error) {
           console.error('Session check failed:', error);
+          handleSessionExpired();
         })
-        .validateSession();
+        .validateSessionToken(token);
+    }
+
+    function onLanguageChange() {
+      const select = document.getElementById('languageSelect');
+      if (!select) return;
+      const token = getSessionToken();
+      if (!token) return;
+      const language = select.value;
+      sessionStorage.setItem('cfa_language', language);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.success) {
+            applyFormTranslations(language);
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to update language:', error);
+        })
+        .setLanguage(token, language);
+    }
+
+    function openHelp() {
+      document.getElementById('helpModal').style.display = 'flex';
+    }
+
+    function closeHelp() {
+      document.getElementById('helpModal').style.display = 'none';
+    }
+
+    /**
+     * Apply translations for BOH sessions.
+     */
+    function applyFormTranslations(language) {
+      const keys = [
+        'form.title',
+        'form.subtitle',
+        'form.entered_by',
+        'form.entered_by_placeholder',
+        'form.employee',
+        'form.employee_placeholder',
+        'form.date',
+        'form.date_label',
+        'form.infraction_type',
+        'form.infraction_type_placeholder',
+        'form.description',
+        'form.description_label',
+        'form.description_placeholder',
+        'form.description_minimum',
+        'form.location',
+        'form.location_select',
+        'form.submit',
+        'form.required_field',
+        'form.signature_required',
+        'form.signature_manager',
+        'form.signature_witness',
+        'form.signature_employee',
+        'form.sign_above',
+        'button.clear',
+        'modal.session_expired_title',
+        'modal.session_expired_message',
+        'modal.return_to_login'
+      ];
+      google.script.run
+        .withSuccessHandler(function(result) {
+          formTranslations = result || {};
+          const requiredSuffix = tForm('form.required_field', '*');
+          const minimumText = tForm('form.description_minimum', 'minimum 240 characters');
+          document.getElementById('formTitle').textContent = tForm('form.title', 'CFA Accountability System');
+          document.getElementById('formSubtitle').textContent = tForm('form.subtitle', 'Add New Infraction');
+          document.getElementById('labelEnteredBy').textContent = tForm('form.entered_by', 'Manager/Director Name') + ': ' + requiredSuffix;
+          document.getElementById('labelEmployee').textContent = tForm('form.employee', 'Employee') + ': ' + requiredSuffix;
+          document.getElementById('labelDate').textContent = (tForm('form.date_label', '') || tForm('form.date', 'Date')) + ': ' + requiredSuffix;
+          document.getElementById('labelInfractionType').textContent = tForm('form.infraction_type', 'Infraction Type') + ': ' + requiredSuffix;
+          document.getElementById('labelDescription').textContent = (tForm('form.description_label', '') || tForm('form.description', 'Description')) + ': ' + requiredSuffix + ' (' + minimumText + ')';
+          document.getElementById('labelLocation').textContent = tForm('form.location', 'Location') + ': ' + requiredSuffix;
+          document.getElementById('submitBtn').textContent = tForm('form.submit', 'Submit');
+          document.getElementById('enteredBy').placeholder = tForm('form.entered_by_placeholder', 'Your full name');
+          document.getElementById('employeePlaceholder').textContent = tForm('form.employee_placeholder', '-- Select Employee --');
+          document.getElementById('locationPlaceholder').textContent = tForm('form.location_select', '-- Select Location --');
+          document.getElementById('infractionTypePlaceholder').textContent = tForm('form.infraction_type_placeholder', '-- Select Infraction Type --');
+          document.getElementById('description').placeholder = tForm('form.description_placeholder', 'Provide detailed description of the incident (minimum 240 characters)');
+          document.getElementById('charCounter').textContent = '0 / 240 ' + minimumText;
+          document.getElementById('signatureHeader').textContent = tForm('form.signature_required', 'Required Signatures');
+          document.getElementById('managerSignatureLabel').textContent = tForm('form.signature_manager', 'Manager/Director Signature') + ' ' + requiredSuffix;
+          document.getElementById('witnessSignatureLabel').textContent = tForm('form.signature_witness', 'Witness Signature') + ' ' + requiredSuffix;
+          document.getElementById('employeeSignatureLabel').textContent = tForm('form.signature_employee', 'Employee Signature') + ' ' + requiredSuffix;
+          document.getElementById('managerSignatureClearBtn').textContent = tForm('button.clear', 'Clear');
+          document.getElementById('witnessSignatureClearBtn').textContent = tForm('button.clear', 'Clear');
+          document.getElementById('employeeSignatureClearBtn').textContent = tForm('button.clear', 'Clear');
+          document.getElementById('managerSignatureStatus').textContent = tForm('form.sign_above', 'Sign above');
+          document.getElementById('witnessSignatureStatus').textContent = tForm('form.sign_above', 'Sign above');
+          document.getElementById('employeeSignatureStatus').textContent = tForm('form.sign_above', 'Sign above');
+          document.getElementById('dashboardBtn').textContent = tForm('nav.dashboard', 'Dashboard');
+          document.getElementById('employeesBtn').textContent = tForm('nav.view_employees', 'Employee List');
+          document.getElementById('settingsBtn').textContent = tForm('nav.settings', 'Settings');
+          document.getElementById('userManagementBtn').textContent = tForm('nav.user_management', 'User Management');
+          document.getElementById('logoutBtn').textContent = tForm('nav.logout', 'Logout');
+          document.getElementById('loggedInAsLabel').textContent = tForm('label.logged_in_as', 'Logged in as:');
+          document.getElementById('sessionExpiredTitle').textContent = tForm('modal.session_expired_title', 'Session Expired');
+          document.getElementById('sessionExpiredMessage').textContent = tForm('modal.session_expired_message', 'Your session has expired due to inactivity. Please login again to continue.');
+          document.getElementById('sessionExpiredBtn').textContent = tForm('modal.return_to_login', 'Return to Login');
+        })
+        .getTranslations(keys.concat(['nav.add_infraction', 'nav.view_employees', 'nav.dashboard', 'nav.settings', 'nav.user_management', 'nav.logout', 'label.logged_in_as']), language);
     }
 
     /**
      * Setup navigation links with correct deployment URL
      */
     function setupNavigationLinks() {
-      google.script.run
-        .withSuccessHandler(function(url) {
-          var employeeListLink = document.getElementById('employeeListLink');
-          if (employeeListLink) {
-            employeeListLink.href = url + '?page=employees&t=' + Date.now();
-          }
-        })
-        .withFailureHandler(function(error) {
-          console.error('Error getting URL:', error);
-        })
-        .getWebAppUrl();
+      const userManagementBtn = document.getElementById('userManagementBtn');
+      if (userManagementBtn) {
+        userManagementBtn.style.display = (userRole === 'Director' || userRole === 'Operator') ? 'inline-block' : 'none';
+      }
+      const settingsBtn = document.getElementById('settingsBtn');
+      if (settingsBtn) {
+        settingsBtn.style.display = (userRole === 'Director' || userRole === 'Operator') ? 'inline-block' : 'none';
+      }
     }
 
     /**
@@ -286,12 +730,18 @@
     }
 
     /**
-     * Check if session is still valid
+     * Check if session is still valid (Token-based Auth)
      */
     function checkSessionStatus() {
+      var token = getSessionToken();
+      if (!token) {
+        handleSessionExpired();
+        return;
+      }
+
       google.script.run
         .withSuccessHandler(function(result) {
-          if (!result.valid) {
+          if (!result || !result.valid) {
             handleSessionExpired();
           }
         })
@@ -299,7 +749,7 @@
           console.error('Error checking session:', error);
           // Don't show modal on network errors - just log
         })
-        .validateSession();
+        .validateSessionToken(token);
     }
 
     /**
@@ -327,17 +777,20 @@
     }
 
     /**
-     * Extend the user's session
+     * Extend the user's session (Token-based Auth - validateSessionToken auto-extends)
      */
     function extendUserSession() {
+      var token = getSessionToken();
+      if (!token) return;
+
       google.script.run
         .withSuccessHandler(function(result) {
-          // Session extended silently
+          // Session extended silently by validateSessionToken
         })
         .withFailureHandler(function(error) {
           console.error('Error extending session:', error);
         })
-        .extendSession();
+        .validateSessionToken(token);
     }
 
     /**
@@ -361,31 +814,108 @@
      * Return to login page (called from session expired modal)
      */
     function returnToLogin() {
-      // Clear session storage
-      sessionStorage.removeItem('cfa_user_role');
+      // Clear session data
+      clearSessionData();
 
       // Show the login link
-      showLogoutScreen('Your session has expired.');
+      showLogoutScreen(tForm('error.session_expired', 'Your session has expired.'));
     }
 
     /**
-     * Logout the user
+     * Navigate to another page within the web app
+     */
+    function resolveDashboardPage(page) {
+      if (page !== 'dashboard') return page;
+      const role = sessionStorage.getItem('cfa_user_role');
+      return (role === 'Director' || role === 'Operator') ? 'analytics' : 'dashboard';
+    }
+
+    function navigateTo(page) {
+      try {
+        console.log('[nav] click', JSON.stringify({page: page, href: window.location.href, role: (sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role')||''), token: (sessionStorage.getItem('cfa_session_token')||localStorage.getItem('cfa_session_token')||''), base: (sessionStorage.getItem('cfa_base_url')||localStorage.getItem('cfa_base_url')||'')}));
+      } catch (e) { console.log('[nav] click log failed', e); }
+
+      const baseUrl = getStoredBaseUrl() || getBaseUrl();
+      const targetPage = resolveDashboardPage(page);
+      const fallbackUrl = baseUrl + '?page=' + targetPage + '&t=' + Date.now();
+      let didNavigate = false;
+      const fallbackTimer = setTimeout(function() {
+        if (!didNavigate) {
+          redirectTo(fallbackUrl);
+        }
+      }, 1500);
+      google.script.run
+        .withSuccessHandler(function(url) {
+          didNavigate = true;
+          clearTimeout(fallbackTimer);
+          if (url) {
+            sessionStorage.setItem('cfa_base_url', url);
+            localStorage.setItem('cfa_base_url', url);
+          }
+          redirectTo((url || baseUrl) + '?page=' + targetPage + '&t=' + Date.now());
+        })
+        .withFailureHandler(function(error) {
+          didNavigate = true;
+          clearTimeout(fallbackTimer);
+          console.error('Error navigating:', error);
+          redirectTo(fallbackUrl);
+        })
+        .getWebAppUrl();
+    }
+
+    /**
+     * Navigate in the top-level context when embedded in an iframe.
+     */
+    function redirectTo(url) {
+      const inPreview = window.location.href.indexOf('userCodeAppPanel') !== -1;
+      const finalUrl = appendTokenParam(url);
+      if (window.top && window.top !== window && !inPreview) {
+        window.top.location.href = finalUrl;
+      } else {
+        window.location.href = finalUrl;
+      }
+    }
+
+    function appendTokenParam(url) {
+      if (!url) return url;
+      const token = getSessionToken();
+      if (!token) return url;
+      const hasToken = url.indexOf('token=') !== -1 || url.indexOf('tkn=') !== -1;
+      if (hasToken) return url;
+      const separator = url.indexOf('?') === -1 ? '?' : '&';
+      return url + separator + 'token=' + encodeURIComponent(token);
+    }
+
+    function getStoredBaseUrl() {
+      return sessionStorage.getItem('cfa_base_url') || localStorage.getItem('cfa_base_url') || '';
+    }
+
+    function getBaseUrl() {
+      return sessionStorage.getItem('cfa_base_url') ||
+        localStorage.getItem('cfa_base_url') ||
+        window.location.href.split('?')[0];
+    }
+
+    /**
+     * Logout the user (Token-based Auth)
      */
     function logout() {
-      // Clear session storage
-      sessionStorage.removeItem('cfa_user_role');
+      var token = getSessionToken();
+
+      // Clear session data
+      clearSessionData();
 
       // End session on server
       google.script.run
         .withSuccessHandler(function() {
-          showLogoutScreen('You have been logged out successfully.');
+          showLogoutScreen(tForm('form.logout_success', 'You have been logged out successfully.'));
         })
         .withFailureHandler(function(error) {
           console.error('Error ending session:', error);
           // Show logout screen anyway
-          showLogoutScreen('You have been logged out.');
+          showLogoutScreen(tForm('form.logout_success_short', 'You have been logged out.'));
         })
-        .endSession();
+        .logoutRole(token);
     }
 
     /**
@@ -401,9 +931,9 @@
           <div style="background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px;">
             <h1 style="color: #E51636; margin: 0 0 10px 0;">CFA Accountability System</h1>
             <p style="color: #666; font-size: 16px; margin-bottom: 25px;">${message}</p>
-            <p id="loginLoading">Loading...</p>
+            <p id="loginLoading">${tForm('list.loading', 'Loading...')}</p>
             <a id="loginLink" href="#" style="display: none; padding: 15px 30px; background-color: #E51636; color: white; text-decoration: none; border-radius: 4px; font-size: 16px;">
-              Return to Login →
+              ${tForm('modal.return_to_login', 'Return to Login')} →
             </a>
           </div>
         </div>
@@ -420,7 +950,7 @@
         })
         .withFailureHandler(function(error) {
           console.error('Error getting URL:', error);
-          document.getElementById('loginLoading').textContent = 'Error loading. Please refresh the page.';
+          document.getElementById('loginLoading').textContent = tForm('form.login_loading_error', 'Error loading. Please refresh the page.');
         })
         .getWebAppUrl();
     }
@@ -470,7 +1000,9 @@
       console.log('Form data received:', data);
 
       if (!data.success) {
-        showMessage('Error loading form data: ' + (data.error || 'Unknown error'), 'error');
+        const prefix = tForm('form.error_loading_detail', 'Error loading form data:');
+        const detail = data.error || tForm('error.network_error', 'Unknown error');
+        showMessage(prefix + ' ' + detail, 'error');
         return;
       }
 
@@ -560,9 +1092,10 @@
      */
     function handleLoadError(error) {
       console.error('Error loading form data:', error);
-      document.getElementById('employeeLoading').textContent = ' (Error loading!)';
-      document.getElementById('typeLoading').textContent = ' (Error loading!)';
-      showMessage('Error loading form data. Please refresh the page.', 'error');
+      const errorLabel = tForm('error.network_error', 'Error loading');
+      document.getElementById('employeeLoading').textContent = ' (' + errorLabel + '!)';
+      document.getElementById('typeLoading').textContent = ' (' + errorLabel + '!)';
+      showMessage(tForm('form.error_loading', 'Error loading form data.') + ' ' + tForm('form.error_refresh', 'Please refresh the page.'), 'error');
     }
 
     // ============================================
@@ -736,7 +1269,12 @@
     function checkHighPointConfirmation() {
       const points = getSelectedPoints();
 
-      // Bucket 3 (5 pts) or Bucket 4 (8 pts) require confirmation
+      // Bucket 5 (15 pts) - Immediate Termination - requires extra warning
+      if (points >= 15) {
+        return confirm(`WARNING: This is a ${points}-point infraction (Immediate Termination).\n\nThis will result in immediate termination of the employee.\n\nAre you absolutely sure you want to proceed?`);
+      }
+
+      // Bucket 3 (5 pts), Bucket 4 (8 pts) require confirmation
       if (points >= 5) {
         return confirm(`This is a ${points}-point infraction. Are you sure you want to proceed?`);
       }
@@ -794,8 +1332,14 @@
       // Validate form
       const errors = validateForm();
 
+      // Validate signatures
+      const missingSignatures = validateSignatures();
+      if (missingSignatures.length > 0) {
+        errors.push('Missing signatures: ' + missingSignatures.join(', '));
+      }
+
       if (errors.length > 0) {
-        showMessage('Please fix the following errors:\n- ' + errors.join('\n- '), 'error');
+        showMessage(tForm('form.validation_prefix', 'Please fix the following errors:') + '\n- ' + errors.join('\n- '), 'error');
         return;
       }
 
@@ -807,8 +1351,8 @@
       // Show loading state immediately
       const submitBtn = document.getElementById('submitBtn');
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Checking...';
-      showMessage('Checking for duplicates...', 'info');
+      submitBtn.textContent = tForm('form.checking', 'Checking...');
+      showMessage(tForm('form.checking_duplicates', 'Checking for duplicates...'), 'info');
 
       // Check for duplicates
       checkDuplicate(function(blocked) {
@@ -836,9 +1380,10 @@
       setFormEnabled(false);
 
       // Show processing message
-      showMessage('Processing infraction... Please wait.', 'info');
+      showMessage(tForm('form.processing', 'Processing infraction... Please wait.'), 'info');
 
       // Collect form data
+      const signatures = getSignatureData();
       const formData = {
         entered_by: document.getElementById('enteredBy').value.trim(),
         employee_id: document.getElementById('employeeSelect').value,
@@ -846,16 +1391,20 @@
         date: document.getElementById('infractionDate').value,
         location: document.getElementById('location').value,
         infraction_type: document.getElementById('infractionType').value,
-        description: document.getElementById('description').value.trim()
+        description: document.getElementById('description').value.trim(),
+        manager_signature: signatures.manager_signature,
+        witness_signature: signatures.witness_signature,
+        employee_signature: signatures.employee_signature
       };
 
-      console.log('Submitting form data:', formData);
+      console.log('Submitting form data with signatures');
 
-      // Submit to server using the enhanced function
+      // Submit to server using the enhanced function with token
+      var token = getSessionToken();
       google.script.run
         .withSuccessHandler(handleSubmitSuccess)
         .withFailureHandler(handleSubmitError)
-        .submitInfractionFromForm(formData);
+        .submitInfractionFromForm(formData, token);
     }
 
     /**
@@ -945,6 +1494,9 @@
 
       // Reset character counter
       updateCharacterCount();
+
+      // Clear all signatures
+      clearAllSignatures();
     }
 
     // ============================================
@@ -995,6 +1547,240 @@
     function hideMessage() {
       const messageArea = document.getElementById('messageArea');
       messageArea.style.display = 'none';
+    }
+
+    // ============================================
+    // SIGNATURE PAD FUNCTIONS
+    // ============================================
+
+    /**
+     * Initialize all signature pads
+     */
+    function initializeSignaturePads() {
+      const canvasIds = ['managerSignature', 'witnessSignature', 'employeeSignature'];
+
+      canvasIds.forEach(function(canvasId) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size to match display size
+        resizeCanvas(canvas);
+
+        // Store pad state
+        signaturePads[canvasId] = {
+          canvas: canvas,
+          ctx: ctx,
+          drawing: false,
+          lastX: 0,
+          lastY: 0,
+          hasSignature: false
+        };
+
+        // Set up drawing style
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Mouse events
+        canvas.addEventListener('mousedown', function(e) { startDrawing(e, canvasId); });
+        canvas.addEventListener('mousemove', function(e) { draw(e, canvasId); });
+        canvas.addEventListener('mouseup', function() { stopDrawing(canvasId); });
+        canvas.addEventListener('mouseout', function() { stopDrawing(canvasId); });
+
+        // Touch events
+        canvas.addEventListener('touchstart', function(e) { startDrawing(e, canvasId); }, { passive: false });
+        canvas.addEventListener('touchmove', function(e) { draw(e, canvasId); }, { passive: false });
+        canvas.addEventListener('touchend', function() { stopDrawing(canvasId); });
+        canvas.addEventListener('touchcancel', function() { stopDrawing(canvasId); });
+      });
+
+      // Handle window resize
+      window.addEventListener('resize', function() {
+        canvasIds.forEach(function(canvasId) {
+          const pad = signaturePads[canvasId];
+          if (pad && pad.hasSignature) {
+            // Save current signature data before resize
+            signatureData[canvasId] = pad.canvas.toDataURL('image/png');
+          }
+          resizeCanvas(document.getElementById(canvasId));
+          // Restore signature after resize
+          if (signatureData[canvasId]) {
+            restoreSignature(canvasId);
+          }
+        });
+      });
+    }
+
+    /**
+     * Resize canvas to match display size
+     */
+    function resizeCanvas(canvas) {
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    }
+
+    /**
+     * Start drawing on canvas
+     */
+    function startDrawing(e, canvasId) {
+      e.preventDefault();
+      const pad = signaturePads[canvasId];
+      if (!pad) return;
+
+      pad.drawing = true;
+      const pos = getEventPosition(e, pad.canvas);
+      pad.lastX = pos.x;
+      pad.lastY = pos.y;
+    }
+
+    /**
+     * Draw on canvas
+     */
+    function draw(e, canvasId) {
+      e.preventDefault();
+      const pad = signaturePads[canvasId];
+      if (!pad || !pad.drawing) return;
+
+      const pos = getEventPosition(e, pad.canvas);
+
+      pad.ctx.beginPath();
+      pad.ctx.moveTo(pad.lastX, pad.lastY);
+      pad.ctx.lineTo(pos.x, pos.y);
+      pad.ctx.stroke();
+
+      pad.lastX = pos.x;
+      pad.lastY = pos.y;
+      pad.hasSignature = true;
+
+      // Update status
+      updateSignatureStatus(canvasId);
+    }
+
+    /**
+     * Stop drawing
+     */
+    function stopDrawing(canvasId) {
+      const pad = signaturePads[canvasId];
+      if (!pad) return;
+
+      if (pad.drawing && pad.hasSignature) {
+        // Save signature data
+        signatureData[canvasId] = pad.canvas.toDataURL('image/png');
+      }
+
+      pad.drawing = false;
+    }
+
+    /**
+     * Get position from mouse or touch event
+     */
+    function getEventPosition(e, canvas) {
+      const rect = canvas.getBoundingClientRect();
+      let clientX, clientY;
+
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+    }
+
+    /**
+     * Clear a signature pad
+     */
+    function clearSignature(canvasId) {
+      const pad = signaturePads[canvasId];
+      if (!pad) return;
+
+      pad.ctx.clearRect(0, 0, pad.canvas.width, pad.canvas.height);
+      pad.hasSignature = false;
+      signatureData[canvasId] = null;
+
+      updateSignatureStatus(canvasId);
+    }
+
+    /**
+     * Restore signature from data URL
+     */
+    function restoreSignature(canvasId) {
+      const pad = signaturePads[canvasId];
+      if (!pad || !signatureData[canvasId]) return;
+
+      const img = new Image();
+      img.onload = function() {
+        pad.ctx.drawImage(img, 0, 0);
+        pad.hasSignature = true;
+        updateSignatureStatus(canvasId);
+      };
+      img.src = signatureData[canvasId];
+    }
+
+    /**
+     * Update signature status display
+     */
+    function updateSignatureStatus(canvasId) {
+      const pad = signaturePads[canvasId];
+      const statusEl = document.getElementById(canvasId + 'Status');
+      if (!statusEl) return;
+
+      if (pad && pad.hasSignature) {
+        statusEl.textContent = 'Signed';
+        statusEl.className = 'signature-status signed';
+      } else {
+        statusEl.textContent = 'Sign above';
+        statusEl.className = 'signature-status';
+      }
+    }
+
+    /**
+     * Validate all signatures are present
+     */
+    function validateSignatures() {
+      const missing = [];
+
+      if (!signaturePads.managerSignature || !signaturePads.managerSignature.hasSignature) {
+        missing.push('Manager/Director');
+      }
+      if (!signaturePads.witnessSignature || !signaturePads.witnessSignature.hasSignature) {
+        missing.push('Witness');
+      }
+      if (!signaturePads.employeeSignature || !signaturePads.employeeSignature.hasSignature) {
+        missing.push('Employee');
+      }
+
+      return missing;
+    }
+
+    /**
+     * Get all signature data as base64 strings
+     */
+    function getSignatureData() {
+      return {
+        manager_signature: signatureData.managerSignature || null,
+        witness_signature: signatureData.witnessSignature || null,
+        employee_signature: signatureData.employeeSignature || null
+      };
+    }
+
+    /**
+     * Clear all signatures (called by clearForm)
+     */
+    function clearAllSignatures() {
+      ['managerSignature', 'witnessSignature', 'employeeSignature'].forEach(function(canvasId) {
+        clearSignature(canvasId);
+      });
     }
   </script>
 </body>

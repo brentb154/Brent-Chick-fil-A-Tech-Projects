@@ -1,0 +1,484 @@
+<!-- OT Reconciliation View -->
+<style>
+  .recon-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .recon-table th, .recon-table td { padding: 6px 10px; text-align: center; border-bottom: 1px solid var(--gray-200); }
+  .recon-table th { background: var(--gray-50); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--gray-600); }
+  .recon-table td:first-child, .recon-table th:first-child { text-align: left; }
+  .recon-table tr:hover { background: var(--gray-50); }
+  .recon-table .ot-cell { color: var(--warning-600); font-weight: 600; }
+  .recon-table .total-row { background: var(--gray-50); font-weight: 600; border-top: 2px solid var(--gray-300); }
+
+  .recon-emp-card { background: white; border: 1px solid var(--gray-200); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  .recon-emp-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .recon-emp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .recon-emp-name { font-weight: 600; font-size: 1rem; }
+  .recon-emp-badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; background: var(--primary-100); color: var(--primary-700); }
+  .recon-emp-transfer { margin-top: 10px; padding: 8px 12px; background: var(--blue-50, #eff6ff); border-radius: 6px; font-size: 0.82rem; color: var(--gray-700); }
+  .recon-emp-transfer strong { color: var(--primary-600); }
+
+  .manual-calc-section { background: var(--gray-50); border: 1px dashed var(--gray-300); border-radius: 10px; padding: 20px; margin-top: 20px; }
+  .manual-calc-section h3 { margin: 0 0 12px 0; font-size: 1rem; color: var(--gray-700); }
+  .manual-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .manual-input-group label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--gray-600); margin-bottom: 4px; }
+  .manual-input-group input { width: 100%; padding: 6px 10px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 0.9rem; font-family: monospace; }
+  .manual-input-group input:focus { outline: none; border-color: var(--primary-400); box-shadow: 0 0 0 2px var(--primary-100); }
+
+  .recon-empty { text-align: center; padding: 60px 20px; color: var(--gray-500); }
+  .recon-empty .material-icons-round { font-size: 56px; color: var(--gray-300); margin-bottom: 12px; display: block; }
+
+  .tab-bar { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid var(--gray-200); }
+  .tab-btn { padding: 10px 20px; font-size: 0.9rem; font-weight: 500; border: none; background: none; color: var(--gray-500); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+  .tab-btn:hover { color: var(--gray-700); }
+  .tab-btn.active { color: var(--primary-600); border-bottom-color: var(--primary-600); font-weight: 600; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+</style>
+
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">swap_horiz</span> Cross-Location OT Reconciliation</h2>
+    <div class="form-row" style="gap: 8px;">
+      <select id="reconPeriodSelect" class="form-control form-select" style="width: 220px;" onchange="loadReconciliation()">
+        <option value="">Select Pay Period...</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="loadReconciliation()" id="reconLoadBtn" disabled>
+        <span class="material-icons-round">refresh</span> Load
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="exportReconciliationCSV()" id="reconExportCSV" disabled>
+        <span class="material-icons-round">download</span> CSV
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="exportReconciliationPDF()" id="reconExportPDF" disabled>
+        <span class="material-icons-round">picture_as_pdf</span> PDF
+      </button>
+    </div>
+  </div>
+  <div class="card-body">
+    <!-- Stats row -->
+    <div id="reconStats" class="stats-grid hidden mb-lg">
+      <div class="stat-card">
+        <div class="stat-icon blue"><span class="material-icons-round">people</span></div>
+        <div class="stat-content"><h3 id="reconEmpCount">0</h3><p>Multi-Location Employees</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon yellow"><span class="material-icons-round">timer</span></div>
+        <div class="stat-content"><h3 id="reconTotalOT">0:00</h3><p>Total OT Hours</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple"><span class="material-icons-round">swap_horiz</span></div>
+        <div class="stat-content"><h3 id="reconTransferHrs">0:00</h3><p>Transfer Hours</p></div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-bar" id="reconTabs">
+      <button class="tab-btn active" onclick="switchReconTab('results', this)">Reconciliation Results</button>
+      <button class="tab-btn" onclick="switchReconTab('manual', this)">Manual Calculator</button>
+    </div>
+
+    <!-- Results Tab -->
+    <div class="tab-panel active" id="tab-results">
+      <div id="reconResults">
+        <div class="recon-empty">
+          <span class="material-icons-round">swap_horiz</span>
+          <p>Select a pay period above to view cross-location OT reconciliation.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual Calculator Tab -->
+    <div class="tab-panel" id="tab-manual">
+      <div class="manual-calc-section">
+        <h3><span class="material-icons-round" style="font-size:18px; vertical-align:middle;">calculate</span> Manual OT Allocation Calculator</h3>
+        <p style="font-size: 0.82rem; color: var(--gray-500); margin-bottom: 16px;">
+          Enter hours in HH:MM format for each location per week to calculate proportional OT allocation.
+        </p>
+        <div style="margin-bottom: 12px; font-weight: 500; font-size: 0.9rem;">Week 1</div>
+        <div class="manual-inputs">
+          <div class="manual-input-group">
+            <label id="manualLoc1Label">Location 1 Hours</label>
+            <input type="text" id="manualW1Loc1" placeholder="HH:MM" value="0:00">
+          </div>
+          <div class="manual-input-group">
+            <label id="manualLoc2Label">Location 2 Hours</label>
+            <input type="text" id="manualW1Loc2" placeholder="HH:MM" value="0:00">
+          </div>
+        </div>
+        <div style="margin-bottom: 12px; font-weight: 500; font-size: 0.9rem;">Week 2</div>
+        <div class="manual-inputs">
+          <div class="manual-input-group">
+            <label>Same as above (Location 1)</label>
+            <input type="text" id="manualW2Loc1" placeholder="HH:MM" value="0:00">
+          </div>
+          <div class="manual-input-group">
+            <label>Same as above (Location 2)</label>
+            <input type="text" id="manualW2Loc2" placeholder="HH:MM" value="0:00">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="calculateManualOT()" style="margin-top:8px;">
+          <span class="material-icons-round">calculate</span> Calculate
+        </button>
+        <div id="manualCalcResults" style="margin-top: 16px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var ReconState = {
+  data: null,
+  periods: [],
+  loc1Name: 'Location 1',
+  loc2Name: 'Location 2'
+};
+
+function initOTReconciliationView() {
+  google.script.run
+    .withSuccessHandler(function(periods) {
+      ReconState.periods = periods || [];
+      var select = document.getElementById('reconPeriodSelect');
+      select.innerHTML = '<option value="">Select Pay Period...</option>';
+      periods.forEach(function(p) {
+        var d = new Date(p);
+        var label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        var opt = document.createElement('option');
+        opt.value = p;
+        opt.textContent = 'Period ending ' + label;
+        select.appendChild(opt);
+      });
+      document.getElementById('reconLoadBtn').disabled = false;
+    })
+    .withFailureHandler(function(err) {
+      showToast('Failed to load periods: ' + err.message, 'error');
+    })
+    .getOTHistoryPeriods();
+
+  google.script.run
+    .withSuccessHandler(function(settings) {
+      if (settings) {
+        ReconState.loc1Name = settings.location1Name || 'Location 1';
+        ReconState.loc2Name = settings.location2Name || 'Location 2';
+        document.getElementById('manualLoc1Label').textContent = ReconState.loc1Name + ' Hours';
+        document.getElementById('manualLoc2Label').textContent = ReconState.loc2Name + ' Hours';
+      }
+    })
+    .getSettings();
+}
+
+function switchReconTab(tabId, btn) {
+  document.querySelectorAll('#reconTabs .tab-btn').forEach(function(btn) { btn.classList.remove('active'); });
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+  document.getElementById('tab-' + tabId).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+function loadReconciliation() {
+  var periodStr = document.getElementById('reconPeriodSelect').value;
+  if (!periodStr) {
+    showToast('Please select a pay period', 'warning');
+    return;
+  }
+
+  document.getElementById('reconResults').innerHTML = '<div style="text-align:center; padding:40px;"><div class="spinner"></div><p style="margin-top:12px; color:var(--gray-500);">Loading reconciliation data...</p></div>';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (!result || result.success === false) {
+        document.getElementById('reconResults').innerHTML = '<div class="recon-empty"><span class="material-icons-round">error_outline</span><p>' + ((result && result.error) || 'Failed to load') + '</p></div>';
+        return;
+      }
+      ReconState.data = result;
+      renderReconciliationResults(result);
+      document.getElementById('reconExportCSV').disabled = false;
+      document.getElementById('reconExportPDF').disabled = false;
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('reconResults').innerHTML = '<div class="recon-empty"><span class="material-icons-round">error_outline</span><p>Error: ' + err.message + '</p></div>';
+    })
+    .getOTReconciliationForPayroll(periodStr);
+}
+
+function fmtDecHours(dec) {
+  var h = Math.floor(Math.abs(dec));
+  var m = Math.floor((Math.abs(dec) - h) * 60);
+  return h + ':' + m.toString().padStart(2, '0');
+}
+
+function renderReconciliationResults(data) {
+  var container = document.getElementById('reconResults');
+  var allEmps = data.allEmployees || data.adjustments || [];
+
+  if (!allEmps || allEmps.length === 0) {
+    container.innerHTML = '<div class="recon-empty"><span class="material-icons-round">check_circle</span><p>No multi-location employees found for this period.</p></div>';
+    document.getElementById('reconStats').classList.add('hidden');
+    return;
+  }
+
+  var floor2 = function(v) { return Math.floor(v * 100) / 100; };
+  var totalNetNew = data.totalNetNewOT || 0;
+  var adjCount = data.employeesNeedingAdjustment || 0;
+
+  document.getElementById('reconEmpCount').textContent = allEmps.length;
+  document.getElementById('reconTotalOT').textContent = fmtDecHours(totalNetNew);
+  document.getElementById('reconTransferHrs').textContent = adjCount + ' need adjustments';
+  document.getElementById('reconStats').classList.remove('hidden');
+
+  var html = '';
+
+  if (adjCount > 0) {
+    html += '<div style="margin-bottom:12px; padding:10px 14px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; font-size:0.85rem; color:#92400e;">' +
+      '<strong>' + adjCount + ' employee' + (adjCount !== 1 ? 's' : '') + '</strong> have cross-location OT needing adjustment (' + fmtDecHours(totalNetNew) + ' total hours to add).' +
+      '</div>';
+  }
+
+  allEmps.forEach(function(emp) {
+    var hasAdj = emp.totalNetNewOT > 0;
+
+    html += '<div class="recon-emp-card" style="' + (hasAdj ? 'border-left:3px solid #d97706;' : '') + '">';
+    html += '<div class="recon-emp-header">';
+    html += '<span class="recon-emp-name">' + emp.employeeName + '</span>';
+    if (hasAdj) {
+      html += '<span class="recon-emp-badge" style="background:#fef3c7; color:#b45309;">' + fmtDecHours(emp.totalNetNewOT) + ' OT to add</span>';
+    } else {
+      html += '<span class="recon-emp-badge" style="background:#f0fdf4; color:#15803d;">No adjustment needed</span>';
+    }
+    html += '</div>';
+
+    (emp.weeks || []).forEach(function(wk) {
+      var weekNum = wk.week || 1;
+      var loc1Name = wk.loc1Name || ReconState.loc1Name;
+      var loc2Name = wk.loc2Name || ReconState.loc2Name;
+      var loc1Hrs = wk.loc1WeekHours || 0;
+      var loc2Hrs = wk.loc2WeekHours || 0;
+      var totalWorked = wk.totalWorked || 0;
+      var trueOT = wk.trueOT || 0;
+      var netNewOT = wk.netNewOT || 0;
+
+      html += '<div style="margin-bottom:14px;">';
+      html += '<div style="font-weight:600; font-size:0.9rem; margin-bottom:8px; color:var(--gray-700);">Week ' + weekNum + '</div>';
+
+      // Daily breakdown grid
+      var dailyHours = wk.dailyHours || {};
+      var dayKeys = Object.keys(dailyHours).sort();
+      if (dayKeys.length > 0) {
+        html += '<div style="margin-bottom:10px;">';
+        html += '<div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:4px;">';
+        dayKeys.forEach(function(dt) {
+          var dh = dailyHours[dt];
+          var chVal = dh.ch || 0;
+          var dbuVal = dh.dbu || 0;
+          var dayTotal = floor2(chVal + dbuVal);
+          var hasHrs = dayTotal > 0;
+
+          var dateParts = dt.split('-');
+          var dateObj = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+          var dayLabel = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dateObj.getDay()];
+          var monthDay = parseInt(dateParts[1]) + '/' + parseInt(dateParts[2]);
+
+          html += '<div style="background:' + (hasHrs ? 'var(--gray-50)' : '#fafafa') + '; border:1px solid ' + (hasHrs ? 'var(--gray-200)' : 'var(--gray-100)') + '; border-radius:6px; padding:6px 4px; text-align:center; opacity:' + (hasHrs ? '1' : '0.5') + ';">';
+          html += '<div style="font-size:0.68rem; font-weight:600; color:var(--gray-500);">' + dayLabel + '</div>';
+          html += '<div style="font-size:0.65rem; color:var(--gray-400); margin-bottom:2px;">' + monthDay + '</div>';
+          html += '<div style="font-weight:700; font-size:0.85rem; color:' + (hasHrs ? 'var(--gray-800)' : 'var(--gray-300)') + ';">' + (hasHrs ? dayTotal.toFixed(1) : '-') + '</div>';
+          if (hasHrs && (chVal > 0 || dbuVal > 0)) {
+            html += '<div style="margin-top:2px; font-size:0.65rem; line-height:1.3;">';
+            if (chVal > 0) html += '<span style="color:#e04e39; font-weight:600;">' + loc1Name.substring(0,2).toUpperCase() + ':' + chVal.toFixed(1) + '</span> ';
+            if (dbuVal > 0) html += '<span style="color:#004f71; font-weight:600;">' + loc2Name.substring(0,3).toUpperCase() + ':' + dbuVal.toFixed(1) + '</span>';
+            html += '</div>';
+          }
+          html += '</div>';
+        });
+        html += '</div>';
+
+        var weekTotalCH = 0, weekTotalDBU = 0;
+        dayKeys.forEach(function(dt) { weekTotalCH += (dailyHours[dt].ch || 0); weekTotalDBU += (dailyHours[dt].dbu || 0); });
+        html += '<div style="display:flex; gap:12px; margin-top:6px; font-size:0.78rem; color:var(--gray-600);">';
+        html += '<span><strong>' + loc1Name + ':</strong> ' + floor2(weekTotalCH).toFixed(2) + ' hrs</span>';
+        html += '<span><strong>' + loc2Name + ':</strong> ' + floor2(weekTotalDBU).toFixed(2) + ' hrs</span>';
+        html += '<span><strong>Total:</strong> ' + floor2(weekTotalCH + weekTotalDBU).toFixed(2) + ' hrs</span>';
+        html += '</div>';
+        html += '</div>';
+      }
+
+      // Summary stats
+      html += '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:10px;">';
+      html += '<div style="background:var(--gray-50); padding:8px; border-radius:6px; text-align:center;"><div style="font-size:0.72rem; color:var(--gray-500); text-transform:uppercase;">Total Worked</div><div style="font-weight:700;">' + fmtDecHours(totalWorked) + '</div><div style="font-size:0.75rem; color:var(--gray-500);">' + totalWorked.toFixed(2) + ' hrs</div></div>';
+      html += '<div style="background:var(--gray-50); padding:8px; border-radius:6px; text-align:center;"><div style="font-size:0.72rem; color:var(--gray-500); text-transform:uppercase;">True OT</div><div style="font-weight:700; color:#d97706;">' + fmtDecHours(trueOT) + '</div><div style="font-size:0.75rem; color:var(--gray-500);">' + trueOT.toFixed(2) + ' hrs</div></div>';
+      html += '<div style="background:var(--gray-50); padding:8px; border-radius:6px; text-align:center;"><div style="font-size:0.72rem; color:var(--gray-500); text-transform:uppercase;">System Has</div><div style="font-weight:700;">' + fmtDecHours(wk.existingOT || 0) + '</div><div style="font-size:0.75rem; color:var(--gray-500);">' + (wk.existingOT || 0).toFixed(2) + ' hrs</div></div>';
+      html += '<div style="background:' + (netNewOT > 0 ? '#fef2f2' : 'var(--gray-50)') + '; padding:8px; border-radius:6px; text-align:center;"><div style="font-size:0.72rem; color:' + (netNewOT > 0 ? '#e04e39' : 'var(--gray-500)') + '; text-transform:uppercase;">Net to Add</div><div style="font-weight:700; color:' + (netNewOT > 0 ? '#e04e39' : 'var(--gray-500)') + ';">' + fmtDecHours(netNewOT) + '</div><div style="font-size:0.75rem; color:var(--gray-500);">' + netNewOT.toFixed(2) + ' hrs</div></div>';
+      html += '</div>';
+
+      // Action items
+      if (netNewOT > 0) {
+        var primaryLoc = wk.primaryLocation || loc1Name;
+        var secondaryLoc = wk.secondaryLocation || loc2Name;
+        var existOTL1 = floor2(Math.max(0, loc1Hrs - 40));
+        var existOTL2 = floor2(Math.max(0, loc2Hrs - 40));
+        var regL1 = floor2(loc1Hrs - existOTL1);
+        var regL2 = floor2(loc2Hrs - existOTL2);
+        var primaryIsLoc1 = (primaryLoc === loc1Name);
+        var primaryReg = primaryIsLoc1 ? regL1 : regL2;
+        var secondaryReg = primaryIsLoc1 ? regL2 : regL1;
+        var adjPrimaryReg = primaryIsLoc1 ? (wk.adjLoc1Reg || 0) : (wk.adjLoc2Reg || 0);
+        var adjSecondaryReg = primaryIsLoc1 ? (wk.adjLoc2Reg || 0) : (wk.adjLoc1Reg || 0);
+
+        html += '<div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:12px;">';
+        html += '<div style="font-weight:600; font-size:0.82rem; color:#1e40af; margin-bottom:8px;">Steps to take in the payroll system:</div>';
+        html += '<ol style="margin:0; padding-left:20px; font-size:0.88rem; line-height:1.7; color:var(--gray-800);">';
+        if (secondaryReg > adjSecondaryReg + 0.001) {
+          html += '<li>Reduce <strong>' + secondaryLoc + '</strong> Regular Pay from <strong>' + fmtDecHours(secondaryReg) + ' (' + secondaryReg.toFixed(2) + ')</strong> to <strong>' + fmtDecHours(adjSecondaryReg) + ' (' + adjSecondaryReg.toFixed(2) + ')</strong></li>';
+        }
+        if (primaryReg > adjPrimaryReg + 0.001) {
+          html += '<li>Reduce <strong>' + primaryLoc + '</strong> Regular Pay from <strong>' + fmtDecHours(primaryReg) + ' (' + primaryReg.toFixed(2) + ')</strong> to <strong>' + fmtDecHours(adjPrimaryReg) + ' (' + adjPrimaryReg.toFixed(2) + ')</strong></li>';
+        }
+        html += '<li>Add <strong>Overtime Regular</strong> at <strong>' + primaryLoc + '</strong> for <strong>' + fmtDecHours(netNewOT) + ' (' + netNewOT.toFixed(2) + ' hrs)</strong></li>';
+        html += '</ol></div>';
+      }
+
+      html += '</div>';
+    });
+
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+function parseHHMM(str) {
+  str = (str || '0:00').trim();
+  var parts = str.split(':');
+  var h = parseInt(parts[0]) || 0;
+  var m = parts.length > 1 ? parseInt(parts[1]) || 0 : 0;
+  return h + m / 60;
+}
+
+function calculateManualOT() {
+  var w1L1 = parseHHMM(document.getElementById('manualW1Loc1').value);
+  var w1L2 = parseHHMM(document.getElementById('manualW1Loc2').value);
+  var w2L1 = parseHHMM(document.getElementById('manualW2Loc1').value);
+  var w2L2 = parseHHMM(document.getElementById('manualW2Loc2').value);
+
+  var w1Total = w1L1 + w1L2;
+  var w2Total = w2L1 + w2L2;
+  var w1OT = Math.max(0, w1Total - 40);
+  var w2OT = Math.max(0, w2Total - 40);
+
+  var floor2 = function(v) { return Math.floor(v * 100) / 100; };
+
+  var w1L1Ratio = w1Total > 0 ? w1L1 / w1Total : 0;
+  var w1L2Ratio = w1Total > 0 ? w1L2 / w1Total : 0;
+  var w2L1Ratio = w2Total > 0 ? w2L1 / w2Total : 0;
+  var w2L2Ratio = w2Total > 0 ? w2L2 / w2Total : 0;
+
+  var w1L1OT = floor2(w1OT * w1L1Ratio);
+  var w1L2OT = floor2(w1OT * w1L2Ratio);
+  var w2L1OT = floor2(w2OT * w2L1Ratio);
+  var w2L2OT = floor2(w2OT * w2L2Ratio);
+
+  var w1L1Reg = floor2(w1L1 - w1L1OT);
+  var w1L2Reg = floor2(w1L2 - w1L2OT);
+  var w2L1Reg = floor2(w2L1 - w2L1OT);
+  var w2L2Reg = floor2(w2L2 - w2L2OT);
+
+  var l1Name = ReconState.loc1Name;
+  var l2Name = ReconState.loc2Name;
+
+  var totalL1 = floor2(w1L1 + w2L1);
+  var totalL2 = floor2(w1L2 + w2L2);
+  var totalL1OT = w1L1OT + w2L1OT;
+  var totalL2OT = w1L2OT + w2L2OT;
+  var totalL1Reg = w1L1Reg + w2L1Reg;
+  var totalL2Reg = w1L2Reg + w2L2Reg;
+  var grandTotal = floor2(totalL1 + totalL2);
+  var grandOT = floor2(totalL1OT + totalL2OT);
+
+  var transferFrom, transferTo, transferHrs;
+  if (totalL1 >= totalL2) {
+    transferFrom = l2Name; transferTo = l1Name; transferHrs = totalL2;
+  } else {
+    transferFrom = l1Name; transferTo = l2Name; transferHrs = totalL1;
+  }
+
+  var html = '<table class="recon-table" style="margin-top:12px;">' +
+    '<thead><tr><th>Week</th><th colspan="3">' + l1Name + '</th><th colspan="3">' + l2Name + '</th><th colspan="2">Combined</th></tr>' +
+    '<tr><th></th><th>Hrs</th><th>Reg</th><th>OT</th><th>Hrs</th><th>Reg</th><th>OT</th><th>Total</th><th>OT</th></tr></thead>' +
+    '<tbody>' +
+    '<tr><td style="font-weight:500;">Week 1</td>' +
+      '<td>' + fmtDecHours(w1L1) + '</td><td>' + fmtDecHours(w1L1Reg) + '</td><td class="' + (w1L1OT > 0 ? 'ot-cell' : '') + '">' + fmtDecHours(w1L1OT) + '</td>' +
+      '<td>' + fmtDecHours(w1L2) + '</td><td>' + fmtDecHours(w1L2Reg) + '</td><td class="' + (w1L2OT > 0 ? 'ot-cell' : '') + '">' + fmtDecHours(w1L2OT) + '</td>' +
+      '<td style="font-weight:500;">' + fmtDecHours(w1Total) + '</td><td class="' + (w1OT > 0 ? 'ot-cell' : '') + '">' + fmtDecHours(w1OT) + '</td>' +
+    '</tr>' +
+    '<tr><td style="font-weight:500;">Week 2</td>' +
+      '<td>' + fmtDecHours(w2L1) + '</td><td>' + fmtDecHours(w2L1Reg) + '</td><td class="' + (w2L1OT > 0 ? 'ot-cell' : '') + '">' + fmtDecHours(w2L1OT) + '</td>' +
+      '<td>' + fmtDecHours(w2L2) + '</td><td>' + fmtDecHours(w2L2Reg) + '</td><td class="' + (w2L2OT > 0 ? 'ot-cell' : '') + '">' + fmtDecHours(w2L2OT) + '</td>' +
+      '<td style="font-weight:500;">' + fmtDecHours(w2Total) + '</td><td class="' + (w2OT > 0 ? 'ot-cell' : '') + '">' + fmtDecHours(w2OT) + '</td>' +
+    '</tr>' +
+    '<tr class="total-row"><td>Total</td>' +
+      '<td>' + fmtDecHours(totalL1) + '</td><td>' + fmtDecHours(totalL1Reg) + '</td><td class="ot-cell">' + fmtDecHours(totalL1OT) + '</td>' +
+      '<td>' + fmtDecHours(totalL2) + '</td><td>' + fmtDecHours(totalL2Reg) + '</td><td class="ot-cell">' + fmtDecHours(totalL2OT) + '</td>' +
+      '<td style="font-weight:600;">' + fmtDecHours(grandTotal) + '</td><td class="ot-cell">' + fmtDecHours(grandOT) + '</td>' +
+    '</tr></tbody></table>' +
+    '<div class="recon-emp-transfer" style="margin-top:10px;">' +
+      'Transfer <strong>' + fmtDecHours(transferHrs) + '</strong> from ' + transferFrom + ' &rarr; ' + transferTo +
+    '</div>';
+
+  document.getElementById('manualCalcResults').innerHTML = html;
+}
+
+function exportReconciliationCSV() {
+  var allEmps = ReconState.data && (ReconState.data.allEmployees || ReconState.data.adjustments);
+  if (!allEmps || allEmps.length === 0) {
+    showToast('No data to export', 'warning');
+    return;
+  }
+
+  var rows = [['Employee', 'Paid From', 'Week', 'Loc 1', 'Loc 1 Hours', 'Loc 2', 'Loc 2 Hours', 'Total Worked', 'True OT', 'Existing OT', 'Net New OT', 'Primary Location', 'Adj Loc 1 Reg', 'Adj Loc 2 Reg']];
+
+  allEmps.forEach(function(emp) {
+    (emp.weeks || []).forEach(function(wk) {
+      rows.push([
+        emp.employeeName,
+        emp.paidFromLocation || '',
+        wk.week || 1,
+        wk.loc1Name || '',
+        (wk.loc1WeekHours || 0).toFixed(2),
+        wk.loc2Name || '',
+        (wk.loc2WeekHours || 0).toFixed(2),
+        (wk.totalWorked || 0).toFixed(2),
+        (wk.trueOT || 0).toFixed(2),
+        (wk.existingOT || 0).toFixed(2),
+        (wk.netNewOT || 0).toFixed(2),
+        wk.primaryLocation || '',
+        (wk.adjLoc1Reg || 0).toFixed(2),
+        (wk.adjLoc2Reg || 0).toFixed(2)
+      ]);
+    });
+  });
+
+  var csv = rows.map(function(r) { return r.map(function(c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+  var blob = new Blob([csv], { type: 'text/csv' });
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  var periodLabel = document.getElementById('reconPeriodSelect').selectedOptions[0].textContent;
+  link.download = 'OT_Reconciliation_' + periodLabel.replace(/[^a-zA-Z0-9]/g, '_') + '.csv';
+  link.click();
+  showToast('CSV exported', 'success');
+}
+
+function exportReconciliationPDF() {
+  var allEmps = ReconState.data && (ReconState.data.allEmployees || ReconState.data.adjustments);
+  if (!allEmps || allEmps.length === 0) {
+    showToast('No data to export', 'warning');
+    return;
+  }
+  var periodStr = document.getElementById('reconPeriodSelect').value;
+  showToast('Generating PDF...', 'info');
+  google.script.run
+    .withSuccessHandler(function(url) {
+      if (url) window.open(url, '_blank');
+      else showToast('PDF generated — check your Drive', 'success');
+    })
+    .withFailureHandler(function(err) {
+      showToast('PDF export failed: ' + err.message, 'error');
+    })
+    .generateTimeTransferPDF(allEmps, periodStr);
+}
+</script>

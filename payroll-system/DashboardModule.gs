@@ -9,6 +9,12 @@
  */
 function getDashboardData() {
   try {
+    const cache = CacheService.getScriptCache();
+    const cached = cache.get('dashboard_data_v1');
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     
     // Get settings for thresholds
@@ -26,8 +32,10 @@ function getDashboardData() {
     // Get PTO metrics (placeholder until PTO module is built)
     const ptoMetrics = getPTOMetrics(ss);
     
-    // Get alerts
-    const alerts = getAlerts();
+    // Get alerts (cap for payload size)
+    const fullAlerts = getAlerts() || [];
+    const alertCount = fullAlerts.length;
+    const alerts = fullAlerts.slice(0, 10);
     
     // Get top OT employees
     const topOTEmployees = getTopOTEmployees(ss);
@@ -35,13 +43,14 @@ function getDashboardData() {
     // Generate action items
     const actionItems = generateActionItems(otMetrics, uniformMetrics, ptoMetrics, alerts, currentPeriod, settings);
     
-    return {
+    const result = {
       success: true,
       currentPeriod: currentPeriod,
       otMetrics: otMetrics,
       uniformMetrics: uniformMetrics,
       ptoMetrics: ptoMetrics,
       alerts: alerts,
+      alertCount: alertCount,
       topOTEmployees: topOTEmployees,
       actionItems: actionItems,
       lastUpdated: new Date().toISOString(),
@@ -53,6 +62,9 @@ function getDashboardData() {
         payrollUrgencyDays: settings.payrollUrgencyDays || 2
       }
     };
+    
+    cache.put('dashboard_data_v1', JSON.stringify(result), 30);
+    return result;
   } catch (error) {
     console.error('Error getting dashboard data:', error);
     return {
@@ -85,26 +97,27 @@ function getCurrentPeriodInfo(ss) {
     }
   }
   
-  // Calculate next payroll date (Friday after period end, which is Saturday)
+  // Next payroll date should come from Payroll_Settings (not OT upload cadence)
   let nextPayrollDate = null;
   let daysUntilPayroll = null;
   
-  if (periodEnd) {
-    // Period ends Saturday, payroll is the following Friday
-    nextPayrollDate = new Date(periodEnd);
-    nextPayrollDate.setDate(nextPayrollDate.getDate() + 6); // Saturday + 6 = Friday
-    
+  try {
+    const payrollInfo = getNextPayrollDate();
+    if (payrollInfo instanceof Date) {
+      nextPayrollDate = payrollInfo;
+    } else if (payrollInfo && payrollInfo.date) {
+      nextPayrollDate = payrollInfo.date;
+    }
+  } catch (e) {
+    console.log('Error getting next payroll date:', e);
+  }
+  
+  if (nextPayrollDate instanceof Date) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    nextPayrollDate = new Date(nextPayrollDate);
     nextPayrollDate.setHours(0, 0, 0, 0);
-    
     daysUntilPayroll = Math.ceil((nextPayrollDate - today) / (1000 * 60 * 60 * 24));
-    
-    // If payroll date has passed, calculate next one
-    if (daysUntilPayroll < 0) {
-      nextPayrollDate.setDate(nextPayrollDate.getDate() + 14);
-      daysUntilPayroll = Math.ceil((nextPayrollDate - today) / (1000 * 60 * 60 * 24));
-    }
   }
   
   return {
@@ -191,12 +204,12 @@ function getOTMetrics(ss) {
       : 0;
     
     return {
-      latestPeriodHours: Math.round(totalOT * 10) / 10,
+      latestPeriodHours: Math.floor(totalOT * 10) / 10,
       latestPeriodCost: Math.round(totalCost * 100) / 100,
       highOTCount: highOTEmployees.length, // Only "Really High" flagged employees
       highOTEmployeeNames: highOTEmployees.slice(0, 5).map(e => e.name), // Top 5 names for action item
       employeeCount: employeeNames.size,
-      previousPeriodHours: Math.round(previousPeriodHours * 10) / 10,
+      previousPeriodHours: Math.floor(previousPeriodHours * 10) / 10,
       percentChange: percentChange
     };
   } catch (error) {
@@ -341,7 +354,7 @@ function getPTOMetrics(ss) {
     return {
       pendingCount: pendingCount,
       thisWeekSubmissions: thisWeekSubmissions,
-      unpaidHoursTotal: Math.round(unpaidHoursTotal * 10) / 10,
+      unpaidHoursTotal: Math.floor(unpaidHoursTotal * 10) / 10,
       moduleAvailable: true
     };
     

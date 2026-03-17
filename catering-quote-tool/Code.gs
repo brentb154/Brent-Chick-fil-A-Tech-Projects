@@ -19,7 +19,8 @@ const TAB_QUOTE_SEQUENCE = 'Quote_Sequence';
 // ── WEB APP ENTRY POINT ──────────────────────────────────────
 
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
+  return HtmlService.createTemplateFromFile('Index')
+    .evaluate()
     .setTitle('CFA Catering Quotes')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -34,7 +35,7 @@ function include(filename) {
 
 function getSettings() {
   var sheet = getSpreadsheet().getSheetByName(TAB_SETTINGS);
-  var data  = sheet.getRange('A1:B30').getValues();
+  var data  = sheet.getRange('A1:B50').getValues();
   var settings = {};
   data.forEach(function(row) {
     if (row[0] && row[0].toString().trim() !== '') {
@@ -68,11 +69,15 @@ function getMenuItems() {
   var items = [];
   data.forEach(function(row, index) {
     if (row[1] && row[1].toString().trim() !== '') {
+      var rawPickup   = (row[2] !== null && row[2] !== undefined) ? row[2].toString().trim() : '';
+      var rawDelivery = (row[3] !== null && row[3] !== undefined) ? row[3].toString().trim() : '';
       items.push({
-        category: (row[0] || '').toString().trim(),
-        name: row[1].toString().trim(),
-        pickupPrice: parseFloat(row[2]) || 0,
-        deliveryPrice: parseFloat(row[3]) || 0,
+        category:         (row[0] || '').toString().trim(),
+        name:             row[1].toString().trim(),
+        pickupPrice:      parseFloat(rawPickup)   || 0,
+        deliveryPrice:    parseFloat(rawDelivery) || 0,
+        pickupAvailable:  rawPickup   !== '' && !isNaN(parseFloat(rawPickup)),
+        deliveryAvailable: rawDelivery !== '' && !isNaN(parseFloat(rawDelivery)),
         row: index + 2
       });
     }
@@ -109,7 +114,7 @@ function getQuotes() {
   var sheet = getSpreadsheet().getSheetByName(TAB_QUOTES);
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
-  var data = sheet.getRange(2, 1, lastRow - 1, 14).getValues();
+  var data = sheet.getRange(2, 1, lastRow - 1, 16).getValues();
   var quotes = [];
   data.forEach(function(row, index) {
     if (row[0] && row[0].toString().trim() !== '') {
@@ -119,6 +124,8 @@ function getQuotes() {
         deliveryAddress: row[5], lineItems: row[6], subtotal: row[7],
         taxRateUsed: row[8], taxAmount: row[9], total: row[10],
         taxExempt: row[11], locationName: row[12], customerEmail: row[13] || '',
+        poNumber: row[14] ? row[14].toString().trim() : '',
+        eventDate: row[15] ? row[15].toString().trim() : '',
         sheetRow: index + 2
       });
     }
@@ -145,13 +152,21 @@ function saveQuote(quoteData) {
     parseFloat(quoteData.subtotal) || 0, parseFloat(quoteData.taxRate) || 0,
     parseFloat(quoteData.taxAmount) || 0, parseFloat(quoteData.total) || 0,
     quoteData.taxExempt ? 'TRUE' : 'FALSE', quoteData.locationName || '',
-    quoteData.customerEmail || ''
+    quoteData.customerEmail || '', quoteData.poNumber || '', quoteData.date || ''
   ]);
   return quoteId;
 }
 
 function deleteQuote(sheetRow) {
-  getSpreadsheet().getSheetByName(TAB_QUOTES).deleteRow(sheetRow);
+  var sheet = getSpreadsheet().getSheetByName(TAB_QUOTES);
+  var quoteId = sheet.getRange(sheetRow, 1).getValue().toString().trim();
+  sheet.deleteRow(sheetRow);
+  if (quoteId) deletePipelineEntry(quoteId);
+  return true;
+}
+
+function updateQuotePO(sheetRow, poNumber) {
+  getSpreadsheet().getSheetByName(TAB_QUOTES).getRange(sheetRow, 15).setValue(poNumber || '');
   return true;
 }
 
@@ -213,7 +228,7 @@ function initializeSheet() {
   var qSheet = ss.getSheetByName(TAB_QUOTES);
   if (!qSheet) qSheet = ss.insertSheet(TAB_QUOTES);
   if (!qSheet.getRange('A1').getValue()) {
-    var h = ['Quote ID','Created Date','Customer Name','Contact Name','Order Type','Delivery Address','Line Items (JSON)','Subtotal','Tax Rate Used','Tax Amount','Total','Tax Exempt','Location Name','Customer Email'];
+    var h = ['Quote ID','Created Date','Customer Name','Contact Name','Order Type','Delivery Address','Line Items (JSON)','Subtotal','Tax Rate Used','Tax Amount','Total','Tax Exempt','Location Name','Customer Email','PO Number','Event Date'];
     qSheet.getRange(1, 1, 1, h.length).setValues([h]);
     qSheet.getRange(1, 1, 1, h.length).setFontWeight('bold');
     qSheet.setFrozenRows(1);
@@ -257,7 +272,8 @@ function getPrintData(quoteData) {
     lineItems: quoteData.lineItems || [], subtotal: quoteData.subtotal || 0,
     taxRate: quoteData.taxRate || 0, taxAmount: quoteData.taxAmount || 0,
     total: quoteData.total || 0, taxExempt: quoteData.taxExempt || false,
-    quoteId: quoteData.quoteId || ''
+    quoteId: quoteData.quoteId || '',
+    poNumber: quoteData.poNumber || ''
   };
 }
 
@@ -276,7 +292,7 @@ function buildPdfHtml(pd) {
   var addr = pd.orderType === 'Delivery' ? (pd.deliveryAddress||'') : (pd.storeAddress||'');
   var logo = pd.logo ? '<img src="'+pd.logo+'" style="max-width:140px;max-height:80px;margin-bottom:8px;">' : '<div style="font-size:24px;font-weight:800;color:#E51636;margin-bottom:8px;">Chick-fil-A</div>';
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>@page{size:letter;margin:0.6in;}body{font-family:Helvetica,Arial,sans-serif;color:#1F2937;margin:0;padding:40px;}</style></head><body>' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+logo+'<div style="font-size:16px;font-weight:700;">'+esc(pd.storeName)+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+esc(pd.storeAddress)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.storePhone)+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:Courier New,monospace;">'+esc(pd.quoteId)+'</div><div style="font-size:13px;color:#6B7280;margin-top:8px;">Date: '+esc(pd.date)+'</div>'+(pd.time?'<div style="font-size:13px;color:#6B7280;">Time: '+esc(pd.time)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+esc(pd.customerName)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.orderType)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(addr)+'</div><div style="font-size:13px;font-weight:600;margin-top:4px;">'+esc(pd.contactPerson)+'</div></div></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+logo+'<div style="font-size:16px;font-weight:700;">'+esc(pd.storeName)+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+esc(pd.storeAddress)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.storePhone)+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:Courier New,monospace;">'+esc(pd.quoteId)+'</div>'+(pd.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+esc(pd.poNumber)+'</div>':'')+'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Date: '+esc(pd.date)+'</div>'+(pd.time?'<div style="font-size:13px;color:#6B7280;">Time: '+esc(pd.time)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+esc(pd.customerName)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.orderType)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(addr)+'</div><div style="font-size:13px;font-weight:600;margin-top:4px;">'+esc(pd.contactPerson)+'</div></div></div>' +
     '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><thead><tr style="background:#F3F4F6;"><th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:10%;">QTY</th><th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:50%;">DESCRIPTION</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:18%;">PRICE/ITEM</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:22%;">AMOUNT</th></tr></thead><tbody>'+liHtml+'</tbody></table>' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;"><div style="font-size:13px;color:#6B7280;max-width:320px;">If you have any questions concerning this Quote, contact:<br><strong style="color:#1F2937;">'+esc(pd.contactName)+' at '+esc(pd.storePhone)+'</strong></div><table style="width:280px;background:#F9FAFB;border-radius:8px;overflow:hidden;"><tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SUBTOTAL</td><td style="padding:8px 16px;text-align:right;font-family:Courier New,monospace;font-size:14px;">$'+(pd.subtotal||0).toFixed(2)+'</td></tr>'+taxLine+'<tr style="background:#E5E7EB;"><td style="padding:10px 16px;font-size:15px;font-weight:700;">TOTAL</td><td style="padding:10px 16px;text-align:right;font-family:Courier New,monospace;font-size:16px;font-weight:700;">$'+(pd.total||0).toFixed(2)+'</td></tr></table></div></body></html>';
 }
@@ -306,9 +322,136 @@ function sendQuoteEmail(quoteData, recipientEmail) {
   var opts = { attachments: [generatePdfBlob(quoteData)], name: 'Chick-fil-A ' + storeName };
   if (bcc) opts.bcc = bcc;
   MailApp.sendEmail(recipientEmail, subj, body, opts);
+  addPipelineEntry({ ...quoteData, recipientEmail: recipientEmail });
   return { success: true, message: 'Email sent to ' + recipientEmail };
+}
+
+function sendQuoteEmailDirect(quoteData, recipientEmail, subject, body) {
+  var settings = getSettings();
+  var storeName = quoteData.locationName || settings['Store Name (Active)'] || '';
+  var bcc = (settings['BCC Email']||'').toString().trim();
+  var opts = { attachments: [generatePdfBlob(quoteData)], name: 'Chick-fil-A ' + storeName };
+  if (bcc) opts.bcc = bcc;
+  MailApp.sendEmail(recipientEmail, subject, body, opts);
+  addPipelineEntry({ ...quoteData, recipientEmail: recipientEmail });
+  return { success: true };
 }
 
 function getEmailQuota() { return MailApp.getRemainingDailyQuota(); }
 
 function esc(s) { return s ? s.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') : ''; }
+
+
+// ── REMINDERS ────────────────────────────────────────────────
+
+const TAB_REMINDERS = 'Reminders_Sent';
+
+function initRemindersSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(TAB_REMINDERS);
+  if (!sheet) {
+    sheet = ss.insertSheet(TAB_REMINDERS);
+    sheet.getRange(1, 1, 1, 2).setValues([['Quote ID', 'Reminder Sent Date']]);
+    sheet.getRange(1, 1, 1, 2).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getRemindedQuoteIds() {
+  var sheet = getSpreadsheet().getSheetByName(TAB_REMINDERS);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues()
+    .map(function(r) { return r[0].toString().trim(); })
+    .filter(function(id) { return id !== ''; });
+}
+
+function markReminderSent(quoteId) {
+  initRemindersSheet().appendRow([quoteId, new Date()]);
+}
+
+function processReminders() {
+  var settings = getSettings();
+  if (settings['Reminder Enabled'] !== 'TRUE') return 'Reminders are disabled.';
+
+  var daysAfter      = parseInt(settings['Reminder After Days']) || 3;
+  var toCustomer     = settings['Reminder Send To Customer'] === 'TRUE';
+  var toInternal     = settings['Reminder Send To Internal'] === 'TRUE';
+  var internalEmail  = (settings['Reminder Internal Email'] || '').toString().trim();
+  var subject        = settings['Reminder Subject'] || 'Following up on your Catering Quote \u2014 {{quoteId}}';
+  var body           = settings['Reminder Body']    || 'Hi {{customer}},\n\nWe wanted to follow up on the catering quote we sent you {{daysSince}} days ago (Quote {{quoteId}}, total: {{total}}).\n\nPlease let us know if you have any questions!\n\n{{contact}}\nChick-fil-A {{location}}';
+
+  var quotes     = getQuotes();
+  var remindedIds = getRemindedQuoteIds();
+  var now        = new Date();
+  var cutoffMs   = daysAfter * 24 * 60 * 60 * 1000;
+  var count      = 0;
+
+  quotes.forEach(function(q) {
+    if (!q.createdDate) return;
+    if (remindedIds.indexOf(q.quoteId.toString()) >= 0) return;
+
+    var ageMs = now - new Date(q.createdDate);
+    if (ageMs < cutoffMs) return;
+
+    var daysSince = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+    var storeName = q.locationName || settings['Store Name (Active)'] || '';
+    var reps = {
+      '{{customer}}':  q.customerName || '',
+      '{{contact}}':   settings['Quote Contact Name'] || '',
+      '{{location}}':  storeName,
+      '{{quoteId}}':   q.quoteId || '',
+      '{{total}}':     '$' + (parseFloat(q.total) || 0).toFixed(2),
+      '{{date}}':      q.createdDate ? new Date(q.createdDate).toLocaleDateString() : '',
+      '{{daysSince}}': daysSince.toString()
+    };
+    var subj = subject, bdy = body;
+    for (var k in reps) { subj = subj.split(k).join(reps[k]); bdy = bdy.split(k).join(reps[k]); }
+
+    if (toCustomer && q.customerEmail) {
+      MailApp.sendEmail(q.customerEmail, subj, bdy, { name: 'Chick-fil-A ' + storeName });
+    }
+    if (toInternal && internalEmail) {
+      var intBody = 'Customer: ' + (q.customerName || '') + '\nEmail: ' + (q.customerEmail || 'N/A') + '\n\n' + bdy;
+      MailApp.sendEmail(internalEmail, '[Follow-Up] ' + subj, intBody, { name: 'Chick-fil-A ' + storeName });
+    }
+    markReminderSent(q.quoteId);
+    count++;
+  });
+
+  return 'Sent ' + count + ' reminder(s).';
+}
+
+function setupReminderTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'processReminders') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('processReminders').timeBased().everyDays(1).atHour(9).create();
+  return 'Daily reminder trigger enabled (runs at 9am).';
+}
+
+function removeReminderTrigger() {
+  var removed = 0;
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'processReminders') { ScriptApp.deleteTrigger(t); removed++; }
+  });
+  return removed > 0 ? 'Reminder trigger removed.' : 'No active reminder trigger found.';
+}
+
+function getReminderTriggerStatus() {
+  return ScriptApp.getProjectTriggers().some(function(t) {
+    return t.getHandlerFunction() === 'processReminders';
+  });
+}
+
+
+// ── Pipeline Data Wrapper ─────────────────────────────────────
+// Called by the UI to load the pipeline view.
+// Returns both entries and stats in one round-trip.
+
+function getPipelineData() {
+  return {
+    entries: getPipelineEntries(),
+    stats:   getPipelineStats()
+  };
+}

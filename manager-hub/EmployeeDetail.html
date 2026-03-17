@@ -17,6 +17,52 @@
       background-color: #f5f5f5;
     }
 
+    .nav-btn {
+      padding: 8px 14px;
+      background-color: #E51636;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      margin-right: 8px;
+    }
+
+    .nav-btn:hover {
+      background-color: #c41230;
+    }
+
+    .help-btn {
+      padding: 8px 12px;
+      background-color: #f0f0f0;
+      color: #333;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+    }
+
+    .help-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .help-modal-content {
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px;
+      width: 560px;
+      max-width: calc(100% - 32px);
+      max-height: 80vh;
+      overflow: auto;
+    }
+
     /* Modal Overlay */
     .modal-overlay {
       position: fixed;
@@ -552,6 +598,17 @@
       margin: 20px;
     }
 
+    .offline-banner {
+      display: none;
+      background: #fff3cd;
+      color: #856404;
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin: 10px 20px;
+      font-size: 14px;
+      border: 1px solid #ffeeba;
+    }
+
     /* Empty State */
     .empty-state {
       text-align: center;
@@ -639,6 +696,65 @@
       margin-top: 20px;
     }
 
+    /* Header Credit Button */
+    .header-credit-btn {
+      margin-top: 15px;
+      padding: 8px 16px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+
+    .header-credit-btn:hover {
+      background: #218838;
+    }
+
+    /* Simple Credit Modal */
+    .credit-points-selector {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .credit-points-option {
+      flex: 1;
+      padding: 20px;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .credit-points-option:hover {
+      border-color: #28a745;
+    }
+
+    .credit-points-option.selected {
+      border-color: #28a745;
+      background: #d4edda;
+    }
+
+    .credit-points-option .points-value {
+      font-size: 32px;
+      font-weight: bold;
+      color: #28a745;
+    }
+
+    .credit-points-option .points-label {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .modal-content {
@@ -667,6 +783,69 @@
         grid-template-columns: 1fr;
       }
     }
+
+    @media (max-width: 767px) {
+      body {
+        padding: 0;
+      }
+
+      .modal-overlay {
+        padding: 0;
+      }
+
+      .modal-content {
+        width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+        margin: 0;
+      }
+
+      .close-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 20px;
+      }
+    }
+
+    /* Mobile Bottom Nav */
+    .mobile-bottom-nav {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: #fff;
+      border-top: 1px solid #e0e0e0;
+      z-index: 999;
+      justify-content: space-around;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .mobile-bottom-nav button {
+      background: none;
+      border: none;
+      color: #555;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      min-height: 44px;
+      gap: 4px;
+    }
+
+    .mobile-bottom-nav button.active {
+      color: #E51636;
+    }
+
+    @media (max-width: 767px) {
+      .mobile-bottom-nav {
+        display: flex;
+      }
+    }
   </style>
 </head>
 <body>
@@ -675,128 +854,162 @@
     <!-- Loading State -->
     <div id="loadingState" class="loading-overlay">
       <div class="loading-spinner"></div>
-      <div class="loading-text">Loading employee details...</div>
+      <div class="loading-text" id="detailLoadingText">Loading employee details...</div>
     </div>
 
     <!-- Error State -->
     <div id="errorState" class="error-message" style="display: none;">
       <p id="errorText">Error loading employee data</p>
-      <button class="action-btn secondary" onclick="closeDetail()">Close</button>
+      <button class="action-btn secondary" id="errorCloseBtn" onclick="closeDetail()">Close</button>
     </div>
+
+    <div id="offlineBanner" class="offline-banner">Offline mode: some data may be unavailable.</div>
 
     <!-- Employee Detail Content -->
     <div id="detailContent" style="display: none;">
+      <div class="section" style="margin-bottom: 15px;">
+        <select id="languageSelect" class="nav-btn" onchange="onLanguageChange()" style="background-color: #f0f0f0; color: #333;">
+          <option value="en">English</option>
+          <option value="es">Español</option>
+        </select>
+        <button class="help-btn" onclick="openHelp()">?</button>
+        <a class="nav-btn" id="detailDashboardBtn" href="?page=dashboard" onclick="if(window.navigateTo){navigateTo('dashboard'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('dashboard'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'dashboard';window.top.location.href=base+'?page='+target; return false;">Dashboard</a>
+        <a class="nav-btn" id="detailEmployeesBtn" href="?page=employees" onclick="if(window.navigateTo){navigateTo('employees'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('employees'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'employees';window.top.location.href=base+'?page='+target; return false;">Employees</a>
+        <a class="nav-btn" id="detailAddInfractionBtn" href="?page=form" onclick="if(window.navigateTo){navigateTo('form'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('form'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'form';window.top.location.href=base+'?page='+target; return false;">Add Infraction</a>
+        <a class="nav-btn" id="detailSettingsBtn" href="?page=settings" onclick="if(window.navigateTo){navigateTo('settings'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('settings'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'settings';window.top.location.href=base+'?page='+target; return false;">Settings</a>
+        <a class="nav-btn" id="detailUserMgmtBtn" href="?page=users" onclick="if(window.navigateTo){navigateTo('users'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('users'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'users';window.top.location.href=base+'?page='+target; return false;" style="display: none;">User Management</a>
+        <button class="nav-btn" id="detailLogoutBtn" onclick="logout()">Logout</button>
+      </div>
+      <div class="help-modal" id="helpModal">
+        <div class="help-modal-content">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 id="helpTitle">Employee Detail Help</h3>
+            <button class="nav-btn" id="helpCloseBtn" onclick="closeHelp()">Close</button>
+          </div>
+          <div id="helpBody" style="font-size:13px; line-height:1.5;">
+            <p>Review employee details, point totals, and infraction history.</p>
+            <ul>
+              <li>Use the timeline to view recent infractions.</li>
+              <li>Check points and thresholds at the top.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
       <!-- Header Section -->
       <div class="detail-header">
         <button class="close-btn" onclick="closeDetail()" title="Close">&times;</button>
         <h1 class="employee-name" id="employeeName">--</h1>
-        <div class="employee-id" id="employeeId">ID: --</div>
-        <div class="employee-location" id="employeeLocation">Location: --</div>
+        <div class="employee-id" id="employeeId"><span id="labelEmployeeId">ID:</span> --</div>
+        <div class="employee-location" id="employeeLocation"><span id="labelEmployeeLocation">Location:</span> --</div>
 
         <div class="header-points">
           <div class="points-circle" id="pointsCircle">0</div>
           <div class="status-badges" id="statusBadges"></div>
         </div>
+        <!-- Credit Button (Directors/Operators only) -->
+        <button class="header-credit-btn" id="addCreditBtn" style="display: none;" onclick="showAddCreditModal()">
+          <span id="labelGiveCredit">+ Give Credit</span>
+        </button>
       </div>
 
       <div class="detail-body">
         <!-- Point Summary Section -->
         <div class="section">
-          <h2 class="section-title">Point Summary</h2>
+          <h2 class="section-title" id="sectionPointSummary">Point Summary</h2>
           <div class="summary-grid">
             <div class="summary-card">
               <div class="summary-value" id="currentPoints">0</div>
-              <div class="summary-label">Current Points</div>
+              <div class="summary-label" id="labelCurrentPoints">Current Points</div>
             </div>
             <div class="summary-card">
               <div class="summary-value" id="pointsLast30">0</div>
-              <div class="summary-label">Points (Last 30 Days)</div>
+              <div class="summary-label" id="labelPointsLast30">Points (Last 30 Days)</div>
             </div>
             <div class="summary-card positive">
               <div class="summary-value" id="pointsExpiring">0</div>
-              <div class="summary-label">Expiring (Next 30 Days)</div>
+              <div class="summary-label" id="labelExpiringNext30">Expiring (Next 30 Days)</div>
             </div>
             <div class="summary-card">
               <div class="summary-value" id="nextExpiration">--</div>
-              <div class="summary-label">Next Expiration</div>
+              <div class="summary-label" id="labelNextExpiration">Next Expiration</div>
             </div>
             <div class="summary-card warning">
               <div class="summary-value" id="highestEver">0</div>
-              <div class="summary-label">Highest Ever</div>
+              <div class="summary-label" id="labelHighestEver">Highest Ever</div>
             </div>
           </div>
         </div>
 
         <!-- Statistics Section -->
         <div class="section">
-          <h2 class="section-title">Statistics</h2>
+          <h2 class="section-title" id="sectionStatistics">Statistics</h2>
           <div class="stats-grid">
             <div class="stat-item">
               <div class="stat-value" id="totalInfractions">0</div>
-              <div class="stat-label">Total Infractions</div>
+              <div class="stat-label" id="labelTotalInfractions">Total Infractions</div>
             </div>
             <div class="stat-item">
               <div class="stat-value" id="activeInfractions">0</div>
-              <div class="stat-label">Active</div>
+              <div class="stat-label" id="labelActiveInfractions">Active</div>
             </div>
             <div class="stat-item">
               <div class="stat-value" id="expiredInfractions">0</div>
-              <div class="stat-label">Expired</div>
+              <div class="stat-label" id="labelExpiredInfractions">Expired</div>
             </div>
             <div class="stat-item">
               <div class="stat-value" id="positiveCredits">0</div>
-              <div class="stat-label">Positive Credits</div>
+              <div class="stat-label" id="labelPositiveCredits">Positive Credits</div>
             </div>
             <div class="stat-item">
               <div class="stat-value" id="daysSinceLast">--</div>
-              <div class="stat-label">Days Since Last</div>
+              <div class="stat-label" id="labelDaysSinceLast">Days Since Last</div>
             </div>
             <div class="stat-item">
               <div class="stat-value" id="mostCommonType">--</div>
-              <div class="stat-label">Most Common Type</div>
+              <div class="stat-label" id="labelMostCommonType">Most Common Type</div>
             </div>
           </div>
         </div>
 
         <!-- Threshold History Section -->
         <div class="section">
-          <h2 class="section-title">Threshold History</h2>
+          <h2 class="section-title" id="sectionThresholdHistory">Threshold History</h2>
           <ul class="threshold-list" id="thresholdList">
             <li class="empty-state">
               <div class="empty-icon">&#128200;</div>
-              <div>No threshold crossings recorded</div>
+              <div id="labelThresholdEmpty">No threshold crossings recorded</div>
             </li>
           </ul>
         </div>
 
         <!-- Timeline Section -->
         <div class="section">
-          <h2 class="section-title">Infraction Timeline</h2>
+          <h2 class="section-title" id="sectionTimeline">Infraction Timeline</h2>
           <div class="timeline" id="infractionTimeline">
             <div class="empty-state">
               <div class="empty-icon">&#128196;</div>
-              <div>No infractions recorded</div>
+              <div id="labelTimelineEmpty">No infractions recorded</div>
             </div>
           </div>
         </div>
 
         <!-- Action Tracking Section (Directors Only) -->
         <div class="section" id="actionTrackingSection" style="display: none;">
-          <h2 class="section-title">Action Tracking (Director Only)</h2>
+          <h2 class="section-title" id="sectionActionTracking">Action Tracking (Director Only)</h2>
           <div class="action-tracking">
             <div class="action-item">
               <input type="checkbox" class="action-checkbox" id="actionSchedule" onchange="handleActionChange('schedule_day_removed')">
-              <span class="action-label">Removed day from schedule</span>
+              <span class="action-label" id="labelActionSchedule">Removed day from schedule</span>
               <span class="action-date" id="actionScheduleDate"></span>
             </div>
             <div class="action-item">
               <input type="checkbox" class="action-checkbox" id="actionSuspension" onchange="handleActionChange('suspension_completed')">
-              <span class="action-label">3-day suspension completed</span>
+              <span class="action-label" id="labelActionSuspension">3-day suspension completed</span>
               <span class="action-date" id="actionSuspensionDate"></span>
             </div>
             <div class="action-item">
               <input type="checkbox" class="action-checkbox" id="actionMeeting" onchange="handleActionChange('director_meeting')">
-              <span class="action-label">Director meeting held</span>
+              <span class="action-label" id="labelActionMeeting">Director meeting held</span>
               <span class="action-date" id="actionMeetingDate"></span>
             </div>
             <textarea class="action-notes-input" id="directorNotes" placeholder="Director notes..." onblur="saveDirectorNotes()"></textarea>
@@ -805,7 +1018,13 @@
 
         <!-- Director Actions Section -->
         <div class="section" id="directorActionsSection" style="display: none;">
-          <h2 class="section-title">Director Actions</h2>
+          <h2 class="section-title" id="sectionDirectorActions">Director Actions</h2>
+          <div class="form-group" style="margin-bottom: 15px;">
+            <label>Your Name (Director)</label>
+            <select id="directorNameSelect" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+              <option value="">-- Select Your Name --</option>
+            </select>
+          </div>
           <div class="director-actions">
             <button class="action-btn primary" onclick="showEditInfractionModal()">
               &#9998; Edit Infraction
@@ -816,15 +1035,15 @@
             <button class="action-btn success" onclick="showAddCreditModal()">
               &#43; Add Positive Credit
             </button>
-            <button class="action-btn danger" onclick="showTerminateModal()">
-              &#9888; Mark as Terminated
+            <button class="action-btn danger" onclick="showDeleteInfractionModal()">
+              &#128465; Delete Infraction
             </button>
           </div>
         </div>
 
         <!-- Export Section -->
         <div class="section">
-          <h2 class="section-title">Export</h2>
+          <h2 class="section-title" id="sectionExport">Export</h2>
           <button class="action-btn primary" onclick="exportPdf()" id="exportBtn">
             &#128196; Export Write-Up PDF
           </button>
@@ -839,19 +1058,35 @@
       <h3 class="sub-modal-title">Edit Infraction</h3>
       <div class="form-group">
         <label>Select Infraction</label>
-        <select id="editInfractionSelect">
+        <select id="editInfractionSelect" onchange="populateEditFields()">
           <option value="">-- Select --</option>
         </select>
       </div>
-      <div class="form-group">
-        <label>New Description</label>
-        <textarea id="editDescription" placeholder="Updated description..."></textarea>
-        <div class="char-counter" id="editDescCounter">0 / 240 minimum</div>
+      <div id="editFieldsContainer" style="display: none;">
+        <div class="form-group">
+          <label>Points Assigned</label>
+          <input type="number" id="editPoints" min="1" max="15">
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="editDate">
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          <select id="editLocation">
+            <option value="Cockrell Hill DTO">Cockrell Hill DTO</option>
+            <option value="Dallas Baptist University OCV">Dallas Baptist University OCV</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="editDescription" placeholder="Updated description..."></textarea>
+        </div>
       </div>
       <div class="form-group">
-        <label>Modification Reason (required)</label>
+        <label>Reason for Edit (required, min 10 characters)</label>
         <textarea id="editReason" placeholder="Explain why this change is being made..."></textarea>
-        <div class="char-counter" id="editReasonCounter">0 / 240 minimum</div>
+        <div class="char-counter" id="editReasonCounter">0 / 10 minimum</div>
       </div>
       <div class="modal-buttons">
         <button class="action-btn secondary" onclick="closeSubModal('editInfractionModal')">Cancel</button>
@@ -869,9 +1104,9 @@
         <input type="number" id="removePointsValue" min="1" max="15" value="1">
       </div>
       <div class="form-group">
-        <label>Reason (required)</label>
+        <label>Reason (required, min 10 characters)</label>
         <textarea id="removePointsReason" placeholder="Explain why points are being removed..."></textarea>
-        <div class="char-counter" id="removeReasonCounter">0 / 240 minimum</div>
+        <div class="char-counter" id="removeReasonCounter">0 / 10 minimum</div>
       </div>
       <div class="modal-buttons">
         <button class="action-btn secondary" onclick="closeSubModal('removePointsModal')">Cancel</button>
@@ -880,26 +1115,81 @@
     </div>
   </div>
 
-  <!-- Sub-modal: Add Positive Credit -->
-  <div class="sub-modal-overlay" id="addCreditModal">
+  <!-- Sub-modal: Delete Infraction -->
+  <div class="sub-modal-overlay" id="deleteInfractionModal">
     <div class="sub-modal">
-      <h3 class="sub-modal-title">Add Positive Behavior Credit</h3>
+      <h3 class="sub-modal-title" style="color: #dc3545;">Delete Infraction</h3>
+      <p style="color: #666;">This will soft-delete the infraction. It will remain in records but no longer count toward the employee's point total.</p>
       <div class="form-group">
-        <label>Date of Behavior</label>
-        <input type="date" id="creditDate">
+        <label>Select Infraction to Delete</label>
+        <select id="deleteInfractionSelect">
+          <option value="">-- Select --</option>
+        </select>
       </div>
       <div class="form-group">
-        <label>Points to Credit (1-6)</label>
-        <input type="number" id="creditPoints" min="1" max="6" value="1">
-      </div>
-      <div class="form-group">
-        <label>Description (required)</label>
-        <textarea id="creditDescription" placeholder="Describe the positive behavior..."></textarea>
-        <div class="char-counter" id="creditDescCounter">0 / 240 minimum</div>
+        <label>Reason for Deletion (required, min 10 characters)</label>
+        <textarea id="deleteReason" placeholder="Explain why this infraction is being deleted..."></textarea>
+        <div class="char-counter" id="deleteReasonCounter">0 / 10 minimum</div>
       </div>
       <div class="modal-buttons">
+        <button class="action-btn secondary" onclick="closeSubModal('deleteInfractionModal')">Cancel</button>
+        <button class="action-btn danger" onclick="submitDeleteInfraction()">Delete Infraction</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+    <button id="mobileNavDashboard" onclick="if(window.navigateTo){navigateTo('dashboard'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('dashboard'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'dashboard';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-chart-line"></i>
+      <span id="mobileNavDashboardLabel">Dashboard</span>
+    </button>
+    <button id="mobileNavEmployees" class="active" onclick="if(window.navigateTo){navigateTo('employees'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('employees'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'employees';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-users"></i>
+      <span id="mobileNavEmployeesLabel">Employees</span>
+    </button>
+    <button id="mobileNavAdd" onclick="if(window.navigateTo){navigateTo('form'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('form'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'form';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-plus-circle"></i>
+      <span id="mobileNavAddLabel">Add</span>
+    </button>
+    <button id="mobileNavSettings" onclick="if(window.navigateTo){navigateTo('settings'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('settings'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'settings';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-cog"></i>
+      <span id="mobileNavSettingsLabel">Settings</span>
+    </button>
+    <button id="mobileNavLogout" onclick="logout()">
+      <i class="fas fa-sign-out-alt"></i>
+      <span id="mobileNavLogoutLabel">Logout</span>
+    </button>
+  </nav>
+
+  <!-- Sub-modal: Add Positive Credit (Simple) -->
+  <div class="sub-modal-overlay" id="addCreditModal">
+    <div class="sub-modal">
+      <h3 class="sub-modal-title" style="color: #28a745;">Give Credit</h3>
+      <p style="color: #666; margin-bottom: 20px;">Award points for positive behavior</p>
+
+      <div class="form-group">
+        <label>How many points?</label>
+        <div class="credit-points-selector">
+          <div class="credit-points-option selected" onclick="selectCreditPoints(1)">
+            <div class="points-value">-1</div>
+            <div class="points-label">point</div>
+          </div>
+          <div class="credit-points-option" onclick="selectCreditPoints(2)">
+            <div class="points-value">-2</div>
+            <div class="points-label">points</div>
+          </div>
+        </div>
+        <input type="hidden" id="creditPoints" value="1">
+      </div>
+
+      <div class="form-group">
+        <label>Why are they getting this credit?</label>
+        <textarea id="creditReason" placeholder="Briefly describe what they did..." style="min-height: 80px;"></textarea>
+      </div>
+
+      <div class="modal-buttons">
         <button class="action-btn secondary" onclick="closeSubModal('addCreditModal')">Cancel</button>
-        <button class="action-btn success" onclick="submitAddCredit()">Add Credit</button>
+        <button class="action-btn success" onclick="submitAddCredit()">Give Credit</button>
       </div>
     </div>
   </div>
@@ -967,6 +1257,130 @@
     let userRole = null;
     let pendingActionType = null;
 
+    function getSessionToken() {
+      const urlToken = getTokenFromUrl();
+      if (urlToken) {
+        sessionStorage.setItem('cfa_session_token', urlToken);
+        localStorage.setItem('cfa_session_token', urlToken);
+      }
+      const token = sessionStorage.getItem('cfa_session_token') || localStorage.getItem('cfa_session_token');
+      if (token && !sessionStorage.getItem('cfa_session_token')) {
+        sessionStorage.setItem('cfa_session_token', token);
+      }
+      return token;
+    }
+
+    function getTokenFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('token') || params.get('tkn') || '';
+      } catch (error) {
+        return '';
+      }
+    }
+
+    function redirectTo(url) {
+      const inPreview = window.location.href.indexOf('userCodeAppPanel') !== -1;
+      const finalUrl = appendTokenParam(url);
+      if (window.top && window.top !== window && !inPreview) {
+        window.top.location.href = finalUrl;
+      } else {
+        window.location.href = finalUrl;
+      }
+    }
+
+    function appendTokenParam(url) {
+      if (!url) return url;
+      const token = getSessionToken();
+      if (!token) return url;
+      const hasToken = url.indexOf('token=') !== -1 || url.indexOf('tkn=') !== -1;
+      if (hasToken) return url;
+      const separator = url.indexOf('?') === -1 ? '?' : '&';
+      return url + separator + 'token=' + encodeURIComponent(token);
+    }
+
+    function navigateTo(page) {
+      try {
+        console.log('[nav] click', JSON.stringify({page: page, href: window.location.href, role: (sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role')||''), token: (sessionStorage.getItem('cfa_session_token')||localStorage.getItem('cfa_session_token')||''), base: (sessionStorage.getItem('cfa_base_url')||localStorage.getItem('cfa_base_url')||'')}));
+      } catch (e) { console.log('[nav] click log failed', e); }
+
+      const baseUrl = getStoredBaseUrl() || getBaseUrl();
+      const fallbackUrl = baseUrl + '?page=' + page + '&t=' + Date.now();
+      let didNavigate = false;
+      const fallbackTimer = setTimeout(function() {
+        if (!didNavigate) {
+          redirectTo(fallbackUrl);
+        }
+      }, 1500);
+      google.script.run
+        .withSuccessHandler(function(url) {
+          didNavigate = true;
+          clearTimeout(fallbackTimer);
+          if (url) {
+            sessionStorage.setItem('cfa_base_url', url);
+            localStorage.setItem('cfa_base_url', url);
+          }
+          redirectTo((url || baseUrl) + '?page=' + page + '&t=' + Date.now());
+        })
+        .withFailureHandler(function(error) {
+          didNavigate = true;
+          clearTimeout(fallbackTimer);
+          console.error('Navigation failed:', error);
+          redirectTo(fallbackUrl);
+        })
+        .getWebAppUrl();
+    }
+
+    function getStoredBaseUrl() {
+      return sessionStorage.getItem('cfa_base_url') || localStorage.getItem('cfa_base_url') || '';
+    }
+
+    function getBaseUrl() {
+      return sessionStorage.getItem('cfa_base_url') ||
+        localStorage.getItem('cfa_base_url') ||
+        window.location.href.split('?')[0];
+    }
+
+    function logout() {
+      const token = getSessionToken();
+      google.script.run
+        .withSuccessHandler(function() {
+          google.script.run
+            .withSuccessHandler(function(url) {
+              redirectTo(url + '?page=login');
+            })
+            .getWebAppUrl();
+        })
+        .logoutRole(token);
+    }
+
+    function openHelp() {
+      document.getElementById('helpModal').style.display = 'flex';
+    }
+
+    function closeHelp() {
+      document.getElementById('helpModal').style.display = 'none';
+    }
+
+    function onLanguageChange() {
+      const select = document.getElementById('languageSelect');
+      if (!select) return;
+      const token = getSessionToken();
+      if (!token) return;
+      const language = select.value;
+      sessionStorage.setItem('cfa_language', language);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.success) {
+            applyDetailTranslations(language);
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to update language:', error);
+        })
+        .setLanguage(token, language);
+    }
+
     // ============================================
     // INITIALIZATION
     // ============================================
@@ -982,11 +1396,17 @@
       document.getElementById('errorState').style.display = 'none';
       document.getElementById('detailContent').style.display = 'none';
 
+      const token = getSessionToken();
+      if (!token) {
+        handleSessionExpired();
+        return;
+      }
+
       // Fetch data from server
       google.script.run
         .withSuccessHandler(handleDetailDataLoaded)
         .withFailureHandler(handleDetailError)
-        .getEmployeeDetailData(employeeId);
+        .getEmployeeDetailData(employeeId, token);
     }
 
     /**
@@ -1012,6 +1432,23 @@
 
       currentEmployeeData = result;
       userRole = result.userRole;
+      applyDetailTranslations(result.language || sessionStorage.getItem('cfa_language') || 'en');
+      const languageSelect = document.getElementById('languageSelect');
+      if (languageSelect) {
+        languageSelect.value = result.language || 'en';
+      }
+      const settingsBtn = document.getElementById('detailSettingsBtn');
+      if (settingsBtn) {
+        settingsBtn.style.display = (userRole === 'Director' || userRole === 'Operator') ? 'inline-block' : 'none';
+      }
+      const mobileSettingsBtn = document.getElementById('mobileNavSettings');
+      if (mobileSettingsBtn) {
+        mobileSettingsBtn.style.display = (userRole === 'Director' || userRole === 'Operator') ? 'flex' : 'none';
+      }
+      const userMgmtBtn = document.getElementById('detailUserMgmtBtn');
+      if (userMgmtBtn) {
+        userMgmtBtn.style.display = (userRole === 'Director' || userRole === 'Operator') ? 'inline-block' : 'none';
+      }
 
       // Populate the detail view
       populateDetailView(result);
@@ -1035,12 +1472,124 @@
       document.getElementById('errorState').style.display = 'block';
     }
 
+    function setOfflineBanner(isOffline, message) {
+      const banner = document.getElementById('offlineBanner');
+      if (!banner) return;
+      banner.textContent = message || 'Offline mode: some data may be unavailable.';
+      banner.style.display = isOffline ? 'block' : 'none';
+    }
+
     /**
      * Handle session expiration
      */
     function handleSessionExpired() {
-      alert('Your session has expired. Please log in again.');
-      closeDetail();
+      const message = 'Your session has expired. Please log in again.';
+      alert(message);
+      google.script.run
+        .withSuccessHandler(function(url) {
+          redirectTo(url + '?page=login');
+        })
+        .getWebAppUrl();
+    }
+
+    function applyDetailTranslations(language) {
+      const keys = [
+        'nav.dashboard',
+        'nav.view_employees',
+        'nav.add_infraction',
+        'nav.add',
+        'nav.settings',
+        'nav.user_management',
+        'nav.logout',
+        'detail.id_label',
+        'detail.location_label',
+        'detail.give_credit',
+        'detail.section_point_summary',
+        'detail.section_statistics',
+        'detail.section_threshold_history',
+        'detail.section_timeline',
+        'detail.section_action_tracking',
+        'detail.section_director_actions',
+        'detail.section_export',
+        'detail.label_current_points',
+        'detail.label_points_last_30',
+        'detail.label_expiring_next_30',
+        'detail.label_next_expiration',
+        'detail.label_highest_ever',
+        'detail.label_total_infractions',
+        'detail.label_active',
+        'detail.label_expired',
+        'detail.label_positive_credits',
+        'detail.label_days_since_last',
+        'detail.label_most_common',
+        'detail.threshold_empty',
+        'detail.timeline_empty',
+        'detail.action_removed_day',
+        'detail.action_suspension',
+        'detail.action_meeting',
+        'detail.notes_placeholder'
+      ];
+      google.script.run
+        .withSuccessHandler(function(result) {
+          const t = result || {};
+          document.getElementById('detailDashboardBtn').textContent = t['nav.dashboard'] || 'Dashboard';
+          document.getElementById('detailEmployeesBtn').textContent = t['nav.view_employees'] || 'Employees';
+          document.getElementById('detailAddInfractionBtn').textContent = t['nav.add_infraction'] || 'Add Infraction';
+          document.getElementById('detailSettingsBtn').textContent = t['nav.settings'] || 'Settings';
+          document.getElementById('detailUserMgmtBtn').textContent = t['nav.user_management'] || 'User Management';
+          document.getElementById('detailLogoutBtn').textContent = t['nav.logout'] || 'Logout';
+          const mobileDashboardLabel = document.getElementById('mobileNavDashboardLabel');
+          if (mobileDashboardLabel) {
+            mobileDashboardLabel.textContent = t['nav.dashboard'] || 'Dashboard';
+          }
+          const mobileEmployeesLabel = document.getElementById('mobileNavEmployeesLabel');
+          if (mobileEmployeesLabel) {
+            mobileEmployeesLabel.textContent = t['nav.view_employees'] || 'Employees';
+          }
+          const mobileAddLabel = document.getElementById('mobileNavAddLabel');
+          if (mobileAddLabel) {
+            mobileAddLabel.textContent = t['nav.add'] || 'Add';
+          }
+          const mobileSettingsLabel = document.getElementById('mobileNavSettingsLabel');
+          if (mobileSettingsLabel) {
+            mobileSettingsLabel.textContent = t['nav.settings'] || 'Settings';
+          }
+          const mobileLogoutLabel = document.getElementById('mobileNavLogoutLabel');
+          if (mobileLogoutLabel) {
+            mobileLogoutLabel.textContent = t['nav.logout'] || 'Logout';
+          }
+          document.getElementById('labelEmployeeId').textContent = t['detail.id_label'] || 'ID:';
+          document.getElementById('labelEmployeeLocation').textContent = t['detail.location_label'] || 'Location:';
+          document.getElementById('labelGiveCredit').textContent = t['detail.give_credit'] || '+ Give Credit';
+          document.getElementById('sectionPointSummary').textContent = t['detail.section_point_summary'] || 'Point Summary';
+          document.getElementById('sectionStatistics').textContent = t['detail.section_statistics'] || 'Statistics';
+          document.getElementById('sectionThresholdHistory').textContent = t['detail.section_threshold_history'] || 'Threshold History';
+          document.getElementById('sectionTimeline').textContent = t['detail.section_timeline'] || 'Infraction Timeline';
+          document.getElementById('sectionActionTracking').textContent = t['detail.section_action_tracking'] || 'Action Tracking (Director Only)';
+          document.getElementById('sectionDirectorActions').textContent = t['detail.section_director_actions'] || 'Director Actions';
+          document.getElementById('sectionExport').textContent = t['detail.section_export'] || 'Export';
+          document.getElementById('labelCurrentPoints').textContent = t['detail.label_current_points'] || 'Current Points';
+          document.getElementById('labelPointsLast30').textContent = t['detail.label_points_last_30'] || 'Points (Last 30 Days)';
+          document.getElementById('labelExpiringNext30').textContent = t['detail.label_expiring_next_30'] || 'Expiring (Next 30 Days)';
+          document.getElementById('labelNextExpiration').textContent = t['detail.label_next_expiration'] || 'Next Expiration';
+          document.getElementById('labelHighestEver').textContent = t['detail.label_highest_ever'] || 'Highest Ever';
+          document.getElementById('labelTotalInfractions').textContent = t['detail.label_total_infractions'] || 'Total Infractions';
+          document.getElementById('labelActiveInfractions').textContent = t['detail.label_active'] || 'Active';
+          document.getElementById('labelExpiredInfractions').textContent = t['detail.label_expired'] || 'Expired';
+          document.getElementById('labelPositiveCredits').textContent = t['detail.label_positive_credits'] || 'Positive Credits';
+          document.getElementById('labelDaysSinceLast').textContent = t['detail.label_days_since_last'] || 'Days Since Last';
+          document.getElementById('labelMostCommonType').textContent = t['detail.label_most_common'] || 'Most Common Type';
+          document.getElementById('labelThresholdEmpty').textContent = t['detail.threshold_empty'] || 'No threshold crossings recorded';
+          document.getElementById('labelTimelineEmpty').textContent = t['detail.timeline_empty'] || 'No infractions recorded';
+          document.getElementById('labelActionSchedule').textContent = t['detail.action_removed_day'] || 'Removed day from schedule';
+          document.getElementById('labelActionSuspension').textContent = t['detail.action_suspension'] || '3-day suspension completed';
+          document.getElementById('labelActionMeeting').textContent = t['detail.action_meeting'] || 'Director meeting held';
+          const notes = document.getElementById('directorNotes');
+          if (notes) {
+            notes.placeholder = t['detail.notes_placeholder'] || 'Director notes...';
+          }
+        })
+        .getTranslations(keys, language || 'en');
     }
 
     // ============================================
@@ -1098,15 +1647,51 @@
       // Infraction timeline
       populateTimeline(data.infractions);
 
-      // Director-only sections
-      if (userRole === 'Director') {
+      // Director/Operator sections (Operators see everything Directors see)
+      if (userRole === 'Director' || userRole === 'Operator') {
         document.getElementById('actionTrackingSection').style.display = 'block';
         document.getElementById('directorActionsSection').style.display = 'block';
         populateActionTracking(data.actionTracking);
+        loadDirectorNames(); // Load director name options
       } else {
         document.getElementById('actionTrackingSection').style.display = 'none';
         document.getElementById('directorActionsSection').style.display = 'none';
       }
+
+      // Credit button - visible to Directors and Operators
+      if (userRole === 'Director' || userRole === 'Operator') {
+        document.getElementById('addCreditBtn').style.display = 'inline-flex';
+      } else {
+        document.getElementById('addCreditBtn').style.display = 'none';
+      }
+    }
+
+    /**
+     * Load director names for the dropdown
+     */
+    function loadDirectorNames() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success && result.directors) {
+            const select = document.getElementById('directorNameSelect');
+            select.innerHTML = '<option value="">-- Select Your Name --</option>';
+            result.directors.forEach(function(name) {
+              const option = document.createElement('option');
+              option.value = name;
+              option.textContent = name;
+              select.appendChild(option);
+            });
+          }
+        })
+        .getDirectorNames();
+    }
+
+    /**
+     * Get selected director name
+     */
+    function getSelectedDirectorName() {
+      const select = document.getElementById('directorNameSelect');
+      return select ? select.value : '';
     }
 
     /**
@@ -1324,35 +1909,73 @@
      * Show edit infraction modal
      */
     function showEditInfractionModal() {
+      const directorName = getSelectedDirectorName();
+      if (!directorName) {
+        alert('Please select your name from the Director dropdown first.');
+        return;
+      }
+
       const select = document.getElementById('editInfractionSelect');
       select.innerHTML = '<option value="">-- Select --</option>';
 
-      // Populate with active infractions
+      // Populate with active infractions (not deleted, not expired, not credits)
       if (currentEmployeeData && currentEmployeeData.infractions) {
         currentEmployeeData.infractions
-          .filter(inf => inf.status === 'Active' && !inf.is_expired)
+          .filter(inf => inf.status !== 'Deleted' && !inf.is_expired && !inf.is_positive)
           .forEach(inf => {
             const option = document.createElement('option');
             option.value = inf.infraction_id;
-            option.textContent = `${inf.dateFormatted} - ${inf.infraction_type} (${inf.points} pts)`;
+            option.textContent = `${inf.dateFormatted} - ${inf.infraction_type} (+${inf.points} pts)`;
             select.appendChild(option);
           });
       }
 
-      document.getElementById('editDescription').value = '';
+      document.getElementById('editFieldsContainer').style.display = 'none';
       document.getElementById('editReason').value = '';
-      updateCharCounter('editDescription', 'editDescCounter');
       updateCharCounter('editReason', 'editReasonCounter');
 
       showSubModal('editInfractionModal');
     }
 
     /**
+     * Populate edit fields when infraction is selected
+     */
+    function populateEditFields() {
+      const infractionId = document.getElementById('editInfractionSelect').value;
+      const container = document.getElementById('editFieldsContainer');
+
+      if (!infractionId) {
+        container.style.display = 'none';
+        return;
+      }
+
+      // Find the selected infraction
+      const infraction = currentEmployeeData.infractions.find(inf => inf.infraction_id === infractionId);
+      if (!infraction) {
+        container.style.display = 'none';
+        return;
+      }
+
+      // Populate fields with current values
+      document.getElementById('editPoints').value = infraction.points || '';
+      document.getElementById('editDate').value = infraction.date ? new Date(infraction.date).toISOString().split('T')[0] : '';
+      document.getElementById('editLocation').value = infraction.location || 'Cockrell Hill DTO';
+      document.getElementById('editDescription').value = infraction.description || '';
+
+      container.style.display = 'block';
+    }
+
+    /**
      * Submit edit infraction
      */
     function submitEditInfraction() {
+      const directorName = getSelectedDirectorName();
+      if (!directorName) {
+        alert('Please select your name from the Director dropdown.');
+        return;
+      }
+
       const infractionId = document.getElementById('editInfractionSelect').value;
-      const description = document.getElementById('editDescription').value;
       const reason = document.getElementById('editReason').value;
 
       if (!infractionId) {
@@ -1360,10 +1983,22 @@
         return;
       }
 
-      if (reason.length < 240) {
-        alert('Modification reason must be at least 240 characters');
+      if (reason.length < 10) {
+        alert('Reason must be at least 10 characters');
         return;
       }
+
+      // Build edit data object with changed fields
+      const editData = {};
+      const pointsVal = document.getElementById('editPoints').value;
+      const dateVal = document.getElementById('editDate').value;
+      const locationVal = document.getElementById('editLocation').value;
+      const descVal = document.getElementById('editDescription').value;
+
+      if (pointsVal) editData.points_assigned = parseInt(pointsVal);
+      if (dateVal) editData.date = dateVal;
+      if (locationVal) editData.location = locationVal;
+      if (descVal) editData.description = descVal;
 
       google.script.run
         .withSuccessHandler(function(result) {
@@ -1371,6 +2006,8 @@
             alert('Infraction updated successfully');
             closeSubModal('editInfractionModal');
             loadEmployeeDetail(currentEmployeeId); // Refresh
+          } else if (result.sessionExpired) {
+            handleSessionExpired();
           } else {
             alert('Error: ' + result.error);
           }
@@ -1378,17 +2015,19 @@
         .withFailureHandler(function(error) {
           alert('Error: ' + error.message);
         })
-        .editInfraction({
-          infraction_id: infractionId,
-          description: description || undefined,
-          modification_reason: reason
-        });
+        .editInfraction(infractionId, editData, directorName, reason);
     }
 
     /**
      * Show remove points modal
      */
     function showRemovePointsModal() {
+      const directorName = getSelectedDirectorName();
+      if (!directorName) {
+        alert('Please select your name from the Director dropdown first.');
+        return;
+      }
+
       document.getElementById('removePointsValue').value = 1;
       document.getElementById('removePointsReason').value = '';
       updateCharCounter('removePointsReason', 'removeReasonCounter');
@@ -1399,6 +2038,12 @@
      * Submit remove points
      */
     function submitRemovePoints() {
+      const directorName = getSelectedDirectorName();
+      if (!directorName) {
+        alert('Please select your name from the Director dropdown.');
+        return;
+      }
+
       const points = parseInt(document.getElementById('removePointsValue').value);
       const reason = document.getElementById('removePointsReason').value;
 
@@ -1407,8 +2052,8 @@
         return;
       }
 
-      if (reason.length < 240) {
-        alert('Reason must be at least 240 characters');
+      if (reason.length < 10) {
+        alert('Reason must be at least 10 characters');
         return;
       }
 
@@ -1418,6 +2063,8 @@
             alert(result.message);
             closeSubModal('removePointsModal');
             loadEmployeeDetail(currentEmployeeId); // Refresh
+          } else if (result.sessionExpired) {
+            handleSessionExpired();
           } else {
             alert('Error: ' + result.error);
           }
@@ -1425,49 +2072,155 @@
         .withFailureHandler(function(error) {
           alert('Error: ' + error.message);
         })
-        .removePoints({
-          employee_id: currentEmployeeId,
-          points: points,
-          reason: reason
-        });
+        .removePoints(currentEmployeeId, points, directorName, reason);
     }
 
     /**
-     * Show add credit modal
+     * Show delete infraction modal
      */
-    function showAddCreditModal() {
-      document.getElementById('creditDate').value = new Date().toISOString().split('T')[0];
-      document.getElementById('creditPoints').value = 1;
-      document.getElementById('creditDescription').value = '';
-      updateCharCounter('creditDescription', 'creditDescCounter');
-      showSubModal('addCreditModal');
+    function showDeleteInfractionModal() {
+      const directorName = getSelectedDirectorName();
+      if (!directorName) {
+        alert('Please select your name from the Director dropdown first.');
+        return;
+      }
+
+      const select = document.getElementById('deleteInfractionSelect');
+      select.innerHTML = '<option value="">-- Select --</option>';
+
+      // Populate with active infractions (not already deleted, not credits)
+      if (currentEmployeeData && currentEmployeeData.infractions) {
+        currentEmployeeData.infractions
+          .filter(inf => inf.status !== 'Deleted' && !inf.is_positive)
+          .forEach(inf => {
+            const option = document.createElement('option');
+            option.value = inf.infraction_id;
+            option.textContent = `${inf.dateFormatted} - ${inf.infraction_type} (+${inf.points} pts)`;
+            select.appendChild(option);
+          });
+      }
+
+      document.getElementById('deleteReason').value = '';
+      updateCharCounter('deleteReason', 'deleteReasonCounter');
+
+      showSubModal('deleteInfractionModal');
     }
 
     /**
-     * Submit add credit
+     * Submit delete infraction
      */
-    function submitAddCredit() {
-      const date = document.getElementById('creditDate').value;
-      const points = parseInt(document.getElementById('creditPoints').value);
-      const description = document.getElementById('creditDescription').value;
-
-      if (!date) {
-        alert('Please select a date');
+    function submitDeleteInfraction() {
+      const directorName = getSelectedDirectorName();
+      if (!directorName) {
+        alert('Please select your name from the Director dropdown.');
         return;
       }
 
-      if (isNaN(points) || points < 1 || points > 6) {
-        alert('Points must be between 1 and 6');
+      const infractionId = document.getElementById('deleteInfractionSelect').value;
+      const reason = document.getElementById('deleteReason').value;
+
+      if (!infractionId) {
+        alert('Please select an infraction');
         return;
       }
 
-      if (description.length < 240) {
-        alert('Description must be at least 240 characters');
+      if (reason.length < 10) {
+        alert('Reason must be at least 10 characters');
+        return;
+      }
+
+      if (!confirm('Are you sure you want to delete this infraction? This will remove its points from the employee\'s total.')) {
         return;
       }
 
       google.script.run
         .withSuccessHandler(function(result) {
+          if (result.success) {
+            alert(result.message);
+            closeSubModal('deleteInfractionModal');
+            loadEmployeeDetail(currentEmployeeId); // Refresh
+          } else if (result.sessionExpired) {
+            handleSessionExpired();
+          } else {
+            alert('Error: ' + result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          alert('Error: ' + error.message);
+        })
+        .deleteInfraction(infractionId, directorName, reason);
+    }
+
+    /**
+     * Show add credit modal (simple version)
+     */
+    function showAddCreditModal() {
+      // Reset to 1 point selected
+      document.getElementById('creditPoints').value = 1;
+      document.getElementById('creditReason').value = '';
+
+      // Reset selection UI
+      const options = document.querySelectorAll('.credit-points-option');
+      options.forEach((opt, index) => {
+        if (index === 0) {
+          opt.classList.add('selected');
+        } else {
+          opt.classList.remove('selected');
+        }
+      });
+
+      showSubModal('addCreditModal');
+    }
+
+    /**
+     * Select credit points (1 or 2)
+     */
+    function selectCreditPoints(points) {
+      document.getElementById('creditPoints').value = points;
+
+      // Update selection UI
+      const options = document.querySelectorAll('.credit-points-option');
+      options.forEach((opt, index) => {
+        if ((index === 0 && points === 1) || (index === 1 && points === 2)) {
+          opt.classList.add('selected');
+        } else {
+          opt.classList.remove('selected');
+        }
+      });
+    }
+
+    /**
+     * Submit add credit (simple version)
+     */
+    function submitAddCredit() {
+      const points = parseInt(document.getElementById('creditPoints').value);
+      const reason = document.getElementById('creditReason').value.trim();
+
+      if (!reason) {
+        alert('Please enter a reason for the credit');
+        return;
+      }
+
+      if (reason.length < 10) {
+        alert('Please provide a bit more detail about why they deserve this credit');
+        return;
+      }
+
+      // Disable button during submission
+      const submitBtn = document.querySelector('#addCreditModal .action-btn.success');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Giving Credit...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Give Credit';
+
+          if (result.sessionExpired) {
+            handleSessionExpired();
+            return;
+          }
+
           if (result.success) {
             alert(result.message);
             closeSubModal('addCreditModal');
@@ -1477,13 +2230,14 @@
           }
         })
         .withFailureHandler(function(error) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Give Credit';
           alert('Error: ' + error.message);
         })
         .addPositiveBehaviorCredit({
           employee_id: currentEmployeeId,
-          date: date,
-          points: points,
-          description: description
+          points_to_credit: points,
+          reason: reason
         });
     }
 
@@ -1619,17 +2373,18 @@
     function updateCharCounter(inputId, counterId) {
       const input = document.getElementById(inputId);
       const counter = document.getElementById(counterId);
+      if (!input || !counter) return;
       const count = input.value.length;
-      counter.textContent = count + ' / 240 minimum';
-      counter.className = 'char-counter' + (count < 240 ? ' error' : '');
+      counter.textContent = count + ' / 10 minimum';
+      counter.className = 'char-counter' + (count < 10 ? ' error' : '');
     }
 
     // Set up character counter listeners
     document.addEventListener('DOMContentLoaded', function() {
       const textareas = [
-        ['editDescription', 'editDescCounter'],
         ['editReason', 'editReasonCounter'],
         ['removePointsReason', 'removeReasonCounter'],
+        ['deleteReason', 'deleteReasonCounter'],
         ['creditDescription', 'creditDescCounter']
       ];
 
@@ -1640,6 +2395,14 @@
             updateCharCounter(inputId, counterId);
           });
         }
+      });
+
+      setOfflineBanner(!navigator.onLine);
+      window.addEventListener('online', function() {
+        setOfflineBanner(false);
+      });
+      window.addEventListener('offline', function() {
+        setOfflineBanner(true);
       });
     });
 

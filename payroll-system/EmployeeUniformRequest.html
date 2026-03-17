@@ -2629,6 +2629,26 @@
     let catalogItems = [];
     let cartItems = [];
     const MAX_ITEMS = 5;
+    const CACHE_TTL_MS = 5 * 60 * 1000;
+    
+    function getCached(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const payload = JSON.parse(raw);
+        if (!payload || !payload.ts) return null;
+        if (Date.now() - payload.ts > CACHE_TTL_MS) return null;
+        return payload.data;
+      } catch (e) {
+        return null;
+      }
+    }
+    
+    function setCached(key, data) {
+      try {
+        localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data: data }));
+      } catch (e) {}
+    }
 
     // Size definitions - defaults that will be overwritten by server config
     let SIZES = {
@@ -2666,6 +2686,24 @@
      * Updates SIZES object with configured values
      */
     function loadSizeConfiguration() {
+      const cached = getCached('uniform_size_config');
+      if (cached) {
+        const c = cached;
+        if (c.pants_male_waist && c.pants_male_waist.length > 0) {
+          SIZES.pants_male = c.pants_male_waist;
+        }
+        if (c.pants_female_waist && c.pants_female_waist.length > 0) {
+          SIZES.pants_female = c.pants_female_waist;
+        }
+        if (c.pants_male_inseam && c.pants_male_inseam.length > 0) {
+          SIZES.inseams_male = c.pants_male_inseam;
+        }
+        if (c.pants_female_inseam && c.pants_female_inseam.length > 0) {
+          SIZES.inseams_female = c.pants_female_inseam;
+        }
+        return;
+      }
+
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success && result.config) {
@@ -2683,6 +2721,7 @@
             if (c.pants_female_inseam && c.pants_female_inseam.length > 0) {
               SIZES.inseams_female = c.pants_female_inseam;
             }
+            setCached('uniform_size_config', c);
             console.log('Size configuration loaded from settings');
           }
         })
@@ -2721,6 +2760,29 @@
     function loadEmployees() {
       const select = document.getElementById('employeeSelect');
       select.innerHTML = '<option value="">Loading... / Cargando...</option>';
+
+      const cached = getCached('uniform_employees');
+      if (cached && cached.length > 0) {
+        select.innerHTML = '<option value="">Select employee / Selecciona empleado</option>';
+        cached.forEach(function(emp) {
+          const name = emp.fullName || emp.displayName || emp.employeeName || emp;
+          const matchKey = emp.matchKey || name.toLowerCase().replace(/\s+/g, ' ');
+          if (name) {
+            const option = document.createElement('option');
+            option.value = matchKey;
+            option.textContent = name;
+            option.dataset.name = name;
+            option.dataset.location = emp.location || '';
+            select.appendChild(option);
+          }
+        });
+        // Add "New Employee" option
+        const newOption = document.createElement('option');
+        newOption.value = '__new__';
+        newOption.textContent = '🆕 Not in list / No estoy en la lista';
+        select.appendChild(newOption);
+        return;
+      }
       
       google.script.run
         .withSuccessHandler(function(employees) {
@@ -2739,6 +2801,7 @@
                 select.appendChild(option);
               }
             });
+            setCached('uniform_employees', employees);
           }
           
           // Add "New Employee" option
@@ -2839,6 +2902,15 @@
       }, 300);
     }
     
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     /**
      * Render search results
      */
@@ -2847,6 +2919,12 @@
       const createNew = document.getElementById('createNewOption');
       const query = document.getElementById('employeeSearchInput').value;
       
+      if (!results || typeof results !== 'object') {
+        results = { exact: [], similar: [] };
+      }
+      if (!Array.isArray(results.exact)) results.exact = [];
+      if (!Array.isArray(results.similar)) results.similar = [];
+
       if (results.exact.length === 0 && results.similar.length === 0) {
         container.innerHTML = '<div class="search-result-empty"><span class="material-icons-round">person_off</span><p>No employees found / No se encontraron empleados</p></div>';
         container.style.display = 'block';
@@ -2859,10 +2937,12 @@
       if (results.exact.length > 0) {
         html += '<div class="result-section-header">Found / Encontrados</div>';
         results.exact.forEach(function(emp) {
+          const safeName = escapeHtml(emp.fullName);
+          const safeLocation = escapeHtml(emp.location || '');
           html += '<div class="search-result-item" onclick="selectSearchResult(\'' + 
             emp.matchKey.replace(/'/g, "\\'") + '\', \'' + 
             emp.fullName.replace(/'/g, "\\'") + '\')">' +
-            '<div><strong>' + emp.fullName + '</strong><span class="result-location">' + (emp.location || '') + '</span></div>' +
+            '<div><strong>' + safeName + '</strong><span class="result-location">' + safeLocation + '</span></div>' +
             '<span class="material-icons-round" style="color: #9CA3AF;">chevron_right</span></div>';
         });
       }
@@ -2870,10 +2950,11 @@
       if (results.similar.length > 0) {
         html += '<div class="result-section-header">Similar</div>';
         results.similar.forEach(function(emp) {
+          const safeName = escapeHtml(emp.fullName);
           html += '<div class="search-result-item" onclick="selectSearchResult(\'' + 
             emp.matchKey.replace(/'/g, "\\'") + '\', \'' + 
             emp.fullName.replace(/'/g, "\\'") + '\')">' +
-            '<div><strong>' + emp.fullName + '</strong><span class="similarity-badge">' + emp.similarity + '%</span></div>' +
+            '<div><strong>' + safeName + '</strong><span class="similarity-badge">' + emp.similarity + '%</span></div>' +
             '<span class="material-icons-round" style="color: #9CA3AF;">chevron_right</span></div>';
         });
       }
@@ -3132,6 +3213,19 @@
      */
     function loadLocations() {
       const select = document.getElementById('locationSelect');
+
+      const cached = getCached('uniform_locations');
+      if (cached && cached.length > 0) {
+        select.innerHTML = '<option value="">Select location / Selecciona ubicación</option>';
+        cached.forEach(function(loc) {
+          const locName = typeof loc === 'string' ? loc : (loc.name || loc.locationName || String(loc));
+          const option = document.createElement('option');
+          option.value = locName;
+          option.textContent = locName;
+          select.appendChild(option);
+        });
+        return;
+      }
       
       google.script.run
         .withSuccessHandler(function(locations) {
@@ -3146,6 +3240,7 @@
               option.textContent = locName;
               select.appendChild(option);
             });
+            setCached('uniform_locations', locations);
           }
         })
         .withFailureHandler(function(error) {
@@ -3164,10 +3259,20 @@
      * Load uniform catalog
      */
     function loadCatalog() {
+      const cached = getCached('uniform_catalog');
+      if (cached && cached.length > 0) {
+        catalogItems = cached;
+        populateCategories();
+        return;
+      }
+
       google.script.run
         .withSuccessHandler(function(items) {
           catalogItems = items || [];
           populateCategories();
+          if (catalogItems.length > 0) {
+            setCached('uniform_catalog', catalogItems);
+          }
         })
         .withFailureHandler(function(error) {
           console.error('Failed to load catalog:', error);
@@ -3257,6 +3362,9 @@
       }
       
       const itemLower = itemName.toLowerCase();
+      const selectedItem = catalogItems.find(function(item) {
+        return item.itemName === itemName;
+      });
       
       // Check if it's a one-size item (no size selection needed)
       const isOneSize = category === 'Bundles' || 
@@ -3266,15 +3374,22 @@
                         itemLower.includes('hat') ||
                         itemLower.includes('visor');
       
-      // Check if it's pants (need gender and inseam)
+      // Check if it's pants (may need gender + inseam unless item has custom sizes like maternity)
       const isPants = category === 'PANTS' || itemLower.includes('pant');
+      const hasCustomSizes = selectedItem && selectedItem.availableSizes && selectedItem.availableSizes.length > 0;
       
       if (isOneSize) {
         // No size selection needed - hide the size dropdown and set a default value
         sizeGroup.style.display = 'none';
         sizeSelect.innerHTML = '<option value="One Size" selected>One Size</option>';
         sizeSelect.disabled = false;
+      } else if (isPants && hasCustomSizes) {
+        // Pants with custom sizes (ex: maternity) - simple dropdown, no gender/inseam
+        sizeLabel.textContent = 'Size / Talla';
+        populateSizes(selectedItem.availableSizes);
+        sizeSelect.disabled = false;
       } else if (isPants) {
+        // Standard pants - show gender selector, then waist + inseam
         genderGroup.style.display = 'block';
         inseamGroup.style.display = 'block';
         sizeLabel.textContent = 'Waist Size / Talla de Cintura';
@@ -3293,40 +3408,40 @@
 
     /**
      * When gender changes for pants, update sizes AND inseams
-     * Checks for per-item overrides, falls back to global SIZES
+     * Checks for per-item gender-specific overrides, falls back to global SIZES
      */
     function onGenderChange() {
       const gender = document.getElementById('genderSelect').value;
       const sizeSelect = document.getElementById('sizeSelect');
+      const inseamSelect = document.getElementById('inseamSelect');
       const itemName = document.getElementById('itemSelect').value;
       
       sizeSelect.innerHTML = '<option value="">Select size / Selecciona talla</option>';
+      inseamSelect.innerHTML = '<option value="">Select inseam / Selecciona entrepierna</option>';
       
-      // Check if selected item has custom waist/inseam overrides
-      let itemWaistSizes = null;
-      let itemInseamSizes = null;
-      
+      // Look up the selected catalog item for per-item overrides
+      let selectedItem = null;
       if (itemName && catalogItems) {
-        const selectedItem = catalogItems.find(function(i) {
+        selectedItem = catalogItems.find(function(i) {
           return i.itemName === itemName;
         });
-        if (selectedItem) {
-          if (selectedItem.waistSizes && selectedItem.waistSizes.length > 0) {
-            itemWaistSizes = selectedItem.waistSizes;
-          }
-          if (selectedItem.inseamSizes && selectedItem.inseamSizes.length > 0) {
-            itemInseamSizes = selectedItem.inseamSizes;
-          }
-        }
       }
       
-      // Use per-item overrides or fall back to global SIZES
+      // Use gender-specific per-item overrides → fall back to global SIZES
       if (gender === 'male') {
-        populateSizes(itemWaistSizes || SIZES.pants_male);
-        populateInseams(itemInseamSizes || SIZES.inseams_male);
+        var waist = (selectedItem && selectedItem.maleWaistSizes && selectedItem.maleWaistSizes.length > 0)
+          ? selectedItem.maleWaistSizes : SIZES.pants_male;
+        var inseam = (selectedItem && selectedItem.maleInseamSizes && selectedItem.maleInseamSizes.length > 0)
+          ? selectedItem.maleInseamSizes : SIZES.inseams_male;
+        populateSizes(waist);
+        populateInseams(inseam);
       } else if (gender === 'female') {
-        populateSizes(itemWaistSizes || SIZES.pants_female);
-        populateInseams(itemInseamSizes || SIZES.inseams_female);
+        var waist = (selectedItem && selectedItem.femaleWaistSizes && selectedItem.femaleWaistSizes.length > 0)
+          ? selectedItem.femaleWaistSizes : SIZES.pants_female;
+        var inseam = (selectedItem && selectedItem.femaleInseamSizes && selectedItem.femaleInseamSizes.length > 0)
+          ? selectedItem.femaleInseamSizes : SIZES.inseams_female;
+        populateSizes(waist);
+        populateInseams(inseam);
       }
       
       sizeSelect.disabled = !gender;
@@ -3425,13 +3540,18 @@
       }
       
       const itemLower = item.toLowerCase();
-      const isPants = category === 'PANTS' || itemLower.includes('pant');
+      const categoryLower = (category || '').toLowerCase();
+      const isPants = categoryLower === 'pants' || itemLower.includes('pant');
       const isOneSize = category === 'Bundles' || 
                         itemLower.includes('bundle') ||
                         itemLower.includes('beanie') || 
                         itemLower.includes('headband') ||
                         itemLower.includes('hat') ||
                         itemLower.includes('visor');
+      const selectedItem = catalogItems.find(function(catalogItem) {
+        return catalogItem.itemName === item;
+      });
+      const hasCustomSizes = selectedItem && selectedItem.availableSizes && selectedItem.availableSizes.length > 0;
       
       let canAdd = item && cartItems.length < MAX_ITEMS;
       
@@ -3440,8 +3560,8 @@
         canAdd = canAdd && size;
       }
       
-      // For pants, also need gender and inseam
-      if (isPants) {
+      // For standard pants (no custom sizes), also need gender and inseam
+      if (isPants && !hasCustomSizes) {
         const gender = document.getElementById('genderSelect').value;
         const inseam = document.getElementById('inseamSelect').value;
         canAdd = canAdd && gender && inseam;
@@ -3469,11 +3589,18 @@
       const qty = parseInt(document.getElementById('qtySelect').value) || 1;
       const isReplacement = document.getElementById('replacementCheck').checked;
       
-      const isPants = category === 'PANTS' || item.toLowerCase().includes('pant');
+      const itemLower = item.toLowerCase();
+      const categoryLower = (category || '').toLowerCase();
+      const isPants = categoryLower === 'pants' || itemLower.includes('pant');
+      const selectedItem = catalogItems.find(function(catalogItem) {
+        return catalogItem.itemName === item;
+      });
+      const hasCustomSizes = selectedItem && selectedItem.availableSizes && selectedItem.availableSizes.length > 0;
       let gender = '';
       let inseam = '';
       
-      if (isPants) {
+      // For standard pants (no custom sizes), capture gender and inseam
+      if (isPants && !hasCustomSizes) {
         gender = document.getElementById('genderSelect').value;
         inseam = document.getElementById('inseamSelect').value;
       }
@@ -4332,9 +4459,8 @@
       
       google.script.run
         .withSuccessHandler(function(orders) {
-          console.log('Received orders:', orders);
-          console.log('Orders count:', orders ? orders.length : 0);
-          pendingOrders = orders || [];
+          console.log('Received orders:', orders ? orders.length : 0);
+          pendingOrders = Array.isArray(orders) ? orders : [];
           renderPendingOrders();
         })
         .withFailureHandler(function(error) {

@@ -242,6 +242,7 @@
       <button class="tab-btn active" data-view="newQuote" onclick="switchView('newQuote')">＋ New Quote</button>
       <button class="tab-btn" data-view="history" onclick="switchView('history')">History</button>
       <button class="tab-btn" data-view="settings" onclick="switchView('settings')">Settings</button>
+      <button class="tab-btn" data-view="pipeline" onclick="showPipelineView()">Pipeline</button>
     </nav>
   </header>
 
@@ -264,6 +265,7 @@
           <div class="form-group"><label class="form-label">Customer Email</label><input type="email" class="form-input" id="customerEmail" placeholder="e.g., jane@dallasisd.org"><span class="field-hint">Optional — used to email the quote directly.</span></div>
           <div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="quoteDate"></div>
           <div class="form-group"><label class="form-label">Time</label><input type="time" class="form-input" id="quoteTime"></div>
+          <div class="form-group"><label class="form-label">PO Number</label><input type="text" class="form-input" id="poNumber" placeholder="e.g., PO-2026-001"><span class="field-hint">Optional — include on quote if provided.</span></div>
           <div class="form-group full-width"><label class="form-label" id="addressLabel">Pickup Location</label><input type="text" class="form-input" id="orderAddress" readonly><span class="error-msg" id="err-orderAddress">Delivery address is required.</span></div>
         </div>
       </div>
@@ -291,6 +293,7 @@
         </div>
       </div>
       <div class="action-bar">
+        <button class="btn btn-danger btn-lg" onclick="clearFormConfirm()">🗑 Clear Form</button>
         <button class="btn btn-secondary btn-lg" onclick="saveQuoteOnly()">💾 Save Quote</button>
         <button class="btn btn-blue btn-lg" onclick="saveAndEmail()">✉️ Save &amp; Email</button>
         <button class="btn btn-primary btn-lg" onclick="previewAndPrint()">📄 Preview &amp; Generate PDF</button>
@@ -338,6 +341,61 @@
         <div class="field-hint" style="margin-left:172px;">Emails are sent from the Google account that deployed this app.</div>
       </div>
       <div class="card">
+        <div class="card-title"><span class="icon amber">🔔</span> Quote Follow-Up Reminders</div>
+        <div class="settings-field-row">
+          <label>Enable Reminders</label>
+          <div class="tax-exempt-toggle" id="reminderEnabledToggle" onclick="toggleReminderEnabled()">
+            <div class="toggle-indicator">✓</div>
+            <span class="tax-exempt-label" id="reminderEnabledLabel">Disabled</span>
+          </div>
+        </div>
+        <div class="settings-field-row">
+          <label>Send After</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="number" class="form-input" id="settingsReminderDays" min="1" max="30" style="max-width:80px;" onchange="saveSettingField('Reminder After Days',this.value)">
+            <span style="font-size:14px;color:var(--gray-500);">days after quote is sent</span>
+          </div>
+        </div>
+        <div class="settings-field-row">
+          <label>Remind Customer</label>
+          <div class="tax-exempt-toggle" id="reminderCustomerToggle" onclick="toggleReminderCustomer()">
+            <div class="toggle-indicator">✓</div>
+            <span class="tax-exempt-label" id="reminderCustomerLabel">No</span>
+          </div>
+        </div>
+        <div class="settings-field-row">
+          <label>Remind Internal Staff</label>
+          <div class="tax-exempt-toggle" id="reminderInternalToggle" onclick="toggleReminderInternal()">
+            <div class="toggle-indicator">✓</div>
+            <span class="tax-exempt-label" id="reminderInternalLabel">No</span>
+          </div>
+        </div>
+        <div class="settings-field-row">
+          <label>Internal Email</label>
+          <input class="form-input" id="settingsReminderInternalEmail" placeholder="staff@example.com" onchange="saveSettingField('Reminder Internal Email',this.value)">
+        </div>
+        <div class="settings-field-row" style="align-items:flex-start;">
+          <label>Reminder Subject</label>
+          <input class="form-input" id="settingsReminderSubject" onchange="saveSettingField('Reminder Subject',this.value)">
+        </div>
+        <div class="settings-field-row" style="align-items:flex-start;">
+          <label>Reminder Body</label>
+          <textarea class="form-textarea" id="settingsReminderBody" rows="6" onchange="saveSettingField('Reminder Body',this.value)"></textarea>
+        </div>
+        <div class="template-vars" style="margin-left:172px;">Placeholders: <code>{{customer}}</code> <code>{{contact}}</code> <code>{{location}}</code> <code>{{quoteId}}</code> <code>{{total}}</code> <code>{{date}}</code> <code>{{daysSince}}</code></div>
+        <hr style="border:none;border-top:1px solid var(--gray-100);margin:20px 0;">
+        <div class="settings-field-row" style="align-items:center;">
+          <label>Daily Auto-Send</label>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <span id="reminderTriggerStatus" style="font-size:13px;color:var(--gray-400);">Checking…</span>
+            <button class="btn btn-secondary btn-sm" onclick="installReminderTrigger()">⏰ Enable (9am daily)</button>
+            <button class="btn btn-danger btn-sm" onclick="uninstallReminderTrigger()">✕ Remove</button>
+          </div>
+        </div>
+        <div class="field-hint" style="margin-left:172px;">Runs automatically each day and sends reminders to quotes that haven't responded. One reminder per quote.</div>
+      </div>
+
+      <div class="card">
         <div class="card-title"><span class="icon green">🍔</span> Menu Catalog</div>
         <div class="table-scroll-wrapper">
           <table class="menu-editor-table" id="menuEditorTable">
@@ -348,6 +406,9 @@
         <button class="btn btn-secondary btn-sm" style="margin-top:12px;" onclick="addMenuItemUI()">＋ Add Item</button>
       </div>
     </section>
+
+    <?!= include('PipelineView'); ?>
+
   </main>
 </div>
 
@@ -355,6 +416,22 @@
 <div class="spinner-overlay" id="spinner"><div class="spinner"></div></div>
 <div class="toast" id="toast"></div>
 <div class="confirm-overlay" id="confirmOverlay"><div class="confirm-box"><h3 id="confirmTitle">Are you sure?</h3><p id="confirmMsg"></p><div class="confirm-actions"><button class="btn btn-secondary" onclick="closeConfirm(false)">Cancel</button><button class="btn btn-primary" onclick="closeConfirm(true)">Confirm</button></div></div></div>
+<div class="modal-overlay" id="emailPreviewModal">
+  <div class="modal-box" style="max-width:620px;">
+    <div class="modal-header"><h2>✉️ Review Email</h2><button class="modal-close" onclick="closeEmailPreview()">✕</button></div>
+    <div style="padding:0 20px 20px;">
+      <div class="form-group" style="margin-bottom:12px;"><label class="form-label">To</label><input type="email" class="form-input" id="previewEmailTo" placeholder="customer@example.com"></div>
+      <div class="form-group" style="margin-bottom:12px;"><label class="form-label">Subject</label><input type="text" class="form-input" id="previewEmailSubject"></div>
+      <div class="form-group" style="margin-bottom:16px;"><label class="form-label">Body</label><textarea class="form-textarea" id="previewEmailBody" rows="14" style="font-family:inherit;font-size:14px;"></textarea></div>
+      <div style="font-size:12px;color:var(--gray-500);margin-bottom:16px;">Edit the body above before sending. The quote PDF will be attached automatically.</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="closeEmailPreview()">Cancel</button>
+        <button class="btn btn-blue" onclick="sendEmailPreview()">✉️ Send Email</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="quoteDetailModal"><div class="modal-box"><div class="modal-header"><h2 id="modalQuoteId">Quote Details</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div id="modalBody"></div><div class="modal-actions" id="modalActions"></div><div class="email-prompt" id="modalEmailPrompt"><div style="font-weight:600;font-size:14px;margin-bottom:10px;color:var(--gray-700);">✉️ Send Quote by Email</div><div class="email-prompt-row"><div class="form-group"><label class="form-label">Recipient Email</label><input type="email" class="form-input" id="modalEmailInput" placeholder="customer@example.com"></div><button class="btn btn-blue" onclick="sendEmailFromModal()">Send</button></div></div></div></div>
 
 <script>
@@ -404,15 +481,25 @@ function applySettings() {
   var l = appSettings['Logo (Base64)'] || '';
   document.getElementById('logoPreviewContainer').innerHTML = l ? '<img src="'+l+'" class="logo-preview" alt="Logo">' : '<p style="font-size:13px;color:var(--gray-400);">No logo uploaded.</p>';
   buildMenuEditor();
+  applyReminderSettings();
 }
 
 // ── View Switching ──
 function switchView(v) {
   document.querySelectorAll('.view').forEach(function(el) { el.classList.remove('active'); });
   document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('pipelineView').style.display = 'none';
   document.getElementById('view-'+v).classList.add('active');
   document.querySelector('.tab-btn[data-view="'+v+'"]').classList.add('active');
   if (v === 'history') renderHistory();
+}
+
+function showPipelineView() {
+  document.querySelectorAll('.view').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('pipelineView').style.display = 'block';
+  document.querySelector('.tab-btn[data-view="pipeline"]').classList.add('active');
+  loadPipeline();
 }
 
 // ── Order Type ──
@@ -471,8 +558,10 @@ function buildPickerHtml(filterText) {
   var hasResults = false;
 
   function matchesFilter(item) {
+    if (currentOrderType === 'Delivery' && item.deliveryAvailable === false) return false;
+    if (currentOrderType === 'Pickup'   && item.pickupAvailable   === false) return false;
     if (!ft) return true;
-    return item.name.toLowerCase().indexOf(ft) >= 0 || item.category.toLowerCase().indexOf(ft) >= 0;
+    return item.name.toLowerCase().indexOf(ft) >= 0 || (item.category || '').toLowerCase().indexOf(ft) >= 0;
   }
 
   // Categorized items
@@ -676,7 +765,8 @@ function collectFormData() {
     orderType:currentOrderType, deliveryAddress:document.getElementById('orderAddress').value.trim(),
     date:document.getElementById('quoteDate').value, time:document.getElementById('quoteTime').value,
     lineItems:li, subtotal:sub, taxRate:tr, taxAmount:ta, total:sub+ta,
-    taxExempt:isTaxExempt, locationName:appSettings['Store Name (Active)']||''
+    taxExempt:isTaxExempt, locationName:appSettings['Store Name (Active)']||'',
+    poNumber:document.getElementById('poNumber').value.trim()
   };
 }
 
@@ -688,31 +778,73 @@ function saveQuoteOnly() { if (!validateForm()) return; showSpinner();
 function saveAndEmail() { if (!validateForm()) return; var d = collectFormData();
   if (!d.customerEmail) { showToast('Enter a customer email to send the quote.','error'); document.getElementById('customerEmail').focus(); return; }
   showSpinner();
-  google.script.run.withSuccessHandler(function(id) { d.quoteId=id;
-    google.script.run.withSuccessHandler(function() { hideSpinner(); showToast('Quote '+id+' emailed to '+d.customerEmail+'!','success'); resetForm(); google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes();
-    }).withFailureHandler(function(e) { hideSpinner(); showToast('Saved but email failed: '+e.message,'error'); resetForm(); google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes(); }).sendQuoteEmail(d, d.customerEmail);
+  google.script.run.withSuccessHandler(function(id) {
+    hideSpinner(); d.quoteId=id;
+    google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes();
+    openEmailPreview(d, function() { resetForm(); google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes(); });
   }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).saveQuote(d);
 }
 function previewAndPrint() { if (!validateForm()) return; var d = collectFormData(); showSpinner();
   google.script.run.withSuccessHandler(function(id) { d.quoteId=id;
-    google.script.run.withSuccessHandler(function(pd) { hideSpinner(); pd.quoteId=id; openPrintWindow(pd); showToast('Quote '+id+' saved!','success'); resetForm(); google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes();
+    google.script.run.withSuccessHandler(function(pd) { hideSpinner(); pd.quoteId=id; openPrintWindow(pd); showToast('Quote '+id+' saved!','success'); google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes();
     }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).getPrintData(d);
   }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).saveQuote(d);
 }
 function generatePDFFromQuote(q) { showSpinner();
   var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){}
-  var d={customerName:q.customerName,contactName:q.contactName,orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.createdDate?new Date(q.createdDate).toLocaleDateString():'',time:'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId};
-  google.script.run.withSuccessHandler(function(pd) { hideSpinner(); pd.quoteId=q.quoteId; openPrintWindow(pd); }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).getPrintData(d);
+  var d={customerName:q.customerName,contactName:q.contactName,orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId,poNumber:q.poNumber||''};
+  google.script.run.withSuccessHandler(function(pd) { hideSpinner(); pd.quoteId=q.quoteId; pd.poNumber=q.poNumber||''; openPrintWindow(pd); }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).getPrintData(d);
 }
+// ── Email Preview Modal ──
+var pendingEmailQuoteData = null;
+var pendingEmailCallback = null;
+
+function renderEmailTemplate(tmpl, quoteData) {
+  var storeName = quoteData.locationName || appSettings['Store Name (Active)'] || '';
+  var phone = '';
+  if (storeName === (appSettings['Location 1 Name']||'')) phone = appSettings['Location 1 Phone']||'';
+  else if (storeName === (appSettings['Location 2 Name']||'')) phone = appSettings['Location 2 Phone']||'';
+  else phone = appSettings['Location 1 Phone']||'';
+  var reps = {
+    '{{customer}}': quoteData.customerName||'', '{{contact}}': appSettings['Quote Contact Name']||'',
+    '{{location}}': storeName, '{{phone}}': phone, '{{quoteId}}': quoteData.quoteId||'',
+    '{{total}}': '$'+(parseFloat(quoteData.total)||0).toFixed(2), '{{date}}': quoteData.date||''
+  };
+  for (var k in reps) tmpl = tmpl.split(k).join(reps[k]);
+  return tmpl;
+}
+function openEmailPreview(quoteData, afterSendCallback) {
+  pendingEmailQuoteData = quoteData;
+  pendingEmailCallback = afterSendCallback || null;
+  document.getElementById('previewEmailTo').value = quoteData.customerEmail||'';
+  document.getElementById('previewEmailSubject').value = renderEmailTemplate(appSettings['Email Subject']||'Your Catering Quote', quoteData);
+  document.getElementById('previewEmailBody').value = renderEmailTemplate(appSettings['Email Body']||'Hi {{customer}},\n\nPlease find your catering quote attached.\n\nThank you!\n{{contact}}', quoteData);
+  document.getElementById('emailPreviewModal').classList.add('show');
+}
+function closeEmailPreview() { document.getElementById('emailPreviewModal').classList.remove('show'); pendingEmailQuoteData=null; pendingEmailCallback=null; }
+function sendEmailPreview() {
+  var email = document.getElementById('previewEmailTo').value.trim();
+  if (!email) { showToast('Enter a recipient email.','error'); return; }
+  var subj = document.getElementById('previewEmailSubject').value.trim();
+  var body = document.getElementById('previewEmailBody').value;
+  var q = pendingEmailQuoteData; if (!q) return;
+  var cb = pendingEmailCallback;
+  showSpinner(); closeEmailPreview();
+  google.script.run
+    .withSuccessHandler(function() { hideSpinner(); showToast('Email sent to '+email+'!','success'); if (cb) cb(); })
+    .withFailureHandler(function(e) { hideSpinner(); showToast('Email failed: '+e.message,'error'); })
+    .sendQuoteEmailDirect(q, email, subj, body);
+}
+
 function showModalEmailPrompt(q) { currentModalQuote=q; document.getElementById('modalEmailInput').value=q.customerEmail||''; document.getElementById('modalEmailPrompt').classList.add('show'); }
 function sendEmailFromModal() {
   var email = document.getElementById('modalEmailInput').value.trim();
   if (!email) { showToast('Enter an email address.','error'); return; }
   var q = currentModalQuote; if (!q) return;
   var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){}
-  var d={customerName:q.customerName,contactName:q.contactName,customerEmail:email,orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.createdDate?new Date(q.createdDate).toLocaleDateString():'',time:'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId};
-  showSpinner(); closeModal();
-  google.script.run.withSuccessHandler(function() { hideSpinner(); showToast('Email sent to '+email+'!','success'); }).withFailureHandler(function(e) { hideSpinner(); showToast('Email failed: '+e.message,'error'); }).sendQuoteEmail(d,email);
+  var d={customerName:q.customerName,contactName:q.contactName,customerEmail:email,orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId};
+  closeModal();
+  openEmailPreview(d, function() { google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes(); });
 }
 
 // ── Print Window ──
@@ -725,17 +857,18 @@ function openPrintWindow(data) {
   var lo=data.logo?'<img src="'+data.logo+'" style="max-width:140px;max-height:80px;margin-bottom:8px;" alt="Logo">':'<div style="font-size:24px;font-weight:800;color:#E51636;margin-bottom:8px;">Chick-fil-A</div>';
   var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Quote '+escHtml(data.quoteId||'')+'</title><style>@page{size:letter;margin:0.6in;}body{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1F2937;margin:0;padding:40px;}@media print{body{padding:0;}.no-print{display:none!important;}}.print-btn{background:#E51636;color:white;border:none;padding:12px 32px;font-size:15px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;}.print-btn:hover{background:#C41230;}</style></head><body>'+
     '<div class="no-print" style="text-align:center;margin-bottom:24px;padding:16px;background:#F9FAFB;border-radius:10px;"><button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button><p style="font-size:13px;color:#6B7280;margin-top:8px;">Use "Save as PDF" in the print dialog.</p></div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+lo+'<div style="font-size:16px;font-weight:700;">'+escHtml(data.storeName||'')+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+escHtml(data.storeAddress||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.storePhone||'')+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:monospace;">'+escHtml(data.quoteId||'')+'</div><div style="font-size:13px;color:#6B7280;margin-top:8px;">Date: '+escHtml(data.date||'')+'</div>'+(data.time?'<div style="font-size:13px;color:#6B7280;">Time: '+escHtml(data.time)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+escHtml(data.customerName||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.orderType||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(ad)+'</div><div style="font-size:13px;font-weight:600;margin-top:4px;">'+escHtml(data.contactPerson||'')+'</div></div></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+lo+'<div style="font-size:16px;font-weight:700;">'+escHtml(data.storeName||'')+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+escHtml(data.storeAddress||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.storePhone||'')+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:monospace;">'+escHtml(data.quoteId||'')+'</div>'+(data.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+escHtml(data.poNumber)+'</div>':'')+'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Date: '+escHtml(data.date||'')+'</div>'+(data.time?'<div style="font-size:13px;color:#6B7280;">Time: '+escHtml(data.time)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+escHtml(data.customerName||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.orderType||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(ad)+'</div><div style="font-size:13px;font-weight:600;margin-top:4px;">'+escHtml(data.contactPerson||'')+'</div></div></div>'+
     '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><thead><tr style="background:#F3F4F6;"><th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:10%;">QTY</th><th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:50%;">DESCRIPTION</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:18%;">PRICE/ITEM</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:22%;">AMOUNT</th></tr></thead><tbody>'+liH+'</tbody></table>'+
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;"><div style="font-size:13px;color:#6B7280;max-width:320px;">If you have any questions concerning this Quote, contact:<br><strong style="color:#1F2937;">'+escHtml(data.contactName||'')+' at '+escHtml(data.storePhone||'')+'</strong></div><table style="width:280px;background:#F9FAFB;border-radius:8px;overflow:hidden;"><tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SUBTOTAL</td><td style="padding:8px 16px;text-align:right;font-family:monospace;font-size:14px;">$'+(data.subtotal||0).toFixed(2)+'</td></tr>'+tl+'<tr style="background:#E5E7EB;"><td style="padding:10px 16px;font-size:15px;font-weight:700;">TOTAL</td><td style="padding:10px 16px;text-align:right;font-family:monospace;font-size:16px;font-weight:700;">$'+(data.total||0).toFixed(2)+'</td></tr></table></div></body></html>';
   win.document.write(h); win.document.close();
 }
 
 // ── Reset ──
+function clearFormConfirm() { showConfirm('Clear the form?','All unsaved changes will be lost.').then(function(ok) { if (ok) resetForm(); }); }
 function resetForm() {
   document.getElementById('customerName').value=''; document.getElementById('contactPerson').value='';
   document.getElementById('customerEmail').value=''; document.getElementById('quoteDate').value=new Date().toISOString().split('T')[0];
-  document.getElementById('quoteTime').value=''; currentOrderType='Pickup'; isTaxExempt=false;
+  document.getElementById('quoteTime').value=''; document.getElementById('poNumber').value=''; currentOrderType='Pickup'; isTaxExempt=false;
   document.getElementById('taxExemptToggle').classList.remove('active');
   document.querySelectorAll('.order-type-btn').forEach(function(b){b.classList.toggle('active',b.dataset.type==='Pickup');});
   updateAddressField(); document.getElementById('taxRateInput').value=appSettings['Default Tax Rate (%)']||8.25;
@@ -752,8 +885,10 @@ function displayHistory(quotes) {
   var c = document.getElementById('historyList');
   if (!quotes||!quotes.length) { c.innerHTML='<div class="empty-state"><div class="empty-icon">📭</div><p>No quotes found.</p></div>'; return; }
   var h=''; quotes.forEach(function(q,i) {
-    var ds=q.createdDate?new Date(q.createdDate).toLocaleDateString():'';
-    h+='<div class="quote-list-item" onclick="openQuoteDetail('+i+')"><div class="quote-list-meta"><span class="quote-list-id">'+escHtml(q.quoteId)+'</span><span class="quote-list-customer">'+escHtml(q.customerName)+'</span><span class="quote-list-details">'+ds+' · '+escHtml(q.contactName||'')+(q.customerEmail?' · '+escHtml(q.customerEmail):'')+'</span></div><div class="quote-list-right"><span class="quote-list-type '+(q.orderType||'').toLowerCase()+'">'+escHtml(q.orderType||'')+'</span><span class="quote-list-total">$'+(parseFloat(q.total)||0).toFixed(2)+'</span></div></div>';
+    var created=q.createdDate?new Date(q.createdDate).toLocaleDateString():'';
+    var eds=q.eventDate?q.eventDate:'';
+    var dateStr=eds?('For: '+eds+' · Created: '+created):created;
+    h+='<div class="quote-list-item" onclick="openQuoteDetail('+i+')"><div class="quote-list-meta"><span class="quote-list-id">'+escHtml(q.quoteId)+'</span><span class="quote-list-customer">'+escHtml(q.customerName)+'</span><span class="quote-list-details">'+escHtml(dateStr)+' · '+escHtml(q.contactName||'')+(q.customerEmail?' · '+escHtml(q.customerEmail):'')+'</span></div><div class="quote-list-right"><span class="quote-list-type '+(q.orderType||'').toLowerCase()+'">'+escHtml(q.orderType||'')+'</span><span class="quote-list-total">$'+(parseFloat(q.total)||0).toFixed(2)+'</span></div></div>';
   }); c.innerHTML=h;
 }
 function filterHistory() {
@@ -767,9 +902,11 @@ function openQuoteDetail(idx) {
   var q=allQuotes[idx]; if (!q) return; currentModalQuote=q;
   document.getElementById('modalQuoteId').textContent=q.quoteId;
   var ds=q.createdDate?new Date(q.createdDate).toLocaleDateString():'';
+  var eds=q.eventDate?q.eventDate:'';
   var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){}
   var te=q.taxExempt==='TRUE'||q.taxExempt===true;
-  var h='<div class="detail-grid"><div class="detail-field"><label>Customer</label><p>'+escHtml(q.customerName)+'</p></div><div class="detail-field"><label>Contact</label><p>'+escHtml(q.contactName)+'</p></div><div class="detail-field"><label>Date</label><p>'+ds+'</p></div><div class="detail-field"><label>Order Type</label><p>'+escHtml(q.orderType)+'</p></div><div class="detail-field"><label>Location</label><p>'+escHtml(q.locationName||'')+'</p></div>'+(q.customerEmail?'<div class="detail-field"><label>Email</label><p>'+escHtml(q.customerEmail)+'</p></div>':'')+(q.orderType==='Delivery'?'<div class="detail-field"><label>Delivery Address</label><p>'+escHtml(q.deliveryAddress)+'</p></div>':'')+'</div>';
+  var poHtml='<div class="detail-field" style="grid-column:1/-1;"><label>PO Number</label><div style="display:flex;gap:8px;align-items:center;margin-top:4px;"><input type="text" id="modalPoInput" class="form-input" style="max-width:240px;" value="'+escAttr(q.poNumber||'')+'" placeholder="None"><button class="btn btn-secondary btn-sm" onclick="saveModalPO('+q.sheetRow+')">Save PO</button></div></div>';
+  var h='<div class="detail-grid"><div class="detail-field"><label>Customer</label><p>'+escHtml(q.customerName)+'</p></div><div class="detail-field"><label>Contact</label><p>'+escHtml(q.contactName)+'</p></div><div class="detail-field"><label>Event Date</label><p>'+(eds||'—')+'</p></div><div class="detail-field"><label>Quote Created</label><p>'+ds+'</p></div><div class="detail-field"><label>Order Type</label><p>'+escHtml(q.orderType)+'</p></div><div class="detail-field"><label>Location</label><p>'+escHtml(q.locationName||'')+'</p></div>'+(q.customerEmail?'<div class="detail-field"><label>Email</label><p>'+escHtml(q.customerEmail)+'</p></div>':'')+(q.orderType==='Delivery'?'<div class="detail-field"><label>Delivery Address</label><p>'+escHtml(q.deliveryAddress)+'</p></div>':'')+poHtml+'</div>';
   if (li.length) { h+='<table class="detail-items-table"><thead><tr><th>Qty</th><th>Description</th><th>Price</th><th>Amount</th></tr></thead><tbody>'; li.forEach(function(i){h+='<tr><td>'+i.quantity+'</td><td>'+escHtml(i.description)+'</td><td style="font-family:var(--mono);">$'+(i.price||0).toFixed(2)+'</td><td style="font-family:var(--mono);">$'+(i.amount||0).toFixed(2)+'</td></tr>';}); h+='</tbody></table>'; }
   h+='<div style="display:flex;justify-content:flex-end;margin-top:12px;"><div class="totals-table"><div class="totals-row subtotal"><span class="totals-label">Subtotal</span><span class="totals-amount">$'+(parseFloat(q.subtotal)||0).toFixed(2)+'</span></div><div class="totals-row tax"><span class="totals-label">'+(te?'Tax Exempt':'Tax ('+q.taxRateUsed+'%)')+'</span><span class="totals-amount">$'+(parseFloat(q.taxAmount)||0).toFixed(2)+'</span></div><div class="totals-row total"><span class="totals-label">Total</span><span class="totals-amount">$'+(parseFloat(q.total)||0).toFixed(2)+'</span></div></div></div>';
   document.getElementById('modalBody').innerHTML=h;
@@ -778,6 +915,15 @@ function openQuoteDetail(idx) {
   document.getElementById('quoteDetailModal').classList.add('show');
 }
 function closeModal() { document.getElementById('quoteDetailModal').classList.remove('show'); document.getElementById('modalEmailPrompt').classList.remove('show'); currentModalQuote=null; }
+function saveModalPO(sheetRow) {
+  var po = document.getElementById('modalPoInput').value.trim();
+  showSpinner();
+  google.script.run.withSuccessHandler(function() {
+    hideSpinner(); showToast('PO number saved!','success');
+    if (currentModalQuote) currentModalQuote.poNumber = po;
+    google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes();
+  }).withFailureHandler(function(e){hideSpinner();showToast('Error: '+e.message,'error');}).updateQuotePO(sheetRow, po);
+}
 function deleteQuoteAction(sr) { showConfirm('Delete this quote?','This cannot be undone.').then(function(ok) { if(!ok) return; closeModal(); showSpinner();
   google.script.run.withSuccessHandler(function() { hideSpinner(); showToast('Deleted.','info'); renderHistory(); }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).deleteQuote(sr); }); }
 
@@ -786,7 +932,8 @@ function editAndReuse(idx) {
   document.getElementById('customerName').value=q.customerName||'';
   document.getElementById('contactPerson').value=q.contactName||'';
   document.getElementById('customerEmail').value=q.customerEmail||'';
-  if (q.createdDate) document.getElementById('quoteDate').value=new Date(q.createdDate).toISOString().split('T')[0];
+  document.getElementById('poNumber').value=q.poNumber||'';
+  document.getElementById('quoteDate').value=q.eventDate||new Date().toISOString().split('T')[0];
   currentOrderType=q.orderType||'Pickup';
   document.querySelectorAll('.order-type-btn').forEach(function(b){b.classList.toggle('active',b.dataset.type===currentOrderType);});
   updateAddressField();
@@ -810,6 +957,62 @@ function editAndReuse(idx) {
   var cur=body.querySelectorAll('.line-item-row').length;
   for (var i=cur;i<8;i++) addLineItemRow();
   recalcTotals();
+}
+
+// ── Reminder Settings ──
+var reminderEnabled = false, reminderToCustomer = false, reminderToInternal = false;
+
+function applyReminderSettings() {
+  reminderEnabled    = appSettings['Reminder Enabled']          === 'TRUE';
+  reminderToCustomer = appSettings['Reminder Send To Customer'] === 'TRUE';
+  reminderToInternal = appSettings['Reminder Send To Internal'] === 'TRUE';
+  setReminderToggle('reminderEnabledToggle',  'reminderEnabledLabel',  reminderEnabled,    'Enabled',  'Disabled');
+  setReminderToggle('reminderCustomerToggle', 'reminderCustomerLabel', reminderToCustomer, 'Yes', 'No');
+  setReminderToggle('reminderInternalToggle', 'reminderInternalLabel', reminderToInternal, 'Yes', 'No');
+  document.getElementById('settingsReminderDays').value          = appSettings['Reminder After Days']        || 3;
+  document.getElementById('settingsReminderInternalEmail').value = appSettings['Reminder Internal Email']    || '';
+  document.getElementById('settingsReminderSubject').value       = appSettings['Reminder Subject']           || 'Following up on your Catering Quote \u2014 {{quoteId}}';
+  document.getElementById('settingsReminderBody').value          = appSettings['Reminder Body']              || 'Hi {{customer}},\n\nWe wanted to follow up on the catering quote we sent you {{daysSince}} days ago (Quote {{quoteId}}, total: {{total}}).\n\nPlease let us know if you have any questions or would like to move forward!\n\n{{contact}}\nChick-fil-A {{location}}';
+  google.script.run.withSuccessHandler(function(active) {
+    var el = document.getElementById('reminderTriggerStatus');
+    el.textContent = active ? '\u2705 Active \u2014 runs daily at 9am' : '\u26AA Not installed';
+    el.style.color  = active ? 'var(--success)' : 'var(--gray-400)';
+  }).getReminderTriggerStatus();
+}
+function setReminderToggle(toggleId, labelId, state, onLabel, offLabel) {
+  document.getElementById(toggleId).classList.toggle('active', state);
+  document.getElementById(labelId).textContent = state ? onLabel : offLabel;
+}
+function toggleReminderEnabled() {
+  reminderEnabled = !reminderEnabled;
+  setReminderToggle('reminderEnabledToggle', 'reminderEnabledLabel', reminderEnabled, 'Enabled', 'Disabled');
+  saveSettingField('Reminder Enabled', reminderEnabled ? 'TRUE' : 'FALSE');
+}
+function toggleReminderCustomer() {
+  reminderToCustomer = !reminderToCustomer;
+  setReminderToggle('reminderCustomerToggle', 'reminderCustomerLabel', reminderToCustomer, 'Yes', 'No');
+  saveSettingField('Reminder Send To Customer', reminderToCustomer ? 'TRUE' : 'FALSE');
+}
+function toggleReminderInternal() {
+  reminderToInternal = !reminderToInternal;
+  setReminderToggle('reminderInternalToggle', 'reminderInternalLabel', reminderToInternal, 'Yes', 'No');
+  saveSettingField('Reminder Send To Internal', reminderToInternal ? 'TRUE' : 'FALSE');
+}
+function installReminderTrigger() {
+  showSpinner();
+  google.script.run.withSuccessHandler(function(msg) {
+    hideSpinner(); showToast(msg, 'success');
+    var el = document.getElementById('reminderTriggerStatus');
+    el.textContent = '\u2705 Active \u2014 runs daily at 9am'; el.style.color = 'var(--success)';
+  }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message, 'error'); }).setupReminderTrigger();
+}
+function uninstallReminderTrigger() {
+  showSpinner();
+  google.script.run.withSuccessHandler(function(msg) {
+    hideSpinner(); showToast(msg, 'info');
+    var el = document.getElementById('reminderTriggerStatus');
+    el.textContent = '\u26AA Not installed'; el.style.color = 'var(--gray-400)';
+  }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message, 'error'); }).removeReminderTrigger();
 }
 
 // ── Settings ──

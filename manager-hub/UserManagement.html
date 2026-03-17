@@ -3,8 +3,8 @@
 <head>
   <base target="_top">
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CFA Accountability - User Management</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>User Management - CFA Accountability</title>
   <style>
     * {
       box-sizing: border-box;
@@ -15,185 +15,48 @@
       margin: 0;
       padding: 20px;
       background-color: #f5f5f5;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
     }
 
     /* Header */
-    .header-bar {
+    .page-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 15px 20px;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
+      margin-bottom: 24px;
       flex-wrap: wrap;
-      gap: 15px;
+      gap: 16px;
     }
 
-    .header-title h1 {
+    .page-title {
       margin: 0;
-      color: #E51636;
       font-size: 24px;
-    }
-
-    .header-title h2 {
-      margin: 5px 0 0 0;
-      font-weight: normal;
-      color: #666;
-      font-size: 14px;
-    }
-
-    .header-buttons {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .nav-btn {
-      padding: 8px 16px;
-      background-color: #E51636;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      text-decoration: none;
-    }
-
-    .nav-btn:hover {
-      background-color: #c41230;
-    }
-
-    .nav-btn.secondary {
-      background-color: #6c757d;
-    }
-
-    .nav-btn.secondary:hover {
-      background-color: #545b62;
-    }
-
-    /* Tabs */
-    .tabs-container {
-      display: flex;
-      gap: 5px;
-      margin-bottom: 20px;
-      border-bottom: 2px solid #ddd;
-      padding-bottom: 0;
-    }
-
-    .tab-btn {
-      padding: 12px 24px;
-      background: none;
-      border: none;
-      border-bottom: 3px solid transparent;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
-      color: #666;
-      transition: all 0.2s;
-      margin-bottom: -2px;
-    }
-
-    .tab-btn:hover {
-      color: #E51636;
-    }
-
-    .tab-btn.active {
-      color: #E51636;
-      border-bottom-color: #E51636;
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    /* Section Card */
-    .section-card {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-      gap: 15px;
-    }
-
-    .section-title {
-      margin: 0;
-      font-size: 18px;
       color: #333;
     }
 
-    /* Form Styles */
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-    }
-
-    .form-group {
-      margin-bottom: 15px;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 5px;
-      color: #333;
-      font-weight: 500;
-      font-size: 14px;
-    }
-
-    .form-group input,
-    .form-group select {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: #E51636;
-    }
-
-    .checkbox-group {
+    .header-actions {
       display: flex;
+      gap: 12px;
       align-items: center;
-      gap: 8px;
-      margin-top: 10px;
     }
 
-    .checkbox-group input {
-      width: auto;
-    }
-
-    .form-actions {
-      margin-top: 20px;
-      display: flex;
-      gap: 10px;
-    }
-
+    /* Buttons */
     .btn {
       padding: 10px 20px;
       border: none;
-      border-radius: 4px;
-      cursor: pointer;
+      border-radius: 6px;
       font-size: 14px;
-      font-weight: 500;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .btn-primary {
@@ -205,195 +68,182 @@
       background-color: #c41230;
     }
 
-    .btn-primary:disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
-    }
-
     .btn-secondary {
       background-color: #6c757d;
       color: white;
     }
 
     .btn-secondary:hover {
-      background-color: #545b62;
+      background-color: #5a6268;
     }
 
-    /* Table Styles */
-    .table-container {
-      overflow-x: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
-
-    th, td {
-      padding: 12px;
-      text-align: left;
-      border-bottom: 1px solid #eee;
-    }
-
-    th {
-      background-color: #f8f9fa;
-      font-weight: 600;
-      color: #333;
-    }
-
-    tr:hover {
-      background-color: #f8f9fa;
-    }
-
-    /* Status Badges */
-    .status-badge {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .status-pending {
-      background-color: #fff3cd;
-      color: #856404;
-    }
-
-    .status-completed {
-      background-color: #d4edda;
-      color: #155724;
-    }
-
-    .status-expired {
-      background-color: #f8d7da;
-      color: #721c24;
-    }
-
-    .status-cancelled {
-      background-color: #e2e3e5;
-      color: #383d41;
-    }
-
-    /* Role Badges */
-    .role-badge {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    .role-manager {
-      background: #e3f2fd;
-      color: #1565c0;
-    }
-
-    .role-director {
-      background: #fff3e0;
-      color: #e65100;
-    }
-
-    .role-operator {
-      background: #fce4ec;
-      color: #c2185b;
-    }
-
-    /* Action Buttons */
-    .action-btn {
-      padding: 5px 10px;
-      border: none;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 12px;
-      margin-right: 5px;
-    }
-
-    .action-btn.resend {
-      background-color: #17a2b8;
+    .btn-success {
+      background-color: #28a745;
       color: white;
     }
 
-    .action-btn.resend:hover {
-      background-color: #138496;
+    .btn-success:hover {
+      background-color: #218838;
     }
 
-    .action-btn.cancel {
+    .btn-danger {
       background-color: #dc3545;
       color: white;
     }
 
-    .action-btn.cancel:hover {
+    .btn-danger:hover {
       background-color: #c82333;
     }
 
-    .action-btn.copy {
-      background-color: #6c757d;
-      color: white;
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
     }
 
-    .action-btn.copy:hover {
-      background-color: #545b62;
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
-    /* Empty State */
-    .empty-state {
-      text-align: center;
-      padding: 40px 20px;
-      color: #666;
-    }
-
-    .empty-state .icon {
-      font-size: 48px;
-      margin-bottom: 15px;
-    }
-
-    /* Loading State */
-    .loading-state {
-      text-align: center;
-      padding: 40px 20px;
-      color: #666;
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 30px;
-      height: 30px;
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #E51636;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    /* Message Area */
-    .message-area {
-      padding: 14px;
-      border-radius: 6px;
+    /* Search and Filter Bar */
+    .filter-bar {
+      display: flex;
+      gap: 12px;
       margin-bottom: 20px;
-      display: none;
+      flex-wrap: wrap;
+      align-items: center;
     }
 
-    .message-area.error {
-      background-color: #f8d7da;
-      border: 1px solid #dc3545;
-      color: #721c24;
+    .search-input {
+      flex: 1;
+      min-width: 200px;
+      padding: 10px 14px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
     }
 
-    .message-area.success {
-      background-color: #d4edda;
-      border: 1px solid #28a745;
-      color: #155724;
+    .search-input:focus {
+      outline: none;
+      border-color: #E51636;
     }
 
-    .message-area.info {
-      background-color: #cce5ff;
-      border: 1px solid #0d6efd;
-      color: #004085;
+    .filter-select {
+      padding: 10px 14px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      background-color: white;
+      cursor: pointer;
+    }
+
+    .filter-select:focus {
+      outline: none;
+      border-color: #E51636;
+    }
+
+    /* Cards */
+    .card {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 16px 20px;
+      background-color: #f8f9fa;
+      border-bottom: 1px solid #e9ecef;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .card-body {
+      padding: 0;
+    }
+
+    /* Table */
+    .user-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .user-table th,
+    .user-table td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid #e9ecef;
+    }
+
+    .user-table th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+      font-size: 13px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .user-table tr:hover {
+      background-color: #f8f9fa;
+    }
+
+    .user-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Role Badges */
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .badge-manager {
+      background-color: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .badge-director {
+      background-color: #f3e5f5;
+      color: #7b1fa2;
+    }
+
+    .badge-operator {
+      background-color: #fff3e0;
+      color: #e65100;
+    }
+
+    .badge-active {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .badge-inactive {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+
+    /* Action Buttons */
+    .action-btns {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      padding: 6px 10px;
+      font-size: 14px;
     }
 
     /* Modal */
@@ -402,601 +252,1342 @@
       position: fixed;
       top: 0;
       left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.5);
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
       z-index: 1000;
-      align-items: center;
       justify-content: center;
+      align-items: center;
     }
 
     .modal-overlay.active {
       display: flex;
     }
 
-    .modal-content {
+    .modal {
       background: white;
-      padding: 30px;
       border-radius: 8px;
-      max-width: 500px;
       width: 90%;
+      max-width: 500px;
       max-height: 90vh;
       overflow-y: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     }
 
     .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid #e9ecef;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
     }
 
-    .modal-header h3 {
+    .modal-title {
       margin: 0;
+      font-size: 18px;
       color: #333;
     }
 
     .modal-close {
-      background: none;
-      border: none;
+      background: #f0f0f0;
+      border: 1px solid #ddd;
       font-size: 24px;
       cursor: pointer;
-      color: #666;
+      color: #000;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      line-height: 1;
     }
 
     .modal-close:hover {
+      background: #e6e6e6;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .modal-footer {
+      padding: 16px 20px;
+      border-top: 1px solid #e9ecef;
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    /* Form */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      color: #333;
+      font-size: 14px;
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+      outline: none;
+      border-color: #E51636;
+    }
+
+    .form-textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .form-hint {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    /* Messages */
+    .message {
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .message.success {
+      background-color: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+      display: block;
+    }
+
+    .message.error {
+      background-color: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+      display: block;
+    }
+
+    /* Loading Spinner */
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #E51636;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 12px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    /* Collapsible Section */
+    .collapsible-header {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .collapsible-header:hover {
+      background-color: #e9ecef;
+    }
+
+    .collapsible-icon {
+      transition: transform 0.2s;
+    }
+
+    .collapsible-icon.collapsed {
+      transform: rotate(-90deg);
+    }
+
+    .collapsible-content {
+      display: none;
+    }
+
+    .collapsible-content.expanded {
+      display: block;
+    }
+
+    /* Back Button */
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #666;
+      text-decoration: none;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    .back-btn:hover {
       color: #333;
     }
 
-    /* Link Display */
-    .link-display {
-      background: #f8f9fa;
-      padding: 15px;
-      border-radius: 4px;
-      margin: 15px 0;
-      word-break: break-all;
-      font-family: monospace;
-      font-size: 13px;
+    /* Access Denied */
+    .access-denied {
+      text-align: center;
+      padding: 60px 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
 
-    /* Mobile Responsive */
+    .access-denied-icon {
+      font-size: 64px;
+      color: #dc3545;
+      margin-bottom: 20px;
+    }
+
+    .access-denied h2 {
+      color: #333;
+      margin-bottom: 12px;
+    }
+
+    .access-denied p {
+      color: #666;
+      margin-bottom: 24px;
+    }
+
+    /* Responsive */
     @media (max-width: 768px) {
-      body {
-        padding: 10px;
-      }
-
-      .header-bar {
+      .page-header {
         flex-direction: column;
-        text-align: center;
+        align-items: flex-start;
       }
 
-      .form-grid {
-        grid-template-columns: 1fr;
+      .filter-bar {
+        flex-direction: column;
       }
 
-      .tabs-container {
-        flex-wrap: wrap;
+      .search-input {
+        width: 100%;
       }
 
-      .tab-btn {
-        flex: 1;
-        min-width: 120px;
-        text-align: center;
+      .user-table {
+        display: block;
+        overflow-x: auto;
       }
 
-      table {
-        font-size: 12px;
-      }
-
-      th, td {
-        padding: 8px;
+      .action-btns {
+        flex-direction: column;
       }
     }
+
+  .help-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+
+  .help-modal-content {
+    background: #fff;
+    border-radius: 10px;
+    padding: 18px;
+    width: 560px;
+    max-width: calc(100% - 32px);
+    max-height: 80vh;
+    overflow: auto;
+  }
   </style>
 </head>
 <body>
-  <!-- Header -->
-  <div class="header-bar">
-    <div class="header-title">
-      <h1>User Management</h1>
-      <h2>Manage system users and signups</h2>
-    </div>
-    <div class="header-buttons">
-      <a href="#" class="nav-btn secondary" onclick="navigateTo('employees'); return false;">Back to Dashboard</a>
-    </div>
+  <div class="container">
+    <!-- Back Button -->
+    <a href="#" class="back-btn" onclick="goBack(); return false;">
+      <span>&larr;</span> <span id="backToEmployeesLabel">Back to Employee List</span>
+    </a>
+
+  <div class="header-actions" style="margin: 10px 0 20px 0;">
+    <button class="btn btn-secondary" id="navDashboardBtn" onclick="if(window.navigateTo){navigateTo('dashboard'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('dashboard'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'dashboard';window.top.location.href=base+'?page='+target; return false;">Dashboard</button>
+    <button class="btn btn-secondary" id="navEmployeesBtn" onclick="if(window.navigateTo){navigateTo('employees'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('employees'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'employees';window.top.location.href=base+'?page='+target; return false;">Employees</button>
+    <button class="btn btn-secondary" id="navAddInfractionBtn" onclick="if(window.navigateTo){navigateTo('form'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('form'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'form';window.top.location.href=base+'?page='+target; return false;">Add Infraction</button>
+    <button class="btn btn-secondary" id="navSettingsBtn" onclick="if(window.navigateTo){navigateTo('settings'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('settings'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'settings';window.top.location.href=base+'?page='+target; return false;">Settings</button>
+    <button class="btn btn-secondary" onclick="openHelp()">?</button>
+    <button class="btn btn-secondary" id="navLogoutBtn" onclick="logout()">Logout</button>
   </div>
 
-  <!-- Message Area -->
-  <div id="messageArea" class="message-area"></div>
-
-  <!-- Tabs -->
-  <div class="tabs-container">
-    <button class="tab-btn active" data-tab="signups" onclick="switchTab('signups')">Pending Signups</button>
-    <button class="tab-btn" data-tab="create" onclick="switchTab('create')">Create Signup Link</button>
-  </div>
-
-  <!-- Pending Signups Tab -->
-  <div id="signups-tab" class="tab-content active">
-    <div class="section-card">
-      <div class="section-header">
-        <h3 class="section-title">Pending Signups</h3>
-        <button class="btn btn-secondary" onclick="loadPendingSignups()">Refresh</button>
-      </div>
-
-      <div id="signupsLoading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading signups...</p>
-      </div>
-
-      <div id="signupsEmpty" class="empty-state" style="display: none;">
-        <div class="icon">&#128100;</div>
-        <p>No pending signups found.</p>
-        <p>Create a signup link to invite new users.</p>
-      </div>
-
-      <div id="signupsTable" class="table-container" style="display: none;">
-        <table>
-          <thead>
-            <tr>
-              <th>Email</th>
-              <th>Employee ID</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Expires</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="signupsTableBody">
-          </tbody>
-        </table>
+    <!-- Page Header -->
+    <div class="page-header">
+      <h1 class="page-title" id="userManagementTitle">User Management</h1>
+      <div class="header-actions">
+        <select id="languageSelect" class="btn btn-secondary" onchange="onLanguageChange()">
+          <option value="en">English</option>
+          <option value="es">Español</option>
+        </select>
+        <button class="btn btn-primary" onclick="openAddUserModal()">
+          <span>+</span> <span id="addUserLabel">Add User</span>
+        </button>
       </div>
     </div>
-  </div>
 
-  <!-- Create Signup Tab -->
-  <div id="create-tab" class="tab-content">
-    <div class="section-card">
-      <div class="section-header">
-        <h3 class="section-title">Create New Signup Link</h3>
+    <!-- Message Area -->
+    <div id="pageMessage" class="message"></div>
+
+    <div class="help-modal" id="helpModal">
+      <div class="help-modal-content">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3>User Management Help</h3>
+          <button class="btn btn-secondary" onclick="closeHelp()">Close</button>
+        </div>
+        <div style="font-size:13px; line-height:1.5;">
+          <p>Use this page to add, edit, and deactivate users.</p>
+          <ul>
+            <li>Assign roles: Manager, Director, Operator.</li>
+            <li>Deactivate users who no longer need access.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Access Denied (shown if not director/operator) -->
+  <div id="accessDenied" class="access-denied" style="display: none;">
+      <div class="access-denied-icon">&#128274;</div>
+    <h2 id="accessDeniedTitle">Access Denied</h2>
+    <p id="accessDeniedMessage">Director permission required to access User Management.</p>
+    <button class="btn btn-secondary" id="accessDeniedBtn" onclick="goBack()">Go Back</button>
+    </div>
+
+    <!-- Main Content (shown only for directors/operators) -->
+    <div id="mainContent" style="display: none;">
+      <!-- Search and Filter -->
+      <div class="filter-bar">
+        <input type="text" class="search-input" id="searchInput" placeholder="Search by name or employee ID..." onkeyup="handleSearch()">
+        <select class="filter-select" id="roleFilter" onchange="handleFilterChange()">
+          <option value="All">All Roles</option>
+          <option value="Manager">Managers</option>
+          <option value="Director">Directors</option>
+          <option value="Operator">Operators</option>
+        </select>
+        <select class="filter-select" id="statusFilter" onchange="handleFilterChange()">
+          <option value="Active">Active Users</option>
+          <option value="All">All Users</option>
+          <option value="Inactive">Inactive Users</option>
+        </select>
       </div>
 
-      <form id="createSignupForm" onsubmit="return false;">
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="signupEmployeeId">Select Employee *</label>
-            <select id="signupEmployeeId" required onchange="handleEmployeeSelect()">
-              <option value="">-- Select Employee --</option>
-              <!-- Populated dynamically from active employees -->
-            </select>
-            <small style="color: #666; font-size: 12px;">Only employees without existing system access are shown</small>
+      <!-- Active Users Section -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Active Users</h2>
+          <span id="activeCount" class="badge badge-active">0</span>
+        </div>
+        <div class="card-body">
+          <div id="activeUsersLoading" class="loading">
+            <div class="spinner"></div>
+            Loading users...
           </div>
-
-          <div class="form-group">
-            <label for="signupEmail">Email Address *</label>
-            <input type="email" id="signupEmail" required placeholder="user@example.com">
-          </div>
-
-          <div class="form-group">
-            <label for="signupRole">Role *</label>
-            <select id="signupRole" required>
-              <option value="">Select Role</option>
-              <option value="Manager">Manager</option>
-              <option value="Director">Director</option>
-            </select>
-            <small style="color: #666; font-size: 12px;">Note: Operator role cannot be assigned via signup</small>
-          </div>
-
-          <div class="form-group">
-            <label>Permissions</label>
-            <div class="checkbox-group">
-              <input type="checkbox" id="signupCanSeeDirectors">
-              <label for="signupCanSeeDirectors">Can see Director-only information</label>
-            </div>
+          <table class="user-table" id="activeUsersTable" style="display: none;">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Employee ID</th>
+                <th>Role</th>
+                <th>Email</th>
+                <th>Date Added</th>
+                <th>Added By</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="activeUsersBody">
+            </tbody>
+          </table>
+          <div id="activeUsersEmpty" class="empty-state" style="display: none;">
+            <div class="empty-state-icon">&#128100;</div>
+            <p>No active users found</p>
           </div>
         </div>
+      </div>
 
-        <div class="form-actions">
-          <button type="button" class="btn btn-primary" id="createSignupBtn" onclick="createSignup()">
-            Create Signup Link
-          </button>
-          <button type="button" class="btn btn-secondary" onclick="clearSignupForm()">
-            Clear
-          </button>
+      <!-- Inactive Users Section (Collapsible) -->
+      <div class="card" id="inactiveCard" style="display: none;">
+        <div class="card-header collapsible-header" onclick="toggleInactiveSection()">
+          <h2 class="card-title">
+            <span id="collapseIcon" class="collapsible-icon">&#9660;</span>
+            Inactive Users
+          </h2>
+          <span id="inactiveCount" class="badge badge-inactive">0</span>
         </div>
-      </form>
+        <div id="inactiveContent" class="card-body collapsible-content">
+          <table class="user-table" id="inactiveUsersTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Employee ID</th>
+                <th>Role</th>
+                <th>Removal Date</th>
+                <th>Removed By</th>
+                <th>Reason</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="inactiveUsersBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Signup Created Modal -->
-  <div id="signupCreatedModal" class="modal-overlay">
-    <div class="modal-content">
+  <!-- Add User Modal -->
+  <div class="modal-overlay" id="addUserModal">
+    <div class="modal">
       <div class="modal-header">
-        <h3>Signup Link Created</h3>
-        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <h3 class="modal-title">Add User</h3>
+        <button class="modal-close" onclick="closeAddUserModal()">&times;</button>
       </div>
-      <p>A signup link has been created for the new user.</p>
-
-      <div class="form-group">
-        <label>Signup Link:</label>
-        <div class="link-display" id="signupLinkDisplay"></div>
+      <div class="modal-body">
+        <div id="addUserMessage" class="message"></div>
+        <div class="form-group">
+          <label class="form-label">Select Employee *</label>
+          <select class="form-select" id="employeeSelect" onchange="onEmployeeSelect()">
+            <option value="">-- Select Employee --</option>
+          </select>
+          <p class="form-hint">Only active employees without system access are shown</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" class="form-input" id="emailInput" placeholder="employee@example.com">
+          <p class="form-hint">Optional - Used for login notifications</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role *</label>
+          <select class="form-select" id="roleSelect">
+            <option value="">-- Select Role --</option>
+            <option value="Manager">Manager</option>
+            <option value="Director">Director</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Your Name *</label>
+          <input type="text" class="form-input" id="addedByInput" placeholder="Your name">
+        </div>
       </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAddUserModal()">Cancel</button>
+        <button class="btn btn-primary" id="addUserBtn" onclick="submitAddUser()">Add User</button>
+      </div>
+    </div>
+  </div>
 
-      <div class="form-actions">
-        <button class="btn btn-primary" onclick="copySignupLink()">Copy Link</button>
-        <button class="btn btn-secondary" id="sendEmailBtn" onclick="sendSignupEmail()">Send Email</button>
-        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+  <!-- Edit User Modal -->
+  <div class="modal-overlay" id="editUserModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit User</h3>
+        <button class="modal-close" onclick="closeEditUserModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="editUserMessage" class="message"></div>
+        <div class="form-group">
+          <label class="form-label">Employee</label>
+          <input type="text" class="form-input" id="editUserName" disabled>
+          <input type="hidden" id="editEmployeeId">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" class="form-input" id="editEmailInput" placeholder="employee@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role *</label>
+          <select class="form-select" id="editRoleSelect">
+            <option value="Manager">Manager</option>
+            <option value="Director">Director</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Your Name *</label>
+          <input type="text" class="form-input" id="editUpdatedByInput" placeholder="Your name">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeEditUserModal()">Cancel</button>
+        <button class="btn btn-primary" id="editUserBtn" onclick="submitEditUser()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Remove User Modal -->
+  <div class="modal-overlay" id="removeUserModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Remove User Access</h3>
+        <button class="modal-close" onclick="closeRemoveUserModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="removeUserMessage" class="message"></div>
+        <p>Are you sure you want to remove system access for <strong id="removeUserName"></strong>?</p>
+        <input type="hidden" id="removeEmployeeId">
+        <div class="form-group">
+          <label class="form-label">Reason for Removal *</label>
+          <textarea class="form-textarea" id="removalReasonInput" placeholder="Enter reason for removing access..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Your Name *</label>
+          <input type="text" class="form-input" id="removedByInput" placeholder="Your name">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeRemoveUserModal()">Cancel</button>
+        <button class="btn btn-danger" id="removeUserBtn" onclick="submitRemoveUser()">Remove Access</button>
       </div>
     </div>
   </div>
 
   <script>
-    // ============================================
-    // STATE
-    // ============================================
-
-    let pendingSignups = [];
-    let availableEmployees = [];
-    let currentSignupId = null;
-    let currentSignupLink = null;
+    // Global state
+    let allUsers = [];
+    let currentUserRole = '';
 
     // ============================================
-    // INITIALIZATION
+    // SESSION TOKEN HELPERS
     // ============================================
 
-    document.addEventListener('DOMContentLoaded', function() {
-      loadPendingSignups();
-      loadAvailableEmployees();
-    });
-
-    // ============================================
-    // LOAD AVAILABLE EMPLOYEES FOR SIGNUP
-    // ============================================
-
-    function loadAvailableEmployees() {
-      google.script.run
-        .withSuccessHandler(handleEmployeesLoaded)
-        .withFailureHandler(function(error) {
-          console.error('Error loading employees:', error);
-        })
-        .getEmployeesForSignup();
-    }
-
-    function handleEmployeesLoaded(result) {
-      if (!result.success) {
-        console.error('Error:', result.message);
-        return;
+    /**
+     * Get the session token from sessionStorage
+     */
+    function getSessionToken() {
+      const urlToken = getTokenFromUrl();
+      if (urlToken) {
+        sessionStorage.setItem('cfa_session_token', urlToken);
+        localStorage.setItem('cfa_session_token', urlToken);
       }
-
-      availableEmployees = result.employees || [];
-      const select = document.getElementById('signupEmployeeId');
-
-      // Clear existing options except the placeholder
-      select.innerHTML = '<option value="">-- Select Employee --</option>';
-
-      // Add employees to dropdown
-      availableEmployees.forEach(function(emp) {
-        const option = document.createElement('option');
-        option.value = emp.employee_id;
-        option.textContent = emp.full_name + ' (' + emp.employee_id + ')';
-        option.dataset.email = emp.email || '';
-        select.appendChild(option);
-      });
+      const token = sessionStorage.getItem('cfa_session_token') || localStorage.getItem('cfa_session_token');
+      if (token && !sessionStorage.getItem('cfa_session_token')) {
+        sessionStorage.setItem('cfa_session_token', token);
+      }
+      return token;
     }
 
-    function handleEmployeeSelect() {
-      const select = document.getElementById('signupEmployeeId');
-      const selectedOption = select.options[select.selectedIndex];
-
-      // Auto-fill email if available
-      if (selectedOption && selectedOption.dataset.email) {
-        document.getElementById('signupEmail').value = selectedOption.dataset.email;
+    function getTokenFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('token') || params.get('tkn') || '';
+      } catch (error) {
+        return '';
       }
     }
 
-    // ============================================
-    // NAVIGATION
-    // ============================================
+    /**
+     * Clear all session data
+     */
+    function clearSessionData() {
+      sessionStorage.removeItem('cfa_session_token');
+      sessionStorage.removeItem('cfa_user_role');
+    }
+
+    /**
+     * Navigate in the top-level context when embedded in an iframe.
+     */
+    function redirectTo(url) {
+      const inPreview = window.location.href.indexOf('userCodeAppPanel') !== -1;
+      const finalUrl = appendTokenParam(url);
+      if (window.top && window.top !== window && !inPreview) {
+        window.top.location.href = finalUrl;
+      } else {
+        window.location.href = finalUrl;
+      }
+    }
+
+    function appendTokenParam(url) {
+      if (!url) return url;
+      const token = getSessionToken();
+      if (!token) return url;
+      const hasToken = url.indexOf('token=') !== -1 || url.indexOf('tkn=') !== -1;
+      if (hasToken) return url;
+      const separator = url.indexOf('?') === -1 ? '?' : '&';
+      return url + separator + 'token=' + encodeURIComponent(token);
+    }
 
     function navigateTo(page) {
+      try {
+        console.log('[nav] click', JSON.stringify({page: page, href: window.location.href, role: (sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role')||''), token: (sessionStorage.getItem('cfa_session_token')||localStorage.getItem('cfa_session_token')||''), base: (sessionStorage.getItem('cfa_base_url')||localStorage.getItem('cfa_base_url')||'')}));
+      } catch (e) { console.log('[nav] click log failed', e); }
+
+      const baseUrl = getStoredBaseUrl() || getBaseUrl();
+      const fallbackUrl = baseUrl + '?page=' + page + '&t=' + Date.now();
+      let didNavigate = false;
+      const fallbackTimer = setTimeout(function() {
+        if (!didNavigate) {
+          redirectTo(fallbackUrl);
+        }
+      }, 1500);
       google.script.run
         .withSuccessHandler(function(url) {
-          window.location.href = url + '?page=' + page;
+          didNavigate = true;
+          clearTimeout(fallbackTimer);
+          if (url) {
+            sessionStorage.setItem('cfa_base_url', url);
+            localStorage.setItem('cfa_base_url', url);
+          }
+          redirectTo((url || baseUrl) + '?page=' + page + '&t=' + Date.now());
         })
         .withFailureHandler(function(error) {
-          console.error('Navigation error:', error);
+          didNavigate = true;
+          clearTimeout(fallbackTimer);
+          showPageMessage('Navigation failed: ' + error.message, 'error');
+          redirectTo(fallbackUrl);
         })
         .getWebAppUrl();
     }
 
-    // ============================================
-    // TAB SWITCHING
-    // ============================================
-
-    function switchTab(tabName) {
-      // Update tab buttons
-      document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      document.querySelector('[data-tab="' + tabName + '"]').classList.add('active');
-
-      // Update tab content
-      document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
-      });
-      document.getElementById(tabName + '-tab').classList.add('active');
+    function getStoredBaseUrl() {
+      return sessionStorage.getItem('cfa_base_url') || localStorage.getItem('cfa_base_url') || '';
     }
 
-    // ============================================
-    // PENDING SIGNUPS
-    // ============================================
+    function getBaseUrl() {
+      return sessionStorage.getItem('cfa_base_url') ||
+        localStorage.getItem('cfa_base_url') ||
+        window.location.href.split('?')[0];
+    }
 
-    function loadPendingSignups() {
-      document.getElementById('signupsLoading').style.display = 'block';
-      document.getElementById('signupsEmpty').style.display = 'none';
-      document.getElementById('signupsTable').style.display = 'none';
-
+    function logout() {
+      const token = getSessionToken();
+      clearSessionData();
       google.script.run
-        .withSuccessHandler(handleSignupsLoaded)
-        .withFailureHandler(handleSignupsError)
-        .getPendingSignups();
+        .withSuccessHandler(function() {
+          google.script.run
+            .withSuccessHandler(function(url) {
+              redirectTo(url + '?page=login');
+            })
+            .getWebAppUrl();
+        })
+        .logoutRole(token);
     }
 
-    function handleSignupsLoaded(result) {
-      document.getElementById('signupsLoading').style.display = 'none';
+    function openHelp() {
+      document.getElementById('helpModal').style.display = 'flex';
+    }
 
-      if (result.sessionExpired) {
-        showMessage('Session expired. Please login again.', 'error');
-        setTimeout(() => navigateTo(''), 2000);
+    function closeHelp() {
+      document.getElementById('helpModal').style.display = 'none';
+    }
+
+    /**
+     * Handle expired/invalid session
+     */
+    function handleSessionExpired() {
+      clearSessionData();
+      google.script.run
+        .withSuccessHandler(function(url) {
+          redirectTo(url + '?page=login');
+        })
+        .getWebAppUrl();
+    }
+
+    /**
+     * Initialize the page
+     */
+    document.addEventListener('DOMContentLoaded', function() {
+      checkAccess();
+    });
+
+    /**
+     * Check if user has access to this page
+     */
+    function checkAccess() {
+      // Check for cached role first for faster UI
+      var storedRole = sessionStorage.getItem('cfa_user_role');
+      if (storedRole) {
+        currentUserRole = storedRole;
+      }
+
+      // Get the session token
+      var token = getSessionToken();
+      if (!token) {
+        handleSessionExpired();
         return;
       }
 
-      if (!result.success) {
-        showMessage(result.message || 'Error loading signups', 'error');
-        return;
-      }
+      // Validate token with server
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result || !result.valid) {
+            handleSessionExpired();
+            return;
+          }
 
-      pendingSignups = result.signups || [];
+          currentUserRole = result.role;
+          sessionStorage.setItem('cfa_user_role', result.role);
+          const languageSelect = document.getElementById('languageSelect');
+          if (languageSelect) {
+            languageSelect.value = result.language || 'en';
+          }
+          applyUserManagementTranslations(result.language || 'en');
 
-      if (pendingSignups.length === 0) {
-        document.getElementById('signupsEmpty').style.display = 'block';
-      } else {
-        renderSignupsTable();
-        document.getElementById('signupsTable').style.display = 'block';
-      }
+          if (result.role !== 'Director' && result.role !== 'Operator') {
+            // Show access denied
+            document.getElementById('accessDenied').style.display = 'block';
+            document.getElementById('mainContent').style.display = 'none';
+          } else {
+            // Show main content and load users
+            document.getElementById('accessDenied').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            loadUsers();
+            loadAvailableEmployees();
+          }
+        })
+        .withFailureHandler(function(error) {
+          showPageMessage('Error checking access: ' + error.message, 'error');
+          handleSessionExpired();
+        })
+        .validateSessionToken(token);
     }
 
-    function handleSignupsError(error) {
-      document.getElementById('signupsLoading').style.display = 'none';
-      showMessage('Error loading signups: ' + error, 'error');
+    function onLanguageChange() {
+      const select = document.getElementById('languageSelect');
+      if (!select) return;
+      const token = getSessionToken();
+      if (!token) return;
+      const language = select.value;
+      sessionStorage.setItem('cfa_language', language);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.success) {
+            applyUserManagementTranslations(language);
+          }
+        })
+        .withFailureHandler(function(error) {
+          showPageMessage('Error updating language: ' + error.message, 'error');
+        })
+        .setLanguage(token, language);
     }
 
-    function renderSignupsTable() {
-      const tbody = document.getElementById('signupsTableBody');
-      tbody.innerHTML = '';
+    function applyUserManagementTranslations(language) {
+      const keys = [
+        'users.title',
+        'users.add',
+        'users.back',
+        'users.access_denied_title',
+        'users.access_denied_message',
+        'users.go_back',
+        'nav.dashboard',
+        'nav.view_employees',
+        'nav.add_infraction',
+        'nav.settings',
+        'nav.logout'
+      ];
+      google.script.run
+        .withSuccessHandler(function(result) {
+          const t = result || {};
+          document.getElementById('userManagementTitle').textContent = t['users.title'] || 'User Management';
+          document.getElementById('addUserLabel').textContent = t['users.add'] || 'Add User';
+          document.getElementById('backToEmployeesLabel').textContent = t['users.back'] || 'Back to Employee List';
+          document.getElementById('accessDeniedTitle').textContent = t['users.access_denied_title'] || 'Access Denied';
+          document.getElementById('accessDeniedMessage').textContent = t['users.access_denied_message'] || 'Director permission required to access User Management.';
+          document.getElementById('accessDeniedBtn').textContent = t['users.go_back'] || 'Go Back';
+          document.getElementById('navDashboardBtn').textContent = t['nav.dashboard'] || 'Dashboard';
+          document.getElementById('navEmployeesBtn').textContent = t['nav.view_employees'] || 'Employees';
+          document.getElementById('navAddInfractionBtn').textContent = t['nav.add_infraction'] || 'Add Infraction';
+          document.getElementById('navSettingsBtn').textContent = t['nav.settings'] || 'Settings';
+          document.getElementById('navLogoutBtn').textContent = t['nav.logout'] || 'Logout';
+        })
+        .getTranslations(keys, language || 'en');
+    }
 
-      pendingSignups.forEach(signup => {
-        const row = document.createElement('tr');
+    /**
+     * Load all users
+     */
+    function loadUsers() {
+      document.getElementById('activeUsersLoading').style.display = 'flex';
+      document.getElementById('activeUsersTable').style.display = 'none';
+      document.getElementById('activeUsersEmpty').style.display = 'none';
 
-        const statusClass = 'status-' + signup.status.toLowerCase();
-        const roleClass = 'role-' + signup.role.toLowerCase();
+      var token = getSessionToken();
+      google.script.run
+        .withSuccessHandler(function(result) {
+          document.getElementById('activeUsersLoading').style.display = 'none';
 
-        const createdDate = new Date(signup.created_date).toLocaleDateString();
-        const expiresDate = new Date(signup.expires_date).toLocaleDateString();
+          if (!result.success) {
+            if (result.sessionExpired) {
+              handleSessionExpired();
+              return;
+            }
+            showPageMessage(result.error || 'Failed to load users', 'error');
+            return;
+          }
 
-        let actionsHtml = '';
-        if (signup.status === 'Pending') {
-          actionsHtml = `
-            <button class="action-btn resend" onclick="resendEmail('${escapeHtml(signup.signup_id)}')">Resend</button>
-            <button class="action-btn cancel" onclick="cancelSignup('${escapeHtml(signup.signup_id)}')">Cancel</button>
-          `;
+          allUsers = result.users;
+          renderUsers();
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('activeUsersLoading').style.display = 'none';
+          showPageMessage('Error loading users: ' + error.message, 'error');
+        })
+        .getAllUserPermissions(token);
+    }
+
+    /**
+     * Render users based on current filters
+     */
+    function renderUsers() {
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+      const roleFilter = document.getElementById('roleFilter').value;
+      const statusFilter = document.getElementById('statusFilter').value;
+
+      // Filter users
+      let filtered = allUsers.filter(user => {
+        // Search filter
+        if (searchTerm) {
+          const matchesSearch =
+            user.full_name.toLowerCase().includes(searchTerm) ||
+            user.employee_id.toLowerCase().includes(searchTerm) ||
+            (user.email && user.email.toLowerCase().includes(searchTerm));
+          if (!matchesSearch) return false;
         }
 
-        row.innerHTML = `
-          <td>${escapeHtml(signup.email)}</td>
-          <td>${escapeHtml(signup.employee_id)}</td>
-          <td><span class="role-badge ${roleClass}">${escapeHtml(signup.role)}</span></td>
-          <td><span class="status-badge ${statusClass}">${escapeHtml(signup.status)}</span></td>
-          <td>${createdDate}</td>
-          <td>${expiresDate}</td>
-          <td>${actionsHtml}</td>
-        `;
+        // Role filter
+        if (roleFilter !== 'All' && user.role !== roleFilter) return false;
 
-        tbody.appendChild(row);
+        // Status filter
+        if (statusFilter !== 'All' && user.status !== statusFilter) return false;
+
+        return true;
       });
+
+      // Separate active and inactive
+      const activeUsers = filtered.filter(u => u.status === 'Active');
+      const inactiveUsers = filtered.filter(u => u.status === 'Inactive');
+
+      // Render active users
+      renderActiveUsers(activeUsers);
+
+      // Render inactive users
+      renderInactiveUsers(inactiveUsers);
+
+      // Update counts
+      document.getElementById('activeCount').textContent = activeUsers.length;
+      document.getElementById('inactiveCount').textContent = inactiveUsers.length;
+
+      // Show/hide inactive section
+      document.getElementById('inactiveCard').style.display = inactiveUsers.length > 0 ? 'block' : 'none';
     }
 
-    // ============================================
-    // CREATE SIGNUP
-    // ============================================
+    /**
+     * Render active users table
+     */
+    function renderActiveUsers(users) {
+      const tbody = document.getElementById('activeUsersBody');
+      const table = document.getElementById('activeUsersTable');
+      const empty = document.getElementById('activeUsersEmpty');
 
-    function createSignup() {
-      const employeeId = document.getElementById('signupEmployeeId').value.trim();
-      const email = document.getElementById('signupEmail').value.trim();
-      const role = document.getElementById('signupRole').value;
-      const canSeeDirectors = document.getElementById('signupCanSeeDirectors').checked;
-
-      if (!employeeId || !email || !role) {
-        showMessage('Please fill in all required fields', 'error');
+      if (users.length === 0) {
+        table.style.display = 'none';
+        empty.style.display = 'block';
         return;
       }
 
-      const btn = document.getElementById('createSignupBtn');
-      btn.disabled = true;
-      btn.textContent = 'Creating...';
+      table.style.display = 'table';
+      empty.style.display = 'none';
 
+      tbody.innerHTML = users.map(user => `
+        <tr>
+          <td><strong>${escapeHtml(user.full_name)}</strong></td>
+          <td>${escapeHtml(user.employee_id)}</td>
+          <td>${getRoleBadge(user.role)}</td>
+          <td>${user.email ? escapeHtml(user.email) : '<span style="color:#999;">Not set</span>'}</td>
+          <td>${formatDate(user.date_added)}</td>
+          <td>${escapeHtml(user.added_by || '-')}</td>
+          <td>
+            <div class="action-btns">
+              <button class="btn btn-secondary btn-sm" onclick="openEditUserModal('${escapeHtml(user.employee_id)}', '${escapeHtml(user.full_name)}', '${escapeHtml(user.email || '')}', '${user.role}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="openRemoveUserModal('${escapeHtml(user.employee_id)}', '${escapeHtml(user.full_name)}')">Remove</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    /**
+     * Render inactive users table
+     */
+    function renderInactiveUsers(users) {
+      const tbody = document.getElementById('inactiveUsersBody');
+
+      tbody.innerHTML = users.map(user => `
+        <tr>
+          <td>${escapeHtml(user.full_name)}</td>
+          <td>${escapeHtml(user.employee_id)}</td>
+          <td>${getRoleBadge(user.role)}</td>
+          <td>${formatDate(user.removal_date)}</td>
+          <td>${escapeHtml(user.removed_by || '-')}</td>
+          <td>${escapeHtml(user.removal_reason || '-')}</td>
+          <td>
+            <button class="btn btn-success btn-sm" onclick="reactivateUser('${escapeHtml(user.employee_id)}', '${escapeHtml(user.full_name)}')">Reactivate</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    /**
+     * Get role badge HTML
+     */
+    function getRoleBadge(role) {
+      const classes = {
+        'Manager': 'badge-manager',
+        'Director': 'badge-director',
+        'Operator': 'badge-operator'
+      };
+      return `<span class="badge ${classes[role] || ''}">${role}</span>`;
+    }
+
+    /**
+     * Format date for display
+     */
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      } catch (e) {
+        return dateStr;
+      }
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    function escapeHtml(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    /**
+     * Handle search input
+     */
+    function handleSearch() {
+      renderUsers();
+    }
+
+    /**
+     * Handle filter change
+     */
+    function handleFilterChange() {
+      renderUsers();
+    }
+
+    /**
+     * Toggle inactive section
+     */
+    function toggleInactiveSection() {
+      const content = document.getElementById('inactiveContent');
+      const icon = document.getElementById('collapseIcon');
+      content.classList.toggle('expanded');
+      icon.classList.toggle('collapsed');
+    }
+
+    /**
+     * Load available employees for add user modal
+     */
+    function loadAvailableEmployees() {
+      const token = getSessionToken();
+      if (!token) {
+        showMessage('addUserMessage', 'Session expired. Please log in again.', 'error');
+        return;
+      }
       google.script.run
-        .withSuccessHandler(handleSignupCreated)
-        .withFailureHandler(handleSignupError)
-        .generateSignupLink({
-          employee_id: employeeId,
-          email: email,
-          role: role,
-          can_see_directors: canSeeDirectors
-        });
+        .withSuccessHandler(function(result) {
+          const select = document.getElementById('employeeSelect');
+          select.innerHTML = '<option value="">-- Select Employee --</option>';
+
+          if (result.success && result.employees) {
+            result.employees.forEach(emp => {
+              const option = document.createElement('option');
+              option.value = emp.employee_id;
+              option.textContent = `${emp.full_name} (${emp.employee_id})`;
+              select.appendChild(option);
+            });
+          } else if (result && result.message) {
+            showMessage('addUserMessage', result.message, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showMessage('addUserMessage', error && error.message ? error.message : 'Failed to load employees', 'error');
+        })
+        .getAvailableEmployeesForPermission(token);
     }
 
-    function handleSignupCreated(result) {
-      const btn = document.getElementById('createSignupBtn');
-      btn.disabled = false;
-      btn.textContent = 'Create Signup Link';
-
-      if (result.sessionExpired) {
-        showMessage('Session expired. Please login again.', 'error');
-        setTimeout(() => navigateTo(''), 2000);
-        return;
-      }
-
-      if (!result.success) {
-        showMessage(result.message || 'Error creating signup', 'error');
-        return;
-      }
-
-      currentSignupId = result.signup_id;
-      currentSignupLink = result.link;
-
-      document.getElementById('signupLinkDisplay').textContent = result.link;
-      document.getElementById('signupCreatedModal').classList.add('active');
-
-      clearSignupForm();
-      loadPendingSignups();
-    }
-
-    function handleSignupError(error) {
-      const btn = document.getElementById('createSignupBtn');
-      btn.disabled = false;
-      btn.textContent = 'Create Signup Link';
-      showMessage('Error creating signup: ' + error, 'error');
-    }
-
-    function clearSignupForm() {
-      document.getElementById('signupEmployeeId').selectedIndex = 0;
-      document.getElementById('signupEmail').value = '';
-      document.getElementById('signupRole').value = '';
-      document.getElementById('signupCanSeeDirectors').checked = false;
-      // Reload employees in case one was just given access
+    /**
+     * Open add user modal
+     */
+    function openAddUserModal() {
+      document.getElementById('addUserModal').classList.add('active');
+      document.getElementById('employeeSelect').value = '';
+      document.getElementById('emailInput').value = '';
+      document.getElementById('roleSelect').value = '';
+      document.getElementById('addedByInput').value = '';
+      hideMessage('addUserMessage');
       loadAvailableEmployees();
     }
 
-    // ============================================
-    // SIGNUP ACTIONS
-    // ============================================
-
-    function resendEmail(signupId) {
-      if (!confirm('Resend signup email?')) return;
-
-      showMessage('Sending email...', 'info');
-
-      google.script.run
-        .withSuccessHandler(function(result) {
-          if (result.success) {
-            showMessage('Email sent successfully', 'success');
-          } else {
-            showMessage(result.message || 'Error sending email', 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          showMessage('Error sending email: ' + error, 'error');
-        })
-        .resendSignupEmail(signupId);
+    /**
+     * Close add user modal
+     */
+    function closeAddUserModal() {
+      document.getElementById('addUserModal').classList.remove('active');
     }
 
-    function cancelSignup(signupId) {
-      if (!confirm('Cancel this signup? The link will no longer work.')) return;
-
-      showMessage('Cancelling signup...', 'info');
-
-      google.script.run
-        .withSuccessHandler(function(result) {
-          if (result.success) {
-            showMessage('Signup cancelled', 'success');
-            loadPendingSignups();
-          } else {
-            showMessage(result.message || 'Error cancelling signup', 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          showMessage('Error cancelling signup: ' + error, 'error');
-        })
-        .cancelSignup(signupId);
+    /**
+     * Handle employee selection
+     */
+    function onEmployeeSelect() {
+      // Could pre-fill email here if it was available in the data
     }
 
-    function sendSignupEmail() {
-      if (!currentSignupId) return;
+    /**
+     * Submit add user
+     */
+    function submitAddUser() {
+      const employeeId = document.getElementById('employeeSelect').value;
+      const email = document.getElementById('emailInput').value.trim();
+      const role = document.getElementById('roleSelect').value;
+      const addedBy = document.getElementById('addedByInput').value.trim();
 
-      const btn = document.getElementById('sendEmailBtn');
+      // Validate
+      if (!employeeId) {
+        showMessage('addUserMessage', 'Please select an employee', 'error');
+        return;
+      }
+      if (!role) {
+        showMessage('addUserMessage', 'Please select a role', 'error');
+        return;
+      }
+      if (!addedBy) {
+        showMessage('addUserMessage', 'Please enter your name', 'error');
+        return;
+      }
+
+      // Disable button
+      const btn = document.getElementById('addUserBtn');
       btn.disabled = true;
-      btn.textContent = 'Sending...';
+      btn.textContent = 'Adding...';
 
+      var token = getSessionToken();
       google.script.run
         .withSuccessHandler(function(result) {
           btn.disabled = false;
-          btn.textContent = 'Send Email';
+          btn.textContent = 'Add User';
 
           if (result.success) {
-            showMessage('Email sent successfully', 'success');
-            closeModal();
+            showPageMessage(result.message, 'success');
+            closeAddUserModal();
+            loadUsers();
+            loadAvailableEmployees();
           } else {
-            showMessage(result.message || 'Error sending email', 'error');
+            if (result.sessionExpired) {
+              handleSessionExpired();
+              return;
+            }
+            showMessage('addUserMessage', result.error || 'Failed to add user', 'error');
           }
         })
         .withFailureHandler(function(error) {
           btn.disabled = false;
-          btn.textContent = 'Send Email';
-          showMessage('Error sending email: ' + error, 'error');
+          btn.textContent = 'Add User';
+          showMessage('addUserMessage', 'Error: ' + error.message, 'error');
         })
-        .sendSignupEmail(currentSignupId);
+        .addUserPermissionWithEmail(employeeId, role, email, addedBy, token);
     }
 
-    function copySignupLink() {
-      if (!currentSignupLink) return;
-
-      navigator.clipboard.writeText(currentSignupLink).then(function() {
-        showMessage('Link copied to clipboard', 'success');
-      }).catch(function() {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = currentSignupLink;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        showMessage('Link copied to clipboard', 'success');
-      });
+    /**
+     * Open edit user modal
+     */
+    function openEditUserModal(employeeId, fullName, email, role) {
+      document.getElementById('editUserModal').classList.add('active');
+      document.getElementById('editEmployeeId').value = employeeId;
+      document.getElementById('editUserName').value = fullName;
+      document.getElementById('editEmailInput').value = email || '';
+      document.getElementById('editRoleSelect').value = role;
+      document.getElementById('editUpdatedByInput').value = '';
+      hideMessage('editUserMessage');
     }
 
-    // ============================================
-    // MODAL
-    // ============================================
-
-    function closeModal() {
-      document.getElementById('signupCreatedModal').classList.remove('active');
-      currentSignupId = null;
-      currentSignupLink = null;
+    /**
+     * Close edit user modal
+     */
+    function closeEditUserModal() {
+      document.getElementById('editUserModal').classList.remove('active');
     }
 
-    // ============================================
-    // UTILITIES
-    // ============================================
+    /**
+     * Submit edit user
+     */
+    function submitEditUser() {
+      const employeeId = document.getElementById('editEmployeeId').value;
+      const email = document.getElementById('editEmailInput').value.trim();
+      const newRole = document.getElementById('editRoleSelect').value;
+      const updatedBy = document.getElementById('editUpdatedByInput').value.trim();
 
-    function showMessage(text, type) {
-      const messageArea = document.getElementById('messageArea');
-      messageArea.textContent = text;
-      messageArea.className = 'message-area ' + type;
-      messageArea.style.display = 'block';
+      if (!updatedBy) {
+        showMessage('editUserMessage', 'Please enter your name', 'error');
+        return;
+      }
 
-      if (type === 'success' || type === 'info') {
-        setTimeout(() => {
-          messageArea.style.display = 'none';
+      const btn = document.getElementById('editUserBtn');
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+
+      // Find current user data
+      const currentUser = allUsers.find(u => u.employee_id === employeeId);
+      const roleChanged = currentUser && currentUser.role !== newRole;
+      const emailChanged = currentUser && (currentUser.email || '') !== email;
+
+      let pendingCalls = 0;
+      let errors = [];
+      var token = getSessionToken();
+
+      function checkComplete() {
+        pendingCalls--;
+        if (pendingCalls <= 0) {
+          btn.disabled = false;
+          btn.textContent = 'Save Changes';
+
+          if (errors.length > 0) {
+            showMessage('editUserMessage', errors.join('; '), 'error');
+          } else {
+            showPageMessage('User updated successfully', 'success');
+            closeEditUserModal();
+            loadUsers();
+          }
+        }
+      }
+
+      // Update role if changed
+      if (roleChanged) {
+        pendingCalls++;
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (!result.success) {
+              if (result.sessionExpired) {
+                handleSessionExpired();
+                return;
+              }
+              errors.push(result.error || 'Failed to update role');
+            }
+            checkComplete();
+          })
+          .withFailureHandler(function(error) {
+            errors.push('Role update failed: ' + error.message);
+            checkComplete();
+          })
+          .updateUserRole(employeeId, newRole, updatedBy, token);
+      }
+
+      // Update email if changed
+      if (emailChanged) {
+        pendingCalls++;
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (!result.success) {
+              if (result.sessionExpired) {
+                handleSessionExpired();
+                return;
+              }
+              errors.push(result.error || 'Failed to update email');
+            }
+            checkComplete();
+          })
+          .withFailureHandler(function(error) {
+            errors.push('Email update failed: ' + error.message);
+            checkComplete();
+          })
+          .updateUserEmail(employeeId, email, updatedBy, token);
+      }
+
+      // If nothing changed
+      if (pendingCalls === 0) {
+        btn.disabled = false;
+        btn.textContent = 'Save Changes';
+        showMessage('editUserMessage', 'No changes to save', 'error');
+      }
+    }
+
+    /**
+     * Open remove user modal
+     */
+    function openRemoveUserModal(employeeId, fullName) {
+      document.getElementById('removeUserModal').classList.add('active');
+      document.getElementById('removeEmployeeId').value = employeeId;
+      document.getElementById('removeUserName').textContent = fullName;
+      document.getElementById('removalReasonInput').value = '';
+      document.getElementById('removedByInput').value = '';
+      hideMessage('removeUserMessage');
+    }
+
+    /**
+     * Close remove user modal
+     */
+    function closeRemoveUserModal() {
+      document.getElementById('removeUserModal').classList.remove('active');
+    }
+
+    /**
+     * Submit remove user
+     */
+    function submitRemoveUser() {
+      const employeeId = document.getElementById('removeEmployeeId').value;
+      const reason = document.getElementById('removalReasonInput').value.trim();
+      const removedBy = document.getElementById('removedByInput').value.trim();
+
+      if (!reason) {
+        showMessage('removeUserMessage', 'Please enter a reason for removal', 'error');
+        return;
+      }
+      if (!removedBy) {
+        showMessage('removeUserMessage', 'Please enter your name', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('removeUserBtn');
+      btn.disabled = true;
+      btn.textContent = 'Removing...';
+
+      var token = getSessionToken();
+      google.script.run
+        .withSuccessHandler(function(result) {
+          btn.disabled = false;
+          btn.textContent = 'Remove Access';
+
+          if (result.success) {
+            showPageMessage(result.message, 'success');
+            closeRemoveUserModal();
+            loadUsers();
+            loadAvailableEmployees();
+          } else {
+            if (result.sessionExpired) {
+              handleSessionExpired();
+              return;
+            }
+            showMessage('removeUserMessage', result.error || 'Failed to remove user', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          btn.disabled = false;
+          btn.textContent = 'Remove Access';
+          showMessage('removeUserMessage', 'Error: ' + error.message, 'error');
+        })
+        .removeUserPermission(employeeId, removedBy, reason, token);
+    }
+
+    /**
+     * Reactivate a user
+     */
+    function reactivateUser(employeeId, fullName) {
+      const reactivatedBy = prompt('Enter your name to reactivate ' + fullName + ':');
+      if (!reactivatedBy || reactivatedBy.trim() === '') {
+        return;
+      }
+
+      var token = getSessionToken();
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showPageMessage(result.message, 'success');
+            loadUsers();
+            loadAvailableEmployees();
+          } else {
+            if (result.sessionExpired) {
+              handleSessionExpired();
+              return;
+            }
+            showPageMessage(result.error || 'Failed to reactivate user', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showPageMessage('Error: ' + error.message, 'error');
+        })
+        .reactivateUserPermission(employeeId, reactivatedBy.trim(), token);
+    }
+
+    /**
+     * Show message in a specific container
+     */
+    function showMessage(containerId, message, type) {
+      const container = document.getElementById(containerId);
+      container.textContent = message;
+      container.className = 'message ' + type;
+    }
+
+    /**
+     * Hide message
+     */
+    function hideMessage(containerId) {
+      const container = document.getElementById(containerId);
+      container.className = 'message';
+      container.textContent = '';
+    }
+
+    /**
+     * Show page-level message
+     */
+    function showPageMessage(message, type) {
+      const container = document.getElementById('pageMessage');
+      container.textContent = message;
+      container.className = 'message ' + type;
+
+      // Auto-hide success messages after 5 seconds
+      if (type === 'success') {
+        setTimeout(function() {
+          container.className = 'message';
         }, 5000);
       }
     }
 
-    function escapeHtml(text) {
-      if (!text) return '';
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+    /**
+     * Go back to previous page
+     */
+    function goBack() {
+      google.script.run
+        .withSuccessHandler(function(url) {
+          redirectTo(url + '?page=employees&t=' + Date.now());
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error navigating:', error);
+          window.history.back();
+        })
+        .getWebAppUrl();
     }
   </script>
 </body>

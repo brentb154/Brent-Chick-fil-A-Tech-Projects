@@ -1,262 +1,810 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payroll Management System</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            min-height: 100vh;
-            color: #e8e8e8;
-            padding: 2rem;
-        }
-        .container { max-width: 800px; margin: 0 auto; }
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            color: #a8a8a8;
-            text-decoration: none;
-            font-size: 0.9rem;
-            margin-bottom: 2rem;
-            transition: color 0.2s;
-        }
-        .back-link:hover { color: #fff; }
-        .header {
-            background: rgba(255,255,255,0.05);
-            border-radius: 16px;
-            padding: 2rem;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-top: 4px solid #4CAF50;
-            margin-bottom: 1.5rem;
-        }
-        .project-icon { font-size: 3rem; margin-bottom: 1rem; }
-        h1 { font-size: 2rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
-        .subtitle { color: #a8a8a8; font-size: 1rem; line-height: 1.5; }
-        .tag {
-            display: inline-block;
-            padding: 0.25rem 0.6rem;
-            background: rgba(255,255,255,0.1);
-            border-radius: 4px;
-            font-size: 0.75rem;
-            color: #a0a0a0;
-            margin: 0.5rem 0.3rem 0 0;
-        }
-        .section {
-            background: rgba(255,255,255,0.05);
-            border-radius: 12px;
-            padding: 1.5rem;
-            border: 1px solid rgba(255,255,255,0.1);
-            margin-bottom: 1.5rem;
-        }
-        h2 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #4CAF50;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        .feature-list { list-style: none; }
-        .feature-list li {
-            padding: 0.4rem 0;
-            color: #c0c0c0;
-            font-size: 0.95rem;
-            display: flex;
-            align-items: flex-start;
-            gap: 0.6rem;
-        }
-        .feature-list li::before { content: '✓'; color: #4CAF50; flex-shrink: 0; }
-        .steps { list-style: none; counter-reset: step; }
-        .steps li {
-            counter-increment: step;
-            padding: 0.6rem 0 0.6rem 2.5rem;
-            color: #c0c0c0;
-            font-size: 0.95rem;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            position: relative;
-            line-height: 1.5;
-        }
-        .steps li:last-child { border-bottom: none; }
-        .steps li::before {
-            content: counter(step);
-            position: absolute;
-            left: 0;
-            top: 0.6rem;
-            background: #4CAF50;
-            color: #fff;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            font-size: 0.7rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .file-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 0.5rem;
-        }
-        .file-item {
-            display: block;
-            background: rgba(255,255,255,0.05);
-            border-radius: 6px;
-            padding: 0.5rem 0.75rem;
-            font-size: 0.8rem;
-            color: #a0a0a0;
-            font-family: monospace;
-            text-decoration: none;
-            transition: background 0.2s;
-        }
-        .file-item:hover { background: rgba(255,255,255,0.12); }
-        .file-item.gs { color: #81C784; }
-        .file-item.html { color: #64B5F6; }
-        .file-item.md { color: #FFD54F; }
-        .note {
-            background: rgba(76, 175, 80, 0.1);
-            border: 1px solid rgba(76, 175, 80, 0.3);
-            border-radius: 8px;
-            padding: 1rem 1.25rem;
-            font-size: 0.9rem;
-            color: #c0c0c0;
-            line-height: 1.6;
-            margin-bottom: 1.5rem;
-        }
-        .note strong { color: #4CAF50; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payroll Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <?!= include('Styles'); ?>
 </head>
 <body>
-    <div class="container">
-        <a href="../index.html" class="back-link">&#8592; Back to Hub</a>
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay hidden">
+    <div class="spinner"></div>
+  </div>
 
-        <div class="header">
-            <div class="project-icon">&#128176;</div>
-            <h1>Payroll Management System</h1>
-            <p class="subtitle">Complete payroll solution with overtime tracking, PTO management, uniform ordering, and year-end processing.</p>
-            <div>
-                <span class="tag">Google Apps Script</span>
-                <span class="tag">Google Sheets</span>
-                <span class="tag">Web App</span>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="app-header-left">
+        <div class="app-logo">
+          <span class="material-icons-round">schedule</span>
+        </div>
+        <div class="app-title">
+          <h1>Payroll Review</h1>
+          <span>Multi-Location Overtime Monitor</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="dashboard">
+        <span class="material-icons-round">dashboard</span>
+        <span>Dashboard</span>
+      </button>
+      <button class="nav-tab" data-tab="upload">
+        <span class="material-icons-round">cloud_upload</span>
+        <span>Upload</span>
+      </button>
+      <button class="nav-tab" data-tab="history">
+        <span class="material-icons-round">history</span>
+        <span>History</span>
+      </button>
+      <button class="nav-tab" data-tab="employee">
+        <span class="material-icons-round">person_search</span>
+        <span>Employee</span>
+      </button>
+      <button class="nav-tab" data-tab="trends">
+        <span class="material-icons-round">trending_up</span>
+        <span>Trends</span>
+      </button>
+      <button class="nav-tab" data-tab="uniforms">
+        <span class="material-icons-round">checkroom</span>
+        <span>Uniforms</span>
+      </button>
+      <button class="nav-tab" data-tab="settings">
+        <span class="material-icons-round">settings</span>
+        <span>Settings</span>
+      </button>
+    </nav>
+
+    <!-- ==================== DASHBOARD TAB ==================== -->
+    <div id="tab-dashboard" class="tab-content active">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon yellow"><span class="material-icons-round">timer</span></div>
+          <div class="stat-content">
+            <h3 id="dashTotalOT">--</h3>
+            <p>OT Hours (Latest)</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green"><span class="material-icons-round">attach_money</span></div>
+          <div class="stat-content">
+            <h3 id="dashTotalCost">--</h3>
+            <p>OT Cost (Latest)</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon purple"><span class="material-icons-round">people</span></div>
+          <div class="stat-content">
+            <h3 id="dashEmployees">--</h3>
+            <p>Employees</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon red"><span class="material-icons-round">warning</span></div>
+          <div class="stat-content">
+            <h3 id="dashAlerts">--</h3>
+            <p>Active Alerts</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payroll Calendar Widget (Chunk 15) -->
+      <div class="card payroll-calendar-widget">
+        <div class="card-header">
+          <h2><span class="material-icons-round">event</span> Payroll Calendar</h2>
+          <button class="btn btn-outline btn-sm" onclick="refreshPayrollCalendar()">
+            <span class="material-icons-round">refresh</span>
+          </button>
+        </div>
+        <div class="card-body" id="payrollCalendarWidget">
+          <div class="calendar-loading">
+            <div class="spinner" style="width: 32px; height: 32px;"></div>
+            <span>Loading calendar...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2><span class="material-icons-round">notifications</span> Alerts</h2>
+        </div>
+        <div class="card-body">
+          <div id="alertsContainer" class="alerts-panel">
+            <div class="empty-state">
+              <span class="material-icons-round">hourglass_empty</span>
+              <h3>Loading alerts...</h3>
             </div>
+          </div>
         </div>
+      </div>
 
-        <div class="note">
-            <strong>This is a Google Apps Script application.</strong> It runs inside Google Sheets and cannot be opened directly in a browser. Follow the setup steps below to deploy it to your Google account.
+      <div class="card">
+        <div class="card-header">
+          <h2><span class="material-icons-round">show_chart</span> OT Trend</h2>
+          <select id="dashboardTrendRange" class="form-select" style="width: auto;">
+            <option value="3m">Last 3 Months</option>
+            <option value="6m">Last 6 Months</option>
+            <option value="1y">Last Year</option>
+            <option value="all">All Time</option>
+          </select>
         </div>
-
-        <div class="section">
-            <h2>Features</h2>
-            <ul class="feature-list">
-                <li>Multi-location overtime tracking with alerts and trend analysis</li>
-                <li>CSV timecard upload and pay period processing</li>
-                <li>Employee-level OT history and lookups</li>
-                <li>Uniform ordering with payroll deduction scheduling</li>
-                <li>PTO request portal and tracking</li>
-                <li>Payroll calendar and bi-weekly processing</li>
-                <li>Year-end processing wizard</li>
-                <li>System health monitoring and reporting</li>
-            </ul>
+        <div class="card-body">
+          <div id="dashboardChart" class="chart-container"></div>
         </div>
-
-        <div class="section">
-            <h2>Setup Steps</h2>
-            <ol class="steps">
-                <li>Create a new Google Sheet and name it <strong>CFA Payroll System</strong>.</li>
-                <li>Open <strong>Extensions &rarr; Apps Script</strong> in the sheet.</li>
-                <li>Copy the code from each <code>.gs</code> file (Code.gs, DashboardModule.gs, PTOModule.gs, ReportsModule.gs) into matching script files.</li>
-                <li>Copy each <code>.html</code> file into matching HTML files in the Apps Script editor.</li>
-                <li>Run <strong>initializeSystem</strong> once to set up the sheet tabs and structure.</li>
-                <li>Deploy: <strong>Deploy &rarr; New Deployment &rarr; Web App</strong>. Set access to your organization and copy the URL.</li>
-                <li>See <strong>COMPLETE_SETUP_GUIDE.md</strong> for full step-by-step instructions.</li>
-            </ol>
-        </div>
-
-        <div class="section">
-            <h2>Files in This Project</h2>
-            <div style="margin-bottom: 1rem;">
-                <button onclick="downloadZip()" id="download-btn" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.65rem 1.4rem;background:linear-gradient(135deg,#4CAF50,#8BC34A);border:none;border-radius:8px;color:#fff;font-size:0.95rem;font-weight:600;cursor:pointer;transition:opacity 0.2s;">&#8595; Download All as ZIP</button>
-            </div>
-            <div class="file-grid">
-                <a href="Code.gs" class="file-item gs" target="_blank">Code.gs</a>
-                <a href="DashboardModule.gs" class="file-item gs" target="_blank">DashboardModule.gs</a>
-                <a href="PTOModule.gs" class="file-item gs" target="_blank">PTOModule.gs</a>
-                <a href="ReportsModule.gs" class="file-item gs" target="_blank">ReportsModule.gs</a>
-                <a href="COMPLETE_SETUP_GUIDE.md" class="file-item md" target="_blank">COMPLETE_SETUP_GUIDE.md</a>
-                <a href="MainApp.html" class="file-item html" target="_blank">MainApp.html</a>
-                <a href="MainAppJS.html" class="file-item html" target="_blank">MainAppJS.html</a>
-                <a href="MainAppStyles.html" class="file-item html" target="_blank">MainAppStyles.html</a>
-                <a href="LoginPrompt.html" class="file-item html" target="_blank">LoginPrompt.html</a>
-                <a href="JavaScript.html" class="file-item html" target="_blank">JavaScript.html</a>
-                <a href="Styles.html" class="file-item html" target="_blank">Styles.html</a>
-                <a href="EmployeePTORequest.html" class="file-item html" target="_blank">EmployeePTORequest.html</a>
-                <a href="EmployeeUniformRequest.html" class="file-item html" target="_blank">EmployeeUniformRequest.html</a>
-                <a href="View_Dashboard.html" class="file-item html" target="_blank">View_Dashboard.html</a>
-                <a href="View_PayrollProcessing.html" class="file-item html" target="_blank">View_PayrollProcessing.html</a>
-                <a href="View_OTUpload.html" class="file-item html" target="_blank">View_OTUpload.html</a>
-                <a href="View_OTHistory.html" class="file-item html" target="_blank">View_OTHistory.html</a>
-                <a href="View_OTTrends.html" class="file-item html" target="_blank">View_OTTrends.html</a>
-                <a href="View_OTEmployee.html" class="file-item html" target="_blank">View_OTEmployee.html</a>
-                <a href="View_PTORecords.html" class="file-item html" target="_blank">View_PTORecords.html</a>
-                <a href="View_PTOSummary.html" class="file-item html" target="_blank">View_PTOSummary.html</a>
-                <a href="View_UniformOrders.html" class="file-item html" target="_blank">View_UniformOrders.html</a>
-                <a href="View_UniformCatalog.html" class="file-item html" target="_blank">View_UniformCatalog.html</a>
-                <a href="View_UniformDeductions.html" class="file-item html" target="_blank">View_UniformDeductions.html</a>
-                <a href="View_UniformSummary.html" class="file-item html" target="_blank">View_UniformSummary.html</a>
-                <a href="View_PayrollCalendar.html" class="file-item html" target="_blank">View_PayrollCalendar.html</a>
-                <a href="View_YearEndWizard.html" class="file-item html" target="_blank">View_YearEndWizard.html</a>
-                <a href="View_SettingsPage.html" class="file-item html" target="_blank">View_SettingsPage.html</a>
-                <a href="View_SystemHealth.html" class="file-item html" target="_blank">View_SystemHealth.html</a>
-                <a href="View_Help.html" class="file-item html" target="_blank">View_Help.html</a>
-            </div>
-        </div>
+      </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <script>
-        async function downloadZip() {
-            const btn = document.getElementById('download-btn');
-            btn.textContent = 'Packaging files\u2026';
-            btn.disabled = true;
-            btn.style.opacity = '0.7';
+    <!-- ==================== UPLOAD TAB ==================== -->
+    <div id="tab-upload" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h2><span class="material-icons-round">cloud_upload</span> Upload Timecard CSVs</h2>
+          <button class="btn btn-outline btn-sm" id="clearDataBtn">
+            <span class="material-icons-round">refresh</span> Clear
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="upload-grid">
+            <div class="upload-card" id="uploadCH">
+              <span class="location-tag">Location 1</span>
+              <span class="material-icons-round">upload_file</span>
+              <h3>Cockrell Hill DTO</h3>
+              <p>Drop CSV or click to upload</p>
+              <input type="file" id="fileInputCH" accept=".csv">
+            </div>
+            <div class="upload-card" id="uploadDBU">
+              <span class="location-tag">Location 2</span>
+              <span class="material-icons-round">upload_file</span>
+              <h3>DBU</h3>
+              <p>Drop CSV or click to upload</p>
+              <input type="file" id="fileInputDBU" accept=".csv">
+            </div>
+          </div>
+          <div class="text-center mt-lg" style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+            <button class="btn btn-primary" id="processBtn" disabled>
+              <span class="material-icons-round">analytics</span> Analyze Overtime Data
+            </button>
+            <button class="btn btn-success hidden" id="saveBtn">
+              <span class="material-icons-round">save</span> Save to History
+            </button>
+          </div>
+        </div>
+      </div>
 
-            const files = [
-                'Code.gs','DashboardModule.gs','PTOModule.gs','ReportsModule.gs',
-                'COMPLETE_SETUP_GUIDE.md',
-                'MainApp.html','MainAppJS.html','MainAppStyles.html','LoginPrompt.html',
-                'JavaScript.html','Styles.html',
-                'EmployeePTORequest.html','EmployeeUniformRequest.html',
-                'View_Dashboard.html','View_PayrollProcessing.html','View_OTUpload.html',
-                'View_OTHistory.html','View_OTTrends.html','View_OTEmployee.html',
-                'View_PTORecords.html','View_PTOSummary.html',
-                'View_UniformOrders.html','View_UniformCatalog.html',
-                'View_UniformDeductions.html','View_UniformSummary.html',
-                'View_PayrollCalendar.html','View_YearEndWizard.html',
-                'View_SettingsPage.html','View_SystemHealth.html','View_Help.html'
-            ];
+      <!-- Results Section (hidden until processed) -->
+      <div id="resultsSection" class="hidden">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon purple"><span class="material-icons-round">people</span></div>
+            <div class="stat-content">
+              <h3 id="procEmployees">0</h3>
+              <p>Employees</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon blue"><span class="material-icons-round">compare_arrows</span></div>
+            <div class="stat-content">
+              <h3 id="procMulti">0</h3>
+              <p>Multi-Location</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon yellow"><span class="material-icons-round">timer</span></div>
+            <div class="stat-content">
+              <h3 id="procTotalOT">0</h3>
+              <p>Total OT Hours</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon red"><span class="material-icons-round">warning</span></div>
+            <div class="stat-content">
+              <h3 id="procHighOT">0</h3>
+              <p>High OT</p>
+            </div>
+          </div>
+        </div>
 
-            try {
-                const zip = new JSZip();
-                await Promise.all(files.map(async (f) => {
-                    const res = await fetch(f);
-                    if (!res.ok) throw new Error('Failed: ' + f);
-                    zip.file(f, await res.blob());
-                }));
-                const blob = await zip.generateAsync({ type: 'blob' });
-                saveAs(blob, 'payroll-system.zip');
-                btn.textContent = '\u2713 Downloaded!';
-                setTimeout(() => { btn.textContent = '\u2195 Download All as ZIP'; btn.disabled = false; btn.style.opacity = '1'; }, 3000);
-            } catch (e) {
-                btn.textContent = '\u2717 Error \u2013 try again';
-                btn.disabled = false;
-                btn.style.opacity = '1';
-            }
-        }
-    </script>
+        <div class="card">
+          <div class="card-header">
+            <h2><span class="material-icons-round">compare_arrows</span> Multi-Location Employees</h2>
+            <div class="header-actions">
+              <span class="flag moderate" id="procPeriod">--</span>
+              <button class="btn btn-outline btn-sm" id="exportTransferCSV" onclick="exportTimeTransfer('csv')" style="display:none;">
+                <span class="material-icons-round">download</span> CSV
+              </button>
+              <button class="btn btn-outline btn-sm" id="exportTransferPDF" onclick="exportTimeTransfer('pdf')" style="display:none;">
+                <span class="material-icons-round">picture_as_pdf</span> PDF
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th class="numeric">Cockrell Hill</th>
+                    <th class="numeric">DBU</th>
+                    <th class="numeric">Total Hrs</th>
+                    <th class="numeric">Regular</th>
+                    <th class="numeric">OT</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="multiTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2><span class="material-icons-round">groups</span> All Employees</h2>
+          </div>
+          <div class="card-body">
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Location</th>
+                    <th class="numeric">Total Hrs</th>
+                    <th class="numeric">OT</th>
+                    <th class="numeric">OT Cost</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="allTableBody"></tbody>
+              </table>
+            </div>
+            <div class="legend mt-lg">
+              <div class="legend-item"><span class="flag normal">Normal</span><span>&lt; 5 hrs</span></div>
+              <div class="legend-item"><span class="flag moderate">Moderate</span><span>5-10 hrs</span></div>
+              <div class="legend-item"><span class="flag high">Really High</span><span>10+ hrs</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== HISTORY TAB ==================== -->
+    <div id="tab-history" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h2><span class="material-icons-round">history</span> Pay Period Browser</h2>
+          <div class="form-row">
+            <select id="periodSelect" class="form-control form-select" style="width: 220px;">
+              <option value="">Select a pay period...</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="exportPeriodPDF()">
+              <span class="material-icons-round">picture_as_pdf</span> Export PDF
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="historyStats" class="stats-grid hidden mb-lg">
+            <div class="stat-card">
+              <div class="stat-icon purple"><span class="material-icons-round">people</span></div>
+              <div class="stat-content"><h3 id="histEmployees">0</h3><p>Employees</p></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon yellow"><span class="material-icons-round">timer</span></div>
+              <div class="stat-content"><h3 id="histTotalOT">0</h3><p>Total OT</p></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon green"><span class="material-icons-round">attach_money</span></div>
+              <div class="stat-content"><h3 id="histTotalCost">$0</h3><p>OT Cost</p></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon red"><span class="material-icons-round">warning</span></div>
+              <div class="stat-content"><h3 id="histHighOT">0</h3><p>High OT</p></div>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Location</th>
+                  <th class="numeric">CH Hrs</th>
+                  <th class="numeric">DBU Hrs</th>
+                  <th class="numeric">Total</th>
+                  <th class="numeric">OT</th>
+                  <th class="numeric">Cost</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody">
+                <tr><td colspan="8"><div class="empty-state"><span class="material-icons-round">calendar_today</span><h3>Select a Pay Period</h3><p>Choose a period from the dropdown above</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== EMPLOYEE TAB ==================== -->
+    <div id="tab-employee" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h2><span class="material-icons-round">person_search</span> Employee Lookup</h2>
+          <div class="form-row">
+            <input type="text" id="employeeSearch" class="form-control" placeholder="Search employee name..." list="employeeList" style="width: 250px;">
+            <datalist id="employeeList"></datalist>
+            <button class="btn btn-outline btn-sm" onclick="exportEmployeePDF()">
+              <span class="material-icons-round">picture_as_pdf</span> Export
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="employeeStats" class="hidden">
+            <h3 id="empName" style="font-size: 1.25rem; margin-bottom: var(--space-md);">--</h3>
+            <div id="empAlerts" class="mb-md"></div>
+            <div class="stats-grid mb-lg">
+              <div class="stat-card">
+                <div class="stat-icon purple"><span class="material-icons-round">date_range</span></div>
+                <div class="stat-content"><h3 id="empPeriods">0</h3><p>Periods</p></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon yellow"><span class="material-icons-round">timer</span></div>
+                <div class="stat-content"><h3 id="empTotalOT">0</h3><p>Total OT</p></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon blue"><span class="material-icons-round">analytics</span></div>
+                <div class="stat-content"><h3 id="empAvgOT">0</h3><p>Avg OT/Period</p></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon green"><span class="material-icons-round">attach_money</span></div>
+                <div class="stat-content"><h3 id="empCost">$0</h3><p>Total Cost</p></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon blue"><span class="material-icons-round">compare_arrows</span></div>
+                <div class="stat-content"><h3 id="empMulti">0</h3><p>Multi-Loc</p></div>
+              </div>
+            </div>
+            <div id="employeeChart" class="chart-container"></div>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Period End</th>
+                  <th>Location</th>
+                  <th class="numeric">Total Hrs</th>
+                  <th class="numeric">OT</th>
+                  <th class="numeric">Cost</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="empTableBody">
+                <tr><td colspan="6"><div class="empty-state"><span class="material-icons-round">person_search</span><h3>Search for an Employee</h3><p>Enter a name above to see their OT history</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TRENDS TAB ==================== -->
+    <div id="tab-trends" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h2><span class="material-icons-round">trending_up</span> OT Trends & Analytics</h2>
+          <div class="form-row">
+            <select id="trendRange" class="form-control form-select" style="width: 150px;">
+              <option value="3m">Last 3 Months</option>
+              <option value="6m" selected>Last 6 Months</option>
+              <option value="1y">Last Year</option>
+              <option value="all">All Time</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="exportTrendsPDF()">
+              <span class="material-icons-round">picture_as_pdf</span> Export
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="trendsStats" class="stats-grid hidden mb-lg">
+            <div class="stat-card">
+              <div class="stat-icon purple"><span class="material-icons-round">date_range</span></div>
+              <div class="stat-content"><h3 id="trendPeriods">0</h3><p>Pay Periods</p></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon blue"><span class="material-icons-round">people</span></div>
+              <div class="stat-content"><h3 id="trendEmployees">0</h3><p>Unique Employees</p></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon yellow"><span class="material-icons-round">timer</span></div>
+              <div class="stat-content"><h3 id="trendTotalOT">0</h3><p>Total OT Hours</p></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon green"><span class="material-icons-round">attach_money</span></div>
+              <div class="stat-content"><h3 id="trendTotalCost">$0</h3><p>Total OT Cost</p></div>
+            </div>
+          </div>
+          <div class="chart-row">
+            <div class="card">
+              <div class="card-header"><h2>OT Over Time</h2></div>
+              <div class="card-body"><div id="otTrendChart" class="chart-container"></div></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h2>Top OT Employees</h2></div>
+              <div class="card-body"><div id="topEmployeesChart" class="chart-container"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2><span class="material-icons-round">leaderboard</span> Top 15 OT Employees</h2>
+        </div>
+        <div class="card-body">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Employee</th>
+                  <th class="numeric">Periods</th>
+                  <th class="numeric">Total OT</th>
+                  <th class="numeric">Total Cost</th>
+                  <th class="numeric">Avg OT</th>
+                </tr>
+              </thead>
+              <tbody id="topEmployeesBody">
+                <tr><td colspan="6"><div class="empty-state"><span class="material-icons-round">hourglass_empty</span><p>Loading...</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2><span class="material-icons-round">swap_horiz</span> Monthly Time Transfers</h2>
+          <select id="transferMonthSelect" class="form-control form-select" style="width: 180px;" onchange="loadMonthlyTransfers()">
+            <option value="">Select Month...</option>
+          </select>
+        </div>
+        <div class="card-body">
+          <div id="transferSummary" class="stats-grid" style="margin-bottom: var(--space-lg);">
+            <div class="stat-card">
+              <div class="stat-icon blue"><span class="material-icons-round">people</span></div>
+              <div class="stat-content"><h3 id="transferCount">--</h3><p>Multi-Location Employees</p></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background: #FEE2E2;"><span class="material-icons-round" style="color: #991B1B;">arrow_forward</span></div>
+              <div class="stat-content"><h3 id="transferToCH">--</h3><p>Hours → Cockrell Hill</p></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background: #DBEAFE;"><span class="material-icons-round" style="color: #1E40AF;">arrow_forward</span></div>
+              <div class="stat-content"><h3 id="transferToDBU">--</h3><p>Hours → DBU</p></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon purple"><span class="material-icons-round">sync_alt</span></div>
+              <div class="stat-content"><h3 id="transferTotal">--</h3><p>Total Hours to Transfer for EOM</p></div>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Pay-out Location</th>
+                  <th class="numeric">CH Hours</th>
+                  <th class="numeric">DBU Hours</th>
+                  <th class="numeric">Transferred</th>
+                  <th>Direction</th>
+                </tr>
+              </thead>
+              <tbody id="transferTableBody">
+                <tr><td colspan="6"><div class="empty-state"><span class="material-icons-round">info</span><p>Select a month to view transfer details</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== UNIFORMS TAB ==================== -->
+    <div id="tab-uniforms" class="tab-content">
+      <!-- Create Order Card -->
+      <div class="card">
+        <div class="card-header">
+          <h2><span class="material-icons-round">add_shopping_cart</span> Create New Order</h2>
+        </div>
+        <div class="card-body">
+          <div class="form-row mb-lg">
+            <div class="form-group" style="flex: 1;">
+              <label>Employee</label>
+              <select id="uniformEmployee" class="form-control form-select">
+                <option value="">Select an employee...</option>
+              </select>
+            </div>
+          </div>
+          
+          <!-- Item Selection -->
+          <div class="form-row mb-md">
+            <div class="form-group" style="flex: 0 0 180px;">
+              <label>Category</label>
+              <select id="uniformCategory" class="form-control form-select" onchange="filterCatalogByCategory()">
+                <option value="">All Categories</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label>Item</label>
+              <select id="uniformItem" class="form-control form-select" onchange="updateSizeOptions()">
+                <option value="">Select an item...</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 0 0 120px;">
+              <label>Size</label>
+              <select id="uniformSize" class="form-control form-select">
+                <option value="">Size...</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 0 0 80px;">
+              <label>Qty</label>
+              <input type="number" id="uniformQty" class="form-control" value="1" min="1" max="10">
+            </div>
+            <div class="form-group" style="flex: 0 0 auto; align-self: flex-end;">
+              <button type="button" class="btn btn-primary" onclick="addItemToOrder()">
+                <span class="material-icons-round">add</span> Add
+              </button>
+            </div>
+          </div>
+          
+          <!-- Order Items Table -->
+          <div class="table-wrapper mb-lg">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Size</th>
+                  <th class="numeric">Qty</th>
+                  <th class="numeric">Price</th>
+                  <th class="numeric">Total</th>
+                  <th style="width: 50px;"></th>
+                </tr>
+              </thead>
+              <tbody id="orderItemsBody">
+                <tr id="emptyOrderRow">
+                  <td colspan="6" class="text-center" style="color: var(--gray-500); padding: 20px;">
+                    No items added yet. Select items above to build the order.
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr style="background: var(--gray-50);">
+                  <td colspan="4" class="text-right"><strong>Order Total:</strong></td>
+                  <td class="numeric"><strong id="orderTotal">$0.00</strong></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          
+          <!-- Payment Plan -->
+          <div class="form-row mb-lg">
+            <div class="form-group">
+              <label>Payment Plan</label>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn btn-outline payment-btn active" data-plan="1" onclick="selectPaymentPlan(1)">1</button>
+                <button type="button" class="btn btn-outline payment-btn" data-plan="2" onclick="selectPaymentPlan(2)">2</button>
+                <button type="button" class="btn btn-outline payment-btn" data-plan="3" onclick="selectPaymentPlan(3)">3</button>
+                <span style="align-self: center; margin-left: 8px; color: var(--gray-600);">paycheck(s)</span>
+              </div>
+            </div>
+            <div class="form-group" style="flex: 0 0 200px;">
+              <label>First Deduction Date</label>
+              <select id="uniformFirstDeduction" class="form-control form-select">
+                <option value="">Select payday...</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 0 0 150px;">
+              <label>Per Paycheck</label>
+              <div style="font-size: 1.25rem; font-weight: 700; color: var(--cfa-red);" id="perPaycheckAmount">$0.00</div>
+            </div>
+          </div>
+          
+          <!-- Notes and Submit -->
+          <div class="form-row">
+            <div class="form-group" style="flex: 1;">
+              <label>Notes (optional)</label>
+              <input type="text" id="uniformNotes" class="form-control" placeholder="Size form link, special instructions, etc.">
+            </div>
+            <div class="form-group" style="flex: 0 0 auto; align-self: flex-end;">
+              <button type="button" class="btn btn-primary" onclick="submitUniformOrder()" id="submitOrderBtn" disabled>
+                <span class="material-icons-round">check_circle</span> Create Order
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Pending Orders Card -->
+      <div class="card">
+        <div class="card-header">
+          <h2><span class="material-icons-round">pending_actions</span> Uniform Orders</h2>
+          <div class="form-row">
+            <select id="orderStatusFilter" class="form-control form-select" style="width: 150px;" onchange="loadUniformOrders()">
+              <option value="">All Statuses</option>
+              <option value="Active" selected>Active</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+              <option value="Store Paid">Store Paid</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Order #</th>
+                  <th>Employee</th>
+                  <th>Date</th>
+                  <th class="numeric">Total</th>
+                  <th class="numeric">Paid</th>
+                  <th class="numeric">Remaining</th>
+                  <th>Progress</th>
+                  <th>Status</th>
+                  <th style="width: 100px;"></th>
+                </tr>
+              </thead>
+              <tbody id="uniformOrdersBody">
+                <tr><td colspan="9"><div class="empty-state"><span class="material-icons-round">checkroom</span><h3>No Orders</h3><p>Create an order above to get started</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Payroll Deductions Card -->
+      <div class="card">
+        <div class="card-header">
+          <h2><span class="material-icons-round">receipt_long</span> Payroll Deductions</h2>
+          <div class="form-row">
+            <select id="deductionPayday" class="form-control form-select" style="width: 200px;" onchange="loadPayrollDeductions()">
+              <option value="">Select payday...</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="exportDeductionsCSV()">
+              <span class="material-icons-round">download</span> CSV
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="markAllDeductionsPaid()" id="markAllPaidBtn" disabled>
+              <span class="material-icons-round">check_circle</span> Mark All Paid
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="deductionsSummary" class="stats-grid mb-lg hidden">
+            <div class="stat-card">
+              <div class="stat-icon purple"><span class="material-icons-round">people</span></div>
+              <div class="stat-content"><h3 id="deductionsCount">0</h3><p>Employees</p></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon green"><span class="material-icons-round">payments</span></div>
+              <div class="stat-content"><h3 id="deductionsTotal">$0</h3><p>Total Deductions</p></div>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Breakdown</th>
+                  <th>Status</th>
+                  <th class="numeric">Amount</th>
+                  <th style="width: 120px;"></th>
+                </tr>
+              </thead>
+              <tbody id="deductionsBody">
+                <tr><td colspan="5"><div class="empty-state"><span class="material-icons-round">calendar_today</span><h3>Select a Payday</h3><p>Choose a payday above to see deductions due</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Catalog Management Card (Collapsible) -->
+      <div class="card">
+        <div class="card-header" style="cursor: pointer;" onclick="toggleCatalogSection()">
+          <h2><span class="material-icons-round">inventory_2</span> Manage Catalog</h2>
+          <span class="material-icons-round" id="catalogToggleIcon">expand_more</span>
+        </div>
+        <div class="card-body hidden" id="catalogSection">
+          <div class="form-row mb-lg">
+            <button class="btn btn-outline btn-sm" onclick="showAddCatalogItemModal()">
+              <span class="material-icons-round">add</span> Add Item
+            </button>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Item Name</th>
+                  <th>Category</th>
+                  <th>Sizes</th>
+                  <th class="numeric">Price</th>
+                  <th>Active</th>
+                  <th style="width: 80px;"></th>
+                </tr>
+              </thead>
+              <tbody id="catalogBody">
+                <tr><td colspan="7"><div class="empty-state"><span class="material-icons-round">hourglass_empty</span><p>Loading...</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SETTINGS TAB ==================== -->
+    <div id="tab-settings" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h2><span class="material-icons-round">settings</span> Settings</h2>
+        </div>
+        <div class="card-body">
+          <form id="settingsForm">
+            <div class="settings-grid">
+              <div class="settings-section">
+                <h3><span class="material-icons-round">attach_money</span> Cost Settings</h3>
+                <div class="form-group">
+                  <label>Average Hourly Wage ($)</label>
+                  <input type="number" id="settingWage" class="form-control" step="0.5" min="0" value="16.5">
+                </div>
+                <div class="form-group">
+                  <label>OT Multiplier</label>
+                  <input type="number" id="settingMultiplier" class="form-control" step="0.1" min="1" value="1.5">
+                </div>
+              </div>
+              <div class="settings-section">
+                <h3><span class="material-icons-round">flag</span> OT Thresholds</h3>
+                <div class="form-group">
+                  <label>Moderate OT (hours)</label>
+                  <input type="number" id="settingModerate" class="form-control" step="1" min="1" value="5">
+                </div>
+                <div class="form-group">
+                  <label>High OT (hours)</label>
+                  <input type="number" id="settingHigh" class="form-control" step="1" min="1" value="10">
+                </div>
+              </div>
+              <div class="settings-section">
+                <h3><span class="material-icons-round">store</span> Location Names</h3>
+                <div class="form-group">
+                  <label>Location 1</label>
+                  <input type="text" id="settingLoc1" class="form-control" value="Cockrell Hill DTO">
+                </div>
+                <div class="form-group">
+                  <label>Location 2</label>
+                  <input type="text" id="settingLoc2" class="form-control" value="DBU">
+                </div>
+              </div>
+            </div>
+            <div class="mt-lg">
+              <button type="submit" class="btn btn-primary">
+                <span class="material-icons-round">save</span> Save Settings
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <?!= include('JavaScript'); ?>
 </body>
 </html>
+

@@ -31,33 +31,62 @@ const VIEW_CONFIG = {
   'settings': { title: 'Settings', section: null, template: 'SettingsPage' },
   'system-health': { title: 'System Health', section: null, template: 'SystemHealth' },
   'help': { title: 'Help & Documentation', section: null, template: 'Help' },
-  'year-end-wizard': { title: 'Year-End Closing', section: null, template: 'YearEndWizard' }
+  'year-end-wizard': { title: 'Year-End Closing', section: null, template: 'YearEndWizard' },
+  'ot-reconciliation': { title: 'OT Reconciliation', section: 'overtime', template: 'OTReconciliation' }
 };
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', function() {
-  // Initialize navigation
-  initNavigation();
-  
-  // Check if Year-End Wizard button should be shown
-  checkYearEndWizardButton();
-  
-  // Check and show onboarding for new users
-  checkAndShowOnboarding();
-  
-  // Check and display contextual banner (easter eggs)
-  checkContextualBanner();
-  
-  // Load initial view based on URL hash or default to home
-  const hash = window.location.hash.slice(1) || 'home';
-  loadView(hash);
-  
-  // Listen for hash changes (browser back/forward)
-  window.addEventListener('hashchange', function() {
-    const newHash = window.location.hash.slice(1) || 'home';
-    loadView(newHash);
+  verifyAuthSession(function() {
+    // Initialize navigation
+    initNavigation();
+    
+    // Check if Year-End Wizard button should be shown
+    checkYearEndWizardButton();
+    
+    // Check and show onboarding for new users
+    checkAndShowOnboarding();
+    
+    // Check and display contextual banner (easter eggs)
+    checkContextualBanner();
+    
+    // Load initial view based on URL hash or default to home
+    const hash = window.location.hash.slice(1) || 'home';
+    loadView(hash);
+    
+    // Listen for hash changes (browser back/forward)
+    window.addEventListener('hashchange', function() {
+      const newHash = window.location.hash.slice(1) || 'home';
+      loadView(newHash);
+    });
   });
 });
+
+function verifyAuthSession(onSuccess) {
+  if (typeof showLoading === 'function') {
+    showLoading(true);
+  }
+  
+  google.script.run
+    .withSuccessHandler(function(isValid) {
+      if (isValid) {
+        if (typeof showLoading === 'function') {
+          showLoading(false);
+        }
+        onSuccess();
+      } else {
+        localStorage.removeItem('payroll_auth');
+        const baseUrl = window.location.href.split('#')[0];
+        window.location.href = baseUrl + '?view=auth&mode=login&returnUrl=' + encodeURIComponent(baseUrl);
+      }
+    })
+    .withFailureHandler(function() {
+      localStorage.removeItem('payroll_auth');
+      const baseUrl = window.location.href.split('#')[0];
+      window.location.href = baseUrl + '?view=auth&mode=login&returnUrl=' + encodeURIComponent(baseUrl);
+    })
+    .checkAuthSession();
+}
 
 /**
  * Check if Year-End Wizard button should be shown (Jan 1 - Jan 31)
@@ -157,6 +186,24 @@ function showComingSoon(featureName) {
 }
 
 // ==================== VIEW LOADING ====================
+
+/**
+ * innerHTML doesn't execute <script> tags. This re-creates each script
+ * element so the browser evaluates it, allowing view templates to include
+ * their own JavaScript.
+ */
+function executeInjectedScripts(container) {
+  container.querySelectorAll('script').forEach(function(oldScript) {
+    var newScript = document.createElement('script');
+    if (oldScript.src) {
+      newScript.src = oldScript.src;
+    } else {
+      newScript.textContent = oldScript.textContent;
+    }
+    oldScript.parentNode.replaceChild(newScript, oldScript);
+  });
+}
+
 /**
  * Load a view into the main content area
  * @param {string} viewName - Name of the view to load
@@ -210,13 +257,24 @@ function loadView(viewName) {
     </div>
   `;
   
-  // Load the view content from server
+  // Load the view content from server (with cache)
   const templateName = VIEW_CONFIG[viewName]?.template || 'Dashboard';
+  
+  if (NavState.viewCache && NavState.viewCache[viewName]) {
+    container.innerHTML = NavState.viewCache[viewName];
+    executeInjectedScripts(container);
+    initializeView(viewName);
+    NavState.currentView = viewName;
+    NavState.isLoading = false;
+    NavState.loadStartTime = null;
+    return;
+  }
   
   google.script.run
     .withSuccessHandler(function(html) {
       // Inject the HTML
       container.innerHTML = html;
+      executeInjectedScripts(container);
       
       // Initialize view-specific JavaScript
       initializeView(viewName);
@@ -226,8 +284,9 @@ function loadView(viewName) {
       NavState.isLoading = false;
       NavState.loadStartTime = null;
       
-      // Cache the view (optional - for faster switching)
-      // NavState.viewCache[viewName] = html;
+      // Cache the view for faster switching
+      if (!NavState.viewCache) NavState.viewCache = {};
+      NavState.viewCache[viewName] = html;
     })
     .withFailureHandler(function(error) {
       container.innerHTML = `
@@ -359,6 +418,9 @@ function initializeView(viewName) {
         if (typeof initHelpView === 'function') initHelpView();
         trackChecklistProgress('help'); // Track for onboarding checklist
         break;
+      case 'ot-reconciliation':
+        if (typeof initOTReconciliationView === 'function') initOTReconciliationView();
+        break;
     }
   } catch (error) {
     console.error('Error initializing view ' + viewName + ':', error);
@@ -465,7 +527,25 @@ function updateThemeIcon(isDark) {
 // Initialize dark mode on page load
 document.addEventListener('DOMContentLoaded', initDarkMode);
 
+// ==================== AUTH ====================
+function logoutUser() {
+  if (!confirm('Sign out of Payroll Review?')) return;
+
+  localStorage.removeItem('payroll_auth');
+  const baseUrl = window.location.href.split('#')[0];
+  window.location.href = `${baseUrl}?view=auth&mode=logout`;
+}
+
 // ==================== QUICK SEARCH ====================
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const SearchState = {
   isOpen: false,
   results: [],
@@ -548,7 +628,7 @@ function handleSearchInput(query) {
     return;
   }
   
-  const lowerQuery = query.toLowerCase().trim();
+  const lowerQuery = (query || '').toLowerCase().trim();
   const results = [];
   
   // Search pages
@@ -561,7 +641,8 @@ function handleSearchInput(query) {
   
   // Search employees
   SearchState.searchIndex.employees.forEach(emp => {
-    if (emp.name.toLowerCase().includes(lowerQuery)) {
+    const name = (emp.name || '').toLowerCase();
+    if (name.includes(lowerQuery)) {
       results.push({
         id: emp.id,
         title: emp.name,
@@ -574,8 +655,10 @@ function handleSearchInput(query) {
   
   // Search orders
   SearchState.searchIndex.orders.forEach(order => {
-    if (order.id.toLowerCase().includes(lowerQuery) || 
-        order.employee.toLowerCase().includes(lowerQuery)) {
+    const orderId = (order.id || '').toLowerCase();
+    const employeeName = (order.employee || '').toLowerCase();
+    if (orderId.includes(lowerQuery) || 
+        employeeName.includes(lowerQuery)) {
       results.push({
         id: order.id,
         title: order.id,
@@ -588,12 +671,16 @@ function handleSearchInput(query) {
   
   // Search PTO
   SearchState.searchIndex.pto.forEach(pto => {
-    if (pto.id.toLowerCase().includes(lowerQuery) || 
-        pto.employee.toLowerCase().includes(lowerQuery)) {
+    const ptoId = (pto.id || '').toLowerCase();
+    const employeeName = (pto.employee || '').toLowerCase();
+    if (ptoId.includes(lowerQuery) || 
+        employeeName.includes(lowerQuery)) {
+      const hoursLabel = pto.hours !== undefined && pto.hours !== '' ? `${pto.hours} hrs` : '';
+      const meta = hoursLabel ? `${pto.employee} - ${hoursLabel}` : pto.employee;
       results.push({
         id: pto.id,
         title: pto.id,
-        meta: pto.employee + ' - ' + pto.hours + ' hrs',
+        meta: meta,
         type: 'pto',
         action: () => navigateTo('pto-records')
       });
@@ -686,29 +773,33 @@ function showDefaultSearchResults() {
 }
 
 /**
- * Render search results
+ * Render search results (for quick search in main app)
  */
 function renderSearchResults(results, query) {
   const container = document.getElementById('searchResults');
   if (!container) return;
   
+  // Safety check - ensure results is an array
+  if (!Array.isArray(results)) {
+    console.warn('renderSearchResults expected an array, got:', typeof results);
+    results = [];
+  }
+  
   if (results.length === 0) {
     container.innerHTML = `
       <div class="search-empty">
         <span class="material-icons-round">search_off</span>
-        <p>No results for "${query}"</p>
+        <p>No results for "${escapeHtml(query)}"</p>
       </div>
     `;
     return;
   }
   
-  // Group by type
-  const grouped = {
-    page: results.filter(r => r.type === 'page'),
-    employee: results.filter(r => r.type === 'employee'),
-    order: results.filter(r => r.type === 'order'),
-    pto: results.filter(r => r.type === 'pto')
-  };
+  // Group by type in a single pass
+  const grouped = { page: [], employee: [], order: [], pto: [] };
+  for (const r of results) {
+    if (grouped[r.type]) grouped[r.type].push(r);
+  }
   
   let html = '';
   let globalIndex = 0;
@@ -824,42 +915,42 @@ function buildSearchIndex() {
  * Load dynamic search data from server
  */
 function loadSearchData() {
-  // Load employees
+  // Load employees (lite)
   google.script.run
     .withSuccessHandler(function(employees) {
       SearchState.searchIndex.employees = (employees || []).map(e => ({
         id: e.employeeId || e.matchKey,
-        name: e.fullName || e.displayName || e.employeeName,
-        location: e.primaryLocation || e.location || ''
+        name: e.fullName,
+        location: e.location || ''
       }));
     })
     .withFailureHandler(function(err) {
       console.error('Failed to load employees for search:', err);
     })
-    .getEmployees({});
+    .getEmployeesForSearch();
   
-  // Load orders (limited)
+  // Load orders (limited, lite)
   google.script.run
     .withSuccessHandler(function(orders) {
-      SearchState.searchIndex.orders = (orders || []).slice(0, 100).map(o => ({
+      SearchState.searchIndex.orders = (orders || []).map(o => ({
         id: o.orderId,
         employee: o.employeeName
       }));
     })
     .withFailureHandler(function() {})
-    .getUniformOrders({ limit: 100 });
+    .getUniformOrdersLite({ limit: 100 });
   
-  // Load PTO (limited)
+  // Load PTO (limited, lite)
   google.script.run
     .withSuccessHandler(function(records) {
-      SearchState.searchIndex.pto = (records || []).slice(0, 100).map(p => ({
+      SearchState.searchIndex.pto = (records || []).map(p => ({
         id: p.ptoId,
         employee: p.employeeName,
-        hours: p.hoursRequested
+        hours: p.hoursRequested || ''
       }));
     })
     .withFailureHandler(function() {})
-    .getPTORecords({});
+    .getPTORecordsLite({ limit: 100 });
 }
 
 /**

@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f9; color: #333; }
+      header { background: #fff; border-bottom: 1px solid #eee; padding: 12px 18px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+      header h1 { margin: 0; font-size: 20px; flex: 1; }
+      .nav-btn { padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; background: #fff; cursor: pointer; }
+      .help-btn { padding: 8px 12px; border-radius: 999px; border: 1px solid #ddd; background: #fff; cursor: pointer; min-width: 44px; min-height: 44px; }
+      .container { padding: 18px; display: grid; gap: 18px; }
+      .card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 16px; }
+      .card h2 { margin: 0 0 12px 0; font-size: 16px; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; }
+      label { font-size: 12px; color: #666; display: block; margin-bottom: 4px; }
+      input, select, textarea { padding: 8px; border-radius: 6px; border: 1px solid #ddd; min-width: 180px; }
+      .btn-primary { background: #E51636; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
+      .btn-secondary { background: #f0f0f0; border: 1px solid #ddd; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border-bottom: 1px solid #eee; padding: 8px; font-size: 13px; text-align: left; }
+      th { background: #f7f7f7; }
+      .help-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 2000; }
+      .help-modal-content { background: #fff; border-radius: 10px; padding: 18px; width: 560px; max-width: calc(100% - 32px); max-height: 80vh; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Reports</h1>
+      <button class="help-btn" onclick="openHelp()">?</button>
+      <a class="nav-btn" href="?page=dashboard" onclick="if(window.navigateTo){navigateTo('dashboard'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('dashboard'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'dashboard';window.top.location.href=base+'?page='+target; return false;">Dashboard</a>
+      <a class="nav-btn" href="?page=analytics" onclick="if(window.navigateTo){navigateTo('analytics'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('analytics'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'analytics';window.top.location.href=base+'?page='+target; return false;">Analytics</a>
+      <a class="nav-btn" href="?page=employees" onclick="if(window.navigateTo){navigateTo('employees'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('employees'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'employees';window.top.location.href=base+'?page='+target; return false;">Employees</a>
+      <a class="nav-btn" href="?page=form" onclick="if(window.navigateTo){navigateTo('form'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('form'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'form';window.top.location.href=base+'?page='+target; return false;">Add Infraction</a>
+      <a class="nav-btn" href="?page=settings" onclick="if(window.navigateTo){navigateTo('settings'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('settings'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'settings';window.top.location.href=base+'?page='+target; return false;">Settings</a>
+      <button class="nav-btn" onclick="logout()">Logout</button>
+    </header>
+
+    <div class="container">
+      <div class="card">
+        <h2>Quick Reports</h2>
+        <div class="row">
+          <button class="btn-secondary" onclick="runQuickReport('This Week Summary')">This Week Summary</button>
+          <button class="btn-secondary" onclick="runQuickReport('This Month Summary')">This Month Summary</button>
+          <button class="btn-secondary" onclick="runQuickReport('Manager Accountability')">Manager Accountability</button>
+          <button class="btn-secondary" onclick="runQuickReport('At-Risk Employees')">At-Risk Employees</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Custom Report Builder</h2>
+        <div class="row">
+          <div>
+            <label>Report Type</label>
+            <select id="reportType">
+              <option>Executive Summary</option>
+              <option>Detailed Accountability Report</option>
+              <option>Location Comparison</option>
+              <option>Manager Performance</option>
+              <option>Trend Analysis</option>
+              <option>Employee Risk Assessment</option>
+              <option>Positive Behavior Report</option>
+            </select>
+          </div>
+          <div>
+            <label>Start Date</label>
+            <input type="date" id="startDate">
+          </div>
+          <div>
+            <label>End Date</label>
+            <input type="date" id="endDate">
+          </div>
+          <div>
+            <label>Format</label>
+            <select id="reportFormat">
+              <option value="pdf">PDF</option>
+              <option value="xlsx">Excel</option>
+              <option value="csv">CSV</option>
+            </select>
+          </div>
+          <div>
+            <label>Include Charts</label>
+            <select id="includeCharts">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" style="margin-top: 10px;">
+          <button class="btn-primary" onclick="generateReport()">Generate Report</button>
+          <button class="btn-secondary" onclick="saveTemplate()">Save as Template</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Scheduled Reports</h2>
+        <div class="row">
+          <button class="btn-secondary" onclick="openScheduleModal()">Add Scheduled Report</button>
+        </div>
+        <table style="margin-top: 10px;">
+          <thead>
+            <tr>
+              <th>Report Name</th>
+              <th>Type</th>
+              <th>Frequency</th>
+              <th>Recipients</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="scheduledReportsBody">
+            <tr><td colspan="5" style="text-align:center;">No scheduled reports yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Report History</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Date Range</th>
+              <th>Format</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="reportHistoryBody">
+            <tr><td colspan="5" style="text-align:center;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Data Export</h2>
+        <div class="row">
+          <label><input type="checkbox" id="dumpInfractions" checked> Infractions</label>
+          <label><input type="checkbox" id="dumpSettings" checked> Settings</label>
+          <label><input type="checkbox" id="dumpLogs" checked> Logs</label>
+        </div>
+        <div class="row" style="margin-top: 10px;">
+          <select id="dumpFormat">
+            <option value="xlsx">Excel</option>
+            <option value="csv">CSV</option>
+          </select>
+          <button class="btn-primary" onclick="exportDump()">Export</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="scheduleModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center;">
+      <div style="background:#fff; padding:16px; border-radius:10px; width:520px; max-width:95%;">
+        <h3>Schedule Report</h3>
+        <div class="row">
+          <div>
+            <label>Report Name</label>
+            <input type="text" id="scheduleName" placeholder="Weekly Summary">
+          </div>
+          <div>
+            <label>Report Type</label>
+            <select id="scheduleType">
+              <option>Executive Summary</option>
+              <option>Manager Performance</option>
+              <option>Location Comparison</option>
+            </select>
+          </div>
+          <div>
+            <label>Frequency</label>
+            <select id="scheduleFrequency">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+            </select>
+          </div>
+          <div>
+            <label>Day of Week</label>
+            <select id="scheduleDayOfWeek">
+              <option>MONDAY</option>
+              <option>TUESDAY</option>
+              <option>WEDNESDAY</option>
+              <option>THURSDAY</option>
+              <option>FRIDAY</option>
+              <option>SATURDAY</option>
+              <option>SUNDAY</option>
+            </select>
+          </div>
+          <div>
+            <label>Day of Month</label>
+            <input type="number" id="scheduleDayOfMonth" min="1" max="28" value="1">
+          </div>
+          <div>
+            <label>Time</label>
+            <input type="time" id="scheduleTime" value="08:00">
+          </div>
+          <div>
+            <label>Start Date</label>
+            <input type="date" id="scheduleStartDate">
+          </div>
+          <div>
+            <label>End Date</label>
+            <input type="date" id="scheduleEndDate">
+          </div>
+          <div style="flex:1;">
+            <label>Recipients</label>
+            <input type="text" id="scheduleRecipients" placeholder="email1@example.com, email2@example.com">
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn-primary" onclick="scheduleReport()">Schedule</button>
+          <button class="btn-secondary" onclick="closeScheduleModal()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="help-modal" id="helpModal">
+      <div class="help-modal-content">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3>Reports Help</h3>
+          <button class="nav-btn" onclick="closeHelp()">Close</button>
+        </div>
+        <div style="font-size:13px; line-height:1.5;">
+          <p>Create quick reports, custom reports, or schedule recurring reports.</p>
+          <ul>
+            <li>Use the Custom Builder for date ranges and formats.</li>
+            <li>Scheduled reports require triggers and valid recipients.</li>
+            <li>Use Data Export to download CSV/Excel.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function getSessionToken() {
+        const urlToken = getTokenFromUrl();
+        if (urlToken) {
+          sessionStorage.setItem('cfa_session_token', urlToken);
+          localStorage.setItem('cfa_session_token', urlToken);
+        }
+        const token = sessionStorage.getItem('cfa_session_token') || localStorage.getItem('cfa_session_token');
+        if (token && !sessionStorage.getItem('cfa_session_token')) {
+          sessionStorage.setItem('cfa_session_token', token);
+        }
+        return token;
+      }
+
+      function getTokenFromUrl() {
+        try {
+          const params = new URLSearchParams(window.location.search);
+          return params.get('token') || params.get('tkn') || '';
+        } catch (error) {
+          return '';
+        }
+      }
+
+      function validateSession() {
+        const token = getSessionToken();
+        if (!token) {
+          navigateTo('login');
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (!result || !result.valid) {
+              navigateTo('login');
+              return;
+            }
+            if (result.role !== 'Director' && result.role !== 'Operator') {
+              alert('Access denied');
+              navigateTo('dashboard');
+            }
+          })
+          .validateSessionToken(token);
+      }
+
+      function navigateTo(page) {
+      try {
+        console.log('[nav] click', JSON.stringify({page: page, href: window.location.href, role: (sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role')||''), token: (sessionStorage.getItem('cfa_session_token')||localStorage.getItem('cfa_session_token')||''), base: (sessionStorage.getItem('cfa_base_url')||localStorage.getItem('cfa_base_url')||'')}));
+      } catch (e) { console.log('[nav] click log failed', e); }
+
+        const targetPage = resolveDashboardPage(page);
+        const baseUrl = getStoredBaseUrl() || getBaseUrl();
+        const fallbackUrl = baseUrl + '?page=' + targetPage + '&t=' + Date.now();
+        let didNavigate = false;
+        const fallbackTimer = setTimeout(function() {
+          if (!didNavigate) {
+            redirectTo(fallbackUrl);
+          }
+        }, 1500);
+        try {
+          google.script.run
+            .withSuccessHandler(function(url) {
+              didNavigate = true;
+              clearTimeout(fallbackTimer);
+              if (url) {
+                sessionStorage.setItem('cfa_base_url', url);
+                localStorage.setItem('cfa_base_url', url);
+              }
+              redirectTo((url || baseUrl) + '?page=' + targetPage + '&t=' + Date.now());
+            })
+            .withFailureHandler(function() {
+              didNavigate = true;
+              clearTimeout(fallbackTimer);
+              redirectTo(fallbackUrl);
+            })
+            .getWebAppUrl();
+        } catch (error) {
+          didNavigate = true;
+          clearTimeout(fallbackTimer);
+          redirectTo(fallbackUrl);
+        }
+      }
+
+      function resolveDashboardPage(page) {
+        if (page !== 'dashboard') return page;
+        const role = sessionStorage.getItem('cfa_user_role') || localStorage.getItem('cfa_user_role');
+        return (role === 'Director' || role === 'Operator') ? 'analytics' : 'dashboard';
+      }
+
+      function getBaseUrl() {
+        return sessionStorage.getItem('cfa_base_url') ||
+          localStorage.getItem('cfa_base_url') ||
+          sessionStorage.getItem('cfa_web_app_base_url') ||
+          window.location.href.split('?')[0];
+      }
+
+      function getStoredBaseUrl() {
+        return sessionStorage.getItem('cfa_base_url') || localStorage.getItem('cfa_base_url') || '';
+      }
+
+      function redirectTo(url) {
+        const inPreview = window.location.href.indexOf('userCodeAppPanel') !== -1;
+        const finalUrl = appendTokenParam(url);
+        if (window.top && window.top !== window && !inPreview) {
+          window.top.location.href = finalUrl;
+        } else {
+          window.location.href = finalUrl;
+        }
+      }
+
+      function appendTokenParam(url) {
+        if (!url) return url;
+        const token = getSessionToken();
+        if (!token) return url;
+        const hasToken = url.indexOf('token=') !== -1 || url.indexOf('tkn=') !== -1;
+        if (hasToken) return url;
+        const separator = url.indexOf('?') === -1 ? '?' : '&';
+        return url + separator + 'token=' + encodeURIComponent(token);
+      }
+
+      function logout() {
+        sessionStorage.removeItem('cfa_session_token');
+        sessionStorage.removeItem('cfa_user_role');
+        navigateTo('login');
+      }
+
+    function openHelp() {
+      document.getElementById('helpModal').style.display = 'flex';
+    }
+
+    function closeHelp() {
+      document.getElementById('helpModal').style.display = 'none';
+    }
+
+      function generateReport() {
+        const token = getSessionToken();
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        if (!startDate || !endDate) {
+          alert('Please select a start and end date.');
+          return;
+        }
+        const config = {
+          report_type: document.getElementById('reportType').value,
+          date_range: {
+            start_date: startDate,
+            end_date: endDate
+          },
+          format: document.getElementById('reportFormat').value,
+          include_charts: document.getElementById('includeCharts').value === 'true'
+        };
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result && result.success) {
+              alert('Report generated: ' + result.file_url);
+              loadReportHistory();
+            } else {
+              alert(result.message || 'Report generation failed');
+            }
+          })
+          .generateDetailedReport(config, token);
+      }
+
+      function runQuickReport(name) {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(start.getDate() - 7);
+        const config = {
+          report_type: name,
+          date_range: { start_date: start.toISOString(), end_date: end.toISOString() },
+          format: 'pdf',
+          include_charts: true
+        };
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result && result.success) {
+              alert('Report generated: ' + result.file_url);
+              loadReportHistory();
+            } else {
+              alert(result.message || 'Report generation failed');
+            }
+          })
+          .generateDetailedReport(config, getSessionToken());
+      }
+
+      function loadReportHistory() {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            const body = document.getElementById('reportHistoryBody');
+            if (!result || !result.success || !result.history) {
+              body.innerHTML = '<tr><td colspan="5">No history found</td></tr>';
+              return;
+            }
+            if (!result.history.length) {
+              body.innerHTML = '<tr><td colspan="5">No reports yet</td></tr>';
+              return;
+            }
+            body.innerHTML = '';
+            result.history.slice(0, 10).forEach(item => {
+              const row = document.createElement('tr');
+              row.innerHTML = `
+                <td>${new Date(item.generated_date).toLocaleString()}</td>
+                <td>${item.report_type}</td>
+                <td>${item.date_range_covered}</td>
+                <td>${item.format}</td>
+                <td><a href="${item.file_url}" target="_blank">View</a></td>
+              `;
+              body.appendChild(row);
+            });
+          })
+          .getReportHistory(getSessionToken());
+      }
+
+      function loadScheduledReports() {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            const body = document.getElementById('scheduledReportsBody');
+            if (!result || !result.success || !result.schedules) {
+              body.innerHTML = '<tr><td colspan="5">No schedules found</td></tr>';
+              return;
+            }
+            if (!result.schedules.length) {
+              body.innerHTML = '<tr><td colspan="5">No scheduled reports</td></tr>';
+              return;
+            }
+            body.innerHTML = '';
+            result.schedules.forEach(schedule => {
+              const row = document.createElement('tr');
+              row.innerHTML = `
+                <td>${schedule.report_name}</td>
+                <td>${schedule.report_type}</td>
+                <td>${schedule.frequency}</td>
+                <td>${schedule.recipients || ''}</td>
+                <td>
+                  <button class="btn-secondary" onclick="runScheduleNow('${schedule.schedule_id}')">Run Now</button>
+                  <button class="btn-secondary" onclick="deleteSchedule('${schedule.schedule_id}')">Delete</button>
+                </td>
+              `;
+              body.appendChild(row);
+            });
+          })
+          .getScheduledReports(getSessionToken());
+      }
+
+      function exportDump() {
+        const include = [];
+        if (document.getElementById('dumpInfractions').checked) include.push('Infractions');
+        if (document.getElementById('dumpSettings').checked) include.push('Settings');
+        if (document.getElementById('dumpLogs').checked) include.push('Email_Log', 'Edit_Log');
+        const format = document.getElementById('dumpFormat').value;
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result && result.success) {
+              alert('Export ready: ' + result.file_url);
+            } else {
+              alert(result.message || 'Export failed');
+            }
+          })
+          .exportDataDump({ include: include, format: format }, getSessionToken());
+      }
+
+      function saveTemplate() {
+        const name = prompt('Template name:');
+        if (!name) return;
+        const config = {
+          report_type: document.getElementById('reportType').value,
+          date_range: {
+            start_date: document.getElementById('startDate').value,
+            end_date: document.getElementById('endDate').value
+          },
+          format: document.getElementById('reportFormat').value,
+          include_charts: document.getElementById('includeCharts').value === 'true'
+        };
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            alert(result.success ? 'Template saved' : (result.message || 'Save failed'));
+          })
+          .saveReportTemplate(name, config, getSessionToken());
+      }
+
+      function openScheduleModal() {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        document.getElementById('scheduleStartDate').value = startDate;
+        document.getElementById('scheduleEndDate').value = endDate;
+        document.getElementById('scheduleModal').style.display = 'flex';
+      }
+
+      function closeScheduleModal() {
+        document.getElementById('scheduleModal').style.display = 'none';
+      }
+
+      function scheduleReport() {
+        const startDate = document.getElementById('scheduleStartDate').value;
+        const endDate = document.getElementById('scheduleEndDate').value;
+        if (!startDate || !endDate) {
+          alert('Please select a start and end date for scheduled reports.');
+          return;
+        }
+        const config = {
+          report_name: document.getElementById('scheduleName').value || 'Scheduled Report',
+          report_type: document.getElementById('scheduleType').value,
+          frequency: document.getElementById('scheduleFrequency').value.toLowerCase(),
+          day_of_week: document.getElementById('scheduleDayOfWeek').value,
+          day_of_month: Number(document.getElementById('scheduleDayOfMonth').value || 1),
+          time: document.getElementById('scheduleTime').value,
+          recipients: document.getElementById('scheduleRecipients').value.split(',').map(e => e.trim()).filter(Boolean),
+          report_config: {
+            report_type: document.getElementById('scheduleType').value,
+            date_range: {
+              start_date: startDate,
+              end_date: endDate
+            },
+            format: document.getElementById('reportFormat').value,
+            include_charts: document.getElementById('includeCharts').value === 'true'
+          }
+        };
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result && result.success) {
+              alert('Scheduled!');
+              closeScheduleModal();
+              loadScheduledReports();
+              return;
+            }
+            alert((result && result.message) || 'Failed');
+          })
+          .withFailureHandler(function(error) {
+            alert('Failed to schedule report: ' + (error && error.message ? error.message : error));
+          })
+          .scheduleRecurringReport(config, getSessionToken());
+      }
+
+      function deleteSchedule(scheduleId) {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            alert(result.success ? 'Deleted' : (result.message || 'Failed'));
+            loadScheduledReports();
+          })
+          .deleteScheduledReport(scheduleId, getSessionToken());
+      }
+
+      function runScheduleNow(scheduleId) {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result && result.success) {
+              alert('Report generated: ' + result.file_url);
+              loadReportHistory();
+            } else {
+              alert(result.message || 'Failed');
+            }
+          })
+          .runScheduledReportNow(scheduleId, getSessionToken());
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        validateSession();
+        loadReportHistory();
+        loadScheduledReports();
+      });
+    </script>
+  </body>
+</html>

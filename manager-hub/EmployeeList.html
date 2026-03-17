@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CFA Accountability - Employee Overview</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <style>
     * {
       box-sizing: border-box;
@@ -15,6 +16,19 @@
       margin: 0;
       padding: 20px;
       background-color: #f5f5f5;
+    }
+
+    .offline-banner {
+      position: sticky;
+      top: 0;
+      z-index: 1100;
+      background: #fff3cd;
+      color: #856404;
+      padding: 10px 15px;
+      border: 1px solid #ffeeba;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      font-size: 13px;
     }
 
     /* Header */
@@ -72,6 +86,37 @@
       background-color: #c41230;
     }
 
+    .help-btn {
+      padding: 8px 12px;
+      background-color: #f0f0f0;
+      color: #333;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+    }
+
+    .help-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .help-modal-content {
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px;
+      width: 560px;
+      max-width: calc(100% - 32px);
+      max-height: 80vh;
+      overflow: auto;
+    }
+
     .logout-btn {
       padding: 8px 16px;
       background-color: #dc3545;
@@ -84,6 +129,10 @@
 
     .logout-btn:hover {
       background-color: #c82333;
+    }
+
+    .mobile-nav-toggle {
+      display: none;
     }
 
     /* Filters Section */
@@ -814,15 +863,137 @@
       font-weight: bold;
       color: #E51636;
     }
+
+    /* Mobile Optimization */
+    @media (max-width: 767px) {
+      body {
+        padding: 12px;
+        padding-bottom: 72px;
+      }
+
+      .header-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .mobile-nav-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: none;
+        background: #E51636;
+        color: #fff;
+        cursor: pointer;
+        min-height: 44px;
+      }
+
+      .header-buttons {
+        display: none;
+        flex-wrap: wrap;
+        width: 100%;
+      }
+
+      .header-buttons.open {
+        display: flex;
+      }
+
+      .nav-btn,
+      .logout-btn,
+      .btn,
+      button {
+        min-height: 44px;
+      }
+
+      .filters-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .filter-group {
+        min-width: 100%;
+      }
+
+      .threshold-summary {
+        flex-direction: column;
+      }
+
+      .employee-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Mobile Bottom Nav */
+    .mobile-bottom-nav {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: #fff;
+      border-top: 1px solid #e0e0e0;
+      z-index: 999;
+      justify-content: space-around;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .mobile-bottom-nav button {
+      background: none;
+      border: none;
+      color: #555;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      min-height: 44px;
+      gap: 4px;
+    }
+
+    .mobile-bottom-nav button.active {
+      color: #E51636;
+    }
+
+    .mobile-fab {
+      display: none;
+      position: fixed;
+      right: 16px;
+      bottom: 80px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #E51636;
+      color: #fff;
+      border: none;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+      font-size: 24px;
+      z-index: 1000;
+    }
+
+    @media (max-width: 767px) {
+      .mobile-bottom-nav {
+        display: flex;
+      }
+
+      .mobile-fab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
   </style>
 </head>
 <body>
   <!-- Session Expired Modal -->
   <div id="sessionExpiredModal" class="modal-overlay">
     <div class="modal-content">
-      <h3>Session Expired</h3>
-      <p>Your session has expired due to inactivity. Please login again to continue.</p>
-      <button class="modal-btn" onclick="returnToLogin()">Return to Login</button>
+      <h3 id="sessionExpiredTitle">Session Expired</h3>
+      <p id="sessionExpiredMessage">Your session has expired due to inactivity. Please login again to continue.</p>
+      <button class="modal-btn" id="sessionExpiredBtn" onclick="returnToLogin()">Return to Login</button>
     </div>
   </div>
 
@@ -832,14 +1003,14 @@
       <!-- Loading State -->
       <div id="detailLoadingState" class="detail-modal-loading">
         <div class="detail-loading-spinner"></div>
-        <div class="detail-loading-text">Loading employee details...</div>
+        <div class="detail-loading-text" id="detailLoadingText">Loading employee details...</div>
       </div>
 
       <!-- Error State -->
       <div id="detailErrorState" style="display: none; padding: 40px; text-align: center;">
         <div style="font-size: 48px; margin-bottom: 15px;">&#9888;</div>
         <p id="detailErrorText" style="color: #721c24; margin-bottom: 20px;">Error loading employee data</p>
-        <button class="nav-btn" onclick="closeEmployeeDetailModal()">Close</button>
+        <button class="nav-btn" id="detailCloseBtn" onclick="closeEmployeeDetailModal()">Close</button>
       </div>
 
       <!-- Detail Content Container -->
@@ -847,45 +1018,79 @@
     </div>
   </div>
 
+  <div id="offlineBanner" class="offline-banner" style="display: none;">
+    Offline mode: showing cached data.
+  </div>
+
   <!-- Header -->
   <div class="header-bar">
     <div class="header-title">
-      <h1>Employee Accountability Overview</h1>
+      <h1 id="employeeListTitle">Employee Accountability Overview</h1>
       <h2 id="currentDateTime">Loading...</h2>
     </div>
     <div class="header-user">
-      <div class="user-role">Logged in as: <strong id="userRoleDisplay">--</strong></div>
+      <div class="user-role"><span id="loggedInAsLabel">Logged in as:</span> <strong id="userRoleDisplay">--</strong></div>
+      <select id="languageSelect" class="nav-btn" onchange="onLanguageChange()" style="background-color: #f0f0f0; color: #333;">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+      </select>
+      <button class="mobile-nav-toggle" onclick="toggleHeaderMenu()">
+        <i class="fas fa-bars"></i> <span id="mobileMenuLabel">Menu</span>
+      </button>
       <div class="header-buttons">
+        <button class="help-btn" onclick="openHelp()">?</button>
+        <a href="#" id="dashboardLink" class="nav-btn" style="display: none; background-color: #17a2b8;">Dashboard</a>
+        <a href="#" id="settingsLink" class="nav-btn" style="display: none; background-color: #28a745;">Settings</a>
         <a href="#" id="userManagementLink" class="nav-btn" style="display: none; background-color: #6c757d;">User Management</a>
         <a href="#" id="addInfractionLink" class="nav-btn">+ Add Infraction</a>
-        <button class="logout-btn" onclick="logout()">Logout</button>
+        <button class="logout-btn" id="logoutBtn" onclick="logout()">Logout</button>
       </div>
     </div>
+  </div>
+
+  <div class="help-modal" id="helpModal">
+      <div class="help-modal-content">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 id="helpTitle">Employee List Help</h3>
+          <button class="nav-btn" id="helpCloseBtn" onclick="closeHelp()">Close</button>
+        </div>
+        <div id="helpBody" style="font-size:13px; line-height:1.5;">
+          <p>Search employees, filter by location or status, and open details.</p>
+          <ul>
+            <li>Click an employee to view their infraction history.</li>
+            <li>Use filters to narrow results.</li>
+          </ul>
+        </div>
+      </div>
   </div>
 
   <!-- Filters Section -->
   <div class="filters-section">
     <div class="filters-row">
-      <div class="filter-group">
-        <label for="locationFilter">Location</label>
+    <div class="filter-group">
+        <label for="locationFilter" id="labelLocationFilter">Location</label>
         <select id="locationFilter" onchange="applyFilters()">
-          <option value="">All Locations</option>
+          <option value="" id="optionAllLocations">All Locations</option>
           <option value="Cockrell Hill DTO">Cockrell Hill DTO</option>
           <option value="Dallas Baptist University OCV">Dallas Baptist University OCV</option>
         </select>
       </div>
       <div class="filter-group">
-        <label for="searchInput">Search Employee</label>
+        <label for="searchInput" id="labelSearchInput">Search Employee</label>
         <input type="text" id="searchInput" placeholder="Search by employee name..." oninput="applyFilters()">
       </div>
       <div class="filter-group">
-        <label for="sortSelect">Sort By</label>
+        <label for="sortSelect" id="labelSortSelect">Sort By</label>
         <select id="sortSelect" onchange="applyFilters()">
-          <option value="name_asc">Name (A-Z)</option>
-          <option value="name_desc">Name (Z-A)</option>
-          <option value="points_desc">Points (High to Low)</option>
-          <option value="points_asc">Points (Low to High)</option>
+          <option value="name_asc" id="optionSortNameAsc">Name (A-Z)</option>
+          <option value="name_desc" id="optionSortNameDesc">Name (Z-A)</option>
+          <option value="points_desc" id="optionSortPointsDesc">Points (High to Low)</option>
+          <option value="points_asc" id="optionSortPointsAsc">Points (Low to High)</option>
         </select>
+      </div>
+      <div class="filter-group" style="display: flex; align-items: center; gap: 8px;">
+        <input type="checkbox" id="probationFilter" onchange="applyFilters()" style="width: auto; margin: 0;">
+        <label for="probationFilter" id="labelProbationFilter" style="margin: 0; cursor: pointer;">Show only on probation</label>
       </div>
     </div>
   </div>
@@ -894,15 +1099,15 @@
   <div class="threshold-summary">
     <div class="threshold-card at-risk">
       <div class="count" id="atRiskCount">-</div>
-      <div class="label">At Risk (6+ points)</div>
+      <div class="label" id="labelAtRisk">At Risk (6+ points)</div>
     </div>
     <div class="threshold-card final-warning">
       <div class="count" id="finalWarningCount">-</div>
-      <div class="label">Final Warning (9+ points)</div>
+      <div class="label" id="labelFinalWarning">Final Warning (9+ points)</div>
     </div>
     <div class="threshold-card termination">
       <div class="count" id="terminationCount">-</div>
-      <div class="label">Termination Level (15+ points)</div>
+      <div class="label" id="labelTermination">Termination Level (15+ points)</div>
     </div>
   </div>
 
@@ -929,7 +1134,7 @@
 
   <!-- Error State -->
   <div id="errorState" class="error-state" style="display: none;">
-    <h3>Error Loading Employees</h3>
+    <h3 id="errorTitle">Error Loading Employees</h3>
     <p id="errorMessage">Please refresh the page and try again.</p>
   </div>
 
@@ -939,6 +1144,31 @@
     <span id="pageInfo" class="pagination-info">Page 1 of 1</span>
     <button id="nextPageBtn" onclick="changePage(1)">Next</button>
   </div>
+
+  <!-- Mobile FAB -->
+  <button class="mobile-fab" onclick="if(window.navigateTo){navigateTo('form'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('form'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'form';window.top.location.href=base+'?page='+target; return false;" aria-label="Add infraction">
+    <i class="fas fa-plus"></i>
+  </button>
+
+  <!-- Mobile Bottom Nav -->
+  <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+    <button onclick="if(window.navigateTo){navigateTo('dashboard'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('dashboard'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'dashboard';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-home"></i>
+      <span id="navHome">Home</span>
+    </button>
+    <button class="active" onclick="if(window.navigateTo){navigateTo('employees'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('employees'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'employees';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-users"></i>
+      <span id="navEmployees">Employees</span>
+    </button>
+    <button onclick="if(window.navigateTo){navigateTo('form'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('form'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'form';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-plus-circle"></i>
+      <span id="navAdd">Add</span>
+    </button>
+    <button onclick="if(window.navigateTo){navigateTo('settings'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('settings'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'settings';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-cog"></i>
+      <span id="navSettings">Settings</span>
+    </button>
+  </nav>
 
   <script>
     // ============================================
@@ -952,11 +1182,51 @@
     let sessionCheckInterval = null;
     let autoRefreshInterval = null;
     let loadingMessageInterval = null;
+    let translations = {};
+    let currentLanguage = 'en';
+    function tList(key, fallback) {
+      return translations[key] || fallback || key;
+    }
 
     // Pagination
     const EMPLOYEES_PER_PAGE = 20;
     let currentPage = 1;
     let totalPages = 1;
+
+    /**
+     * Gets the session token from sessionStorage.
+     * This token must be passed to server functions for authentication.
+     * @returns {string|null} The session token or null if not found
+     */
+    function getSessionToken() {
+      const urlToken = getTokenFromUrl();
+      if (urlToken) {
+        sessionStorage.setItem('cfa_session_token', urlToken);
+        localStorage.setItem('cfa_session_token', urlToken);
+      }
+      const token = sessionStorage.getItem('cfa_session_token') || localStorage.getItem('cfa_session_token');
+      if (token && !sessionStorage.getItem('cfa_session_token')) {
+        sessionStorage.setItem('cfa_session_token', token);
+      }
+      return token;
+    }
+
+    function getTokenFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('token') || params.get('tkn') || '';
+      } catch (error) {
+        return '';
+      }
+    }
+
+    /**
+     * Clears the session data from sessionStorage.
+     */
+    function clearSessionData() {
+      sessionStorage.removeItem('cfa_session_token');
+      sessionStorage.removeItem('cfa_user_role');
+    }
 
     // Fun loading messages
     const loadingMessages = [
@@ -975,14 +1245,18 @@
 
     document.addEventListener('DOMContentLoaded', function() {
       updateDateTime();
-      initializeSession();
-      loadEmployeeData();
-      startSessionMonitoring();
-      startAutoRefresh();
-      setupAddInfractionLink();
+      initializeSessionThenLoad();
 
       // Update date/time every minute
       setInterval(updateDateTime, 60000);
+
+      window.addEventListener('online', function() {
+        setOfflineBanner(false);
+        loadEmployeeData(true);
+      });
+      window.addEventListener('offline', function() {
+        setOfflineBanner(true, 'Offline mode: showing cached data when available.');
+      });
     });
 
     /**
@@ -1020,18 +1294,30 @@
     // ============================================
 
     /**
-     * Initialize session - get user role from server (Simplified Auth)
+     * Initialize session and load data only after session is validated (Token-based Auth)
+     * This prevents race conditions where data loading returns "session expired"
+     * before the session check completes.
      */
-    function initializeSession() {
+    function initializeSessionThenLoad() {
       // Check cached role first for faster UI
       var storedRole = sessionStorage.getItem('cfa_user_role');
       if (storedRole) {
         userRole = storedRole;
         document.getElementById('userRoleDisplay').textContent = storedRole;
         setupUserManagementLink(storedRole);
+        setupSettingsLink(storedRole);
       }
 
-      // Verify with server using simplified auth
+      // Get the session token
+      var token = getSessionToken();
+      if (!token) {
+        // No token - redirect to login
+        handleSessionExpired();
+        return;
+      }
+
+      // Verify with server using token-based auth
+      // IMPORTANT: Only load data AFTER session is confirmed valid
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.authenticated) {
@@ -1039,52 +1325,365 @@
             document.getElementById('userRoleDisplay').textContent = result.role;
             sessionStorage.setItem('cfa_user_role', result.role);
             setupUserManagementLink(result.role);
+            setupSettingsLink(result.role);
+            applyListTranslations(result.language || 'en');
+            const languageSelect = document.getElementById('languageSelect');
+            if (languageSelect) {
+              languageSelect.value = result.language || 'en';
+            }
+
+            // NOW load data and start monitoring after session is confirmed valid
+            loadEmployeeData();
+            startSessionMonitoring();
+            startAutoRefresh();
+            setupAddInfractionLink();
           } else {
             // Not authenticated or session expired
+            clearSessionData();
             handleSessionExpired();
           }
         })
         .withFailureHandler(function(error) {
           console.error('Session check failed:', error);
+          handleSessionExpired();
         })
-        .getCurrentRole();
+        .getCurrentRole(token);
+    }
+
+    function onLanguageChange() {
+      const select = document.getElementById('languageSelect');
+      if (!select) return;
+      const token = getSessionToken();
+      if (!token) return;
+      const language = select.value;
+      sessionStorage.setItem('cfa_language', language);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.success) {
+            applyListTranslations(language);
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to update language:', error);
+        })
+        .setLanguage(token, language);
+    }
+
+    /**
+     * Apply translations for BOH sessions.
+     */
+    function applyListTranslations(language) {
+      currentLanguage = language || 'en';
+      const keys = [
+        'nav.home',
+        'nav.employees',
+        'nav.add',
+        'nav.settings',
+        'nav.dashboard',
+        'nav.add_infraction',
+        'nav.user_management',
+        'nav.logout',
+        'nav.menu',
+        'list.location',
+        'list.all_locations',
+        'list.search',
+        'list.search_placeholder',
+        'list.sort_by',
+        'list.sort_name_asc',
+        'list.sort_name_desc',
+        'list.sort_points_desc',
+        'list.sort_points_asc',
+        'list.show_probation',
+        'list.at_risk',
+        'list.final_warning',
+        'list.termination',
+        'list.loading',
+        'list.refreshing',
+        'list.calculating',
+        'list.empty_title',
+        'list.empty_message',
+        'list.error_title',
+        'list.error_message',
+        'list.prev',
+        'list.next',
+        'modal.session_expired_title',
+        'modal.session_expired_message',
+        'modal.return_to_login',
+        'employee.points',
+        'employee.view_details',
+        'employee.no_infractions',
+        'employee.points_suffix',
+        'employee.no_location',
+        'help.title',
+        'help.close',
+        'help.employee_list.title',
+        'help.employee_list.body',
+        'button.close',
+        'list.detail_loading',
+        'list.detail_error',
+        'list.offline'
+      ];
+      google.script.run
+        .withSuccessHandler(function(result) {
+          translations = result || {};
+          const title = document.getElementById('employeeListTitle');
+          if (title) {
+            title.textContent = tList('list.page_title', 'Employee Accountability Overview');
+          }
+          document.getElementById('labelLocationFilter').textContent = translations['list.location'] || 'Location';
+          document.getElementById('optionAllLocations').textContent = translations['list.all_locations'] || 'All Locations';
+          document.getElementById('labelSearchInput').textContent = translations['list.search'] || 'Search Employee';
+          document.getElementById('searchInput').placeholder = translations['list.search_placeholder'] || 'Search by employee name...';
+          document.getElementById('labelSortSelect').textContent = translations['list.sort_by'] || 'Sort By';
+          document.getElementById('optionSortNameAsc').textContent = translations['list.sort_name_asc'] || 'Name (A-Z)';
+          document.getElementById('optionSortNameDesc').textContent = translations['list.sort_name_desc'] || 'Name (Z-A)';
+          document.getElementById('optionSortPointsDesc').textContent = translations['list.sort_points_desc'] || 'Points (High to Low)';
+          document.getElementById('optionSortPointsAsc').textContent = translations['list.sort_points_asc'] || 'Points (Low to High)';
+          document.getElementById('labelProbationFilter').textContent = translations['list.show_probation'] || 'Show only on probation';
+          document.getElementById('labelAtRisk').textContent = translations['list.at_risk'] || 'At Risk (6+ points)';
+          document.getElementById('labelFinalWarning').textContent = translations['list.final_warning'] || 'Final Warning (9+ points)';
+          document.getElementById('labelTermination').textContent = translations['list.termination'] || 'Termination Level (15+ points)';
+          document.getElementById('resultsCount').textContent = translations['list.loading'] || 'Loading employees...';
+          document.getElementById('refreshIndicator').textContent = translations['list.refreshing'] || 'Refreshing...';
+          document.getElementById('loadingMessage').textContent = translations['list.calculating'] || 'Calculating points...';
+          document.getElementById('emptyTitle').textContent = translations['list.empty_title'] || 'No employees found';
+          document.getElementById('emptyMessage').textContent = translations['list.empty_message'] || 'There are no employees to display.';
+          document.getElementById('errorTitle').textContent = translations['list.error_title'] || 'Error Loading Employees';
+          document.getElementById('errorMessage').textContent = translations['list.error_message'] || 'Please refresh the page and try again.';
+          document.getElementById('prevPageBtn').textContent = translations['list.prev'] || 'Previous';
+          document.getElementById('nextPageBtn').textContent = translations['list.next'] || 'Next';
+          document.getElementById('navHome').textContent = translations['nav.home'] || 'Home';
+          document.getElementById('navEmployees').textContent = translations['nav.employees'] || 'Employees';
+          document.getElementById('navAdd').textContent = translations['nav.add'] || 'Add';
+          document.getElementById('navSettings').textContent = translations['nav.settings'] || 'Settings';
+          document.getElementById('loggedInAsLabel').textContent = translations['label.logged_in_as'] || 'Logged in as:';
+          document.getElementById('logoutBtn').textContent = translations['nav.logout'] || 'Logout';
+          const mobileMenuLabel = document.getElementById('mobileMenuLabel');
+          if (mobileMenuLabel) {
+            mobileMenuLabel.textContent = translations['nav.menu'] || 'Menu';
+          }
+          const helpTitle = document.getElementById('helpTitle');
+          if (helpTitle) {
+            helpTitle.textContent = translations['help.employee_list.title'] || translations['help.title'] || 'Employee List Help';
+          }
+          const helpClose = document.getElementById('helpCloseBtn');
+          if (helpClose) {
+            helpClose.textContent = translations['help.close'] || 'Close';
+          }
+          const helpBody = document.getElementById('helpBody');
+          if (helpBody) {
+            helpBody.innerHTML = translations['help.employee_list.body']
+              || '<p>Search employees, filter by location or status, and open details.</p><ul><li>Click an employee to view their infraction history.</li><li>Use filters to narrow results.</li></ul>';
+          }
+          const detailLoadingText = document.getElementById('detailLoadingText');
+          if (detailLoadingText) {
+            detailLoadingText.textContent = translations['list.detail_loading'] || 'Loading employee details...';
+          }
+          const detailErrorText = document.getElementById('detailErrorText');
+          if (detailErrorText) {
+            detailErrorText.textContent = translations['list.detail_error'] || 'Error loading employee data';
+          }
+          const detailCloseBtn = document.getElementById('detailCloseBtn');
+          if (detailCloseBtn) {
+            detailCloseBtn.textContent = translations['button.close'] || 'Close';
+          }
+          const offlineBanner = document.getElementById('offlineBanner');
+          if (offlineBanner) {
+            offlineBanner.textContent = translations['list.offline'] || 'Offline mode: showing cached data.';
+          }
+          const addInfractionLink = document.getElementById('addInfractionLink');
+          if (addInfractionLink) {
+            addInfractionLink.textContent = '+ ' + (translations['nav.add_infraction'] || 'Add Infraction');
+          }
+          const dashboardLink = document.getElementById('dashboardLink');
+          if (dashboardLink) {
+            dashboardLink.textContent = translations['nav.dashboard'] || 'Dashboard';
+          }
+          const settingsLink = document.getElementById('settingsLink');
+          if (settingsLink) {
+            settingsLink.textContent = translations['nav.settings'] || 'Settings';
+          }
+          const userManagementLink = document.getElementById('userManagementLink');
+          if (userManagementLink) {
+            userManagementLink.textContent = translations['nav.user_management'] || 'User Management';
+          }
+          document.getElementById('sessionExpiredTitle').textContent = translations['modal.session_expired_title'] || 'Session Expired';
+          document.getElementById('sessionExpiredMessage').textContent = translations['modal.session_expired_message'] || 'Your session has expired due to inactivity. Please login again to continue.';
+          document.getElementById('sessionExpiredBtn').textContent = translations['modal.return_to_login'] || 'Return to Login';
+          if (displayedEmployees && displayedEmployees.length) {
+            renderEmployees();
+          }
+        })
+        .getTranslations(keys, currentLanguage);
     }
 
     /**
      * Setup User Management link for Directors and Operators
      */
     function setupUserManagementLink(role) {
-      if (role === 'Director' || role === 'Operator') {
-        var userMgmtLink = document.getElementById('userManagementLink');
-        if (userMgmtLink) {
+      var userMgmtLink = document.getElementById('userManagementLink');
+      if (userMgmtLink) {
+        if (role === 'Director' || role === 'Operator') {
           userMgmtLink.style.display = 'inline-block';
           userMgmtLink.onclick = function(e) {
             e.preventDefault();
             google.script.run
               .withSuccessHandler(function(url) {
-                window.location.href = url + '?page=users';
+                redirectTo(url + '?page=users&t=' + Date.now());
+              })
+              .withFailureHandler(function(error) {
+                console.error('Error navigating:', error);
               })
               .getWebAppUrl();
           };
+        } else {
+          userMgmtLink.style.display = 'none';
         }
       }
     }
 
     /**
-     * Start session monitoring (Simplified Auth)
+     * Setup Settings link for Directors and Operators
+     */
+    function setupSettingsLink(role) {
+      // Dashboard link
+      var dashboardLink = document.getElementById('dashboardLink');
+      if (dashboardLink) {
+        dashboardLink.style.display = 'inline-block';
+        dashboardLink.onclick = function(e) {
+          e.preventDefault();
+          google.script.run
+            .withSuccessHandler(function(url) {
+              const target = (role === 'Director' || role === 'Operator') ? 'analytics' : 'dashboard';
+              redirectTo(url + '?page=' + target + '&t=' + Date.now());
+            })
+            .withFailureHandler(function(error) {
+              console.error('Error navigating:', error);
+            })
+            .getWebAppUrl();
+        };
+      }
+
+      // Settings link
+      var settingsLink = document.getElementById('settingsLink');
+      if (settingsLink) {
+        if (role === 'Director' || role === 'Operator') {
+          settingsLink.style.display = 'inline-block';
+          settingsLink.onclick = function(e) {
+            e.preventDefault();
+            google.script.run
+              .withSuccessHandler(function(url) {
+                redirectTo(url + '?page=settings&t=' + Date.now());
+              })
+              .withFailureHandler(function(error) {
+                console.error('Error navigating:', error);
+              })
+              .getWebAppUrl();
+          };
+        } else {
+          settingsLink.style.display = 'none';
+        }
+      }
+    }
+
+    /**
+     * Navigate to a page within the web app
+     */
+    function resolveDashboardPage(page) {
+      if (page !== 'dashboard') return page;
+      const role = sessionStorage.getItem('cfa_user_role');
+      return (role === 'Director' || role === 'Operator') ? 'analytics' : 'dashboard';
+    }
+
+    function navigateTo(page) {
+      try {
+        console.log('[nav] click', JSON.stringify({page: page, href: window.location.href, role: (sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role')||''), token: (sessionStorage.getItem('cfa_session_token')||localStorage.getItem('cfa_session_token')||''), base: (sessionStorage.getItem('cfa_base_url')||localStorage.getItem('cfa_base_url')||'')}));
+      } catch (e) { console.log('[nav] click log failed', e); }
+
+      const baseUrl = getStoredBaseUrl() || getBaseUrl();
+      const targetPage = resolveDashboardPage(page);
+      const fallbackUrl = baseUrl + '?page=' + targetPage + '&t=' + Date.now();
+      let didNavigate = false;
+      const fallbackTimer = setTimeout(function() {
+        if (!didNavigate) {
+          redirectTo(fallbackUrl);
+        }
+      }, 1500);
+      google.script.run
+        .withSuccessHandler(function(url) {
+          didNavigate = true;
+          clearTimeout(fallbackTimer);
+          if (url) {
+            sessionStorage.setItem('cfa_base_url', url);
+            localStorage.setItem('cfa_base_url', url);
+          }
+          redirectTo((url || baseUrl) + '?page=' + targetPage + '&t=' + Date.now());
+        })
+        .withFailureHandler(function(error) {
+          didNavigate = true;
+          clearTimeout(fallbackTimer);
+          console.error('Error navigating:', error);
+          redirectTo(fallbackUrl);
+        })
+        .getWebAppUrl();
+    }
+
+    /**
+     * Navigate in the top-level context when embedded in an iframe.
+     */
+    function redirectTo(url) {
+      const inPreview = window.location.href.indexOf('userCodeAppPanel') !== -1;
+      const finalUrl = appendTokenParam(url);
+      if (window.top && window.top !== window && !inPreview) {
+        window.top.location.href = finalUrl;
+      } else {
+        window.location.href = finalUrl;
+      }
+    }
+
+    function appendTokenParam(url) {
+      if (!url) return url;
+      const token = getSessionToken();
+      if (!token) return url;
+      const hasToken = url.indexOf('token=') !== -1 || url.indexOf('tkn=') !== -1;
+      if (hasToken) return url;
+      const separator = url.indexOf('?') === -1 ? '?' : '&';
+      return url + separator + 'token=' + encodeURIComponent(token);
+    }
+
+    function getStoredBaseUrl() {
+      return sessionStorage.getItem('cfa_base_url') || localStorage.getItem('cfa_base_url') || '';
+    }
+
+    function getBaseUrl() {
+      return sessionStorage.getItem('cfa_base_url') ||
+        localStorage.getItem('cfa_base_url') ||
+        window.location.href.split('?')[0];
+    }
+
+    /**
+     * Start session monitoring (Token-based Auth)
      */
     function startSessionMonitoring() {
       sessionCheckInterval = setInterval(function() {
+        var token = getSessionToken();
+        if (!token) {
+          clearSessionData();
+          handleSessionExpired();
+          return;
+        }
+
         google.script.run
           .withSuccessHandler(function(result) {
             if (!result.authenticated) {
+              clearSessionData();
               handleSessionExpired();
             }
           })
           .withFailureHandler(function(error) {
             console.error('Error checking session:', error);
           })
-          .getCurrentRole();
+          .getCurrentRole(token);
       }, 60000);
     }
 
@@ -1102,10 +1701,20 @@
     }
 
     /**
+     * Toggle header menu on mobile
+     */
+    function toggleHeaderMenu() {
+      const headerButtons = document.querySelector('.header-buttons');
+      if (headerButtons) {
+        headerButtons.classList.toggle('open');
+      }
+    }
+
+    /**
      * Return to login page
      */
     function returnToLogin() {
-      sessionStorage.removeItem('cfa_user_role');
+      clearSessionData();
       google.script.run
         .withSuccessHandler(function(url) {
           var loginUrl = url + '?t=' + Date.now();
@@ -1121,10 +1730,11 @@
     }
 
     /**
-     * Logout the user (Simplified Auth)
+     * Logout the user (Token-based Auth)
      */
     function logout() {
-      sessionStorage.removeItem('cfa_user_role');
+      var token = getSessionToken();
+      clearSessionData();
       google.script.run
         .withSuccessHandler(function() {
           returnToLogin();
@@ -1133,17 +1743,66 @@
           console.error('Error ending session:', error);
           returnToLogin();
         })
-        .logoutRole();
+        .logoutRole(token);
+    }
+
+    function openHelp() {
+      document.getElementById('helpModal').style.display = 'flex';
+    }
+
+    function closeHelp() {
+      document.getElementById('helpModal').style.display = 'none';
     }
 
     // ============================================
     // DATA LOADING
     // ============================================
 
+    const EMPLOYEE_CACHE_KEY = 'cfa_employee_list_cache';
+    const EMPLOYEE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+    function saveEmployeeCache(payload) {
+      try {
+        localStorage.setItem(EMPLOYEE_CACHE_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          payload: payload
+        }));
+      } catch (err) {
+        console.warn('Failed to cache employee data:', err);
+      }
+    }
+
+    function loadEmployeeCache() {
+      try {
+        const raw = localStorage.getItem(EMPLOYEE_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.payload) return null;
+        return parsed;
+      } catch (err) {
+        console.warn('Failed to load employee cache:', err);
+        return null;
+      }
+    }
+
+    function setOfflineBanner(show, message) {
+      const banner = document.getElementById('offlineBanner');
+      if (!banner) return;
+      banner.textContent = message || 'Offline mode: showing cached data.';
+      banner.style.display = show ? 'block' : 'none';
+    }
+
     /**
      * Load employee data from server
      */
     function loadEmployeeData(isRefresh) {
+      var token = getSessionToken();
+      if (!token) {
+        clearSessionData();
+        handleSessionExpired();
+        return;
+      }
+
       if (isRefresh) {
         document.getElementById('refreshIndicator').style.display = 'inline';
       } else {
@@ -1163,7 +1822,7 @@
           }
           handleLoadError(error);
         })
-        .getAllEmployeesWithPoints();
+        .getAllEmployeesWithPoints(token);
     }
 
     /**
@@ -1171,6 +1830,7 @@
      */
     function handleEmployeeDataLoaded(result) {
       hideLoading();
+      setOfflineBanner(false);
 
       // Check if result is null or undefined
       if (!result) {
@@ -1188,6 +1848,8 @@
         showError(result.error || 'Unknown error occurred');
         return;
       }
+
+      saveEmployeeCache(result);
 
       // Store all employees (already filtered server-side based on user role)
       // Filtering logic (Micro-Phase 12):
@@ -1210,6 +1872,14 @@
     function handleLoadError(error) {
       hideLoading();
       console.error('Error loading employees:', error);
+      const cache = loadEmployeeCache();
+      if (cache && cache.payload) {
+        const ageMs = Date.now() - (cache.savedAt || 0);
+        const ageMin = Math.round(ageMs / 60000);
+        setOfflineBanner(true, 'Offline mode: showing cached data (' + ageMin + ' min old).');
+        handleEmployeeDataLoaded(cache.payload);
+        return;
+      }
       showError('Error loading employees. Please refresh the page.');
     }
 
@@ -1273,6 +1943,7 @@
       const locationFilter = document.getElementById('locationFilter').value;
       const searchText = document.getElementById('searchInput').value.toLowerCase().trim();
       const sortOption = document.getElementById('sortSelect').value;
+      const probationOnly = document.getElementById('probationFilter').checked;
 
       // Filter employees
       filteredEmployees = allEmployees.filter(emp => {
@@ -1283,6 +1954,11 @@
 
         // Search filter
         if (searchText && !emp.full_name.toLowerCase().includes(searchText)) {
+          return false;
+        }
+
+        // Probation filter
+        if (probationOnly && !emp.is_on_probation) {
           return false;
         }
 
@@ -1429,9 +2105,11 @@
      */
     function createEmployeeCard(emp) {
       const colorClass = emp.point_level_color || 'green';
+      const noInfractionsLabel = translations['employee.no_infractions'] || 'No infractions';
+      const pointsSuffix = translations['employee.points_suffix'] || 'point';
       const pointsDisplay = emp.current_points === -1 ? 'Error' :
-                           emp.current_points === 0 ? 'No infractions' :
-                           `${emp.current_points} point${emp.current_points !== 1 ? 's' : ''}`;
+                           emp.current_points === 0 ? noInfractionsLabel :
+                           `${emp.current_points} ${pointsSuffix}${emp.current_points !== 1 ? 's' : ''}`;
 
       // Format next expiration
       let expirationHtml = '';
@@ -1462,11 +2140,23 @@
           '</div>';
       }
 
+      // Probation badge
+      let probationBadgeHtml = '';
+      if (emp.is_on_probation) {
+        probationBadgeHtml = '<div class="probation-badge" style="background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-top: 8px; text-align: center;">ON PROBATION</div>';
+      }
+
+      // Handle missing or unknown location
+      const noLocationLabel = translations['employee.no_location'] || 'No Location Assigned';
+      const locationDisplay = (emp.primary_location && emp.primary_location !== 'Unknown')
+        ? emp.primary_location
+        : noLocationLabel;
+
       return `
         <div class="employee-card ${colorClass}">
           <div class="employee-name">${escapeHtml(emp.full_name)}</div>
           <div class="employee-id">ID: ${escapeHtml(emp.employee_id)}</div>
-          <div class="employee-location">${escapeHtml(emp.primary_location)}</div>
+          <div class="employee-location" style="${locationDisplay === 'No Location Assigned' ? 'color: #dc3545; font-style: italic;' : ''}">${escapeHtml(locationDisplay)}</div>
 
           <div class="points-display">
             <div>
@@ -1478,10 +2168,11 @@
           </div>
 
           ${badgesHtml}
+          ${probationBadgeHtml}
           ${expirationHtml}
 
           <button class="view-details-btn" onclick="viewEmployeeDetails('${escapeHtml(emp.employee_id)}')">
-            View Details
+            ${translations['employee.view_details'] || 'View Details'}
           </button>
         </div>
       `;
@@ -1536,6 +2227,13 @@
       console.log('View details for employee:', employeeId);
       currentDetailEmployeeId = employeeId;
 
+      var token = getSessionToken();
+      if (!token) {
+        clearSessionData();
+        handleSessionExpired();
+        return;
+      }
+
       // Show modal with loading state
       const modal = document.getElementById('employeeDetailModal');
       document.getElementById('detailLoadingState').style.display = 'flex';
@@ -1550,7 +2248,7 @@
       google.script.run
         .withSuccessHandler(handleDetailDataLoaded)
         .withFailureHandler(handleDetailDataError)
-        .getEmployeeDetailData(employeeId);
+        .getEmployeeDetailData(employeeId, token);
     }
 
     /**
@@ -1612,6 +2310,226 @@
       document.body.style.overflow = '';
       currentDetailEmployeeId = null;
       currentDetailData = null;
+    }
+
+    // ============================================
+    // CREDIT FUNCTIONS
+    // ============================================
+
+    let selectedCreditPoints = 1;
+
+    function showCreditModal() {
+      selectedCreditPoints = 1;
+      document.getElementById('creditReasonInput').value = '';
+      // Reset selection
+      const options = document.querySelectorAll('.credit-points-option');
+      options.forEach((opt, i) => {
+        if (i === 0) opt.classList.add('selected');
+        else opt.classList.remove('selected');
+      });
+      document.getElementById('creditModalOverlay').style.display = 'flex';
+    }
+
+    function closeCreditModal() {
+      document.getElementById('creditModalOverlay').style.display = 'none';
+    }
+
+    function selectCreditPts(pts) {
+      selectedCreditPoints = pts;
+      const options = document.querySelectorAll('.credit-points-option');
+      options.forEach((opt, i) => {
+        if ((i === 0 && pts === 1) || (i === 1 && pts === 2)) {
+          opt.classList.add('selected');
+        } else {
+          opt.classList.remove('selected');
+        }
+      });
+    }
+
+    function submitCredit() {
+      const reason = document.getElementById('creditReasonInput').value.trim();
+      if (!reason) {
+        alert('Please enter a reason for the credit');
+        return;
+      }
+      if (reason.length < 10) {
+        alert('Please provide a bit more detail');
+        return;
+      }
+
+      var token = getSessionToken();
+      if (!token) {
+        clearSessionData();
+        handleSessionExpired();
+        return;
+      }
+
+      const btn = document.getElementById('submitCreditBtn');
+      btn.disabled = true;
+      btn.textContent = 'Giving Credit...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          btn.disabled = false;
+          btn.textContent = 'Give Credit';
+          if (result.sessionExpired) {
+            alert('Session expired. Please log in again.');
+            clearSessionData();
+            handleSessionExpired();
+            return;
+          }
+          if (result.success) {
+            alert(result.message);
+            closeCreditModal();
+            viewEmployeeDetails(currentDetailEmployeeId);
+          } else {
+            alert('Error: ' + result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          btn.disabled = false;
+          btn.textContent = 'Give Credit';
+          alert('Error: ' + error.message);
+        })
+        .addPositiveBehaviorCredit({
+          employee_id: currentDetailEmployeeId,
+          points_to_credit: selectedCreditPoints,
+          reason: reason
+        }, token);
+    }
+
+    /**
+     * Build Probation & Required Actions section HTML
+     * Displays probation status card and required actions checklist
+     */
+    function buildProbationSectionHtml(data) {
+      // Check if probation data exists
+      if (!data.probationStatus) {
+        return '';
+      }
+
+      const ps = data.probationStatus;
+      const requiredActions = data.requiredActions || [];
+
+      // Build probation status card
+      let statusHtml = '';
+      if (ps.is_on_probation) {
+        const startDate = ps.probation_start_date ? new Date(ps.probation_start_date).toLocaleDateString() : '--';
+        const endDate = ps.probation_end_date ? new Date(ps.probation_end_date).toLocaleDateString() : '--';
+        const progressPercent = ps.progress_percent || 0;
+
+        statusHtml = `
+          <div class="probation-card active-probation">
+            <div class="probation-header">
+              <div class="probation-status on-probation">
+                <span>&#9888;</span> ON PROBATION
+              </div>
+              <span style="font-size: 12px; color: #666;">${ps.days_remaining || 0} days remaining</span>
+            </div>
+            <div class="probation-details">
+              <div class="probation-detail-item">
+                <strong>Start Date</strong>
+                <span>${startDate}</span>
+              </div>
+              <div class="probation-detail-item">
+                <strong>End Date</strong>
+                <span>${endDate}</span>
+              </div>
+            </div>
+            <div class="probation-progress">
+              <div class="probation-progress-bar" style="width: ${progressPercent}%"></div>
+            </div>
+            <div style="font-size: 11px; color: #666; margin-bottom: 10px; text-align: center;">
+              ${progressPercent}% complete
+            </div>
+            <div class="probation-actions">
+              <button class="probation-btn extend" onclick="showExtendProbationModal()">+ Extend Probation</button>
+              ${ps.can_end_early ? '<button class="probation-btn end-early" onclick="showEndProbationEarlyModal()">End Early</button>' : ''}
+            </div>
+          </div>
+        `;
+      } else {
+        statusHtml = `
+          <div class="probation-card">
+            <div class="probation-header">
+              <div class="probation-status not-on-probation">
+                <span>&#10003;</span> Not on Probation
+              </div>
+            </div>
+            <p style="font-size: 13px; color: #666; margin: 0;">
+              Employee is not currently on a probation period.
+            </p>
+          </div>
+        `;
+      }
+
+      // Build required actions list
+      let actionsHtml = '';
+      if (requiredActions.length > 0) {
+        actionsHtml = '<div class="required-actions-list">';
+        actionsHtml += '<h4 style="font-size: 14px; margin: 0 0 10px 0; color: #333;">Required Actions</h4>';
+
+        requiredActions.forEach(action => {
+          const isCompleted = action.completed;
+          const statusClass = isCompleted ? 'completed' : 'pending';
+          const statusIcon = isCompleted ? '&#10003;' : '&#9679;';
+
+          let completedInfo = '';
+          if (isCompleted && action.completion_date) {
+            const completionDate = new Date(action.completion_date).toLocaleDateString();
+            completedInfo = `<div class="action-completed-info">Completed ${completionDate}${action.completed_by ? ' by ' + escapeHtml(action.completed_by) : ''}</div>`;
+          }
+
+          const markCompleteBtn = !isCompleted ?
+            `<button class="mark-complete-btn" onclick="showMarkActionCompleteModal('${escapeHtml(action.action_name)}', '${action.threshold || ''}')">Mark Complete</button>` : '';
+
+          actionsHtml += `
+            <div class="required-action-item ${statusClass}">
+              <div class="action-status-icon">${statusIcon}</div>
+              <div class="action-content">
+                <div class="action-name">${escapeHtml(action.action_name)}</div>
+                <div class="action-threshold">Required at ${action.threshold || 'N/A'} points</div>
+                ${completedInfo}
+              </div>
+              ${markCompleteBtn}
+            </div>
+          `;
+        });
+
+        actionsHtml += '</div>';
+      }
+
+      // Build probation history
+      let historyHtml = '';
+      if (ps.probation_history && ps.probation_history.length > 0) {
+        historyHtml = '<div class="probation-history">';
+        historyHtml += '<div class="probation-history-title">Probation History</div>';
+
+        ps.probation_history.forEach(record => {
+          const startDate = record.start_date ? new Date(record.start_date).toLocaleDateString() : '--';
+          const endDate = record.end_date ? new Date(record.end_date).toLocaleDateString() : '--';
+          const outcome = record.outcome || 'In Progress';
+
+          historyHtml += `
+            <div class="probation-history-item">
+              <strong>${startDate} - ${endDate}</strong>: ${escapeHtml(outcome)}
+              ${record.notes ? '<br><em style="color: #888;">' + escapeHtml(record.notes) + '</em>' : ''}
+            </div>
+          `;
+        });
+
+        historyHtml += '</div>';
+      }
+
+      // Combine all parts
+      return `
+        <div class="section">
+          <h2 class="section-title">Probation & Required Actions</h2>
+          ${statusHtml}
+          ${actionsHtml}
+          ${historyHtml}
+        </div>
+      `;
     }
 
     /**
@@ -1684,13 +2602,13 @@
         timelineHtml = '<div class="empty-state">No infractions recorded</div>';
       }
 
-      // Build action tracking HTML (Directors only)
+      // Build action tracking HTML (Directors and Operators)
       let actionTrackingHtml = '';
-      if (data.userRole === 'Director' && data.actionTracking) {
+      if ((data.userRole === 'Director' || data.userRole === 'Operator') && data.actionTracking) {
         const at = data.actionTracking;
         actionTrackingHtml = `
           <div class="section" id="detailActionTracking">
-            <h2 class="section-title">Action Tracking (Director Only)</h2>
+            <h2 class="section-title">Action Tracking</h2>
             <div class="action-tracking">
               <div class="action-item">
                 <input type="checkbox" class="action-checkbox" id="detailActionSchedule" ${at.scheduleDayRemoved.completed ? 'checked' : ''} onchange="handleDetailActionChange('schedule_day_removed')">
@@ -1713,12 +2631,18 @@
         `;
       }
 
-      // Build director actions HTML (Directors only)
+      // Build Probation & Required Actions HTML (Directors and Operators)
+      let probationSectionHtml = '';
+      if (data.userRole === 'Director' || data.userRole === 'Operator') {
+        probationSectionHtml = buildProbationSectionHtml(data);
+      }
+
+      // Build director actions HTML (Directors and Operators)
       let directorActionsHtml = '';
-      if (data.userRole === 'Director') {
+      if (data.userRole === 'Director' || data.userRole === 'Operator') {
         directorActionsHtml = `
           <div class="section">
-            <h2 class="section-title">Director Actions</h2>
+            <h2 class="section-title">Actions</h2>
             <div class="director-actions">
               <button class="action-btn primary" onclick="showDetailEditModal()">&#9998; Edit Infraction</button>
               <button class="action-btn secondary" onclick="showDetailRemovePointsModal()">&#8722; Remove Points</button>
@@ -1783,6 +2707,59 @@
           .detail-badge.final_warning { background-color: #dc3545; }
           .detail-badge.termination { background-color: #721c24; }
           .detail-badge.probation { background-color: #fd7e14; }
+          .header-credit-btn {
+            margin-top: 15px;
+            padding: 8px 16px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+          }
+          .header-credit-btn:hover { background: #218838; }
+          .credit-modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+          }
+          .credit-modal {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            width: 90%;
+            max-width: 400px;
+          }
+          .credit-modal h3 { color: #28a745; margin: 0 0 10px 0; }
+          .credit-modal p { color: #666; margin-bottom: 20px; }
+          .credit-points-selector { display: flex; gap: 15px; margin-bottom: 15px; }
+          .credit-points-option {
+            flex: 1;
+            padding: 20px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+          }
+          .credit-points-option:hover { border-color: #28a745; }
+          .credit-points-option.selected { border-color: #28a745; background: #d4edda; }
+          .credit-points-option .points-value { font-size: 32px; font-weight: bold; color: #28a745; }
+          .credit-points-option .points-label { font-size: 12px; color: #666; margin-top: 5px; }
+          .credit-form-group { margin-bottom: 15px; }
+          .credit-form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
+          .credit-form-group textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px; }
+          .credit-modal-buttons { display: flex; gap: 10px; justify-content: flex-end; }
+          .credit-btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; }
+          .credit-btn.secondary { background: #6c757d; color: white; }
+          .credit-btn.success { background: #28a745; color: white; }
           .detail-body { padding: 25px; }
           .section { margin-bottom: 25px; }
           .section-title {
@@ -1889,6 +2866,129 @@
           .action-btn.success:hover { background: #218838; }
           .action-btn.danger { background: #dc3545; color: white; }
           .action-btn.danger:hover { background: #c82333; }
+          /* Probation Section Styles */
+          .probation-card {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+          }
+          .probation-card.active-probation {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            border-color: #dc3545;
+          }
+          .probation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+          }
+          .probation-status {
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          .probation-status.on-probation { color: #dc3545; }
+          .probation-status.not-on-probation { color: #28a745; }
+          .probation-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 12px;
+          }
+          .probation-detail-item {
+            font-size: 13px;
+          }
+          .probation-detail-item strong { display: block; color: #333; margin-bottom: 2px; }
+          .probation-detail-item span { color: #666; }
+          .probation-progress {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 10px;
+            overflow: hidden;
+            margin-bottom: 12px;
+          }
+          .probation-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #dc3545 0%, #fd7e14 100%);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+          }
+          .probation-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+          .probation-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            font-weight: 500;
+          }
+          .probation-btn.extend { background: #fd7e14; color: white; }
+          .probation-btn.extend:hover { background: #e76f00; }
+          .probation-btn.end-early { background: #28a745; color: white; }
+          .probation-btn.end-early:hover { background: #218838; }
+          .required-actions-list {
+            margin-top: 15px;
+          }
+          .required-action-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border-left: 3px solid #dee2e6;
+          }
+          .required-action-item.completed {
+            background: #d4edda;
+            border-left-color: #28a745;
+          }
+          .required-action-item.pending {
+            border-left-color: #ffc107;
+          }
+          .action-status-icon {
+            font-size: 18px;
+            min-width: 24px;
+          }
+          .action-content { flex: 1; }
+          .action-name { font-weight: 500; color: #333; font-size: 13px; }
+          .action-threshold { font-size: 11px; color: #666; }
+          .action-completed-info { font-size: 11px; color: #28a745; margin-top: 3px; }
+          .mark-complete-btn {
+            padding: 4px 8px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+          }
+          .mark-complete-btn:hover { background: #0056b3; }
+          .probation-history {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #dee2e6;
+          }
+          .probation-history-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: #666;
+            margin-bottom: 8px;
+          }
+          .probation-history-item {
+            font-size: 12px;
+            color: #666;
+            padding: 5px 0;
+            border-bottom: 1px dashed #eee;
+          }
           @media (max-width: 768px) {
             .detail-header { padding: 20px; }
             .detail-employee-name { font-size: 22px; }
@@ -1908,6 +3008,38 @@
           <div class="header-points">
             <div class="points-circle ${data.currentPoints.pointLevelColor}">${data.currentPoints.total}</div>
             <div class="detail-badges">${badgesHtml}</div>
+          </div>
+          ${(data.userRole === 'Director' || data.userRole === 'Operator') ? `
+          <button class="header-credit-btn" onclick="showCreditModal()">+ Give Credit</button>
+          ` : ''}
+        </div>
+
+        <!-- Credit Modal -->
+        <div class="credit-modal-overlay" id="creditModalOverlay" onclick="if(event.target===this)closeCreditModal()">
+          <div class="credit-modal">
+            <h3>Give Credit</h3>
+            <p>Award points for positive behavior</p>
+            <div class="credit-form-group">
+              <label>How many points?</label>
+              <div class="credit-points-selector">
+                <div class="credit-points-option selected" onclick="selectCreditPts(1)">
+                  <div class="points-value">-1</div>
+                  <div class="points-label">point</div>
+                </div>
+                <div class="credit-points-option" onclick="selectCreditPts(2)">
+                  <div class="points-value">-2</div>
+                  <div class="points-label">points</div>
+                </div>
+              </div>
+            </div>
+            <div class="credit-form-group">
+              <label>Why are they getting this credit?</label>
+              <textarea id="creditReasonInput" placeholder="Briefly describe what they did..."></textarea>
+            </div>
+            <div class="credit-modal-buttons">
+              <button class="credit-btn secondary" onclick="closeCreditModal()">Cancel</button>
+              <button class="credit-btn success" id="submitCreditBtn" onclick="submitCredit()">Give Credit</button>
+            </div>
           </div>
         </div>
 
@@ -1983,12 +3115,13 @@
           </div>
 
           ${actionTrackingHtml}
+          ${probationSectionHtml}
           ${directorActionsHtml}
 
           <!-- Export -->
           <div class="section">
             <h2 class="section-title">Export</h2>
-            <button class="action-btn primary" onclick="exportDetailPdf()" id="exportDetailBtn">
+            <button class="action-btn primary" onclick="showExportPdfModal()" id="exportDetailBtn">
               &#128196; Export Write-Up PDF
             </button>
           </div>
@@ -2064,35 +3197,320 @@
         .saveActionTracking(currentDetailEmployeeId, 'director_notes', true, null, notes);
     }
 
+    // ============================================
+    // PROBATION MODAL HANDLERS
+    // ============================================
+
     /**
-     * Export PDF from detail modal
+     * Show modal to extend probation period
      */
-    function exportDetailPdf() {
-      const btn = document.getElementById('exportDetailBtn');
-      btn.disabled = true;
-      btn.innerHTML = 'Generating PDF...';
+    function showExtendProbationModal() {
+      const formHtml = `
+        <div class="edit-form">
+          <p style="margin-bottom: 15px; color: #666;">
+            Extend the employee's current probation period.
+          </p>
+          <div class="form-group">
+            <label>Extension Duration</label>
+            <select id="extensionDays" class="form-input">
+              <option value="7">7 days</option>
+              <option value="14">14 days</option>
+              <option value="30" selected>30 days</option>
+              <option value="45">45 days</option>
+              <option value="60">60 days</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Reason for Extension</label>
+            <textarea id="extensionReason" class="form-textarea" rows="3" placeholder="Explain why the probation is being extended..."></textarea>
+          </div>
+        </div>
+      `;
+
+      showActionModal('Extend Probation', formHtml, submitExtendProbation, 'Cancel');
+    }
+
+    /**
+     * Submit probation extension
+     */
+    function submitExtendProbation() {
+      const extensionDays = parseInt(document.getElementById('extensionDays').value);
+      const reason = document.getElementById('extensionReason').value.trim();
+
+      if (!reason) {
+        alert('Please provide a reason for the extension.');
+        return;
+      }
+
+      showActionModalLoading('Extending probation...');
 
       google.script.run
         .withSuccessHandler(function(result) {
-          btn.disabled = false;
-          btn.innerHTML = '&#128196; Export Write-Up PDF';
-
+          hideActionModal();
           if (result.success) {
-            if (result.printUrl) {
-              window.open(result.printUrl, '_blank');
-            } else {
-              alert(result.message);
-            }
+            alert(result.message || 'Probation extended successfully.');
+            viewEmployeeDetails(currentDetailEmployeeId); // Refresh
           } else {
-            alert('Error: ' + result.error);
+            alert('Error: ' + (result.error || 'Unknown error'));
           }
         })
         .withFailureHandler(function(error) {
-          btn.disabled = false;
-          btn.innerHTML = '&#128196; Export Write-Up PDF';
+          hideActionModal();
           alert('Error: ' + error.message);
         })
-        .generateWriteUpPdf(currentDetailEmployeeId);
+        .extendProbation(currentDetailEmployeeId, extensionDays, null, reason);
+    }
+
+    /**
+     * Show modal to end probation early
+     */
+    function showEndProbationEarlyModal() {
+      const formHtml = `
+        <div class="edit-form">
+          <p style="margin-bottom: 15px; color: #666;">
+            End the employee's probation period early. This should only be done if the employee has demonstrated sustained improvement.
+          </p>
+          <div class="form-group">
+            <label>Reason for Early Completion</label>
+            <textarea id="endEarlyReason" class="form-textarea" rows="4" placeholder="Explain why the probation is being ended early (e.g., sustained improvement, completed all required actions)..."></textarea>
+          </div>
+        </div>
+      `;
+
+      showActionModal('End Probation Early', formHtml, submitEndProbationEarly, 'Cancel');
+    }
+
+    /**
+     * Submit end probation early
+     */
+    function submitEndProbationEarly() {
+      const reason = document.getElementById('endEarlyReason').value.trim();
+
+      if (!reason) {
+        alert('Please provide a reason for ending probation early.');
+        return;
+      }
+
+      showActionModalLoading('Ending probation...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideActionModal();
+          if (result.success) {
+            alert(result.message || 'Probation ended successfully.');
+            viewEmployeeDetails(currentDetailEmployeeId); // Refresh
+          } else {
+            alert('Error: ' + (result.error || 'Unknown error'));
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideActionModal();
+          alert('Error: ' + error.message);
+        })
+        .endProbationEarly(currentDetailEmployeeId, null, reason);
+    }
+
+    /**
+     * Show modal to mark an action as complete
+     */
+    function showMarkActionCompleteModal(actionName, threshold) {
+      const today = new Date().toISOString().split('T')[0];
+      const formHtml = `
+        <div class="edit-form">
+          <div class="form-group">
+            <label>Action</label>
+            <input type="text" value="${escapeHtml(actionName)}" disabled class="form-input disabled">
+          </div>
+          <div class="form-group">
+            <label>Completion Date</label>
+            <input type="date" id="actionCompletionDate" value="${today}" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>Notes (optional)</label>
+            <textarea id="actionCompletionNotes" class="form-textarea" rows="2" placeholder="Any additional notes about this action..."></textarea>
+          </div>
+        </div>
+      `;
+
+      // Store action name for submission
+      window.currentActionToComplete = actionName;
+
+      showActionModal('Mark Action Complete', formHtml, submitMarkActionComplete, 'Cancel');
+    }
+
+    /**
+     * Submit mark action complete
+     */
+    function submitMarkActionComplete() {
+      const actionName = window.currentActionToComplete;
+      const completionDate = document.getElementById('actionCompletionDate').value;
+      const notes = document.getElementById('actionCompletionNotes').value.trim();
+
+      if (!completionDate) {
+        alert('Please select a completion date.');
+        return;
+      }
+
+      showActionModalLoading('Saving...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideActionModal();
+          if (result.success) {
+            alert(result.message || 'Action marked as complete.');
+            viewEmployeeDetails(currentDetailEmployeeId); // Refresh
+          } else {
+            alert('Error: ' + (result.error || 'Unknown error'));
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideActionModal();
+          alert('Error: ' + error.message);
+        })
+        .logActionCompleted(currentDetailEmployeeId, actionName, null, completionDate, notes);
+    }
+
+    /**
+     * Show PDF export modal with options
+     */
+    function showExportPdfModal() {
+      if (!currentDetailData || !currentDetailData.infractions) {
+        alert('Employee data not loaded');
+        return;
+      }
+
+      // Filter to active infractions for selection
+      const activeInfractions = currentDetailData.infractions.filter(inf =>
+        inf.status === 'Active' && !inf.is_expired && !inf.is_positive
+      );
+
+      // Build infraction options
+      let infractionOptions = '<option value="">Full Accountability Record (all infractions)</option>';
+      if (activeInfractions.length > 0) {
+        infractionOptions += activeInfractions.map(inf =>
+          `<option value="${escapeHtml(inf.infraction_id)}">${escapeHtml(inf.dateFormatted)} - ${escapeHtml(inf.infraction_type)} (${inf.points} pts)</option>`
+        ).join('');
+      }
+
+      const formHtml = `
+        <div class="edit-form">
+          <div class="form-group">
+            <label>Employee</label>
+            <input type="text" value="${escapeHtml(currentDetailData.employee.full_name)}" disabled class="form-input disabled">
+          </div>
+          <div class="form-group">
+            <label>Current Points</label>
+            <input type="text" value="${currentDetailData.currentPoints.total} points" disabled class="form-input disabled">
+          </div>
+          <div class="form-group">
+            <label>Write-up Type</label>
+            <select id="pdfInfractionSelect" class="form-input">
+              ${infractionOptions}
+            </select>
+            <p style="font-size: 12px; color: #666; margin-top: 5px;">
+              Select a specific infraction or generate a full accountability record
+            </p>
+          </div>
+          <div class="form-group">
+            <label>Coaching Notes (included in PDF)</label>
+            <textarea id="pdfCoachingNotes" class="form-textarea" rows="3" placeholder="Document the coaching conversation here..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Disciplinary Actions Taken</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+              <label style="font-weight: normal; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="action_verbal_warning" value="verbal_warning"> Verbal Warning
+              </label>
+              <label style="font-weight: normal; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="action_written_warning" value="written_warning"> Written Warning
+              </label>
+              <label style="font-weight: normal; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="action_removed_break" value="removed_break"> Removed break privileges
+              </label>
+              <label style="font-weight: normal; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="action_director_meeting" value="director_meeting"> Director meeting
+              </label>
+              <label style="font-weight: normal; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="action_probation_started" value="probation_started"> Probation started
+              </label>
+              <label style="font-weight: normal; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="action_suspension" value="suspension"> Suspension
+              </label>
+              <label style="font-weight: normal; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="action_day_removed" value="day_removed"> Day removed
+              </label>
+              <label style="font-weight: normal; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="action_other" value="other"> Other
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Additional Notes (optional)</label>
+            <textarea id="pdfAdditionalNotes" class="form-textarea" rows="2" placeholder="Any additional notes to include..."></textarea>
+          </div>
+        </div>
+      `;
+
+      showActionModal('Export Write-Up PDF', formHtml, submitExportPdf, 'Cancel');
+    }
+
+    /**
+     * Submit PDF export
+     */
+    function submitExportPdf() {
+      const infractionId = document.getElementById('pdfInfractionSelect').value || null;
+      const coachingNotes = document.getElementById('pdfCoachingNotes').value;
+      const additionalNotes = document.getElementById('pdfAdditionalNotes').value;
+
+      // Gather selected actions
+      const actionsTaken = [];
+      const actionIds = ['verbal_warning', 'written_warning', 'removed_break', 'director_meeting',
+                         'probation_started', 'suspension', 'day_removed', 'other'];
+      for (const actionId of actionIds) {
+        const checkbox = document.getElementById('action_' + actionId);
+        if (checkbox && checkbox.checked) {
+          actionsTaken.push(actionId);
+        }
+      }
+
+      const options = {
+        coachingNotes: coachingNotes,
+        additionalNotes: additionalNotes,
+        actionsTaken: actionsTaken
+      };
+
+      showActionModalLoading('Generating PDF document...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            // Show success with download options
+            const successHtml = `
+              <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 48px; color: #28a745; margin-bottom: 15px;">&#10003;</div>
+                <h3 style="color: #28a745; margin-bottom: 20px;">PDF Generated Successfully!</h3>
+                <p style="color: #666; margin-bottom: 20px;">Document ID: ${escapeHtml(result.documentId)}</p>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <a href="${result.viewUrl}" target="_blank" class="action-modal-btn submit" style="text-decoration: none; text-align: center;">
+                    Open in Google Drive
+                  </a>
+                  <a href="${result.downloadUrl}" target="_blank" class="action-modal-btn cancel" style="text-decoration: none; text-align: center; background: #17a2b8;">
+                    Download PDF
+                  </a>
+                </div>
+              </div>
+            `;
+            showActionModal('PDF Ready', successHtml, null, 'Close');
+          } else {
+            hideActionModal();
+            alert('Error generating PDF: ' + (result.error || 'Unknown error'));
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideActionModal();
+          alert('Error: ' + error.message);
+        })
+        .generateWriteUpPDF(currentDetailEmployeeId, infractionId, options);
     }
 
     // ============================================
@@ -2351,51 +3769,10 @@
     }
 
     /**
-     * Show add credit modal (placeholder - full implementation in future)
+     * Show add credit modal - uses the simplified credit system
      */
     function showDetailAddCreditModal() {
-      const dateStr = prompt('Enter date of positive behavior (MM/DD/YYYY):');
-      if (!dateStr) return;
-
-      const behaviorDate = new Date(dateStr);
-      if (isNaN(behaviorDate.getTime())) {
-        alert('Invalid date format.');
-        return;
-      }
-
-      const points = prompt('Enter points to credit (1-6):');
-      if (!points) return;
-
-      const pointsNum = parseInt(points);
-      if (isNaN(pointsNum) || pointsNum < 1 || pointsNum > 6) {
-        alert('Points must be between 1 and 6.');
-        return;
-      }
-
-      const description = prompt('Enter description (minimum 240 characters):');
-      if (!description || description.length < 240) {
-        alert('Description must be at least 240 characters.');
-        return;
-      }
-
-      google.script.run
-        .withSuccessHandler(function(result) {
-          if (result.success) {
-            alert(result.message);
-            viewEmployeeDetails(currentDetailEmployeeId); // Refresh
-          } else {
-            alert('Error: ' + result.error);
-          }
-        })
-        .withFailureHandler(function(error) {
-          alert('Error: ' + error.message);
-        })
-        .addPositiveBehaviorCredit({
-          employee_id: currentDetailEmployeeId,
-          date: behaviorDate.toISOString(),
-          points: pointsNum,
-          description: description
-        });
+      showCreditModal();
     }
 
     /**

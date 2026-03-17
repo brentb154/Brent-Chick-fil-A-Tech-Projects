@@ -1,0 +1,2873 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - CFA Manager Hub</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f5f5f5;
+      color: #333;
+      line-height: 1.5;
+    }
+
+    .offline-banner {
+      position: sticky;
+      top: 60px;
+      z-index: 101;
+      background: #fff3cd;
+      color: #856404;
+      padding: 10px 15px;
+      border: 1px solid #ffeeba;
+      border-radius: 6px;
+      margin: 10px 20px 0 20px;
+      font-size: 13px;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #E51636 0%, #c41230 100%);
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .header h1 {
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .mobile-nav-toggle {
+      display: none;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      min-height: 44px;
+    }
+
+    .nav-btn {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+
+    .nav-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    .user-info {
+      font-size: 13px;
+      opacity: 0.9;
+    }
+
+    .help-btn {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 14px;
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    .help-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .help-modal-content {
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px;
+      width: 560px;
+      max-width: calc(100% - 32px);
+      max-height: 80vh;
+      overflow: auto;
+    }
+
+    .help-modal-content h3 {
+      margin: 0 0 10px 0;
+    }
+
+    .help-mode-indicator {
+      position: fixed;
+      bottom: 80px;
+      right: 16px;
+      background: #E51636;
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      display: none;
+      z-index: 2001;
+    }
+
+    .status-pill {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 6px;
+      background: rgba(255,255,255,0.9);
+      color: #333;
+    }
+
+    .status-pill.healthy { background: #e6f6ea; color: #1b5e20; }
+    .status-pill.warning { background: #fff8e1; color: #8a6d3b; }
+    .status-pill.critical { background: #fdecea; color: #b71c1c; }
+
+    /* Layout Container */
+    .layout-container {
+      display: flex;
+      min-height: calc(100vh - 60px);
+    }
+
+    /* Left Sidebar */
+    .left-sidebar {
+      width: 280px;
+      background: white;
+      border-right: 1px solid #e0e0e0;
+      padding: 20px;
+      position: sticky;
+      top: 60px;
+      height: calc(100vh - 60px);
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .sidebar-section {
+      margin-bottom: 24px;
+    }
+
+    .sidebar-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #666;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #333;
+      transition: all 0.2s;
+      margin-bottom: 8px;
+      border: 1px solid transparent;
+    }
+
+    .sidebar-link:hover {
+      background: #fff;
+      border-color: #E51636;
+      transform: translateX(4px);
+      box-shadow: 0 2px 8px rgba(229, 22, 54, 0.15);
+    }
+
+    .sidebar-link-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #E51636 0%, #c41230 100%);
+      color: white;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-link-info {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .sidebar-link-title {
+      font-weight: 600;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sidebar-link-desc {
+      font-size: 11px;
+      color: #666;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sidebar-link-group {
+      margin-bottom: 12px;
+    }
+
+    .sidebar-link-group-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #999;
+      margin: 8px 0 6px 0;
+    }
+
+    .sidebar-nav-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 4px;
+      color: #333;
+      font-size: 14px;
+      background: none;
+      border: none;
+      width: 100%;
+      text-align: left;
+    }
+
+    .sidebar-nav-link:hover {
+      background: #f0f0f0;
+      color: #E51636;
+    }
+
+    .sidebar-nav-link.active {
+      background: #E51636;
+      color: white;
+    }
+
+    .sidebar-nav-link i {
+      width: 20px;
+      text-align: center;
+    }
+
+    .sidebar-quick-links-empty {
+      text-align: center;
+      padding: 20px;
+      color: #999;
+      font-size: 13px;
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+      min-width: 0;
+    }
+
+    @media (max-width: 1024px) {
+      .layout-container {
+        flex-direction: column;
+      }
+
+      .left-sidebar {
+        width: 100%;
+        position: relative;
+        top: 0;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #e0e0e0;
+      }
+    }
+
+    /* Page Header */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .page-title {
+      font-size: 24px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .last-updated {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .refresh-btn {
+      background: #E51636;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .refresh-btn:hover {
+      background: #c41230;
+    }
+
+    /* Summary Cards */
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+
+    .summary-card {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .summary-card .icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .summary-card .value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #333;
+    }
+
+    .summary-card .label {
+      font-size: 13px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .summary-card .change {
+      font-size: 12px;
+      margin-top: 8px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      width: fit-content;
+    }
+
+    .summary-card .change.positive {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .summary-card .change.negative {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .summary-card .change.neutral {
+      background: #e2e3e5;
+      color: #383d41;
+    }
+
+    /* Grid Layout */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 20px;
+    }
+
+    .grid-col-4 { grid-column: span 4; }
+    .grid-col-6 { grid-column: span 6; }
+    .grid-col-8 { grid-column: span 8; }
+    .grid-col-12 { grid-column: span 12; }
+
+    @media (max-width: 1200px) {
+      .grid-col-4, .grid-col-6, .grid-col-8 { grid-column: span 6; }
+    }
+
+    @media (max-width: 768px) {
+      .grid-col-4, .grid-col-6, .grid-col-8 { grid-column: span 12; }
+    }
+
+    /* Panels */
+    .panel {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 15px 20px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .panel-body {
+      padding: 20px;
+    }
+
+    /* Charts */
+    .chart-container {
+      position: relative;
+      height: 250px;
+    }
+
+    /* Threshold Distribution */
+    .threshold-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .threshold-bar-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .threshold-bar-label {
+      width: 80px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .threshold-bar-track {
+      flex: 1;
+      height: 24px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .threshold-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: white;
+      min-width: 30px;
+      transition: width 0.5s ease;
+    }
+
+    .threshold-bar-fill.green { background: #28a745; }
+    .threshold-bar-fill.yellow { background: #ffc107; color: #333; }
+    .threshold-bar-fill.orange { background: #fd7e14; }
+    .threshold-bar-fill.red { background: #dc3545; }
+
+    .threshold-bar-count {
+      width: 40px;
+      text-align: right;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .break-food-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .break-food-table th,
+    .break-food-table td {
+      border-bottom: 1px solid #eee;
+      padding: 6px 4px;
+      text-align: left;
+    }
+
+    .break-food-empty {
+      color: #666;
+      font-size: 13px;
+    }
+
+    /* Top Infractions */
+    .top-infractions-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .top-infraction-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .top-infraction-rank {
+      width: 24px;
+      height: 24px;
+      background: #E51636;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .top-infraction-type {
+      flex: 1;
+      font-size: 13px;
+    }
+
+    .top-infraction-count {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    /* Manager Table */
+    .manager-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .manager-table th,
+    .manager-table td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+
+    .manager-table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      color: #666;
+    }
+
+    .manager-table td {
+      font-size: 14px;
+    }
+
+    .manager-table tr:hover {
+      background: #f8f9fa;
+    }
+
+    .status-badge {
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .status-badge.active {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-badge.inactive {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    /* Risk Alerts */
+    .risk-alerts {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .risk-alert-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px;
+      background: #fff8f8;
+      border: 1px solid #f5c6cb;
+      border-radius: 8px;
+      border-left: 4px solid #dc3545;
+    }
+
+    .risk-alert-item.high {
+      border-left-color: #dc3545;
+      background: #fff5f5;
+    }
+
+    .risk-alert-item.moderate {
+      border-left-color: #fd7e14;
+      background: #fff9f5;
+    }
+
+    .risk-alert-icon {
+      font-size: 20px;
+    }
+
+    .risk-alert-content {
+      flex: 1;
+    }
+
+    .risk-alert-name {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 2px;
+    }
+
+    .risk-alert-points {
+      font-size: 12px;
+      color: #dc3545;
+      font-weight: 600;
+    }
+
+    .risk-alert-factors {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .risk-alert-action {
+      background: #E51636;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    /* Location Comparison */
+    .location-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .location-cards {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .location-card {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 15px;
+    }
+
+    .location-card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #E51636;
+    }
+
+    .location-stat {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 13px;
+    }
+
+    .location-stat .label {
+      color: #666;
+    }
+
+    .location-stat .value {
+      font-weight: 600;
+    }
+
+    /* Activity Feed */
+    .activity-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .activity-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .activity-item:last-child {
+      border-bottom: none;
+    }
+
+    .activity-icon {
+      width: 32px;
+      height: 32px;
+      background: #E51636;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .activity-content {
+      flex: 1;
+    }
+
+    .activity-text {
+      font-size: 13px;
+    }
+
+    .activity-text strong {
+      color: #333;
+    }
+
+    .activity-time {
+      font-size: 11px;
+      color: #999;
+      margin-top: 2px;
+    }
+
+    /* Loading */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255,255,255,0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #E51636;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #666;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #666;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+
+    /* Quick Actions */
+    .quick-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .quick-action-btn {
+      background: white;
+      border: 1px solid #ddd;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .quick-action-btn:hover {
+      border-color: #E51636;
+      color: #E51636;
+    }
+
+    .quick-action-btn.primary {
+      background: #E51636;
+      color: white;
+      border-color: #E51636;
+    }
+
+    .quick-action-btn.primary:hover {
+      background: #c41230;
+    }
+
+    /* Quick Links Panel */
+    .quick-links-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+    }
+
+    .quick-links-group {
+      margin-bottom: 16px;
+    }
+
+    .quick-links-group h3 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .quick-link-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #333;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+    }
+
+    .quick-link-card:hover {
+      background: #fff;
+      border-color: #E51636;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(229, 22, 54, 0.15);
+    }
+
+    .quick-link-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #E51636 0%, #c41230 100%);
+      color: white;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .icon-emoji {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .quick-link-info {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .quick-link-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .quick-link-desc {
+      font-size: 11px;
+      color: #666;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .quick-link-external {
+      color: #999;
+      font-size: 12px;
+    }
+
+    .quick-links-empty {
+      text-align: center;
+      padding: 30px;
+      color: #666;
+    }
+
+    .quick-links-empty i {
+      font-size: 32px;
+      color: #ddd;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    /* Mobile Optimization */
+    @media (max-width: 767px) {
+      body {
+        padding-bottom: 72px;
+      }
+
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .mobile-nav-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .header-right {
+        display: none;
+        flex-wrap: wrap;
+        gap: 8px;
+        width: 100%;
+      }
+
+      .header-right.open {
+        display: flex;
+      }
+
+      .nav-btn {
+        min-height: 44px;
+        padding: 10px 14px;
+      }
+
+      .summary-cards {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .chart-container {
+        height: 200px;
+      }
+
+      .manager-table,
+      .manager-table thead,
+      .manager-table tbody,
+      .manager-table th,
+      .manager-table td,
+      .manager-table tr {
+        display: block;
+        width: 100%;
+      }
+
+      .manager-table thead {
+        display: none;
+      }
+
+      .manager-table tbody tr {
+        margin: 10px 0;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        background: #fff;
+        padding: 12px;
+      }
+
+      .manager-table td {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border: none;
+        font-size: 13px;
+      }
+
+      .manager-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #666;
+        margin-right: 12px;
+      }
+
+      .quick-links-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .location-cards {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Bottom Navigation (Mobile) */
+    .mobile-bottom-nav {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: #fff;
+      border-top: 1px solid #e0e0e0;
+      z-index: 999;
+      justify-content: space-around;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .mobile-bottom-nav button {
+      background: none;
+      border: none;
+      color: #555;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      min-height: 44px;
+      gap: 4px;
+    }
+
+    .mobile-bottom-nav button.active {
+      color: #E51636;
+    }
+
+    .mobile-fab {
+      display: none;
+      position: fixed;
+      right: 16px;
+      bottom: 80px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #E51636;
+      color: #fff;
+      border: none;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+      font-size: 24px;
+      z-index: 1000;
+    }
+
+    @media (max-width: 767px) {
+      .mobile-bottom-nav {
+        display: flex;
+      }
+
+      .mobile-fab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <button class="mobile-nav-toggle" onclick="toggleHeaderMenu()">
+        <i class="fas fa-bars"></i> <span id="mobileMenuLabel">Menu</span>
+      </button>
+      <h1 id="headerTitle">Dashboard</h1>
+    </div>
+    <div class="header-right">
+      <select id="languageSelect" class="nav-btn" onchange="onLanguageChange()" style="background: #f0f0f0; color: #333;">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+      </select>
+      <button class="help-btn" id="helpBtn" onclick="openHelp()">?</button>
+      <button class="nav-btn" id="systemStatusBtn" onclick="navigateToSystemStatus()" style="display:none;"
+        data-help-title="System Status"
+        data-help="Opens the System Status dashboard for health checks, logs, and trigger monitoring.">
+        <span id="systemStatusLabel">System Status</span>
+        <span id="systemStatusBadge" class="status-pill warning">--</span>
+      </button>
+      <a class="nav-btn" id="navEmployeesBtn" href="?page=employees" onclick="if(window.navigateTo){navigateTo('employees'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('employees'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'employees';window.top.location.href=base+'?page='+target; return false;"
+        data-help-title="Employees"
+        data-help="View and search employee records, infractions, and point totals.">Employees</a>
+      <a class="nav-btn" id="navAddBtn" href="?page=form" onclick="if(window.navigateTo){navigateTo('form'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('form'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'form';window.top.location.href=base+'?page='+target; return false;"
+        data-help-title="Add Infraction"
+        data-help="Open the infraction form to record a new accountability event.">+ Add Infraction</a>
+      <a class="nav-btn" id="navReportsBtn" href="?page=reports" onclick="if(window.navigateTo){navigateTo('reports'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('reports'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'reports';window.top.location.href=base+'?page='+target; return false;"
+        data-help-title="Reports"
+        data-help="Generate and schedule analytical reports.">Reports</a>
+      <a class="nav-btn" id="navSettingsBtn" href="?page=settings" onclick="if(window.navigateTo){navigateTo('settings'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('settings'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'settings';window.top.location.href=base+'?page='+target; return false;"
+        data-help-title="Settings"
+        data-help="Configure thresholds, emails, and system options.">Settings</a>
+      <a class="nav-btn" id="navUserMgmtBtn" href="?page=users" onclick="if(window.navigateTo){navigateTo('users'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('users'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'users';window.top.location.href=base+'?page='+target; return false;" style="display: none;">User Management</a>
+      <span class="user-info" id="userRoleDisplay">Loading...</span>
+      <button class="nav-btn" id="navLogoutBtn" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <div id="offlineBanner" class="offline-banner" style="display: none;">
+    Offline mode: showing cached data.
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loadingText">Loading dashboard...</div>
+  </div>
+
+  <!-- Layout Container -->
+  <div class="layout-container" id="layoutContainer" style="display: flex;">
+    <!-- Left Sidebar -->
+    <aside class="left-sidebar">
+      <!-- Navigation Section -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">
+          <i class="fas fa-compass"></i> <span id="sidebarNavTitle">Navigation</span>
+        </div>
+        <button class="sidebar-nav-link active" onclick="if(window.navigateTo){navigateTo('dashboard'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('dashboard'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'dashboard';window.top.location.href=base+'?page='+target; return false;">
+          <i class="fas fa-chart-line"></i> <span id="sidebarNavDashboard">Dashboard</span>
+        </button>
+        <button class="sidebar-nav-link" onclick="if(window.navigateTo){navigateTo('employees'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('employees'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'employees';window.top.location.href=base+'?page='+target; return false;">
+          <i class="fas fa-users"></i> <span id="sidebarNavEmployees">Employees</span>
+        </button>
+        <button class="sidebar-nav-link" onclick="if(window.navigateTo){navigateTo('form'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('form'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'form';window.top.location.href=base+'?page='+target; return false;">
+          <i class="fas fa-plus-circle"></i> <span id="sidebarNavAddInfraction">Add Infraction</span>
+        </button>
+        <button class="sidebar-nav-link" id="sidebarReportsBtn" onclick="if(window.navigateTo){navigateTo('reports'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('reports'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'reports';window.top.location.href=base+'?page='+target; return false;">
+          <i class="fas fa-chart-bar"></i> <span id="sidebarNavReports">Reports</span>
+        </button>
+        <button class="sidebar-nav-link" id="sidebarSettingsBtn" onclick="if(window.navigateTo){navigateTo('settings'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('settings'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'settings';window.top.location.href=base+'?page='+target; return false;">
+          <i class="fas fa-cog"></i> <span id="sidebarNavSettings">Settings</span>
+        </button>
+      </div>
+
+      <!-- Quick Links Section -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">
+          <i class="fas fa-link"></i> <span id="sidebarQuickLinksTitle">Quick Links</span>
+        </div>
+        <div id="sidebarQuickLinks">
+          <div class="sidebar-quick-links-empty">
+            <i class="fas fa-spinner fa-spin"></i> <span id="sidebarQuickLinksLoading">Loading...</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+    <!-- Page Header -->
+    <div class="page-header">
+      <div>
+        <h2 class="page-title" id="pageTitle">Accountability Dashboard</h2>
+        <span class="last-updated" id="lastUpdated">Last updated: --</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="refresh-btn" id="refreshBtn" onclick="refreshDashboard()"
+          data-help-title="Refresh"
+          data-help="Reloads dashboard data and recalculates metrics.">
+          <span>&#8635;</span> <span id="refreshBtnLabel">Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-cards" id="summaryCards">
+      <div class="summary-card">
+        <span class="icon">&#128101;</span>
+        <span class="value" id="totalEmployees">--</span>
+        <span class="label" id="summaryTotalEmployeesLabel">Total Employees</span>
+      </div>
+      <div class="summary-card">
+        <span class="icon">&#9888;</span>
+        <span class="value" id="employeesWithPoints">--</span>
+        <span class="label" id="summaryEmployeesWithPointsLabel">Employees with Points</span>
+        <span class="change neutral" id="pointsPercentage">--%</span>
+      </div>
+      <div class="summary-card">
+        <span class="icon">&#128200;</span>
+        <span class="value" id="avgPoints">--</span>
+        <span class="label" id="summaryAveragePointsLabel">Average Points</span>
+      </div>
+      <div class="summary-card">
+        <span class="icon">&#128196;</span>
+        <span class="value" id="infractionsThisMonth">--</span>
+        <span class="label" id="summaryInfractionsMonthLabel">Infractions This Month</span>
+        <span class="change neutral" id="monthChange">--</span>
+      </div>
+      <div class="summary-card">
+        <span class="icon">&#128274;</span>
+        <span class="value" id="onProbation">--</span>
+        <span class="label" id="summaryOnProbationLabel">On Probation</span>
+      </div>
+      <div class="summary-card">
+        <span class="icon">&#9940;</span>
+        <span class="value" id="atTermination">--</span>
+        <span class="label" id="summaryAtTerminationLabel">At Termination Level</span>
+      </div>
+    </div>
+
+    <!-- Dashboard Grid -->
+    <div class="dashboard-grid">
+      <!-- Threshold Distribution -->
+      <div class="panel grid-col-4">
+        <div class="panel-header">
+          <h2 id="thresholdDistributionTitle">Break Food Removal</h2>
+        </div>
+        <div class="panel-body">
+          <div id="breakFoodList">
+            <div style="color:#666;">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trends Chart -->
+      <div class="panel grid-col-8">
+        <div class="panel-header">
+          <h2 id="infractionTrendsTitle">Infraction Trends (6 Months)</h2>
+          <span id="trendIndicator" style="font-size: 12px;"></span>
+        </div>
+        <div class="panel-body">
+          <div class="chart-container">
+            <canvas id="trendsChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Infractions -->
+      <div class="panel grid-col-4">
+        <div class="panel-header">
+          <h2 id="topInfractionTypesTitle">Top Infraction Types</h2>
+        </div>
+        <div class="panel-body">
+          <div class="top-infractions-list" id="topInfractions">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Location Comparison -->
+      <div class="panel grid-col-8">
+        <div class="panel-header">
+          <h2 id="locationComparisonTitle">Location Comparison</h2>
+        </div>
+        <div class="panel-body">
+          <div class="location-cards" id="locationComparison">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Risk Alerts -->
+      <div class="panel grid-col-6">
+        <div class="panel-header">
+          <h2 id="employeesAttentionTitle">Employees Requiring Attention</h2>
+          <span id="riskCount" style="background: #dc3545; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px;">0</span>
+        </div>
+        <div class="panel-body">
+          <div class="risk-alerts" id="riskAlerts">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="panel grid-col-6">
+        <div class="panel-header">
+          <h2 id="recentActivityTitle">Recent Activity</h2>
+        </div>
+        <div class="panel-body">
+          <div class="activity-feed" id="activityFeed">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Manager Accountability -->
+      <div class="panel grid-col-12">
+        <div class="panel-header">
+          <h2 id="managerAccountabilityTitle">Manager Accountability</h2>
+          <div>
+            <span id="activeManagersCount" style="font-size: 12px; color: #28a745; margin-right: 15px;"></span>
+            <span id="inactiveManagersCount" style="font-size: 12px; color: #dc3545;"></span>
+          </div>
+        </div>
+        <div class="panel-body" style="padding: 0; overflow-x: auto;">
+          <table class="manager-table" id="managerTable">
+            <thead>
+              <tr>
+                <th><span id="managerTableHeaderManager">Manager</span></th>
+                <th><span id="managerTableHeaderRole">Role</span></th>
+                <th><span id="managerTableHeaderInfractions">Infractions Entered</span></th>
+                <th><span id="managerTableHeaderAvgWeek">Avg/Week</span></th>
+                <th><span id="managerTableHeaderMostCommon">Most Common Type</span></th>
+                <th><span id="managerTableHeaderLastActivity">Last Activity</span></th>
+                <th><span id="managerTableHeaderStatus">Status</span></th>
+              </tr>
+            </thead>
+            <tbody id="managerTableBody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Quick Links -->
+      <div class="panel grid-col-12">
+        <div class="panel-header">
+          <h2 id="quickLinksTitle"><i class="fas fa-link" style="margin-right: 8px;"></i>Quick Links</h2>
+          <span id="quickLinksCount" style="font-size: 12px; color: #666;"></span>
+        </div>
+        <div class="panel-body">
+          <div class="quick-links-grid" id="quickLinksGrid">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="panel grid-col-12">
+        <div class="panel-header">
+          <h2 id="quickActionsTitle">Quick Actions</h2>
+        </div>
+        <div class="panel-body">
+          <div class="quick-actions">
+            <button class="quick-action-btn primary" onclick="if(window.navigateTo){navigateTo('employees'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('employees'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'employees';window.top.location.href=base+'?page='+target; return false;">
+              <i class="fas fa-users"></i> <span id="quickActionViewEmployees">View All Employees</span>
+            </button>
+            <button class="quick-action-btn primary" onclick="if(window.navigateTo){navigateTo('form'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('form'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'form';window.top.location.href=base+'?page='+target; return false;">
+              <i class="fas fa-plus"></i> <span id="quickActionAddInfraction">Add Infraction</span>
+            </button>
+            <button class="quick-action-btn" id="quickSettingsBtn" onclick="if(window.navigateTo){navigateTo('settings'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('settings'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'settings';window.top.location.href=base+'?page='+target; return false;">
+              <i class="fas fa-cog"></i> <span id="quickActionSettings">Settings</span>
+            </button>
+            <button class="quick-action-btn" id="quickExportBtn" onclick="if(window.navigateTo){navigateTo('reports'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('reports'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'reports';window.top.location.href=base+'?page='+target; return false;">
+              <i class="fas fa-file-export"></i> <span id="quickActionExport">Export This View</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Reports -->
+      <div class="panel grid-col-12" id="recentReportsPanel" style="display: none;">
+        <div class="panel-header">
+          <h2 id="recentReportsTitle">Recent Reports</h2>
+          <button class="quick-action-btn" onclick="if(window.navigateTo){navigateTo('reports'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('reports'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'reports';window.top.location.href=base+'?page='+target; return false;">
+            <i class="fas fa-chart-bar"></i> <span id="recentReportsGoTo">Go to Reports</span>
+          </button>
+        </div>
+        <div class="panel-body">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th><span id="reportsHeaderDate">Date</span></th>
+                <th><span id="reportsHeaderType">Type</span></th>
+                <th><span id="reportsHeaderRange">Range</span></th>
+                <th><span id="reportsHeaderFormat">Format</span></th>
+                <th><span id="reportsHeaderLink">Link</span></th>
+              </tr>
+            </thead>
+            <tbody id="recentReportsBody">
+              <tr><td colspan="5">Loading reports...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    </main>
+  </div>
+
+  <!-- Mobile FAB -->
+  <button class="mobile-fab" onclick="if(window.navigateTo){navigateTo('form'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('form'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'form';window.top.location.href=base+'?page='+target; return false;" aria-label="Add infraction">
+    <i class="fas fa-plus"></i>
+  </button>
+
+  <div class="help-modal" id="helpModal">
+    <div class="help-modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 id="helpTitle">Help</h3>
+        <button class="nav-btn" id="helpCloseBtn" onclick="closeHelp()">Close</button>
+      </div>
+      <div id="helpBody" style="font-size:13px; line-height:1.5;"></div>
+      <div style="margin-top:12px; display:flex; gap:8px;">
+        <button class="nav-btn" id="helpWhatsThisBtn" onclick="toggleHelpMode()">What's This?</button>
+        <button class="nav-btn" id="helpWhatsNewBtn" onclick="showWhatsNew()">What's New</button>
+      </div>
+    </div>
+  </div>
+  <div class="help-mode-indicator" id="helpModeIndicator">Help Mode: Click any item</div>
+
+  <!-- Mobile Bottom Nav -->
+  <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+    <button class="active" onclick="if(window.navigateTo){navigateTo('dashboard'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('dashboard'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'dashboard';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-home"></i>
+      <span id="mobileNavHome">Home</span>
+    </button>
+    <button onclick="if(window.navigateTo){navigateTo('employees'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('employees'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'employees';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-users"></i>
+      <span id="mobileNavEmployees">Employees</span>
+    </button>
+    <button onclick="if(window.navigateTo){navigateTo('form'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('form'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'form';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-plus-circle"></i>
+      <span id="mobileNavAdd">Add</span>
+    </button>
+    <button id="mobileSettingsBtn" onclick="if(window.navigateTo){navigateTo('settings'); return false;}var base=window.location.href.split('?')[0];var role=(sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role'));var target=(('settings'==='dashboard') && (role==='Director'||role==='Operator'))?'analytics':'settings';window.top.location.href=base+'?page='+target; return false;">
+      <i class="fas fa-cog"></i>
+      <span id="mobileNavSettings">Settings</span>
+    </button>
+  </nav>
+
+  <script>
+    // ============================================
+    // DASHBOARD JAVASCRIPT
+    // ============================================
+
+    let dashboardData = null;
+    let managerData = null;
+    let locationData = null;
+    let riskData = null;
+    let activityData = null;
+    let quickLinksData = null;
+    let trendsChart = null;
+    let userRole = null;
+    let currentHouse = null;
+    let analyticsTranslations = {};
+    let lastUpdatedPrefix = 'Last updated';
+    let autoRefreshInterval = null;
+    const DASHBOARD_CACHE_KEY = 'cfa_dashboard_cache';
+    const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
+    const RELEASE_NOTES_VERSION = '2026-01-24';
+    let helpModeEnabled = false;
+
+    function saveDashboardCache(payload) {
+      try {
+        localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          payload: payload
+        }));
+      } catch (err) {
+        console.warn('Failed to cache dashboard data:', err);
+      }
+    }
+
+    function loadDashboardCache() {
+      try {
+        const raw = localStorage.getItem(DASHBOARD_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.payload) return null;
+        return parsed;
+      } catch (err) {
+        console.warn('Failed to load dashboard cache:', err);
+        return null;
+      }
+    }
+
+    /**
+     * Safe stringify for debug logging.
+     */
+    function safeStringify(value) {
+      try {
+        return JSON.stringify(value);
+      } catch (e) {
+        return '[unserializable]';
+      }
+    }
+
+    /**
+     * Global error handler to surface silent JS errors.
+     */
+    window.addEventListener('error', function(event) {
+      console.error('[dashboard] window error:', event.message, event.error);
+      const grid = document.querySelector('.dashboard-grid');
+      if (grid) {
+        grid.innerHTML =
+          '<div class="grid-col-12" style="text-align:center;padding:40px;color:#721c24;background:#f8d7da;border-radius:8px;">' +
+          '<i class="fas fa-exclamation-triangle" style="font-size:48px;margin-bottom:16px;"></i>' +
+          '<h3>UI Error</h3>' +
+          '<p>' + event.message + '</p>' +
+          '<button onclick="loadAllData()" style="margin-top:16px;padding:10px 20px;background:#E51636;color:white;border:none;border-radius:4px;cursor:pointer;">Retry</button>' +
+          '</div>';
+      }
+    });
+
+    // ============================================
+    // SESSION TOKEN HELPERS
+    // ============================================
+
+    /**
+     * Get the session token from sessionStorage
+     */
+    function getSessionToken() {
+      const urlToken = getTokenFromUrl();
+      if (urlToken) {
+        sessionStorage.setItem('cfa_session_token', urlToken);
+        localStorage.setItem('cfa_session_token', urlToken);
+      }
+      const token = sessionStorage.getItem('cfa_session_token') || localStorage.getItem('cfa_session_token');
+      if (token && !sessionStorage.getItem('cfa_session_token')) {
+        sessionStorage.setItem('cfa_session_token', token);
+      }
+      return token;
+    }
+
+    function getTokenFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('token') || params.get('tkn') || '';
+      } catch (error) {
+        return '';
+      }
+    }
+
+    /**
+     * Get the base URL for the web app.
+     */
+    function getBaseUrl() {
+      return window.location.href.split('?')[0];
+    }
+
+    function getStoredBaseUrl() {
+      return sessionStorage.getItem('cfa_base_url') || localStorage.getItem('cfa_base_url');
+    }
+
+    function appendTokenParam(url) {
+      if (!url) return url;
+      const token = getSessionToken();
+      if (!token) return url;
+      const hasToken = url.indexOf('token=') !== -1 || url.indexOf('tkn=') !== -1;
+      if (hasToken) return url;
+      const separator = url.indexOf('?') === -1 ? '?' : '&';
+      return url + separator + 'token=' + encodeURIComponent(token);
+    }
+
+    /**
+     * Navigate in the top-level context when embedded in an iframe.
+     */
+    function redirectTo(url) {
+      const inPreview = window.location.href.indexOf('userCodeAppPanel') !== -1;
+      const finalUrl = appendTokenParam(url);
+      if (window.top && window.top !== window && !inPreview) {
+        window.top.location.href = finalUrl;
+      } else {
+        window.location.href = finalUrl;
+      }
+    }
+
+    /**
+     * Clear all session data
+     */
+    function clearSessionData() {
+      sessionStorage.removeItem('cfa_session_token');
+      sessionStorage.removeItem('cfa_user_role');
+      localStorage.removeItem('cfa_session_token');
+      localStorage.removeItem('cfa_user_role');
+    }
+
+    /**
+     * Handle expired/invalid session
+     */
+    function handleSessionExpired() {
+      clearSessionData();
+      const fallbackUrl = getBaseUrl() + '?page=login';
+      google.script.run
+        .withSuccessHandler(function(url) {
+          redirectTo(url + '?page=login');
+        })
+        .withFailureHandler(function() {
+          redirectTo(fallbackUrl);
+        })
+        .getWebAppUrl();
+    }
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+
+    document.addEventListener('DOMContentLoaded', function() {
+      try {
+        initializeDashboard();
+      } catch (e) {
+        console.error('[dashboard] init error:', e);
+        showLoadFailure('Dashboard initialization failed.');
+      }
+
+      window.addEventListener('online', function() {
+        setOfflineBanner(false);
+        loadAllData();
+      });
+      window.addEventListener('offline', function() {
+        setOfflineBanner(true);
+      });
+    });
+
+    function initializeDashboard() {
+      // Check for cached role first (faster UI)
+      var storedRole = sessionStorage.getItem('cfa_user_role');
+      if (storedRole) {
+        userRole = storedRole;
+        document.getElementById('userRoleDisplay').textContent = storedRole;
+      }
+
+      // Get the session token
+      var token = getSessionToken();
+      if (!token) {
+        showLoadFailure('Session token missing. Please log in again.');
+        return;
+      }
+
+      // Verify session with server using token
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result || !result.valid) {
+            showLoadFailure('Session expired. Please log in again.');
+            return;
+          }
+
+          userRole = result.role;
+          currentHouse = result.house || 'ALL';
+          document.getElementById('userRoleDisplay').textContent = result.role;
+          sessionStorage.setItem('cfa_user_role', result.role);
+          const languageSelect = document.getElementById('languageSelect');
+          if (languageSelect) {
+            languageSelect.value = result.language || 'en';
+          }
+          const isAdmin = (result.role === 'Director' || result.role === 'Operator');
+          const userMgmtBtn = document.getElementById('navUserMgmtBtn');
+          if (userMgmtBtn) {
+            userMgmtBtn.style.display = isAdmin ? 'inline-block' : 'none';
+          }
+          const settingsBtn = document.getElementById('navSettingsBtn');
+          if (settingsBtn) {
+            settingsBtn.style.display = isAdmin ? 'inline-block' : 'none';
+          }
+          const reportsBtn = document.getElementById('navReportsBtn');
+          if (reportsBtn) {
+            reportsBtn.style.display = isAdmin ? 'inline-block' : 'none';
+          }
+          const sidebarSettingsBtn = document.getElementById('sidebarSettingsBtn');
+          if (sidebarSettingsBtn) {
+            sidebarSettingsBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+          }
+          const sidebarReportsBtn = document.getElementById('sidebarReportsBtn');
+          if (sidebarReportsBtn) {
+            sidebarReportsBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+          }
+          const quickSettingsBtn = document.getElementById('quickSettingsBtn');
+          if (quickSettingsBtn) {
+            quickSettingsBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+          }
+          const quickExportBtn = document.getElementById('quickExportBtn');
+          if (quickExportBtn) {
+            quickExportBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+          }
+          const mobileSettingsBtn = document.getElementById('mobileSettingsBtn');
+          if (mobileSettingsBtn) {
+            mobileSettingsBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+          }
+          const recentReportsPanel = document.getElementById('recentReportsPanel');
+          if (recentReportsPanel) {
+            recentReportsPanel.style.display = isAdmin ? 'block' : 'none';
+          }
+          const language = result.language || 'en';
+          applyDashboardNavTranslations(language);
+          applyAnalyticsTranslations(language);
+          loadSystemStatusBadge();
+
+          if (isAdmin) {
+            loadRecentReports();
+          }
+
+          // Load all dashboard data
+          loadAllData();
+          checkReleaseNotes();
+
+          // Set up auto-refresh every 5 minutes
+          autoRefreshInterval = setInterval(loadAllData, 5 * 60 * 1000);
+        })
+        .withFailureHandler(function(error) {
+          console.error('Session check failed:', error);
+          handleSessionExpired();
+        })
+        .validateSessionToken(token);
+    }
+
+    function loadAllData() {
+      showLoading();
+
+      // Get session token for authenticated API calls
+      var token = getSessionToken();
+      if (!token) {
+        handleSessionExpired();
+        return;
+      }
+
+      if (!navigator.onLine) {
+        const cache = loadDashboardCache();
+        if (cache && cache.payload) {
+          dashboardData = cache.payload.dashboardData || { success: false };
+          managerData = cache.payload.managerData || { success: false };
+          locationData = cache.payload.locationData || { success: false };
+          riskData = cache.payload.riskData || { success: false };
+          activityData = cache.payload.activityData || { success: false };
+          quickLinksData = cache.payload.quickLinksData || { success: false };
+          setOfflineBanner(true);
+          renderDashboard();
+          hideLoading();
+          return;
+        }
+      }
+
+      // Load core dashboard data (stats, managers, locations, risk, activity)
+      // We load links separately so a failure there doesn't break the whole dashboard
+      Promise.all([
+        callWithTimeout('stats', 10000, (resolve) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(() => resolve({ success: false, error: 'Failed to load stats' }))
+            .getDashboardStatistics(token);
+        }),
+        callWithTimeout('managers', 10000, (resolve) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(() => resolve({ success: false, error: 'Failed to load managers' }))
+            .getManagerAccountability(token);
+        }),
+        callWithTimeout('locations', 10000, (resolve) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(() => resolve({ success: false, error: 'Failed to load location data' }))
+            .getLocationComparison(token);
+        }),
+        callWithTimeout('risks', 10000, (resolve) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(() => resolve({ success: false, error: 'Failed to load risk report' }))
+            .getEmployeeRiskReport(token);
+        }),
+        callWithTimeout('activity', 10000, (resolve) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(() => resolve({ success: false, error: 'Failed to load activity' }))
+            .getRecentActivity(20, token);
+        })
+      ]).then(([stats, managers, locations, risks, activity]) => {
+        console.log('[dashboard] stats:', safeStringify(stats));
+        console.log('[dashboard] managers:', safeStringify(managers));
+        console.log('[dashboard] locations:', safeStringify(locations));
+        console.log('[dashboard] risks:', safeStringify(risks));
+        console.log('[dashboard] activity:', safeStringify(activity));
+        dashboardData = stats || { success: false };
+        managerData = managers || { success: false };
+        locationData = locations || { success: false };
+        riskData = risks || { success: false };
+        activityData = activity || { success: false };
+
+        renderDashboard();
+        setOfflineBanner(false);
+        hideLoading();
+        
+        // Load links separately after main content is ready
+        loadLinksData(token);
+        saveDashboardCache({
+          dashboardData: dashboardData,
+          managerData: managerData,
+          locationData: locationData,
+          riskData: riskData,
+          activityData: activityData,
+          quickLinksData: quickLinksData
+        });
+        
+      }).catch(function(error) {
+        console.error('Error loading dashboard data:', error);
+        const cache = loadDashboardCache();
+        if (cache && cache.payload) {
+          dashboardData = cache.payload.dashboardData || { success: false };
+          managerData = cache.payload.managerData || { success: false };
+          locationData = cache.payload.locationData || { success: false };
+          riskData = cache.payload.riskData || { success: false };
+          activityData = cache.payload.activityData || { success: false };
+          quickLinksData = cache.payload.quickLinksData || { success: false };
+          setOfflineBanner(true);
+          renderDashboard();
+          hideLoading();
+          return;
+        }
+        showLoadFailure('An unexpected error occurred. Please try refreshing the page.');
+      });
+    }
+
+    /**
+     * Wraps google.script.run calls with a timeout so the dashboard doesn't hang.
+     */
+    function callWithTimeout(label, timeoutMs, executor) {
+      return new Promise((resolve) => {
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            console.warn('[dashboard] timeout:', label);
+            resolve({ success: false, error: 'Timeout loading ' + label });
+          }
+        }, timeoutMs);
+
+        executor(function(result) {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
+            resolve(result);
+          }
+        });
+      });
+    }
+
+    /**
+     * Show a full-page load failure message and unhide layout.
+     */
+    function showLoadFailure(message) {
+      hideLoading();
+      const grid = document.querySelector('.dashboard-grid');
+      if (grid) {
+        grid.innerHTML =
+          '<div class="grid-col-12" style="text-align:center;padding:40px;color:#721c24;background:#f8d7da;border-radius:8px;">' +
+          '<i class="fas fa-exclamation-triangle" style="font-size:48px;margin-bottom:16px;"></i>' +
+          '<h3>Error Loading Dashboard</h3>' +
+          '<p>' + message + '</p>' +
+          '<button onclick="loadAllData()" style="margin-top:16px;padding:10px 20px;background:#E51636;color:white;border:none;border-radius:4px;cursor:pointer;">Retry</button>' +
+          '</div>';
+      }
+    }
+
+    function loadLinksData(token) {
+      // Use the new safe wrapper for links
+      google.script.run
+        .withSuccessHandler(function(result) {
+           console.log('[dashboard] links:', safeStringify(result));
+           quickLinksData = result || { success: false };
+           renderQuickLinks();
+           renderSidebarQuickLinks();
+           saveDashboardCache({
+             dashboardData: dashboardData,
+             managerData: managerData,
+             locationData: locationData,
+             riskData: riskData,
+             activityData: activityData,
+             quickLinksData: quickLinksData
+           });
+        })
+        .withFailureHandler(function(error) {
+           console.error('Failed to load links:', error);
+           quickLinksData = { success: false, error: error.message };
+           renderQuickLinks();
+           renderSidebarQuickLinks();
+        })
+        .api_getLinksList(false, token);
+    }
+
+    function loadRecentReports() {
+      const token = getSessionToken();
+      if (!token) return;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          const body = document.getElementById('recentReportsBody');
+          if (!body) return;
+          if (!result || !result.success || !result.history || !result.history.length) {
+            body.innerHTML = '<tr><td colspan="5">No reports found</td></tr>';
+            return;
+          }
+          body.innerHTML = '';
+          result.history.slice(0, 5).forEach(item => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td>${new Date(item.generated_date).toLocaleString()}</td>
+              <td>${item.report_type}</td>
+              <td>${item.date_range_covered}</td>
+              <td>${item.format}</td>
+              <td><a href="${item.file_url}" target="_blank">View</a></td>
+            `;
+            body.appendChild(row);
+          });
+        })
+        .getReportHistory(token);
+    }
+
+    function loadSystemStatusBadge() {
+      const token = getSessionToken();
+      if (!token) return;
+      const btn = document.getElementById('systemStatusBtn');
+      const badge = document.getElementById('systemStatusBadge');
+      if (userRole === 'Director' || userRole === 'Operator') {
+        btn.style.display = 'inline-block';
+        badge.textContent = '...';
+        badge.className = 'status-pill warning';
+      }
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result || !result.visible) return;
+          const status = result.overall_status || 'warning';
+          badge.textContent = status === 'healthy' ? 'Healthy' : (status === 'critical' ? 'Critical' : 'Warning');
+          badge.className = 'status-pill ' + status;
+        })
+        .withFailureHandler(function() {
+          if (btn) btn.style.display = (userRole === 'Director' || userRole === 'Operator') ? 'inline-block' : 'none';
+          if (badge) {
+            badge.textContent = 'Unknown';
+            badge.className = 'status-pill warning';
+          }
+        })
+        .getSystemStatusBadge(token);
+    }
+
+    function openHelp(customText, customTitle) {
+      const modal = document.getElementById('helpModal');
+      const title = document.getElementById('helpTitle');
+      const body = document.getElementById('helpBody');
+      title.textContent = customTitle || 'Dashboard Help';
+      body.innerHTML = customText || `
+        <p><strong>Purpose:</strong> This dashboard provides analytics and oversight for directors and operators.</p>
+        <ul>
+          <li>Use the header buttons to navigate to Employees, Reports, Settings, and System Status.</li>
+          <li>Charts and panels summarize infractions, thresholds, and manager activity.</li>
+          <li>Use Refresh if values look stale.</li>
+        </ul>
+      `;
+      modal.style.display = 'flex';
+    }
+
+    function closeHelp() {
+      document.getElementById('helpModal').style.display = 'none';
+    }
+
+    function toggleHelpMode() {
+      helpModeEnabled = !helpModeEnabled;
+      const indicator = document.getElementById('helpModeIndicator');
+      indicator.style.display = helpModeEnabled ? 'block' : 'none';
+    }
+
+    function showWhatsNew() {
+      openHelp(
+        '<ul><li>System Status page with health checks and logs.</li><li>System Status badge in header.</li><li>System monitoring and log cleanup automation.</li></ul>',
+        'What\'s New'
+      );
+    }
+
+    function checkReleaseNotes() {
+      const key = 'cfa_release_notes_version';
+      const current = localStorage.getItem(key);
+      if (current !== RELEASE_NOTES_VERSION) {
+        localStorage.setItem(key, RELEASE_NOTES_VERSION);
+        showWhatsNew();
+      }
+    }
+
+    document.addEventListener('click', function(event) {
+      if (!helpModeEnabled) return;
+      const target = event.target.closest('[data-help]');
+      if (!target) return;
+      event.preventDefault();
+      openHelp(target.getAttribute('data-help'), target.getAttribute('data-help-title') || 'Help');
+    });
+
+    function refreshDashboard() {
+      loadAllData();
+    }
+
+    // ============================================
+    // RENDERING FUNCTIONS
+    // ============================================
+
+    function renderDashboard() {
+      // Ensure we have at least a basic structure for dashboardData
+      if (!dashboardData || !dashboardData.success) {
+        console.warn('Dashboard data incomplete or failed:', dashboardData);
+        dashboardData = dashboardData || {};
+        dashboardData.overall = dashboardData.overall || {
+            total_active_employees: '--',
+            employees_with_points: '--',
+            average_points_per_employee: '--',
+            infractions_this_month: '--',
+            infractions_last_month: 0
+        };
+        dashboardData.thresholds = dashboardData.thresholds || {
+            employees_on_probation: '--',
+            employees_at_termination_level: '--'
+        };
+        dashboardData.trends = dashboardData.trends || {
+            infractions_by_month: [],
+            top_infraction_types: []
+        };
+        dashboardData.break_food = dashboardData.break_food || { threshold: 9, list: [] };
+      }
+
+      // Handle session expiry globally
+      if (dashboardData && dashboardData.sessionExpired) {
+          handleSessionExpired();
+          return;
+      }
+
+      // Update last updated time
+      document.getElementById('lastUpdated').textContent =
+        (lastUpdatedPrefix || 'Last updated') + ': ' + new Date().toLocaleTimeString();
+
+      try { renderSummaryCards(); } catch (e) { console.error('Error rendering summary:', e); }
+      try { renderBreakFoodList(); } catch (e) { console.error('Error rendering break food list:', e); }
+      try { renderTrendsChart(); } catch (e) { console.error('Error rendering trends:', e); }
+      try { renderTopInfractions(); } catch (e) { console.error('Error rendering top infractions:', e); }
+      try { renderLocationComparison(); } catch (e) { console.error('Error rendering locations:', e); }
+      try { renderRiskAlerts(); } catch (e) { console.error('Error rendering risks:', e); }
+      try { renderActivityFeed(); } catch (e) { console.error('Error rendering activity:', e); }
+      try { renderManagerTable(); } catch (e) { console.error('Error rendering managers:', e); }
+      try { renderQuickLinks(); } catch (e) { console.error('Error rendering quick links:', e); }
+      try { renderSidebarQuickLinks(); } catch (e) { console.error('Error rendering sidebar links:', e); }
+    }
+
+    function renderSummaryCards() {
+      const overall = dashboardData.overall;
+      const thresholds = dashboardData.thresholds;
+
+      document.getElementById('totalEmployees').textContent = overall.total_active_employees;
+      document.getElementById('employeesWithPoints').textContent = overall.employees_with_points;
+
+      const percentage = overall.total_active_employees > 0
+        ? Math.round((overall.employees_with_points / overall.total_active_employees) * 100)
+        : 0;
+      document.getElementById('pointsPercentage').textContent = percentage + '%';
+
+      document.getElementById('avgPoints').textContent = overall.average_points_per_employee;
+      document.getElementById('infractionsThisMonth').textContent = overall.infractions_this_month;
+
+      // Month change
+      const monthDiff = overall.infractions_this_month - overall.infractions_last_month;
+      const monthChangeEl = document.getElementById('monthChange');
+      if (monthDiff > 0) {
+        monthChangeEl.textContent = '+' + monthDiff + ' vs last month';
+        monthChangeEl.className = 'change negative';
+      } else if (monthDiff < 0) {
+        monthChangeEl.textContent = monthDiff + ' vs last month';
+        monthChangeEl.className = 'change positive';
+      } else {
+        monthChangeEl.textContent = 'Same as last month';
+        monthChangeEl.className = 'change neutral';
+      }
+
+      document.getElementById('onProbation').textContent = thresholds.employees_on_probation;
+      document.getElementById('atTermination').textContent = thresholds.employees_at_termination_level;
+    }
+
+    function renderBreakFoodList() {
+      const container = document.getElementById('breakFoodList');
+      const breakFood = dashboardData.break_food || { list: [], threshold: 9 };
+      const list = breakFood.list || [];
+      if (!list.length) {
+        container.innerHTML = '<div class="break-food-empty">No employees currently losing break food.</div>';
+        return;
+      }
+      const rows = list.map(item => {
+        const start = item.crossed_on ? new Date(item.crossed_on).toLocaleDateString() : '--';
+        const end = item.removal_end ? new Date(item.removal_end).toLocaleDateString() : '--';
+        return '<tr>' +
+          '<td>' + escapeHtml(item.employee_name || '') + '</td>' +
+          '<td>' + (item.current_points || 0) + '</td>' +
+          '<td>' + start + '</td>' +
+          '<td>' + end + '</td>' +
+          '</tr>';
+      }).join('');
+      container.innerHTML =
+        '<table class="break-food-table">' +
+        '<thead><tr><th>Employee</th><th>Pts</th><th>Start</th><th>End</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '</table>';
+    }
+
+    function renderTrendsChart() {
+      const trends = dashboardData.trends;
+      const ctx = document.getElementById('trendsChart').getContext('2d');
+
+      // Destroy existing chart if any
+      if (trendsChart) {
+        trendsChart.destroy();
+      }
+
+      const labels = trends.infractions_by_month.map(m => m.month);
+      const data = trends.infractions_by_month.map(m => m.count);
+
+      trendsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Infractions',
+            data: data,
+            borderColor: '#E51636',
+            backgroundColor: 'rgba(229, 22, 54, 0.1)',
+            fill: true,
+            tension: 0.3,
+            pointBackgroundColor: '#E51636',
+            pointRadius: 5,
+            pointHoverRadius: 7
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                stepSize: 1
+              }
+            }
+          }
+        }
+      });
+
+      // Update trend indicator
+      const indicator = document.getElementById('trendIndicator');
+      if (trends.points_trend === 'increasing') {
+        indicator.innerHTML = '<span style="color: #dc3545;">&#9650; Increasing</span>';
+      } else if (trends.points_trend === 'decreasing') {
+        indicator.innerHTML = '<span style="color: #28a745;">&#9660; Decreasing</span>';
+      } else {
+        indicator.innerHTML = '<span style="color: #6c757d;">&#8594; Stable</span>';
+      }
+    }
+
+    function renderTopInfractions() {
+      const topTypes = dashboardData.trends.top_infraction_types;
+
+      if (!topTypes || topTypes.length === 0) {
+        document.getElementById('topInfractions').innerHTML =
+          '<div class="empty-state">No infractions recorded</div>';
+        return;
+      }
+
+      const html = topTypes.map(([type, count], index) => `
+        <div class="top-infraction-item">
+          <span class="top-infraction-rank">${index + 1}</span>
+          <span class="top-infraction-type">${escapeHtml(type)}</span>
+          <span class="top-infraction-count">${count}</span>
+        </div>
+      `).join('');
+
+      document.getElementById('topInfractions').innerHTML = html;
+    }
+
+    function renderLocationComparison() {
+      if (!locationData || !locationData.success) {
+        document.getElementById('locationComparison').innerHTML =
+          '<div class="empty-state">Location data unavailable</div>';
+        return;
+      }
+
+      const locations = locationData.locations;
+      let html = '';
+
+      for (const [name, data] of Object.entries(locations)) {
+        html += `
+          <div class="location-card">
+            <h3>${escapeHtml(name)}</h3>
+            <div class="location-stat">
+              <span class="label">Total Employees</span>
+              <span class="value">${data.total_employees}</span>
+            </div>
+            <div class="location-stat">
+              <span class="label">With Points</span>
+              <span class="value">${data.employees_with_points}</span>
+            </div>
+            <div class="location-stat">
+              <span class="label">Avg Points</span>
+              <span class="value">${data.average_points_per_employee}</span>
+            </div>
+            <div class="location-stat">
+              <span class="label">Total Infractions</span>
+              <span class="value">${data.total_infractions}</span>
+            </div>
+            <div class="location-stat">
+              <span class="label">Per Employee</span>
+              <span class="value">${data.infractions_per_employee_ratio}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      document.getElementById('locationComparison').innerHTML = html;
+    }
+
+    function renderRiskAlerts() {
+      if (!riskData || !riskData.success || riskData.employees.length === 0) {
+        document.getElementById('riskAlerts').innerHTML =
+          '<div class="empty-state"><span class="empty-state-icon">&#10003;</span><p>No employees flagged</p></div>';
+        document.getElementById('riskCount').textContent = '0';
+        return;
+      }
+
+      document.getElementById('riskCount').textContent = riskData.total_flagged;
+
+      const html = riskData.employees.slice(0, 10).map(emp => {
+        const riskClass = emp.current_points >= 9 ? 'high' : 'moderate';
+        return `
+          <div class="risk-alert-item ${riskClass}">
+            <span class="risk-alert-icon">&#9888;</span>
+            <div class="risk-alert-content">
+              <div class="risk-alert-name">${escapeHtml(emp.full_name)}</div>
+              <div class="risk-alert-points">${emp.current_points} points</div>
+              <div class="risk-alert-factors">${emp.risk_factors.slice(0, 2).join(' | ')}</div>
+            </div>
+            <button class="risk-alert-action" onclick="viewEmployee('${escapeHtml(emp.employee_id)}')">View</button>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('riskAlerts').innerHTML = html;
+    }
+
+    function renderActivityFeed() {
+      if (!activityData || !activityData.success || activityData.activities.length === 0) {
+        document.getElementById('activityFeed').innerHTML =
+          '<div class="empty-state">No recent activity</div>';
+        return;
+      }
+
+      const html = activityData.activities.slice(0, 15).map(activity => {
+        const timeAgo = getTimeAgo(activity.timestamp || activity.date);
+        return `
+          <div class="activity-item">
+            <div class="activity-icon">&#128196;</div>
+            <div class="activity-content">
+              <div class="activity-text">
+                <strong>${escapeHtml(activity.employee_name)}</strong> received
+                <strong>${activity.points} point(s)</strong> for
+                ${escapeHtml(activity.infraction_type)}
+              </div>
+              <div class="activity-time">${timeAgo}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('activityFeed').innerHTML = html;
+    }
+
+    function renderManagerTable() {
+      if (!managerData || !managerData.success || managerData.managers.length === 0) {
+        document.getElementById('managerTableBody').innerHTML =
+          '<tr><td colspan="7" style="text-align: center; padding: 20px;">No manager data available</td></tr>';
+        return;
+      }
+
+      document.getElementById('activeManagersCount').textContent =
+        managerData.active_managers + ' Active';
+      document.getElementById('inactiveManagersCount').textContent =
+        managerData.inactive_managers + ' Inactive';
+
+      const html = managerData.managers.map(mgr => {
+        const lastActivity = mgr.last_activity_date
+          ? new Date(mgr.last_activity_date).toLocaleDateString()
+          : 'Never';
+        const statusClass = mgr.activity_status === 'Active' ? 'active' : 'inactive';
+
+        return `
+          <tr>
+            <td data-label="Manager"><strong>${escapeHtml(mgr.manager_name)}</strong></td>
+            <td data-label="Role">${escapeHtml(mgr.role)}</td>
+            <td data-label="Infractions">${mgr.total_infractions_entered}</td>
+            <td data-label="Avg/Week">${mgr.average_per_week}</td>
+            <td data-label="Common Type">${escapeHtml(mgr.most_common_infraction_type)}</td>
+            <td data-label="Last Activity">${lastActivity}</td>
+            <td data-label="Status"><span class="status-badge ${statusClass}">${mgr.activity_status}</span></td>
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('managerTableBody').innerHTML = html;
+    }
+
+    function renderQuickLinkIcon(icon) {
+      const value = String(icon || '').trim();
+      if (!value) {
+        return '<span class="icon-emoji">🔗</span>';
+      }
+      if (/^[a-z0-9-]+$/i.test(value)) {
+        return `<i class="fas fa-${escapeHtml(value)}"></i>`;
+      }
+      return `<span class="icon-emoji">${escapeHtml(value)}</span>`;
+    }
+
+    function filterLinksByHouse(links, house) {
+      const normalizedHouse = String(house || '').toUpperCase();
+      const normalizedLinks = (links || []).map(link => ({
+        title: link.title,
+        url: link.url,
+        icon: link.icon,
+        description: link.description,
+        house: String(link.house || 'Both')
+      }));
+
+      const matches = (linkHouse, target) => {
+        const h = String(linkHouse || '').toUpperCase();
+        return h === target || h === 'BOTH';
+      };
+
+      if (normalizedHouse === 'FOH' || normalizedHouse === 'BOH') {
+        return normalizedLinks.filter(link => matches(link.house, normalizedHouse));
+      }
+
+      return {
+        foh: normalizedLinks.filter(link => matches(link.house, 'FOH')),
+        boh: normalizedLinks.filter(link => matches(link.house, 'BOH')),
+        both: normalizedLinks.filter(link => String(link.house || '').toUpperCase() === 'BOTH')
+      };
+    }
+
+    function renderQuickLinks() {
+      const container = document.getElementById('quickLinksGrid');
+      const countEl = document.getElementById('quickLinksCount');
+
+      if (!quickLinksData || !quickLinksData.success || !quickLinksData.links || quickLinksData.links.length === 0) {
+        const emptyTitle = (analyticsTranslations && analyticsTranslations['analytics.quick_links_empty']) || 'No quick links configured';
+        const emptyHint = (analyticsTranslations && analyticsTranslations['analytics.quick_links_empty_admin'])
+          || 'Directors and Operators can add links in Settings';
+        container.innerHTML = `
+          <div class="quick-links-empty">
+            <i class="fas fa-link"></i>
+            <p>${emptyTitle}</p>
+            <p style="font-size: 11px;">${emptyHint}</p>
+          </div>
+        `;
+        countEl.textContent = '';
+        return;
+      }
+
+      const links = quickLinksData.links;
+      const singular = (analyticsTranslations && analyticsTranslations['analytics.link_count_singular']) || 'link';
+      const plural = (analyticsTranslations && analyticsTranslations['analytics.link_count_plural']) || 'links';
+      countEl.textContent = links.length + ' ' + (links.length === 1 ? singular : plural);
+
+      const grouped = filterLinksByHouse(links, currentHouse || 'ALL');
+      if (Array.isArray(grouped)) {
+        container.innerHTML = grouped.map(link => `
+          <a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" class="quick-link-card">
+            <div class="quick-link-icon">
+              ${renderQuickLinkIcon(link.icon)}
+            </div>
+            <div class="quick-link-info">
+              <div class="quick-link-title">${escapeHtml(link.title)}</div>
+              ${link.description ? `<div class="quick-link-desc">${escapeHtml(link.description)}</div>` : ''}
+            </div>
+            <span class="quick-link-external"><i class="fas fa-external-link-alt"></i></span>
+          </a>
+        `).join('');
+        return;
+      }
+
+      const emptyText = (analyticsTranslations && analyticsTranslations['links.empty']) || 'No links';
+      const renderGroup = (title, groupLinks) => `
+        <div class="quick-links-group">
+          <h3>${title}</h3>
+          <div class="quick-links-grid">
+            ${(groupLinks || []).map(link => `
+              <a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" class="quick-link-card">
+                <div class="quick-link-icon">
+                  ${renderQuickLinkIcon(link.icon)}
+                </div>
+                <div class="quick-link-info">
+                  <div class="quick-link-title">${escapeHtml(link.title)}</div>
+                  ${link.description ? `<div class="quick-link-desc">${escapeHtml(link.description)}</div>` : ''}
+                </div>
+                <span class="quick-link-external"><i class="fas fa-external-link-alt"></i></span>
+              </a>
+            `).join('') || `<div class="quick-links-empty">${emptyText}</div>`}
+          </div>
+        </div>
+      `;
+
+      const fohTitle = (window.dashboardTranslations && window.dashboardTranslations['links.foh']) || 'FOH Links';
+      const bohTitle = (window.dashboardTranslations && window.dashboardTranslations['links.boh']) || 'BOH Links';
+      container.innerHTML = [
+        renderGroup(fohTitle, grouped.foh || []),
+        renderGroup(bohTitle, grouped.boh || [])
+      ].join('');
+    }
+
+    function renderSidebarQuickLinks() {
+      const container = document.getElementById('sidebarQuickLinks');
+
+      if (!quickLinksData || !quickLinksData.success || !quickLinksData.links || quickLinksData.links.length === 0) {
+        const emptyText = (analyticsTranslations && analyticsTranslations['analytics.sidebar_quick_links_empty']) || 'No quick links';
+        container.innerHTML = `
+          <div class="sidebar-quick-links-empty">
+            <i class="fas fa-link" style="color: #ddd; font-size: 24px; margin-bottom: 8px;"></i><br>
+            ${emptyText}
+          </div>
+        `;
+        return;
+      }
+
+      const links = quickLinksData.links;
+      const grouped = filterLinksByHouse(links, currentHouse || 'ALL');
+      if (Array.isArray(grouped)) {
+        container.innerHTML = grouped.map(link => `
+          <a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" class="sidebar-link">
+            <div class="sidebar-link-icon">
+              ${renderQuickLinkIcon(link.icon)}
+            </div>
+            <div class="sidebar-link-info">
+              <div class="sidebar-link-title">${escapeHtml(link.title)}</div>
+              ${link.description ? `<div class="sidebar-link-desc">${escapeHtml(link.description)}</div>` : ''}
+            </div>
+          </a>
+        `).join('');
+        return;
+      }
+
+      const renderSidebarGroup = (title, groupLinks) => `
+        <div class="sidebar-link-group">
+          <div class="sidebar-link-group-title">${title}</div>
+          ${(groupLinks || []).map(link => `
+            <a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" class="sidebar-link">
+              <div class="sidebar-link-icon">
+                ${renderQuickLinkIcon(link.icon)}
+              </div>
+              <div class="sidebar-link-info">
+                <div class="sidebar-link-title">${escapeHtml(link.title)}</div>
+                ${link.description ? `<div class="sidebar-link-desc">${escapeHtml(link.description)}</div>` : ''}
+              </div>
+            </a>
+          `).join('') || '<div class="sidebar-quick-links-empty">No links</div>'}
+        </div>
+      `;
+
+      const fohTitle = (window.dashboardTranslations && window.dashboardTranslations['links.foh']) || 'FOH Links';
+      const bohTitle = (window.dashboardTranslations && window.dashboardTranslations['links.boh']) || 'BOH Links';
+      container.innerHTML = [
+        renderSidebarGroup(fohTitle, grouped.foh || []),
+        renderSidebarGroup(bohTitle, grouped.boh || [])
+      ].join('');
+    }
+
+    // ============================================
+    // UTILITY FUNCTIONS
+    // ============================================
+
+    function showLoading() {
+      document.getElementById('loadingOverlay').style.display = 'flex';
+      document.getElementById('layoutContainer').style.display = 'none';
+
+      // Fail-safe: if loading stalls, show error instead of blank screen
+      setTimeout(function() {
+        const overlayVisible = document.getElementById('loadingOverlay').style.display !== 'none';
+        if (overlayVisible) {
+          showLoadFailure('Loading timed out. Please try again.');
+        }
+      }, 12000);
+    }
+
+    function hideLoading() {
+      document.getElementById('loadingOverlay').style.display = 'none';
+      document.getElementById('layoutContainer').style.display = 'flex';
+    }
+
+    function setOfflineBanner(show, message) {
+      const banner = document.getElementById('offlineBanner');
+      if (!banner) return;
+      const fallback = 'Offline mode: showing cached data.';
+      const translated = analyticsTranslations && analyticsTranslations['analytics.offline'];
+      banner.textContent = message || translated || fallback;
+      banner.style.display = show ? 'block' : 'none';
+    }
+
+    /**
+     * Toggle header menu on mobile
+     */
+    function toggleHeaderMenu() {
+      const headerRight = document.querySelector('.header-right');
+      if (headerRight) {
+        headerRight.classList.toggle('open');
+      }
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function getTimeAgo(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 60) return diffMins + ' min ago';
+      if (diffHours < 24) return diffHours + ' hours ago';
+      if (diffDays < 7) return diffDays + ' days ago';
+      return date.toLocaleDateString();
+    }
+
+    function viewEmployee(employeeId) {
+      // Navigate to employee list with selected employee
+      google.script.run
+        .withSuccessHandler(function(url) {
+          redirectTo(url + '?page=employees&employee=' + employeeId + '&t=' + Date.now());
+        })
+        .getWebAppUrl();
+    }
+
+    function navigateTo(page) {
+      try {
+        console.log('[nav] click', JSON.stringify({page: page, href: window.location.href, role: (sessionStorage.getItem('cfa_user_role')||localStorage.getItem('cfa_user_role')||''), token: (sessionStorage.getItem('cfa_session_token')||localStorage.getItem('cfa_session_token')||''), base: (sessionStorage.getItem('cfa_base_url')||localStorage.getItem('cfa_base_url')||'')}));
+      } catch (e) { console.log('[nav] click log failed', e); }
+
+      const baseUrl = getStoredBaseUrl() || getBaseUrl();
+      if (page === 'system-status') {
+        // Direct nav avoids occasional iframe/redirect issues for the status page
+        redirectTo(baseUrl + '?page=system-status&t=' + Date.now());
+        return;
+      }
+      const fallbackUrl = baseUrl + '?page=' + page + '&t=' + Date.now();
+      let didNavigate = false;
+      const fallbackTimer = setTimeout(function() {
+        if (!didNavigate) {
+          redirectTo(fallbackUrl);
+        }
+      }, 1500);
+      try {
+        google.script.run
+          .withSuccessHandler(function(url) {
+            didNavigate = true;
+            clearTimeout(fallbackTimer);
+            if (url) {
+              sessionStorage.setItem('cfa_base_url', url);
+              localStorage.setItem('cfa_base_url', url);
+            }
+            redirectTo(url + '?page=' + page + '&t=' + Date.now());
+          })
+          .withFailureHandler(function() {
+            didNavigate = true;
+            clearTimeout(fallbackTimer);
+            redirectTo(fallbackUrl);
+          })
+          .getWebAppUrl();
+      } catch (e) {
+        console.error('navigateTo failed, using fallback:', e);
+        didNavigate = true;
+        clearTimeout(fallbackTimer);
+        redirectTo(fallbackUrl);
+      }
+    }
+
+    function navigateToSystemStatus() {
+      const baseUrl = getStoredBaseUrl() || getBaseUrl();
+      const fallbackUrl = baseUrl + '?page=system-status&t=' + Date.now();
+      let didNavigate = false;
+      const fallbackTimer = setTimeout(function() {
+        if (!didNavigate) {
+          redirectTo(fallbackUrl);
+        }
+      }, 1500);
+      try {
+        google.script.run
+          .withSuccessHandler(function(url) {
+            didNavigate = true;
+            clearTimeout(fallbackTimer);
+            if (url) {
+              sessionStorage.setItem('cfa_base_url', url);
+              localStorage.setItem('cfa_base_url', url);
+            }
+            redirectTo(url + '?page=system-status&t=' + Date.now());
+          })
+          .withFailureHandler(function() {
+            didNavigate = true;
+            clearTimeout(fallbackTimer);
+            redirectTo(fallbackUrl);
+          })
+          .getWebAppUrl();
+      } catch (error) {
+        didNavigate = true;
+        clearTimeout(fallbackTimer);
+        redirectTo(fallbackUrl);
+      }
+    }
+
+    function onLanguageChange() {
+      const select = document.getElementById('languageSelect');
+      if (!select) return;
+      const token = getSessionToken();
+      if (!token) return;
+      const language = select.value;
+      sessionStorage.setItem('cfa_language', language);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.success) {
+            applyDashboardNavTranslations(language);
+            applyAnalyticsTranslations(language);
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to update language:', error);
+        })
+        .setLanguage(token, language);
+    }
+
+    function applyDashboardNavTranslations(language) {
+      const keys = [
+        'nav.view_employees',
+        'nav.add_infraction',
+        'nav.reports',
+        'nav.settings',
+        'nav.user_management',
+        'nav.logout',
+        'links.foh',
+        'links.boh'
+      ];
+      google.script.run
+        .withSuccessHandler(function(result) {
+          const t = result || {};
+          window.dashboardTranslations = t;
+          document.getElementById('navEmployeesBtn').textContent = t['nav.view_employees'] || 'Employees';
+          document.getElementById('navAddBtn').textContent = '+ ' + (t['nav.add_infraction'] || 'Add Infraction');
+          const navReportsBtn = document.getElementById('navReportsBtn');
+          if (navReportsBtn) {
+            navReportsBtn.textContent = t['nav.reports'] || 'Reports';
+          }
+          document.getElementById('navSettingsBtn').textContent = t['nav.settings'] || 'Settings';
+          document.getElementById('navUserMgmtBtn').textContent = t['nav.user_management'] || 'User Management';
+          document.getElementById('navLogoutBtn').textContent = t['nav.logout'] || 'Logout';
+        })
+        .getTranslations(keys, language || 'en');
+    }
+
+    function applyAnalyticsTranslations(language) {
+      const keys = [
+        'analytics.title',
+        'analytics.offline',
+        'analytics.loading',
+        'analytics.navigation',
+        'analytics.page_title',
+        'analytics.last_updated',
+        'analytics.quick_links',
+        'analytics.quick_links_loading',
+        'analytics.quick_links_empty',
+        'analytics.quick_links_empty_admin',
+        'analytics.sidebar_quick_links_empty',
+        'analytics.link_count_singular',
+        'analytics.link_count_plural',
+        'analytics.quick_actions',
+        'analytics.recent_reports',
+        'analytics.threshold_distribution',
+        'analytics.infraction_trends',
+        'analytics.top_infraction_types',
+        'analytics.location_comparison',
+        'analytics.employees_attention',
+        'analytics.recent_activity',
+        'analytics.manager_accountability',
+        'analytics.summary.total_employees',
+        'analytics.summary.employees_with_points',
+        'analytics.summary.average_points',
+        'analytics.summary.infractions_this_month',
+        'analytics.summary.on_probation',
+        'analytics.summary.at_termination',
+        'analytics.quick_action.view_all_employees',
+        'analytics.quick_action.add_infraction',
+        'analytics.quick_action.settings',
+        'analytics.quick_action.export_view',
+        'analytics.quick_action.go_to_reports',
+        'analytics.table.manager',
+        'analytics.table.role',
+        'analytics.table.infractions_entered',
+        'analytics.table.avg_week',
+        'analytics.table.most_common_type',
+        'analytics.table.last_activity',
+        'analytics.table.status',
+        'analytics.reports.date',
+        'analytics.reports.type',
+        'analytics.reports.range',
+        'analytics.reports.format',
+        'analytics.reports.link',
+        'button.refresh',
+        'nav.menu',
+        'nav.dashboard',
+        'nav.employees',
+        'nav.add',
+        'nav.settings',
+        'nav.home',
+        'nav.add_infraction',
+        'nav.reports',
+        'nav.system_status',
+        'section.quick_links',
+        'help.title',
+        'help.close',
+        'help.whats_this',
+        'help.whats_new',
+        'help.mode_indicator',
+        'help.refresh_title',
+        'help.refresh_body'
+      ];
+      google.script.run
+        .withSuccessHandler(function(result) {
+          analyticsTranslations = result || {};
+          const t = (key, fallback) => analyticsTranslations[key] || fallback || key;
+          const setText = (id, text) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+          };
+
+          setText('headerTitle', t('analytics.title', 'Dashboard'));
+          setText('mobileMenuLabel', t('nav.menu', 'Menu'));
+          setText('offlineBanner', t('analytics.offline', 'Offline mode: showing cached data.'));
+          setText('loadingText', t('analytics.loading', 'Loading dashboard...'));
+          setText('sidebarNavTitle', t('analytics.navigation', 'Navigation'));
+          setText('sidebarNavDashboard', t('nav.dashboard', 'Dashboard'));
+          setText('sidebarNavEmployees', t('nav.employees', 'Employees'));
+          setText('sidebarNavAddInfraction', t('nav.add_infraction', 'Add Infraction'));
+          setText('sidebarNavReports', t('nav.reports', 'Reports'));
+          setText('sidebarNavSettings', t('nav.settings', 'Settings'));
+          setText('sidebarQuickLinksTitle', t('analytics.quick_links', 'Quick Links'));
+          setText('sidebarQuickLinksLoading', t('analytics.quick_links_loading', 'Loading...'));
+          setText('pageTitle', t('analytics.page_title', 'Accountability Dashboard'));
+          lastUpdatedPrefix = t('analytics.last_updated', 'Last updated');
+          setText('systemStatusLabel', t('nav.system_status', 'System Status'));
+          setText('refreshBtnLabel', t('button.refresh', 'Refresh'));
+          setText('summaryTotalEmployeesLabel', t('analytics.summary.total_employees', 'Total Employees'));
+          setText('summaryEmployeesWithPointsLabel', t('analytics.summary.employees_with_points', 'Employees with Points'));
+          setText('summaryAveragePointsLabel', t('analytics.summary.average_points', 'Average Points'));
+          setText('summaryInfractionsMonthLabel', t('analytics.summary.infractions_this_month', 'Infractions This Month'));
+          setText('summaryOnProbationLabel', t('analytics.summary.on_probation', 'On Probation'));
+          setText('summaryAtTerminationLabel', t('analytics.summary.at_termination', 'At Termination Level'));
+          setText('thresholdDistributionTitle', t('analytics.threshold_distribution', 'Threshold Distribution'));
+          setText('infractionTrendsTitle', t('analytics.infraction_trends', 'Infraction Trends (6 Months)'));
+          setText('topInfractionTypesTitle', t('analytics.top_infraction_types', 'Top Infraction Types'));
+          setText('locationComparisonTitle', t('analytics.location_comparison', 'Location Comparison'));
+          setText('employeesAttentionTitle', t('analytics.employees_attention', 'Employees Requiring Attention'));
+          setText('recentActivityTitle', t('analytics.recent_activity', 'Recent Activity'));
+          setText('managerAccountabilityTitle', t('analytics.manager_accountability', 'Manager Accountability'));
+          setText('quickLinksTitle', t('analytics.quick_links', 'Quick Links'));
+          setText('quickActionsTitle', t('analytics.quick_actions', 'Quick Actions'));
+          setText('quickActionViewEmployees', t('analytics.quick_action.view_all_employees', 'View All Employees'));
+          setText('quickActionAddInfraction', t('analytics.quick_action.add_infraction', 'Add Infraction'));
+          setText('quickActionSettings', t('analytics.quick_action.settings', 'Settings'));
+          setText('quickActionExport', t('analytics.quick_action.export_view', 'Export This View'));
+          setText('recentReportsTitle', t('analytics.recent_reports', 'Recent Reports'));
+          setText('recentReportsGoTo', t('analytics.quick_action.go_to_reports', 'Go to Reports'));
+          setText('managerTableHeaderManager', t('analytics.table.manager', 'Manager'));
+          setText('managerTableHeaderRole', t('analytics.table.role', 'Role'));
+          setText('managerTableHeaderInfractions', t('analytics.table.infractions_entered', 'Infractions Entered'));
+          setText('managerTableHeaderAvgWeek', t('analytics.table.avg_week', 'Avg/Week'));
+          setText('managerTableHeaderMostCommon', t('analytics.table.most_common_type', 'Most Common Type'));
+          setText('managerTableHeaderLastActivity', t('analytics.table.last_activity', 'Last Activity'));
+          setText('managerTableHeaderStatus', t('analytics.table.status', 'Status'));
+          setText('reportsHeaderDate', t('analytics.reports.date', 'Date'));
+          setText('reportsHeaderType', t('analytics.reports.type', 'Type'));
+          setText('reportsHeaderRange', t('analytics.reports.range', 'Range'));
+          setText('reportsHeaderFormat', t('analytics.reports.format', 'Format'));
+          setText('reportsHeaderLink', t('analytics.reports.link', 'Link'));
+          setText('helpTitle', t('help.title', 'Help'));
+          setText('helpCloseBtn', t('help.close', 'Close'));
+          setText('helpWhatsThisBtn', t('help.whats_this', "What's This?"));
+          setText('helpWhatsNewBtn', t('help.whats_new', "What's New"));
+          setText('helpModeIndicator', t('help.mode_indicator', 'Help Mode: Click any item'));
+          setText('mobileNavHome', t('nav.home', 'Home'));
+          setText('mobileNavEmployees', t('nav.employees', 'Employees'));
+          setText('mobileNavAdd', t('nav.add', 'Add'));
+          setText('mobileNavSettings', t('nav.settings', 'Settings'));
+
+          const setHelpData = (id, titleKey, bodyKey, fallbackTitle, fallbackBody) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (titleKey) {
+              el.setAttribute('data-help-title', t(titleKey, fallbackTitle || 'Help'));
+            }
+            if (bodyKey) {
+              el.setAttribute('data-help', t(bodyKey, fallbackBody || ''));
+            }
+          };
+
+          setHelpData('systemStatusBtn', 'nav.system_status', 'help.menu.system_status', 'System Status', '');
+          setHelpData('navEmployeesBtn', 'nav.view_employees', 'help.menu.view_employees', 'Employees', '');
+          setHelpData('navAddBtn', 'nav.add_infraction', 'help.menu.add_infraction', 'Add Infraction', '');
+          setHelpData('navReportsBtn', 'nav.reports', 'help.menu.reports', 'Reports', '');
+          setHelpData('navSettingsBtn', 'nav.settings', 'help.menu.settings', 'Settings', '');
+          setHelpData('navUserMgmtBtn', 'nav.user_management', 'help.menu.user_management', 'User Management', '');
+          setHelpData('refreshBtn', 'help.refresh_title', 'help.refresh_body', 'Refresh', '');
+        })
+        .getTranslations(keys, language || 'en');
+    }
+
+    function logout() {
+      var token = getSessionToken();
+      clearSessionData();
+      google.script.run
+        .withSuccessHandler(function() {
+          google.script.run
+            .withSuccessHandler(function(url) {
+              redirectTo(url + '?page=login');
+            })
+            .getWebAppUrl();
+        })
+        .withFailureHandler(function() {
+          // Even if server logout fails, redirect to login
+          google.script.run
+            .withSuccessHandler(function(url) {
+              redirectTo(url + '?page=login');
+            })
+            .getWebAppUrl();
+        })
+        .logoutRole(token);
+    }
+  </script>
+</body>
+</html>
