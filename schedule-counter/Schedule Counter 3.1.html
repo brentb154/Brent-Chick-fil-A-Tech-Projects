@@ -1110,6 +1110,7 @@
             position: sticky;
             left: 0;
             z-index: 5;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.06);
         }
 
         .staff-cell {
@@ -1636,6 +1637,170 @@
             }
         }
 
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        .toast {
+            pointer-events: auto;
+            padding: 14px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            color: white;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            animation: toastIn 0.3s ease-out;
+            max-width: 400px;
+            line-height: 1.4;
+        }
+
+        .toast.toast-exit {
+            animation: toastOut 0.25s ease-in forwards;
+        }
+
+        .toast-success { background: #16a34a; }
+        .toast-warning { background: #d97706; }
+        .toast-error { background: #dc2626; }
+        .toast-info { background: #2563eb; }
+
+        @keyframes toastIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes toastOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100px); opacity: 0; }
+        }
+
+        /* Manager Shift Tracker (per-day, above schedule columns) */
+        .manager-grid {
+            display: flex;
+            gap: 0;
+            margin-bottom: 0;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .manager-day-col {
+            flex: 1;
+            min-width: 0;
+            padding: 10px 8px;
+            background: #f8fafc;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .manager-day-col:last-child {
+            border-right: none;
+        }
+
+        .manager-day-col:first-child {
+            flex: 0 0 auto;
+            width: 80px;
+            min-width: 80px;
+            justify-content: center;
+            align-items: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            left: 0;
+            z-index: 5;
+        }
+
+        .manager-shift-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .manager-shift-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .manager-shift-input {
+            flex: 1;
+            min-width: 0;
+            padding: 4px 6px;
+            border: 1px solid #e2e8f0;
+            border-radius: 5px;
+            font-size: 11px;
+            background: white;
+            color: #1e293b;
+            transition: border-color 0.15s;
+        }
+
+        .manager-shift-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .manager-shift-input::placeholder {
+            color: #cbd5e1;
+        }
+
+        .manager-remove-btn {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            border: none;
+            background: transparent;
+            color: #cbd5e1;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            line-height: 1;
+            transition: all 0.1s;
+        }
+
+        .manager-remove-btn:hover {
+            background: #fef2f2;
+            color: #ef4444;
+        }
+
+        .manager-add-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3px;
+            border: 1px dashed #d1d5db;
+            border-radius: 5px;
+            background: transparent;
+            color: #94a3b8;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .manager-add-btn:hover {
+            border-color: #9ca3af;
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
     </style>
 </head>
 <body>
@@ -1781,6 +1946,9 @@
                 </button>
                 <button class="btn-secondary" type="button" onclick="generateIdealSchedule()">
                     ✨ Ideal Model
+                </button>
+                <button class="btn-secondary" type="button" onclick="toggleManagerPanel()">
+                    👔 Manager Shifts
                 </button>
             </div>
         </div>
@@ -1972,866 +2140,13 @@
                     These values stay in place as you re-upload FOH/BOH schedules and are distributed across the day using the sales curve.
                 </div>
             </div>
+            <div class="manager-grid" id="managerGrid" style="display: none;"></div>
             <table id="scheduleTable">
-                <thead>
-                    <tr><th>Hour</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Friday</th><th>Saturday</th></tr>
+                <thead id="scheduleHead">
+                    <tr><th>Hour</th></tr>
                 </thead>
-                <tbody id="scheduleBody"><tr><td class="hour-label">5 AM</td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 0%;"></div>
-                            <div class="staff-count">
-                                3
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 0%;"></div>
-                            <div class="staff-count">
-                                3
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 0%;"></div>
-                            <div class="staff-count">
-                                3
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 0%;"></div>
-                            <div class="staff-count">
-                                3
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 0%;"></div>
-                            <div class="staff-count">
-                                4
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">6 AM</td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 8.64%;"></div>
-                            <div class="staff-count">
-                                5
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-medium">◆</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 8.64%;"></div>
-                            <div class="staff-count">
-                                4
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 8.64%;"></div>
-                            <div class="staff-count">
-                                4
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 8.64%;"></div>
-                            <div class="staff-count">
-                                4
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 8.64%;"></div>
-                            <div class="staff-count">
-                                5
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-medium">◆</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">7 AM</td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 11.6272%;"></div>
-                            <div class="staff-count">
-                                5
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 11.6272%;"></div>
-                            <div class="staff-count">
-                                5
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 11.6272%;"></div>
-                            <div class="staff-count">
-                                5
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 11.6272%;"></div>
-                            <div class="staff-count">
-                                6
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 11.6272%;"></div>
-                            <div class="staff-count">
-                                7
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-medium">◆</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">8 AM</td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 14.9498%;"></div>
-                            <div class="staff-count">
-                                10
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 14.9498%;"></div>
-                            <div class="staff-count">
-                                10
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 14.9498%;"></div>
-                            <div class="staff-count">
-                                9
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-medium">◆</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 14.9498%;"></div>
-                            <div class="staff-count">
-                                9
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-medium">◆</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 14.9498%;"></div>
-                            <div class="staff-count">
-                                10
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">9 AM</td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 19.067999999999998%;"></div>
-                            <div class="staff-count">
-                                13
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 19.067999999999998%;"></div>
-                            <div class="staff-count">
-                                12
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 19.067999999999998%;"></div>
-                            <div class="staff-count">
-                                12
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 19.067999999999998%;"></div>
-                            <div class="staff-count">
-                                11
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-medium">◆</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 19.067999999999998%;"></div>
-                            <div class="staff-count">
-                                12
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">10 AM</td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 24.711599999999997%;"></div>
-                            <div class="staff-count">
-                                13
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 24.711599999999997%;"></div>
-                            <div class="staff-count">
-                                13
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 24.711599999999997%;"></div>
-                            <div class="staff-count">
-                                12
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 24.711599999999997%;"></div>
-                            <div class="staff-count">
-                                11
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 24.711599999999997%;"></div>
-                            <div class="staff-count">
-                                12
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">11 AM</td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 30.918%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 30.918%;"></div>
-                            <div class="staff-count">
-                                13
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 30.918%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 30.918%;"></div>
-                            <div class="staff-count">
-                                15
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 30.918%;"></div>
-                            <div class="staff-count">
-                                18
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-medium">◆</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">12 PM</td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 34.2096%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 34.2096%;"></div>
-                            <div class="staff-count">
-                                13
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 34.2096%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 34.2096%;"></div>
-                            <div class="staff-count">
-                                15
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 34.2096%;"></div>
-                            <div class="staff-count">
-                                18
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">1 PM</td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 28.934199999999997%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 28.934199999999997%;"></div>
-                            <div class="staff-count">
-                                13
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 28.934199999999997%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 28.934199999999997%;"></div>
-                            <div class="staff-count">
-                                16
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 28.934199999999997%;"></div>
-                            <div class="staff-count">
-                                18
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">2 PM</td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 23.4558%;"></div>
-                            <div class="staff-count">
-                                17
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 23.4558%;"></div>
-                            <div class="staff-count">
-                                17
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 23.4558%;"></div>
-                            <div class="staff-count">
-                                16
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 23.4558%;"></div>
-                            <div class="staff-count">
-                                19
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell well-staffed">
-                            <div class="sales-overlay" style="height: 23.4558%;"></div>
-                            <div class="staff-count">
-                                20
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">3 PM</td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 22.6976%;"></div>
-                            <div class="staff-count">
-                                13
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-medium">◆</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 22.6976%;"></div>
-                            <div class="staff-count">
-                                13
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-medium">◆</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 22.6976%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-medium">◆</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 22.6976%;"></div>
-                            <div class="staff-count">
-                                15
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 22.6976%;"></div>
-                            <div class="staff-count">
-                                17
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">4 PM</td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 22.2872%;"></div>
-                            <div class="staff-count">
-                                11
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 22.2872%;"></div>
-                            <div class="staff-count">
-                                11
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 22.2872%;"></div>
-                            <div class="staff-count">
-                                15
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 22.2872%;"></div>
-                            <div class="staff-count">
-                                15
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 22.2872%;"></div>
-                            <div class="staff-count">
-                                17
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">5 PM</td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 23.558600000000002%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-medium">◆</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 23.558600000000002%;"></div>
-                            <div class="staff-count">
-                                15
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 23.558600000000002%;"></div>
-                            <div class="staff-count">
-                                15
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 23.558600000000002%;"></div>
-                            <div class="staff-count">
-                                15
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 23.558600000000002%;"></div>
-                            <div class="staff-count">
-                                15
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">6 PM</td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 23.6752%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-medium">◆</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 23.6752%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-medium">◆</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 23.6752%;"></div>
-                            <div class="staff-count">
-                                15
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 23.6752%;"></div>
-                            <div class="staff-count">
-                                15
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell adequate-staffed">
-                            <div class="sales-overlay" style="height: 23.6752%;"></div>
-                            <div class="staff-count">
-                                15
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">7 PM</td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 22.5796%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 22.5796%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 22.5796%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 22.5796%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 22.5796%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">8 PM</td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 21.831%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 21.831%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 21.831%;"></div>
-                            <div class="staff-count">
-                                12
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-high">★</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 21.831%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 21.831%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">9 PM</td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 17.2958%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 17.2958%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 17.2958%;"></div>
-                            <div class="staff-count">
-                                12
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 17.2958%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 17.2958%;"></div>
-                            <div class="staff-count">
-                                14
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">10 PM</td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 0.41079999999999994%;"></div>
-                            <div class="staff-count">
-                                11
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 0.41079999999999994%;"></div>
-                            <div class="staff-count">
-                                12
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 0.41079999999999994%;"></div>
-                            <div class="staff-count">
-                                9
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 0.41079999999999994%;"></div>
-                            <div class="staff-count">
-                                11
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td><td>
-                        <div class="staff-cell low-staffed">
-                            <div class="sales-overlay" style="height: 0.41079999999999994%;"></div>
-                            <div class="staff-count">
-                                10
-                                <div class="staff-label">staff</div>
-                            </div>
-                            <div class="productivity-indicator productivity-low">▼</div>
-                        </div>
-                    </td></tr><tr><td class="hour-label">11 PM</td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 0%;"></div>
-                            <div class="staff-count">
-                                0
-                                <div class="staff-label">staff</div>
-                            </div>
-                            
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 0%;"></div>
-                            <div class="staff-count">
-                                0
-                                <div class="staff-label">staff</div>
-                            </div>
-                            
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 0%;"></div>
-                            <div class="staff-count">
-                                0
-                                <div class="staff-label">staff</div>
-                            </div>
-                            
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 0%;"></div>
-                            <div class="staff-count">
-                                0
-                                <div class="staff-label">staff</div>
-                            </div>
-                            
-                        </div>
-                    </td><td>
-                        <div class="staff-cell understaffed">
-                            <div class="sales-overlay" style="height: 0%;"></div>
-                            <div class="staff-count">
-                                0
-                                <div class="staff-label">staff</div>
-                            </div>
-                            
-                        </div>
-                    </td></tr></tbody>
+                <tbody id="scheduleBody"><tr><td colspan="7" style="text-align:center; padding:60px 20px; color:#94a3b8; font-size:16px;">
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:12px;"><svg width="48" height="48" fill="none" stroke="#cbd5e1" stroke-width="1.5" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg><div>Upload a schedule to get started</div><div style="font-size:13px; color:#b0b8c4;">Use the FOH / BOH file inputs above, or click Load Demo Data</div></div></td></tr></tbody>
             </table>
             <div class="legend">
                 <div class="legend-section">
@@ -2935,6 +2250,8 @@
         let dayChartInstances = {};
         let currentDepartmentView = 'overall'; // 'overall', 'foh', or 'boh'
         let currentDaypart = 'all'; // 'all', 'breakfast', 'lunch', 'afternoon', 'dinner', 'latenight'
+        let managerShifts = {}; // { dept: { day: [{label, name}] } }
+        let managerGridVisible = false;
 
         const HOURS = ['5 AM', '6 AM', '7 AM', '8 AM', '9 AM', '10 AM', '11 AM', '12 PM',
                        '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM', '8 PM',
@@ -2949,6 +2266,19 @@
             dinner: { label: 'Dinner', ranges: [[17, 21]] },          // 5 PM - 9 PM
             latenight: { label: 'Late Night', ranges: [[22, 23]] }    // 10 PM - 11 PM
         };
+
+        // Toast notification system
+        function showToast(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('toast-exit');
+                toast.addEventListener('animationend', () => toast.remove());
+            }, duration);
+        }
 
         const SALES_CURVE_STORAGE_KEY = 'salesCurveHourly_v1';
         const DEFAULT_SALES_CURVE = {
@@ -3100,7 +2430,7 @@
                 reader.onload = function(e) {
                     const content = e.target.result;
                     if (isRawHotSchedulesExport(content)) {
-                        alert('⚠️ ALERT: This looks like a raw HotSchedules export!\n\nPlease go to "Step 1: File Converter" to convert this file first.\nThen upload the resulting "hourly_schedule.csv" here.');
+                        showToast('This looks like a raw HotSchedules export! Use "Step 1: File Converter" first.', 'warning', 5000);
                         event.target.value = ''; // Clear input
                         return;
                     }
@@ -3108,7 +2438,7 @@
                 };
                 reader.readAsText(file);
             } else {
-                alert('Please upload a CSV file.');
+                showToast('Please upload a CSV file.', 'warning');
             }
         }
 
@@ -3122,7 +2452,7 @@
                 reader.onload = function(e) {
                     const content = e.target.result;
                     if (isRawHotSchedulesExport(content)) {
-                        alert('⚠️ ALERT: This looks like a raw HotSchedules export!\n\nPlease go to "Step 1: File Converter" to convert this file first.\nThen upload the resulting "hourly_schedule.csv" here.');
+                        showToast('This looks like a raw HotSchedules export! Use "Step 1: File Converter" first.', 'warning', 5000);
                         event.target.value = ''; // Clear input
                         return;
                     }
@@ -3130,7 +2460,7 @@
                 };
                 reader.readAsText(file);
             } else {
-                alert('Please upload a CSV file.');
+                showToast('Please upload a CSV file.', 'warning');
             }
         }
         
@@ -3277,7 +2607,14 @@
             HOURS.forEach(h => {
                 sum += salesCurveHourly[h] || 0;
             });
-            el.textContent = `${sum.toFixed(1)}% (normalized to 100% in calculations)`;
+            const pct = sum.toFixed(1);
+            if (sum >= 80 && sum <= 120) {
+                el.innerHTML = `<span style="color:#16a34a; font-weight:600;">${pct}%</span> (normalized to 100% in calculations)`;
+            } else if (sum < 50 || sum > 200) {
+                el.innerHTML = `<span style="color:#dc2626; font-weight:600;">⚠ ${pct}%</span> — curve is far from 100%, staffing recommendations may be unreliable`;
+            } else {
+                el.innerHTML = `<span style="color:#d97706; font-weight:600;">${pct}%</span> (normalized to 100% in calculations)`;
+            }
         }
 
         function updateLaborMixTotalDisplay() {
@@ -3293,6 +2630,103 @@
                 el.classList.add('total-bad');
             } else {
                 el.classList.remove('total-bad');
+            }
+        }
+
+        // --- MANAGER SHIFT TRACKER (per-day, above schedule columns) ---
+        function getDefaultShiftsForDay() {
+            return [{label: 'Open', name: ''}, {label: 'Close', name: ''}];
+        }
+
+        function ensureManagerData(dept, day) {
+            if (!managerShifts[dept]) managerShifts[dept] = {};
+            if (!managerShifts[dept][day]) managerShifts[dept][day] = getDefaultShiftsForDay();
+        }
+
+        function toggleManagerPanel() {
+            managerGridVisible = !managerGridVisible;
+            const grid = document.getElementById('managerGrid');
+            if (grid) grid.style.display = managerGridVisible ? 'flex' : 'none';
+            if (managerGridVisible) renderManagerGrid();
+        }
+
+        function renderManagerGrid() {
+            const grid = document.getElementById('managerGrid');
+            if (!grid || !managerGridVisible) return;
+
+            const daysWithData = Object.keys(scheduleData);
+            if (daysWithData.length === 0) {
+                grid.innerHTML = '';
+                return;
+            }
+
+            const dept = currentDepartmentView;
+            let html = '<div class="manager-day-col">Mgrs</div>';
+
+            daysWithData.forEach(day => {
+                ensureManagerData(dept, day);
+                const shifts = managerShifts[dept][day];
+                let shiftsHtml = '';
+
+                shifts.forEach((shift, i) => {
+                    const isDefault = i < 2;
+                    const escapedName = (shift.name || '').replace(/"/g, '&quot;');
+                    shiftsHtml += `
+                        <div class="manager-shift-row">
+                            <span class="manager-shift-label">${shift.label}</span>
+                            <input type="text" class="manager-shift-input" value="${escapedName}"
+                                   placeholder="Name" onchange="updateManagerShift('${dept}','${day}',${i},'name',this.value)">
+                            ${!isDefault ? `<button class="manager-remove-btn" onclick="removeManagerShift('${dept}','${day}',${i})" title="Remove">&times;</button>` : ''}
+                        </div>`;
+                });
+
+                shiftsHtml += `<button class="manager-add-btn" onclick="addManagerShift('${dept}','${day}')">+ Mid</button>`;
+                html += `<div class="manager-day-col">${shiftsHtml}</div>`;
+            });
+
+            grid.innerHTML = html;
+        }
+
+        function updateManagerShift(dept, day, index, field, value) {
+            ensureManagerData(dept, day);
+            if (managerShifts[dept][day][index]) {
+                managerShifts[dept][day][index][field] = value;
+                saveManagerShifts();
+            }
+        }
+
+        function addManagerShift(dept, day) {
+            ensureManagerData(dept, day);
+            managerShifts[dept][day].push({label: 'Mid', name: ''});
+            saveManagerShifts();
+            renderManagerGrid();
+        }
+
+        function removeManagerShift(dept, day, index) {
+            ensureManagerData(dept, day);
+            if (index < 2) return;
+            managerShifts[dept][day].splice(index, 1);
+            saveManagerShifts();
+            renderManagerGrid();
+        }
+
+        function saveManagerShifts() {
+            localStorage.setItem('managerShifts_v1', JSON.stringify(managerShifts));
+        }
+
+        function loadManagerShifts() {
+            const saved = localStorage.getItem('managerShifts_v1');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (parsed && typeof parsed === 'object') {
+                        // Migrate old format (dept -> array) to new format (dept -> {day -> array})
+                        const isOldFormat = ['overall','foh','boh'].some(d => Array.isArray(parsed[d]));
+                        if (!isOldFormat) {
+                            managerShifts = parsed;
+                        }
+                    }
+                } catch (e) {}
             }
         }
 
@@ -3507,6 +2941,9 @@
                 generateReport();
             }
 
+            // Update manager grid if visible
+            renderManagerGrid();
+
             // Also update Ideal Model if visible
             const idealPanel = document.getElementById('idealModelPanel');
             if (idealPanel && idealPanel.style.display !== 'none') {
@@ -3514,249 +2951,128 @@
             }
         }
 
-        function parseFOHScheduleCSV(csvText) {
-            // Reset FOH schedule data
-            fohScheduleData = {
+        function parseScheduleCSV(csvText, department) {
+            const isFoh = department === 'foh';
+            const label = isFoh ? 'FOH' : 'BOH';
+
+            // Reset schedule data for this department
+            const schedData = {
                 'Sunday': {}, 'Monday': {}, 'Tuesday': {}, 'Wednesday': {},
                 'Thursday': {}, 'Friday': {}, 'Saturday': {}
             };
-            // Reset FOH staff names
-            fohStaffNames = {
+            const namesData = {
                 'Sunday': {}, 'Monday': {}, 'Tuesday': {}, 'Wednesday': {},
                 'Thursday': {}, 'Friday': {}, 'Saturday': {}
             };
 
             const lines = csvText.split('\n');
-            
-            // Initialize all hours for all days
-            const hours = ['5 AM', '6 AM', '7 AM', '8 AM', '9 AM', '10 AM', '11 AM', '12 PM', 
-                          '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM', '8 PM', 
+
+            const hours = ['5 AM', '6 AM', '7 AM', '8 AM', '9 AM', '10 AM', '11 AM', '12 PM',
+                          '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM', '8 PM',
                           '9 PM', '10 PM', '11 PM'];
-            
-            Object.keys(fohScheduleData).forEach(day => {
+
+            Object.keys(schedData).forEach(day => {
                 hours.forEach(hour => {
-                    fohScheduleData[day][hour] = 0;
-                    fohStaffNames[day][hour] = []; // Initialize empty array for names
+                    schedData[day][hour] = 0;
+                    namesData[day][hour] = [];
                 });
             });
 
-            // Count employees per hour
             const employeesByDayHour = {};
-            
-            // Process each line (skip header)
+
             for (let i = 1; i < lines.length; i++) {
                 const line = lines[i].trim();
                 if (!line) continue;
-                
-                // Parse CSV line
+
                 const parts = line.split(',');
                 if (parts.length < 3) continue;
-                
+
                 const dateStr = parts[0].trim();
                 const timeStr = parts[1].trim();
                 const employee = parts[2].trim();
-                
+
                 if (!dateStr || !timeStr || !employee) continue;
-                
-                // Parse date to get day of week
+
                 const dateParts = dateStr.split('/');
                 if (dateParts.length === 3) {
-                    const month = parseInt(dateParts[0]) - 1; // JavaScript months are 0-indexed
+                    const month = parseInt(dateParts[0]) - 1;
                     const day = parseInt(dateParts[1]);
                     const year = parseInt(dateParts[2]);
-                    
+
                     const date = new Date(year, month, day);
                     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
                     const dayOfWeek = dayNames[date.getDay()];
-                    
-                    // Normalize time format (remove leading zeros from hour)
+
                     let normalizedTime = timeStr;
                     const timeParts = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
                     if (timeParts) {
                         let hour = parseInt(timeParts[1]);
                         const period = timeParts[3].toUpperCase();
                         normalizedTime = `${hour}:${timeParts[2]} ${period}`;
-                        
-                        // Further normalize to match our hours array format
+
                         if (timeParts[2] === '00') {
                             normalizedTime = `${hour} ${period}`;
                         }
                     }
-                    
-                    // Create unique key for day-hour
+
                     const key = `${dayOfWeek}-${normalizedTime}`;
-                    
-                    // Track unique employees to avoid double counting
+
                     if (!employeesByDayHour[key]) {
                         employeesByDayHour[key] = new Set();
                     }
                     employeesByDayHour[key].add(employee);
                 }
             }
-            
-            // Convert employee sets to counts AND store names
+
             Object.keys(employeesByDayHour).forEach(key => {
                 const [dayOfWeek, time] = key.split('-');
-                if (fohScheduleData[dayOfWeek] && hours.includes(time)) {
-                    fohScheduleData[dayOfWeek][time] = employeesByDayHour[key].size;
-                    // Sort names alphabetically for cleaner display
-                    fohStaffNames[dayOfWeek][time] = Array.from(employeesByDayHour[key]).sort();
+                if (schedData[dayOfWeek] && hours.includes(time)) {
+                    schedData[dayOfWeek][time] = employeesByDayHour[key].size;
+                    namesData[dayOfWeek][time] = Array.from(employeesByDayHour[key]).sort();
                 }
             });
-            
+
             // Remove any day that has no scheduled staff (closed days)
-            Object.keys(fohScheduleData).forEach(day => {
+            Object.keys(schedData).forEach(day => {
                 let hasData = false;
                 hours.forEach(hour => {
-                    if (fohScheduleData[day][hour] > 0) hasData = true;
+                    if (schedData[day][hour] > 0) hasData = true;
                 });
                 if (!hasData) {
-                    delete fohScheduleData[day];
-                    delete fohStaffNames[day];
+                    delete schedData[day];
+                    delete namesData[day];
                 }
             });
             
-            console.log('FOH schedule data loaded:', fohScheduleData);
-            
-            // Update combined data
+            // Assign to the correct global variables
+            if (isFoh) {
+                fohScheduleData = schedData;
+                fohStaffNames = namesData;
+            } else {
+                bohScheduleData = schedData;
+                bohStaffNames = namesData;
+            }
+
             combineScheduleData();
-            
+
             // Verify we loaded some data
             let hasData = false;
-            Object.keys(fohScheduleData).forEach(day => {
-                Object.keys(fohScheduleData[day]).forEach(hour => {
-                    if (fohScheduleData[day][hour] > 0) hasData = true;
+            Object.keys(schedData).forEach(day => {
+                Object.keys(schedData[day]).forEach(hour => {
+                    if (schedData[day][hour] > 0) hasData = true;
                 });
             });
-            
+
             if (hasData) {
-                alert('✅ FOH schedule loaded! Found data for ' + Object.keys(fohScheduleData).join(', '));
+                showToast(`${label} schedule loaded! Found data for ` + Object.keys(schedData).join(', '), 'success');
             } else {
-                alert('⚠️ No FOH schedule data found. Please check your CSV format.');
+                showToast(`No ${label} schedule data found. Please check your CSV format.`, 'error');
             }
         }
 
-        function parseBOHScheduleCSV(csvText) {
-            // Reset BOH schedule data
-            bohScheduleData = {
-                'Sunday': {}, 'Monday': {}, 'Tuesday': {}, 'Wednesday': {},
-                'Thursday': {}, 'Friday': {}, 'Saturday': {}
-            };
-            // Reset BOH staff names
-            bohStaffNames = {
-                'Sunday': {}, 'Monday': {}, 'Tuesday': {}, 'Wednesday': {},
-                'Thursday': {}, 'Friday': {}, 'Saturday': {}
-            };
-
-            const lines = csvText.split('\n');
-            
-            // Initialize all hours for all days
-            const hours = ['5 AM', '6 AM', '7 AM', '8 AM', '9 AM', '10 AM', '11 AM', '12 PM', 
-                          '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM', '8 PM', 
-                          '9 PM', '10 PM', '11 PM'];
-            
-            Object.keys(bohScheduleData).forEach(day => {
-                hours.forEach(hour => {
-                    bohScheduleData[day][hour] = 0;
-                    bohStaffNames[day][hour] = []; // Initialize empty name arrays
-                });
-            });
-
-            // Count employees per hour
-            const employeesByDayHour = {};
-            
-            // Process each line (skip header)
-            for (let i = 1; i < lines.length; i++) {
-                const line = lines[i].trim();
-                if (!line) continue;
-                
-                // Parse CSV line
-                const parts = line.split(',');
-                if (parts.length < 3) continue;
-                
-                const dateStr = parts[0].trim();
-                const timeStr = parts[1].trim();
-                const employee = parts[2].trim();
-                
-                if (!dateStr || !timeStr || !employee) continue;
-                
-                // Parse date to get day of week
-                const dateParts = dateStr.split('/');
-                if (dateParts.length === 3) {
-                    const month = parseInt(dateParts[0]) - 1; // JavaScript months are 0-indexed
-                    const day = parseInt(dateParts[1]);
-                    const year = parseInt(dateParts[2]);
-                    
-                    const date = new Date(year, month, day);
-                    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                    const dayOfWeek = dayNames[date.getDay()];
-                    
-                    // Normalize time format (remove leading zeros from hour)
-                    let normalizedTime = timeStr;
-                    const timeParts = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-                    if (timeParts) {
-                        let hour = parseInt(timeParts[1]);
-                        const period = timeParts[3].toUpperCase();
-                        normalizedTime = `${hour}:${timeParts[2]} ${period}`;
-                        
-                        // Further normalize to match our hours array format
-                        if (timeParts[2] === '00') {
-                            normalizedTime = `${hour} ${period}`;
-                        }
-                    }
-                    
-                    // Create unique key for day-hour
-                    const key = `${dayOfWeek}-${normalizedTime}`;
-                    
-                    // Track unique employees to avoid double counting
-                    if (!employeesByDayHour[key]) {
-                        employeesByDayHour[key] = new Set();
-                    }
-                    employeesByDayHour[key].add(employee);
-                }
-            }
-            
-            // Convert employee sets to counts AND store names
-            Object.keys(employeesByDayHour).forEach(key => {
-                const [dayOfWeek, time] = key.split('-');
-                if (bohScheduleData[dayOfWeek] && hours.includes(time)) {
-                    bohScheduleData[dayOfWeek][time] = employeesByDayHour[key].size;
-                    // Store sorted names
-                    bohStaffNames[dayOfWeek][time] = Array.from(employeesByDayHour[key]).sort();
-                }
-            });
-            
-            // Remove any day that has no scheduled staff (closed days)
-            Object.keys(bohScheduleData).forEach(day => {
-                let hasData = false;
-                hours.forEach(hour => {
-                    if (bohScheduleData[day][hour] > 0) hasData = true;
-                });
-                if (!hasData) {
-                    delete bohScheduleData[day];
-                    delete bohStaffNames[day];
-                }
-            });
-            
-            console.log('BOH schedule data loaded:', bohScheduleData);
-            
-            // Update combined data
-            combineScheduleData();
-            
-            // Verify we loaded some data
-            let hasData = false;
-            Object.keys(bohScheduleData).forEach(day => {
-                Object.keys(bohScheduleData[day]).forEach(hour => {
-                    if (bohScheduleData[day][hour] > 0) hasData = true;
-                });
-            });
-            
-            if (hasData) {
-                alert('✅ BOH schedule loaded! Found data for ' + Object.keys(bohScheduleData).join(', '));
-            } else {
-                alert('⚠️ No BOH schedule data found. Please check your CSV format.');
-            }
-        }
+        // Backward-compatible wrappers
+        function parseFOHScheduleCSV(csvText) { parseScheduleCSV(csvText, 'foh'); }
+        function parseBOHScheduleCSV(csvText) { parseScheduleCSV(csvText, 'boh'); }
 
         function parseTime(timeStr) {
             const match = timeStr.match(/(\d{1,2}):?(\d{0,2})\s*(AM|PM)/i);
@@ -3893,7 +3209,7 @@
             const hasBOHData = Object.keys(bohScheduleData).length > 0;
             
             if (!hasFOHData && !hasBOHData) {
-                alert('Please upload at least one schedule file (FOH or BOH)!');
+                showToast('Please upload at least one schedule file (FOH or BOH)!', 'warning');
                 document.getElementById('metricsPanel').style.display = 'none';
                 document.getElementById('scheduleGrid').style.display = 'none';
                 document.getElementById('chartContainer').style.display = 'none';
@@ -3925,7 +3241,8 @@
             
             // Generate schedule table
             generateScheduleTable();
-            
+            renderManagerGrid();
+
             // Create chart
             createChart();
             
@@ -4229,13 +3546,19 @@
             const hours = HOURS.filter(h => isHourInCurrentDaypart(h));
             
             const hasSalesData = Object.keys(salesData).length > 0;
-            
-            // Debug: log first day's sales data keys if available
+
+            // Compute dynamic max sales for overlay bar scaling
+            let dynamicMaxSales = 100; // floor to avoid division issues
             if (hasSalesData) {
-                const firstDay = Object.keys(salesData)[0];
-                console.log('Sales data check - First day:', firstDay, 'Hours with data:', Object.keys(salesData[firstDay] || {}));
+                for (const day of Object.keys(salesData)) {
+                    for (const hour of Object.keys(salesData[day])) {
+                        if (salesData[day][hour] > dynamicMaxSales) {
+                            dynamicMaxSales = salesData[day][hour];
+                        }
+                    }
+                }
             }
-            
+
             // Get the days that have data
             const daysWithData = Object.keys(scheduleData);
             
@@ -4317,14 +3640,6 @@
                         if (rec > 0 && hasSalesData) {
                             const diff = staffCount - rec;
                             if (diff <= -2) staffClass = 'understaffed';
-                            else if (diff >= -1 && diff <= 1) staffClass = 'low-staffed'; // Using 'low-staffed' as 'near' color (yellowish/orange) or 'well-staffed' logic? 
-                            // Re-reading existing CSS classes:
-                            // .understaffed = red
-                            // .low-staffed = orange/yellow
-                            // .well-staffed = green
-                            // .overstaffed = purple/blue
-                            
-                            if (diff <= -2) staffClass = 'understaffed';
                             else if (diff === -1 || diff === 1) staffClass = 'low-staffed';
                             else if (diff === 0) staffClass = 'well-staffed';
                             else if (diff >= 2) staffClass = 'overstaffed';
@@ -4397,13 +3712,12 @@
                     if (!staffClass) {
                          if (staffCount < 10) staffClass = 'understaffed';
                          else if (staffCount < 15) staffClass = 'low-staffed';
-                         else if (staffCount < 20) staffClass = 'adequate-staffed'; // Note: adequate-staffed might not be defined in CSS, defaulting to none or well-staffed
+                         else if (staffCount < 20) staffClass = 'adequate-staffed';
                          else staffClass = 'well-staffed';
                     }
                     
-                    // Calculate sales overlay height
-                    const maxSales = 5000; 
-                    const salesHeight = hasSalesData && rawSales > 0 ? Math.min((rawSales / maxSales) * 100, 100) : 0;
+                    // Calculate sales overlay height (dynamicMaxSales computed at top of generateScheduleTable)
+                    const salesHeight = hasSalesData && rawSales > 0 ? Math.min((rawSales / dynamicMaxSales) * 100, 100) : 0;
 
                     cell.innerHTML = `
                         <div class="staff-cell ${staffClass}" onclick="openStaffModal('${day}', '${hour}', event)">
@@ -4926,7 +4240,7 @@
             
             const hasSalesData = Object.keys(salesData).length > 0;
             if (!hasSalesData) {
-                alert("Please enter daily sales estimates first to generate an ideal model.");
+                showToast('Please enter daily sales estimates first to generate an ideal model.', 'warning');
                 return;
             }
 
@@ -5111,6 +4425,7 @@ You can adjust these values, along with FOH/BOH/Other labor mix, in the "Edit Sa
         // Initialize sales curve configuration and admin table on load
         loadSalesConfig();
         loadSalesInputs(); // Load persisted sales values
+        loadManagerShifts(); // Load persisted manager shifts
         buildCurveAdminTable();
         setupDragAndDrop(); // Initialize drag and drop
         updateViewBadge(); // Initialize badge
@@ -5259,7 +4574,7 @@ You can adjust these values, along with FOH/BOH/Other labor mix, in the "Edit Sa
             });
 
             // 3. Process
-            alert("🪄 Demo data loaded! Try switching views (FOH/BOH) or editing the sales curve.");
+            showToast('Demo data loaded! Try switching views (FOH/BOH) or editing the sales curve.', 'success');
             combineScheduleData();
             generateReport();
         }
@@ -5612,7 +4927,6 @@ You can adjust these values, along with FOH/BOH/Other labor mix, in the "Edit Sa
       }
 
       const headerDateObjects = Array.from(headerDates).map((ts) => new Date(ts));
-      console.log("JS parser: flattenedRows=", flattenedRows.length, "headerDates=", headerDateObjects.length);
       return { flattenedRows, headerDates: headerDateObjects };
     }
 
@@ -5882,7 +5196,7 @@ You can adjust these values, along with FOH/BOH/Other labor mix, in the "Edit Sa
     }
 
     // Close on click outside (only if clicking outside the panel)
-    window.onclick = function(event) {
+    window.addEventListener('click', function(event) {
         const panel = document.getElementById('staffSidePanel');
         // Only close if it's open and the click is NOT inside the panel AND NOT on a cell
         if (panel.classList.contains('open')) {
@@ -5895,7 +5209,7 @@ You can adjust these values, along with FOH/BOH/Other labor mix, in the "Edit Sa
         if (event.target === wm) {
             wm.style.display = "none";
         }
-    }
+    });
 
     // --- WALKTHROUGH MODAL LOGIC ---
     function showWalkthrough() {
@@ -5994,4 +5308,5 @@ You can adjust these values, along with FOH/BOH/Other labor mix, in the "Edit Sa
 
     </script>
 
+<div class="toast-container" id="toastContainer"></div>
 </body></html>

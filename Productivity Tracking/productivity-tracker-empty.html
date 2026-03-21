@@ -92,27 +92,35 @@
 
       const takeoverMonth = "Feb 2025"; // Adjust this to your actual takeover month
 
-      // Load data from localStorage on mount
+      // Load data from persistent storage on mount
       useEffect(() => {
-        try {
-          const stored = localStorage.getItem('productivity-data');
-          if (stored) {
-            setData(JSON.parse(stored));
+        const loadData = async () => {
+          try {
+            const stored = await window.storage.get('productivity-data');
+            if (stored && stored.value) {
+              setData(JSON.parse(stored.value));
+            }
+          } catch (error) {
+            console.log('No stored data found, starting fresh');
           }
-        } catch (error) {
-          console.log('No stored data found, starting fresh');
-        }
-        setIsLoaded(true);
+          setIsLoaded(true);
+        };
+        loadData();
       }, []);
 
-      // Save data to localStorage whenever it changes
+      // Save data to persistent storage whenever it changes
       useEffect(() => {
         if (!isLoaded) return;
-        try {
-          localStorage.setItem('productivity-data', JSON.stringify(data));
-        } catch (error) {
-          console.error('Error saving data:', error);
-        }
+        
+        const saveData = async () => {
+          try {
+            await window.storage.set('productivity-data', JSON.stringify(data));
+            console.log('Data saved successfully');
+          } catch (error) {
+            console.error('Error saving data:', error);
+          }
+        };
+        saveData();
       }, [data, isLoaded]);
 
       const getStats = () => {
@@ -269,14 +277,14 @@
         }
       };
 
-      const resetToOriginal = () => {
+      const resetToOriginal = async () => {
         setShowResetConfirm(true);
       };
 
-      const confirmReset = () => {
+      const confirmReset = async () => {
         setData(initialData);
         try {
-          localStorage.setItem('productivity-data', JSON.stringify(initialData));
+          await window.storage.set('productivity-data', JSON.stringify(initialData));
         } catch (error) {
           console.error('Error resetting data:', error);
         }

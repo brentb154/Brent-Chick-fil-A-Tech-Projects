@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: 'Google Sans', Arial, sans-serif; padding: 12px; color: #333; }
+    h3 { margin: 0 0 12px 0; font-size: 15px; color: #1a73e8; }
+    .dup-card {
+      border: 1px solid #dadce0; padding: 12px;
+      margin-bottom: 10px; border-radius: 8px;
+      background: #fff;
+    }
+    .dup-card h4 { margin: 0 0 6px 0; font-size: 14px; }
+    .dup-card p { margin: 4px 0; font-size: 12px; color: #5f6368; }
+    .dup-card .label { font-weight: 600; color: #333; }
+    .actions { margin-top: 10px; display: flex; gap: 8px; }
+    .btn {
+      padding: 6px 14px; border: none; border-radius: 4px;
+      font-size: 12px; cursor: pointer; font-weight: 600;
+    }
+    .btn-merge { background: #1a73e8; color: white; }
+    .btn-merge:hover { background: #1557b0; }
+    .btn-ignore { background: #f1f3f4; color: #5f6368; }
+    .btn-ignore:hover { background: #e8eaed; }
+    .empty {
+      text-align: center; padding: 40px 10px;
+      color: #80868b; font-size: 13px;
+    }
+    .empty .icon { font-size: 36px; margin-bottom: 8px; }
+    .loading { text-align: center; padding: 40px; color: #80868b; }
+  </style>
+</head>
+<body>
+  <h3>Duplicate Name Review</h3>
+  <div id="content">
+    <div class="loading">Loading...</div>
+  </div>
+
+  <script>
+    window.onload = function () {
+      google.script.run
+        .withSuccessHandler(displayDuplicates)
+        .withFailureHandler(function (e) {
+          document.getElementById('content').innerHTML =
+            '<div class="empty">Error loading: ' + e.message + '</div>';
+        })
+        .getPendingDuplicates();
+    };
+
+    function displayDuplicates(duplicates) {
+      var container = document.getElementById('content');
+
+      if (!duplicates || duplicates.length === 0) {
+        container.innerHTML =
+          '<div class="empty">' +
+          '<div class="icon">✅</div>' +
+          'No pending duplicates.<br>All clear!' +
+          '</div>';
+        return;
+      }
+
+      var html = '';
+      duplicates.forEach(function (dup) {
+        html += '<div class="dup-card" id="card-' + dup.rowIndex + '">';
+        html += '<h4>🔗 Possible match</h4>';
+        html += '<p><span class="label">Name 1:</span> ' + dup.canonical + '</p>';
+        html += '<p><span class="label">Name 2:</span> ' + dup.variants + '</p>';
+        html += '<p><span class="label">Total entries:</span> ' + dup.count + '</p>';
+        html += '<div class="actions">';
+        html += '<button class="btn btn-merge" onclick="applyAction(' + dup.rowIndex + ', \'Merge\')">Merge -> ' + dup.canonical + '</button>';
+        html += '<button class="btn btn-ignore" onclick="applyAction(' + dup.rowIndex + ', \'Ignore\')">Ignore</button>';
+        html += '</div>';
+        html += '</div>';
+      });
+
+      container.innerHTML = html;
+    }
+
+    function applyAction(rowIndex, action) {
+      var card = document.getElementById('card-' + rowIndex);
+      if (card) card.style.opacity = '0.5';
+
+      google.script.run
+        .withSuccessHandler(function (message) {
+          // Remove the card and show toast
+          if (card) card.remove();
+          // Reload remaining
+          google.script.run
+            .withSuccessHandler(displayDuplicates)
+            .getPendingDuplicates();
+        })
+        .withFailureHandler(function (e) {
+          if (card) card.style.opacity = '1';
+          alert('Error: ' + e.message);
+        })
+        .applyDedupAction(rowIndex, action);
+    }
+  </script>
+</body>
+</html>
