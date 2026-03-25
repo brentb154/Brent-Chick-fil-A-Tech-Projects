@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8f9fa;color:#1a1a2e;padding:24px}
+h2{font-size:18px;font-weight:700;margin-bottom:4px}
+.sub{font-size:12px;color:#888;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.loc-label{grid-column:1/-1;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#888;padding:4px 0;border-bottom:1px solid #e5e7eb}
+.section-label{grid-column:1/-1;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#1a1a2e;padding:8px 0 4px;border-bottom:2px solid #1a1a2e;margin-top:8px}
+.section-label.this-week{color:#0F766E;border-color:#0F766E}
+.section-note{grid-column:1/-1;font-size:11px;color:#9ca3af;margin:-8px 0 0}
+.box{border:2px dashed #d1d5db;border-radius:10px;padding:28px 16px;text-align:center;cursor:pointer;transition:all .2s;background:#fff;position:relative}
+.box:hover,.box.dragover{border-color:#e3342f;background:#fef2f2}
+.box.loaded{border:2px solid #34d399;background:#ecfdf5}
+.box.loaded:hover{background:#d1fae5}
+.box svg{width:32px;height:32px;color:#9ca3af;margin-bottom:6px}
+.box.loaded svg{color:#34d399}
+.box h3{font-size:13px;font-weight:600;margin-bottom:2px}
+.box p{font-size:11px;color:#9ca3af}
+.box .done{display:none}
+.box.loaded .empty{display:none}
+.box.loaded .done{display:block}
+.done-name{font-size:12px;font-weight:600;color:#059669;margin-bottom:2px}
+.done-count{font-size:11px;color:#6b7280}
+.done-replace{font-size:10px;color:#9ca3af;margin-top:4px}
+input[type="file"]{display:none}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.btn{padding:10px 28px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#333;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn:hover{background:#f3f4f6}
+.btn-go{background:#e3342f;border-color:#e3342f;color:#fff;flex:1}
+.btn-go:hover{background:#cc2d28}
+.btn-go:disabled{opacity:.4;cursor:not-allowed}
+.status{display:none;text-align:center;padding:20px;font-size:14px;color:#555}
+.status.show{display:block}
+.spinner{display:inline-block;width:20px;height:20px;border:3px solid #e5e7eb;border-top-color:#e3342f;border-radius:50%;animation:spin .8s linear infinite;margin-right:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;transition:opacity .25s;pointer-events:none;z-index:10}
+.toast.show{opacity:1}
+.toast.err{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+.toast.ok{background:#ecfdf5;color:#059669;border:1px solid #a7f3d0}
+.note{font-size:11px;color:#9ca3af;text-align:center;margin-top:12px}
+</style>
+</head>
+<body>
+
+<h2>Upload Schedule Data</h2>
+<p class="sub">Drop or click to upload CSVs exported from CFA Analytics Hub → Data Feeds</p>
+
+<div class="grid">
+  <div class="section-label">Last Week — Actuals</div>
+
+  <div class="loc-label">Cockrell Hill DTO</div>
+  <div class="box" id="b1" data-slot="chSched">
+    <div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <h3>Schedule Data</h3>
+      <p>HotSchedules Schedule</p>
+    </div>
+    <div class="done">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="done-name" id="n1"></div>
+      <div class="done-count" id="c1"></div>
+      <p class="done-replace">Click to replace</p>
+    </div>
+  </div>
+  <div class="box" id="b2" data-slot="chPunch">
+    <div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <h3>Time Punches</h3>
+      <p>Time Punch Export</p>
+    </div>
+    <div class="done">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="done-name" id="n2"></div>
+      <div class="done-count" id="c2"></div>
+      <p class="done-replace">Click to replace</p>
+    </div>
+  </div>
+
+  <div class="loc-label">DBU OCV</div>
+  <div class="box" id="b3" data-slot="dbuSched">
+    <div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <h3>Schedule Data</h3>
+      <p>HotSchedules Schedule</p>
+    </div>
+    <div class="done">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="done-name" id="n3"></div>
+      <div class="done-count" id="c3"></div>
+      <p class="done-replace">Click to replace</p>
+    </div>
+  </div>
+  <div class="box" id="b4" data-slot="dbuPunch">
+    <div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <h3>Time Punches</h3>
+      <p>Time Punch Export</p>
+    </div>
+    <div class="done">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="done-name" id="n4"></div>
+      <div class="done-count" id="c4"></div>
+      <p class="done-replace">Click to replace</p>
+    </div>
+  </div>
+
+  <div class="section-label this-week">This Week — Upcoming Schedule</div>
+  <div class="section-note">Schedule-only (no punches needed). Optional — leave blank to skip.</div>
+
+  <div class="loc-label">Cockrell Hill DTO</div>
+  <div class="box" id="b5" data-slot="chSchedNext">
+    <div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <h3>Schedule Data</h3>
+      <p>This week's schedule</p>
+    </div>
+    <div class="done">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="done-name" id="n5"></div>
+      <div class="done-count" id="c5"></div>
+      <p class="done-replace">Click to replace</p>
+    </div>
+  </div>
+
+  <div class="loc-label">DBU OCV</div>
+  <div class="box" id="b6" data-slot="dbuSchedNext">
+    <div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <h3>Schedule Data</h3>
+      <p>This week's schedule</p>
+    </div>
+    <div class="done">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="done-name" id="n6"></div>
+      <div class="done-count" id="c6"></div>
+      <p class="done-replace">Click to replace</p>
+    </div>
+  </div>
+</div>
+
+<div class="bar">
+  <button class="btn" onclick="google.script.host.close()">Cancel</button>
+  <button class="btn btn-go" id="btnGo" disabled onclick="submitData()">Analyze Variance</button>
+</div>
+
+<div class="status" id="status"><span class="spinner"></span>Writing data and running analysis…</div>
+<div class="note">You need at least one last-week location pair (schedule + punch) to run. This-week files are optional.</div>
+<div class="toast" id="toast"></div>
+
+<input type="file" id="f1" accept=".csv,.tsv,.txt"/>
+<input type="file" id="f2" accept=".csv,.tsv,.txt"/>
+<input type="file" id="f3" accept=".csv,.tsv,.txt"/>
+<input type="file" id="f4" accept=".csv,.tsv,.txt"/>
+<input type="file" id="f5" accept=".csv,.tsv,.txt"/>
+<input type="file" id="f6" accept=".csv,.tsv,.txt"/>
+
+<script>
+(function(){
+"use strict";
+
+var files = { chSched: null, chPunch: null, dbuSched: null, dbuPunch: null, chSchedNext: null, dbuSchedNext: null };
+var names = { chSched: '', chPunch: '', dbuSched: '', dbuPunch: '', chSchedNext: '', dbuSchedNext: '' };
+
+var boxMap = [
+  { box:'b1', input:'f1', nameEl:'n1', countEl:'c1', slot:'chSched' },
+  { box:'b2', input:'f2', nameEl:'n2', countEl:'c2', slot:'chPunch' },
+  { box:'b3', input:'f3', nameEl:'n3', countEl:'c3', slot:'dbuSched' },
+  { box:'b4', input:'f4', nameEl:'n4', countEl:'c4', slot:'dbuPunch' },
+  { box:'b5', input:'f5', nameEl:'n5', countEl:'c5', slot:'chSchedNext' },
+  { box:'b6', input:'f6', nameEl:'n6', countEl:'c6', slot:'dbuSchedNext' }
+];
+
+boxMap.forEach(function(cfg) {
+  var boxEl = document.getElementById(cfg.box);
+  var inputEl = document.getElementById(cfg.input);
+
+  boxEl.addEventListener('click', function() { inputEl.click(); });
+
+  boxEl.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    boxEl.classList.add('dragover');
+  });
+  boxEl.addEventListener('dragleave', function() {
+    boxEl.classList.remove('dragover');
+  });
+  boxEl.addEventListener('drop', function(e) {
+    e.preventDefault();
+    boxEl.classList.remove('dragover');
+    if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0], cfg);
+  });
+
+  inputEl.addEventListener('change', function(e) {
+    if (e.target.files.length) loadFile(e.target.files[0], cfg);
+    e.target.value = '';
+  });
+});
+
+function loadFile(file, cfg) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var text = e.target.result;
+    var rowCount = text.split('\n').filter(function(l) { return l.trim(); }).length;
+
+    files[cfg.slot] = text;
+    names[cfg.slot] = file.name;
+
+    var boxEl = document.getElementById(cfg.box);
+    boxEl.classList.add('loaded');
+    document.getElementById(cfg.nameEl).textContent = file.name;
+    document.getElementById(cfg.countEl).textContent = (rowCount - 1) + ' data rows';
+
+    toast(file.name + ' loaded', 'ok');
+    checkReady();
+  };
+  reader.onerror = function() { toast('Failed to read ' + file.name, 'err'); };
+  reader.readAsText(file);
+}
+
+function checkReady() {
+  var hasLoc1 = files.chSched && files.chPunch;
+  var hasLoc2 = files.dbuSched && files.dbuPunch;
+  document.getElementById('btnGo').disabled = !(hasLoc1 || hasLoc2);
+}
+
+function toast(msg, type) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + (type || '') + ' show';
+  setTimeout(function() { el.classList.remove('show'); }, 3000);
+}
+
+function buildPayload() {
+  return {
+    chSched:      files.chSched      || '',
+    chPunch:      files.chPunch      || '',
+    dbuSched:     files.dbuSched     || '',
+    dbuPunch:     files.dbuPunch     || '',
+    chSchedNext:  files.chSchedNext  || '',
+    dbuSchedNext: files.dbuSchedNext || ''
+  };
+}
+
+function runAnalysis() {
+  document.getElementById('status').classList.add('show');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      document.getElementById('status').classList.remove('show');
+      toast(result.message, 'ok');
+
+      if (result.hasRecipients && confirm('Analysis complete. Send variance report emails now?')) {
+        document.getElementById('status').innerHTML = '<span class="spinner"></span>Sending emails…';
+        document.getElementById('status').classList.add('show');
+        google.script.run
+          .withSuccessHandler(function(msg) {
+            document.getElementById('status').classList.remove('show');
+            toast(msg, 'ok');
+            setTimeout(function() { google.script.host.close(); }, 2000);
+          })
+          .withFailureHandler(function(err) {
+            document.getElementById('status').classList.remove('show');
+            toast('Email error: ' + err.message, 'err');
+            setTimeout(function() { google.script.host.close(); }, 3000);
+          })
+          .sendEmailsAfterUpload();
+      } else {
+        setTimeout(function() { google.script.host.close(); }, 2000);
+      }
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('status').classList.remove('show');
+      document.getElementById('btnGo').disabled = false;
+      toast('Error: ' + err.message, 'err');
+    })
+    .receiveUploadAndAnalyze(buildPayload());
+}
+
+window.submitData = function() {
+  document.getElementById('btnGo').disabled = true;
+
+  // Pick the first available schedule CSV for the pre-flight check
+  var checkCSV = files.chSched || files.dbuSched || '';
+  if (!checkCSV) { runAnalysis(); return; }
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result && result.exists) {
+        var ok = confirm(
+          'Data for "' + result.weekLabel + '" already exists in History (' +
+          result.rowCount + ' rows).\n\nReplace it with the new upload?'
+        );
+        if (!ok) {
+          document.getElementById('btnGo').disabled = false;
+          toast('Upload cancelled', 'err');
+          return;
+        }
+      }
+      runAnalysis();
+    })
+    .withFailureHandler(function() {
+      runAnalysis();
+    })
+    .checkExistingWeekData(checkCSV);
+};
+
+})();
+</script>
+</body>
+</html>
