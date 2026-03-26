@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payroll Management System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e8e8e8;
+            padding: 2rem;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: #a8a8a8;
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: #fff; }
+        .header {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 2rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-top: 4px solid #4CAF50;
+            margin-bottom: 1.5rem;
+        }
+        .project-icon { font-size: 3rem; margin-bottom: 1rem; }
+        h1 { font-size: 2rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+        .subtitle { color: #a8a8a8; font-size: 1rem; line-height: 1.5; }
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: #a0a0a0;
+            margin: 0.5rem 0.3rem 0 0;
+        }
+        .section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 1.5rem;
+        }
+        h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #81C784;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .feature-list { list-style: none; }
+        .feature-list li {
+            padding: 0.4rem 0;
+            color: #c0c0c0;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+        }
+        .feature-list li::before { content: '✓'; color: #4CAF50; flex-shrink: 0; }
+        .steps { list-style: none; counter-reset: step; }
+        .steps li {
+            counter-increment: step;
+            padding: 0.6rem 0 0.6rem 2.5rem;
+            color: #c0c0c0;
+            font-size: 0.95rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            position: relative;
+            line-height: 1.5;
+        }
+        .steps li:last-child { border-bottom: none; }
+        .steps li::before {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0.6rem;
+            background: #4CAF50;
+            color: #fff;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.5rem;
+        }
+        .file-item {
+            display: block;
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+            color: #a0a0a0;
+            font-family: monospace;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .file-item:hover { background: rgba(255,255,255,0.12); }
+        .file-item.gs { color: #81C784; }
+        .file-item.html { color: #64B5F6; }
+        .file-item.md { color: #FFD54F; }
+        .note {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            font-size: 0.9rem;
+            color: #c0c0c0;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        .note strong { color: #81C784; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">&#8592; Back to Hub</a>
+
+        <div class="header">
+            <div class="project-icon">&#128176;</div>
+            <h1>Payroll Management System</h1>
+            <p class="subtitle">Complete payroll solution with PTO tracking, overtime management, uniform ordering, and year-end processing. Full dashboard web app with multiple views.</p>
+            <div>
+                <span class="tag">Google Apps Script</span>
+                <span class="tag">Google Sheets</span>
+                <span class="tag">Web App</span>
+            </div>
+        </div>
+
+        <div class="note">
+            <strong>This is a Google Apps Script application.</strong> It runs inside Google Sheets and cannot be opened directly in a browser. Follow the setup steps below to deploy it to your Google account.
+        </div>
+
+        <div class="section">
+            <h2>Features</h2>
+            <ul class="feature-list">
+                <li>Payroll processing and calendar management</li>
+                <li>PTO records and summary tracking</li>
+                <li>Overtime upload, history, trends, and per-employee views</li>
+                <li>Uniform ordering, catalog, deductions, and summary</li>
+                <li>Year-end processing wizard</li>
+                <li>Employee-facing PTO and uniform request forms</li>
+                <li>System health monitoring and settings management</li>
+                <li>Dashboard with key payroll metrics</li>
+                <li>Login and authentication gateway</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Setup Steps</h2>
+            <ol class="steps">
+                <li>Create a new Google Sheet for the Payroll System.</li>
+                <li>Open <strong>Extensions &rarr; Apps Script</strong> and paste each .gs file.</li>
+                <li>Create all HTML files as listed below.</li>
+                <li>Run the initial setup function to create required sheet tabs.</li>
+                <li>Deploy as a Web App (<strong>Deploy &rarr; New Deployment &rarr; Web App</strong>).</li>
+                <li>Configure settings in the Settings page within the app.</li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>Files in This Project</h2>
+            <div style="margin-bottom: 1rem;">
+                <button onclick="downloadZip()" id="download-btn" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.65rem 1.4rem;background:linear-gradient(135deg,#4CAF50,#8BC34A);border:none;border-radius:8px;color:#fff;font-size:0.95rem;font-weight:600;cursor:pointer;transition:opacity 0.2s;">&#8595; Download All as ZIP</button>
+            </div>
+            <div class="file-grid">
+                <a href="Code.gs" class="file-item gs" target="_blank">Code.gs</a>
+                <a href="DashboardModule.gs" class="file-item gs" target="_blank">DashboardModule.gs</a>
+                <a href="PTOModule.gs" class="file-item gs" target="_blank">PTOModule.gs</a>
+                <a href="ReportsModule.gs" class="file-item gs" target="_blank">ReportsModule.gs</a>
+                <a href="AuthGateway.html" class="file-item html" target="_blank">AuthGateway.html</a>
+                <a href="Index.html" class="file-item html" target="_blank">Index.html</a>
+                <a href="MainApp.html" class="file-item html" target="_blank">MainApp.html</a>
+                <a href="MainAppJS.html" class="file-item html" target="_blank">MainAppJS.html</a>
+                <a href="MainAppStyles.html" class="file-item html" target="_blank">MainAppStyles.html</a>
+                <a href="LoginPrompt.html" class="file-item html" target="_blank">LoginPrompt.html</a>
+                <a href="JavaScript.html" class="file-item html" target="_blank">JavaScript.html</a>
+                <a href="Styles.html" class="file-item html" target="_blank">Styles.html</a>
+                <a href="EmployeePTORequest.html" class="file-item html" target="_blank">EmployeePTORequest.html</a>
+                <a href="EmployeeUniformRequest.html" class="file-item html" target="_blank">EmployeeUniformRequest.html</a>
+                <a href="View_Dashboard.html" class="file-item html" target="_blank">View_Dashboard.html</a>
+                <a href="View_PayrollProcessing.html" class="file-item html" target="_blank">View_PayrollProcessing.html</a>
+                <a href="View_OTUpload.html" class="file-item html" target="_blank">View_OTUpload.html</a>
+                <a href="View_OTHistory.html" class="file-item html" target="_blank">View_OTHistory.html</a>
+                <a href="View_OTTrends.html" class="file-item html" target="_blank">View_OTTrends.html</a>
+                <a href="View_OTEmployee.html" class="file-item html" target="_blank">View_OTEmployee.html</a>
+                <a href="View_OTReconciliation.html" class="file-item html" target="_blank">View_OTReconciliation.html</a>
+                <a href="View_PTORecords.html" class="file-item html" target="_blank">View_PTORecords.html</a>
+                <a href="View_PTOSummary.html" class="file-item html" target="_blank">View_PTOSummary.html</a>
+                <a href="View_UniformOrders.html" class="file-item html" target="_blank">View_UniformOrders.html</a>
+                <a href="View_UniformCatalog.html" class="file-item html" target="_blank">View_UniformCatalog.html</a>
+                <a href="View_UniformDeductions.html" class="file-item html" target="_blank">View_UniformDeductions.html</a>
+                <a href="View_UniformSummary.html" class="file-item html" target="_blank">View_UniformSummary.html</a>
+                <a href="View_PayrollCalendar.html" class="file-item html" target="_blank">View_PayrollCalendar.html</a>
+                <a href="View_YearEndWizard.html" class="file-item html" target="_blank">View_YearEndWizard.html</a>
+                <a href="View_SettingsPage.html" class="file-item html" target="_blank">View_SettingsPage.html</a>
+                <a href="View_SystemHealth.html" class="file-item html" target="_blank">View_SystemHealth.html</a>
+                <a href="View_Help.html" class="file-item html" target="_blank">View_Help.html</a>
+                <a href="COMPLETE_SETUP_GUIDE.md" class="file-item md" target="_blank">COMPLETE_SETUP_GUIDE.md</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script>
+        async function downloadZip() {
+            const btn = document.getElementById('download-btn');
+            btn.textContent = 'Packaging files\u2026';
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+
+            const files = [
+                'Code.gs', 'DashboardModule.gs', 'PTOModule.gs', 'ReportsModule.gs',
+                'AuthGateway.html', 'Index.html', 'MainApp.html', 'MainAppJS.html',
+                'MainAppStyles.html', 'LoginPrompt.html', 'JavaScript.html', 'Styles.html',
+                'EmployeePTORequest.html', 'EmployeeUniformRequest.html',
+                'View_Dashboard.html', 'View_PayrollProcessing.html', 'View_OTUpload.html',
+                'View_OTHistory.html', 'View_OTTrends.html', 'View_OTEmployee.html',
+                'View_OTReconciliation.html', 'View_PTORecords.html', 'View_PTOSummary.html',
+                'View_UniformOrders.html', 'View_UniformCatalog.html', 'View_UniformDeductions.html',
+                'View_UniformSummary.html', 'View_PayrollCalendar.html', 'View_YearEndWizard.html',
+                'View_SettingsPage.html', 'View_SystemHealth.html', 'View_Help.html',
+                'COMPLETE_SETUP_GUIDE.md'
+            ];
+
+            try {
+                const zip = new JSZip();
+                await Promise.all(files.map(async (f) => {
+                    const res = await fetch(f);
+                    if (!res.ok) throw new Error('Failed: ' + f);
+                    zip.file(f, await res.blob());
+                }));
+                const blob = await zip.generateAsync({ type: 'blob' });
+                saveAs(blob, 'payroll-system.zip');
+                btn.textContent = '\u2713 Downloaded!';
+                setTimeout(() => { btn.textContent = '\u2195 Download All as ZIP'; btn.disabled = false; btn.style.opacity = '1'; }, 3000);
+            } catch (e) {
+                btn.textContent = '\u2717 Error \u2013 try again';
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            }
+        }
+    </script>
+</body>
+</html>

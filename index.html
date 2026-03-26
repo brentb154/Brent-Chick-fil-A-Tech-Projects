@@ -87,6 +87,7 @@
         .project-card.email-summary { --accent-color: #FF8F00; --accent-secondary: #FFA000; }
         .project-card.productivity { --accent-color: #10B981; --accent-secondary: #34D399; }
         .project-card.training { --accent-color: #E53935; --accent-secondary: #FF7043; }
+        .project-card.huddle { --accent-color: #7C4DFF; --accent-secondary: #B388FF; }
 
         .project-icon {
             font-size: 2.5rem;
@@ -264,7 +265,7 @@
                     <a href="training-tracker/README.md" class="project-link primary">Setup Guide</a>
                     <a href="training-tracker/" class="project-link">View Files</a>
                     <a href="https://github.com/brentb154/cfa-training-tracker" class="project-link">GitHub Repo</a>
-                    <button onclick="downloadZip('training-tracker',['01_Menu_and_Setup.gs','02_Form_and_Dedup.gs','03_Dashboard.gs','04_Timeline.gs','05_Certification.gs','06_Alerts.gs','07_UI_Functions.gs','08_DataSync.gs','TimelineDialog.html','DeduplicationSidebar.html','AlertSettingsDialog.html','README.md','SETUP_GUIDE.md'],'training-tracker.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
+                    <button onclick="downloadZip('training-tracker',['01_Menu_and_Setup.gs','02_Form_and_Dedup.gs','03_Dashboard.gs','04_Timeline.gs','05_Certification.gs','06_Alerts.gs','07_UI_Functions.gs','08_DataSync.gs','DIAGNOSTIC.gs','TimelineDialog.html','DeduplicationSidebar.html','AlertSettingsDialog.html','README.md','SETUP_GUIDE.md'],'training-tracker.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
                 </div>
             </div>
 
@@ -281,8 +282,8 @@
                 </div>
                 <div class="project-links">
                     <a href="payroll-system/COMPLETE_SETUP_GUIDE.md" class="project-link primary">Setup Guide</a>
-                    <a href="payroll-system/" class="project-link">View Files</a>
-                    <button onclick="downloadZip('payroll-system',['Code.gs','DashboardModule.gs','PTOModule.gs','ReportsModule.gs','COMPLETE_SETUP_GUIDE.md','MainApp.html','MainAppJS.html','MainAppStyles.html','LoginPrompt.html','JavaScript.html','Styles.html','EmployeePTORequest.html','EmployeeUniformRequest.html','View_Dashboard.html','View_PayrollProcessing.html','View_OTUpload.html','View_OTHistory.html','View_OTTrends.html','View_OTEmployee.html','View_PTORecords.html','View_PTOSummary.html','View_UniformOrders.html','View_UniformCatalog.html','View_UniformDeductions.html','View_UniformSummary.html','View_PayrollCalendar.html','View_YearEndWizard.html','View_SettingsPage.html','View_SystemHealth.html','View_Help.html'],'payroll-system.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
+                    <a href="payroll-system/landing.html" class="project-link">View Files</a>
+                    <button onclick="downloadZip('payroll-system',['Code.gs','DashboardModule.gs','PTOModule.gs','ReportsModule.gs','COMPLETE_SETUP_GUIDE.md','AuthGateway.html','Index.html','MainApp.html','MainAppJS.html','MainAppStyles.html','LoginPrompt.html','JavaScript.html','Styles.html','EmployeePTORequest.html','EmployeeUniformRequest.html','View_Dashboard.html','View_PayrollProcessing.html','View_OTUpload.html','View_OTHistory.html','View_OTTrends.html','View_OTEmployee.html','View_OTReconciliation.html','View_PTORecords.html','View_PTOSummary.html','View_UniformOrders.html','View_UniformCatalog.html','View_UniformDeductions.html','View_UniformSummary.html','View_PayrollCalendar.html','View_YearEndWizard.html','View_SettingsPage.html','View_SystemHealth.html','View_Help.html'],'payroll-system.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
                 </div>
             </div>
 
@@ -333,7 +334,7 @@
                 </div>
                 <div class="project-links">
                     <a href="manager-hub/" class="project-link primary">View Files</a>
-                    <button onclick="downloadZip('manager-hub',['Phase1_SheetSetup.gs','Login.html','Signup.html','EmployeeList.html','EmployeeDetail.html','InfractionForm.html','UserManagement.html'],'manager-hub.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
+                    <button onclick="downloadZip('manager-hub',['Code.gs','Dashboard.gs','Setting Code.gs','AdvancedReporting.gs','BackupSystem.gs','DataQuality.gs','DisasterRecovery.gs','LinkManagement.gs','PDFExport.gs','ProbationTracking.gs','SettingsChangeTracking.gs','SystemMonitoring.gs','Login.html','Signup.html','EmployeeList.html','EmployeeDetail.html','InfractionForm.html','UserManagement.html','Dashboardpage.html','Reports.html','Settings.html','SystemStatus.html','UnifiedDashboard.html','README.md'],'manager-hub.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
                 </div>
             </div>
 
@@ -403,6 +404,23 @@
                 <div class="project-links">
                     <a href="shared-table-email-summary/" class="project-link primary">View Files</a>
                     <button onclick="downloadZip('shared-table-email-summary',['Code.gs'],'shared-table-email-summary.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
+                </div>
+            </div>
+
+            <!-- Monday Morning Huddle Reporting -->
+            <div class="project-card huddle">
+                <div class="project-icon">📋</div>
+                <h3 class="project-title">Monday Morning Huddle Reporting</h3>
+                <p class="project-description">
+                    Automated Monday morning reporting pipeline. Parses schedule data, generates analysis reports, archives history, and emails formatted huddle summaries to leadership each week.
+                </p>
+                <div>
+                    <span class="tag">Google Apps Script</span>
+                    <span class="tag">Auto-Emails</span>
+                </div>
+                <div class="project-links">
+                    <a href="Monday Morning Huddle Reporting/" class="project-link primary">View Files</a>
+                    <button onclick="downloadZip('Monday Morning Huddle Reporting',['Code.gs','Analysis.gs','Archive.gs','Email.gs','History.gs','MondaySheet.gs','Parser.gs','Report.gs','Reports.gs','Upload.html'],'monday-huddle-reporting.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
                 </div>
             </div>
         </div>

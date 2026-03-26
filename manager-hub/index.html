@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catering Quote Generator</title>
+    <title>Manager Accountability Hub</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -30,7 +30,7 @@
             border-radius: 16px;
             padding: 2rem;
             border: 1px solid rgba(255,255,255,0.1);
-            border-top: 4px solid #00BCD4;
+            border-top: 4px solid #9C27B0;
             margin-bottom: 1.5rem;
         }
         .project-icon { font-size: 3rem; margin-bottom: 1rem; }
@@ -55,7 +55,7 @@
         h2 {
             font-size: 1.1rem;
             font-weight: 600;
-            color: #4DD0E1;
+            color: #CE93D8;
             margin-bottom: 1rem;
             padding-bottom: 0.5rem;
             border-bottom: 1px solid rgba(255,255,255,0.1);
@@ -69,7 +69,7 @@
             align-items: flex-start;
             gap: 0.6rem;
         }
-        .feature-list li::before { content: '✓'; color: #4DD0E1; flex-shrink: 0; }
+        .feature-list li::before { content: '✓'; color: #CE93D8; flex-shrink: 0; }
         .steps { list-style: none; counter-reset: step; }
         .steps li {
             counter-increment: step;
@@ -86,7 +86,7 @@
             position: absolute;
             left: 0;
             top: 0.6rem;
-            background: #00BCD4;
+            background: #9C27B0;
             color: #fff;
             width: 20px;
             height: 20px;
@@ -118,8 +118,8 @@
         .file-item.html { color: #64B5F6; }
         .file-item.md { color: #FFD54F; }
         .note {
-            background: rgba(0, 188, 212, 0.1);
-            border: 1px solid rgba(0, 188, 212, 0.3);
+            background: rgba(156, 39, 176, 0.1);
+            border: 1px solid rgba(156, 39, 176, 0.3);
             border-radius: 8px;
             padding: 1rem 1.25rem;
             font-size: 0.9rem;
@@ -127,7 +127,7 @@
             line-height: 1.6;
             margin-bottom: 1.5rem;
         }
-        .note strong { color: #4DD0E1; }
+        .note strong { color: #CE93D8; }
     </style>
 </head>
 <body>
@@ -135,9 +135,9 @@
         <a href="../index.html" class="back-link">&#8592; Back to Hub</a>
 
         <div class="header">
-            <div class="project-icon">&#127869;&#65039;</div>
-            <h1>Catering Quote Generator</h1>
-            <p class="subtitle">Create, manage, email, and print professional catering quotes with a searchable menu picker, sequential quote IDs, and PDF email integration.</p>
+            <div class="project-icon">&#128101;</div>
+            <h1>Manager Accountability Hub</h1>
+            <p class="subtitle">Employee management system for tracking performance, infractions, and team accountability. Full web app with login, dashboards, reporting, and system monitoring.</p>
             <div>
                 <span class="tag">Google Apps Script</span>
                 <span class="tag">Google Sheets</span>
@@ -152,42 +152,60 @@
         <div class="section">
             <h2>Features</h2>
             <ul class="feature-list">
-                <li>Searchable, categorized menu item picker with live price display</li>
-                <li>Separate pickup and delivery pricing per item</li>
-                <li>Sequential quote IDs (Q-2026-0001, Q-2026-0002, &hellip;) that never repeat</li>
-                <li>Save &amp; Email — generates a PDF and emails it in one click</li>
-                <li>Quote history with Edit &amp; Reuse — originals are never modified</li>
-                <li>Fully customizable email subject and body templates</li>
-                <li>Optional BCC on every sent quote</li>
-                <li>Auto-cleanup deletes quotes older than 30 days</li>
-                <li>Logo upload and per-location store details in Settings</li>
+                <li>Secure login and user management system</li>
+                <li>Employee list with detailed individual profiles</li>
+                <li>Infraction tracking and form submission</li>
+                <li>Advanced reporting and analytics dashboard</li>
+                <li>Probation tracking and management</li>
+                <li>PDF export for documentation</li>
+                <li>System health monitoring and status pages</li>
+                <li>Backup and disaster recovery tools</li>
+                <li>Settings management with change tracking</li>
+                <li>Data quality validation</li>
             </ul>
         </div>
 
         <div class="section">
             <h2>Setup Steps</h2>
             <ol class="steps">
-                <li>Create a new Google Sheet and name it <strong>CFA Catering Quotes</strong>.</li>
-                <li>Open <strong>Extensions &rarr; Apps Script</strong> in the sheet.</li>
-                <li>Paste the contents of <strong>Code.gs</strong> into the default script file.</li>
-                <li>Create an HTML file named <strong>Index</strong> and paste the contents of <strong>Index.html</strong>.</li>
-                <li>Run <strong>initializeSheet</strong> once — this creates the Settings, Menu, Quotes, and Quote_Sequence tabs.</li>
-                <li>Add your menu items to the <strong>Menu</strong> tab (Category | Item Name | Pickup Price | Delivery Price).</li>
-                <li>Deploy: <strong>Deploy &rarr; New Deployment &rarr; Web App</strong>. Set access to your organization and copy the URL.</li>
-                <li>Set up a nightly cleanup trigger: add a <strong>Time-driven</strong> trigger for <code>cleanOldQuotes</code> to run daily at midnight.</li>
+                <li>Create a new Google Sheet for the Accountability Hub.</li>
+                <li>Open <strong>Extensions &rarr; Apps Script</strong> and paste each .gs file.</li>
+                <li>Create all HTML files as listed below.</li>
+                <li>Run the initial setup function to create required sheet tabs and settings.</li>
+                <li>Deploy as a Web App (<strong>Deploy &rarr; New Deployment &rarr; Web App</strong>).</li>
+                <li>Configure user accounts and permissions in the Settings tab.</li>
             </ol>
         </div>
 
         <div class="section">
             <h2>Files in This Project</h2>
             <div style="margin-bottom: 1rem;">
-                <button onclick="downloadZip()" id="download-btn" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.65rem 1.4rem;background:linear-gradient(135deg,#00BCD4,#26C6DA);border:none;border-radius:8px;color:#fff;font-size:0.95rem;font-weight:600;cursor:pointer;transition:opacity 0.2s;">&#8595; Download All as ZIP</button>
+                <button onclick="downloadZip()" id="download-btn" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.65rem 1.4rem;background:linear-gradient(135deg,#9C27B0,#E91E63);border:none;border-radius:8px;color:#fff;font-size:0.95rem;font-weight:600;cursor:pointer;transition:opacity 0.2s;">&#8595; Download All as ZIP</button>
             </div>
             <div class="file-grid">
                 <a href="Code.gs" class="file-item gs" target="_blank">Code.gs</a>
-                <a href="Pipeline.gs" class="file-item gs" target="_blank">Pipeline.gs</a>
-                <a href="App.html" class="file-item html" target="_blank">App.html</a>
-                <a href="Pipelineview.html" class="file-item html" target="_blank">Pipelineview.html</a>
+                <a href="Dashboard.gs" class="file-item gs" target="_blank">Dashboard.gs</a>
+                <a href="Setting Code.gs" class="file-item gs" target="_blank">Setting Code.gs</a>
+                <a href="AdvancedReporting.gs" class="file-item gs" target="_blank">AdvancedReporting.gs</a>
+                <a href="BackupSystem.gs" class="file-item gs" target="_blank">BackupSystem.gs</a>
+                <a href="DataQuality.gs" class="file-item gs" target="_blank">DataQuality.gs</a>
+                <a href="DisasterRecovery.gs" class="file-item gs" target="_blank">DisasterRecovery.gs</a>
+                <a href="LinkManagement.gs" class="file-item gs" target="_blank">LinkManagement.gs</a>
+                <a href="PDFExport.gs" class="file-item gs" target="_blank">PDFExport.gs</a>
+                <a href="ProbationTracking.gs" class="file-item gs" target="_blank">ProbationTracking.gs</a>
+                <a href="SettingsChangeTracking.gs" class="file-item gs" target="_blank">SettingsChangeTracking.gs</a>
+                <a href="SystemMonitoring.gs" class="file-item gs" target="_blank">SystemMonitoring.gs</a>
+                <a href="Login.html" class="file-item html" target="_blank">Login.html</a>
+                <a href="Signup.html" class="file-item html" target="_blank">Signup.html</a>
+                <a href="EmployeeList.html" class="file-item html" target="_blank">EmployeeList.html</a>
+                <a href="EmployeeDetail.html" class="file-item html" target="_blank">EmployeeDetail.html</a>
+                <a href="InfractionForm.html" class="file-item html" target="_blank">InfractionForm.html</a>
+                <a href="UserManagement.html" class="file-item html" target="_blank">UserManagement.html</a>
+                <a href="Dashboardpage.html" class="file-item html" target="_blank">Dashboardpage.html</a>
+                <a href="Reports.html" class="file-item html" target="_blank">Reports.html</a>
+                <a href="Settings.html" class="file-item html" target="_blank">Settings.html</a>
+                <a href="SystemStatus.html" class="file-item html" target="_blank">SystemStatus.html</a>
+                <a href="UnifiedDashboard.html" class="file-item html" target="_blank">UnifiedDashboard.html</a>
                 <a href="README.md" class="file-item md" target="_blank">README.md</a>
             </div>
         </div>
@@ -202,7 +220,14 @@
             btn.disabled = true;
             btn.style.opacity = '0.7';
 
-            const files = ['Code.gs', 'Pipeline.gs', 'App.html', 'Pipelineview.html', 'README.md'];
+            const files = [
+                'Code.gs', 'Dashboard.gs', 'Setting Code.gs', 'AdvancedReporting.gs',
+                'BackupSystem.gs', 'DataQuality.gs', 'DisasterRecovery.gs', 'LinkManagement.gs',
+                'PDFExport.gs', 'ProbationTracking.gs', 'SettingsChangeTracking.gs', 'SystemMonitoring.gs',
+                'Login.html', 'Signup.html', 'EmployeeList.html', 'EmployeeDetail.html',
+                'InfractionForm.html', 'UserManagement.html', 'Dashboardpage.html', 'Reports.html',
+                'Settings.html', 'SystemStatus.html', 'UnifiedDashboard.html', 'README.md'
+            ];
 
             try {
                 const zip = new JSZip();
@@ -212,7 +237,7 @@
                     zip.file(f, await res.blob());
                 }));
                 const blob = await zip.generateAsync({ type: 'blob' });
-                saveAs(blob, 'catering-quote-tool.zip');
+                saveAs(blob, 'manager-hub.zip');
                 btn.textContent = '\u2713 Downloaded!';
                 setTimeout(() => { btn.textContent = '\u2195 Download All as ZIP'; btn.disabled = false; btn.style.opacity = '1'; }, 3000);
             } catch (e) {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catering Quote Generator</title>
+    <title>Training Tracker</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -30,7 +30,7 @@
             border-radius: 16px;
             padding: 2rem;
             border: 1px solid rgba(255,255,255,0.1);
-            border-top: 4px solid #00BCD4;
+            border-top: 4px solid #E53935;
             margin-bottom: 1.5rem;
         }
         .project-icon { font-size: 3rem; margin-bottom: 1rem; }
@@ -55,7 +55,7 @@
         h2 {
             font-size: 1.1rem;
             font-weight: 600;
-            color: #4DD0E1;
+            color: #FF7043;
             margin-bottom: 1rem;
             padding-bottom: 0.5rem;
             border-bottom: 1px solid rgba(255,255,255,0.1);
@@ -69,7 +69,7 @@
             align-items: flex-start;
             gap: 0.6rem;
         }
-        .feature-list li::before { content: '✓'; color: #4DD0E1; flex-shrink: 0; }
+        .feature-list li::before { content: '✓'; color: #FF7043; flex-shrink: 0; }
         .steps { list-style: none; counter-reset: step; }
         .steps li {
             counter-increment: step;
@@ -86,7 +86,7 @@
             position: absolute;
             left: 0;
             top: 0.6rem;
-            background: #00BCD4;
+            background: #E53935;
             color: #fff;
             width: 20px;
             height: 20px;
@@ -118,8 +118,8 @@
         .file-item.html { color: #64B5F6; }
         .file-item.md { color: #FFD54F; }
         .note {
-            background: rgba(0, 188, 212, 0.1);
-            border: 1px solid rgba(0, 188, 212, 0.3);
+            background: rgba(229, 57, 53, 0.1);
+            border: 1px solid rgba(229, 57, 53, 0.3);
             border-radius: 8px;
             padding: 1rem 1.25rem;
             font-size: 0.9rem;
@@ -127,7 +127,7 @@
             line-height: 1.6;
             margin-bottom: 1.5rem;
         }
-        .note strong { color: #4DD0E1; }
+        .note strong { color: #FF7043; }
     </style>
 </head>
 <body>
@@ -135,13 +135,13 @@
         <a href="../index.html" class="back-link">&#8592; Back to Hub</a>
 
         <div class="header">
-            <div class="project-icon">&#127869;&#65039;</div>
-            <h1>Catering Quote Generator</h1>
-            <p class="subtitle">Create, manage, email, and print professional catering quotes with a searchable menu picker, sequential quote IDs, and PDF email integration.</p>
+            <div class="project-icon">&#127891;</div>
+            <h1>Training Tracker</h1>
+            <p class="subtitle">Complete training management system. Auto-generates personalized timelines, tracks position progress via Google Form, live dashboard with certification readiness, email alerts, and weekly schedule auto-population.</p>
             <div>
                 <span class="tag">Google Apps Script</span>
-                <span class="tag">Google Sheets</span>
-                <span class="tag">Web App</span>
+                <span class="tag">Google Forms</span>
+                <span class="tag">Sheets Integration</span>
             </div>
         </div>
 
@@ -152,43 +152,49 @@
         <div class="section">
             <h2>Features</h2>
             <ul class="feature-list">
-                <li>Searchable, categorized menu item picker with live price display</li>
-                <li>Separate pickup and delivery pricing per item</li>
-                <li>Sequential quote IDs (Q-2026-0001, Q-2026-0002, &hellip;) that never repeat</li>
-                <li>Save &amp; Email — generates a PDF and emails it in one click</li>
-                <li>Quote history with Edit &amp; Reuse — originals are never modified</li>
-                <li>Fully customizable email subject and body templates</li>
-                <li>Optional BCC on every sent quote</li>
-                <li>Auto-cleanup deletes quotes older than 30 days</li>
-                <li>Logo upload and per-location store details in Settings</li>
+                <li>Auto-generated personalized training timelines per employee</li>
+                <li>Google Form integration for progress tracking</li>
+                <li>Live dashboard with certification readiness status</li>
+                <li>Email alerts for overdue training and milestones</li>
+                <li>Weekly schedule auto-population</li>
+                <li>Deduplication sidebar for cleaning form responses</li>
+                <li>Alert settings configuration dialog</li>
+                <li>Data sync across multiple sheet tabs</li>
             </ul>
         </div>
 
         <div class="section">
             <h2>Setup Steps</h2>
             <ol class="steps">
-                <li>Create a new Google Sheet and name it <strong>CFA Catering Quotes</strong>.</li>
-                <li>Open <strong>Extensions &rarr; Apps Script</strong> in the sheet.</li>
-                <li>Paste the contents of <strong>Code.gs</strong> into the default script file.</li>
-                <li>Create an HTML file named <strong>Index</strong> and paste the contents of <strong>Index.html</strong>.</li>
-                <li>Run <strong>initializeSheet</strong> once — this creates the Settings, Menu, Quotes, and Quote_Sequence tabs.</li>
-                <li>Add your menu items to the <strong>Menu</strong> tab (Category | Item Name | Pickup Price | Delivery Price).</li>
-                <li>Deploy: <strong>Deploy &rarr; New Deployment &rarr; Web App</strong>. Set access to your organization and copy the URL.</li>
-                <li>Set up a nightly cleanup trigger: add a <strong>Time-driven</strong> trigger for <code>cleanOldQuotes</code> to run daily at midnight.</li>
+                <li>Create a new Google Sheet for Training Tracker.</li>
+                <li>Open <strong>Extensions &rarr; Apps Script</strong> and paste each .gs file in order (01 through 08).</li>
+                <li>Create HTML files: <strong>TimelineDialog.html</strong>, <strong>DeduplicationSidebar.html</strong>, <strong>AlertSettingsDialog.html</strong>.</li>
+                <li>Run the initial setup function from the custom menu.</li>
+                <li>Create a Google Form linked to the sheet for training submissions.</li>
+                <li>Configure alert settings via the Training menu &rarr; <strong>Alert Settings</strong>.</li>
             </ol>
         </div>
 
         <div class="section">
             <h2>Files in This Project</h2>
             <div style="margin-bottom: 1rem;">
-                <button onclick="downloadZip()" id="download-btn" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.65rem 1.4rem;background:linear-gradient(135deg,#00BCD4,#26C6DA);border:none;border-radius:8px;color:#fff;font-size:0.95rem;font-weight:600;cursor:pointer;transition:opacity 0.2s;">&#8595; Download All as ZIP</button>
+                <button onclick="downloadZip()" id="download-btn" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.65rem 1.4rem;background:linear-gradient(135deg,#E53935,#FF7043);border:none;border-radius:8px;color:#fff;font-size:0.95rem;font-weight:600;cursor:pointer;transition:opacity 0.2s;">&#8595; Download All as ZIP</button>
             </div>
             <div class="file-grid">
-                <a href="Code.gs" class="file-item gs" target="_blank">Code.gs</a>
-                <a href="Pipeline.gs" class="file-item gs" target="_blank">Pipeline.gs</a>
-                <a href="App.html" class="file-item html" target="_blank">App.html</a>
-                <a href="Pipelineview.html" class="file-item html" target="_blank">Pipelineview.html</a>
+                <a href="01_Menu_and_Setup.gs" class="file-item gs" target="_blank">01_Menu_and_Setup.gs</a>
+                <a href="02_Form_and_Dedup.gs" class="file-item gs" target="_blank">02_Form_and_Dedup.gs</a>
+                <a href="03_Dashboard.gs" class="file-item gs" target="_blank">03_Dashboard.gs</a>
+                <a href="04_Timeline.gs" class="file-item gs" target="_blank">04_Timeline.gs</a>
+                <a href="05_Certification.gs" class="file-item gs" target="_blank">05_Certification.gs</a>
+                <a href="06_Alerts.gs" class="file-item gs" target="_blank">06_Alerts.gs</a>
+                <a href="07_UI_Functions.gs" class="file-item gs" target="_blank">07_UI_Functions.gs</a>
+                <a href="08_DataSync.gs" class="file-item gs" target="_blank">08_DataSync.gs</a>
+                <a href="DIAGNOSTIC.gs" class="file-item gs" target="_blank">DIAGNOSTIC.gs</a>
+                <a href="TimelineDialog.html" class="file-item html" target="_blank">TimelineDialog.html</a>
+                <a href="DeduplicationSidebar.html" class="file-item html" target="_blank">DeduplicationSidebar.html</a>
+                <a href="AlertSettingsDialog.html" class="file-item html" target="_blank">AlertSettingsDialog.html</a>
                 <a href="README.md" class="file-item md" target="_blank">README.md</a>
+                <a href="SETUP_GUIDE.md" class="file-item md" target="_blank">SETUP_GUIDE.md</a>
             </div>
         </div>
     </div>
@@ -202,7 +208,22 @@
             btn.disabled = true;
             btn.style.opacity = '0.7';
 
-            const files = ['Code.gs', 'Pipeline.gs', 'App.html', 'Pipelineview.html', 'README.md'];
+            const files = [
+                '01_Menu_and_Setup.gs',
+                '02_Form_and_Dedup.gs',
+                '03_Dashboard.gs',
+                '04_Timeline.gs',
+                '05_Certification.gs',
+                '06_Alerts.gs',
+                '07_UI_Functions.gs',
+                '08_DataSync.gs',
+                'DIAGNOSTIC.gs',
+                'TimelineDialog.html',
+                'DeduplicationSidebar.html',
+                'AlertSettingsDialog.html',
+                'README.md',
+                'SETUP_GUIDE.md'
+            ];
 
             try {
                 const zip = new JSZip();
@@ -212,7 +233,7 @@
                     zip.file(f, await res.blob());
                 }));
                 const blob = await zip.generateAsync({ type: 'blob' });
-                saveAs(blob, 'catering-quote-tool.zip');
+                saveAs(blob, 'training-tracker.zip');
                 btn.textContent = '\u2713 Downloaded!';
                 setTimeout(() => { btn.textContent = '\u2195 Download All as ZIP'; btn.disabled = false; btn.style.opacity = '1'; }, 3000);
             } catch (e) {
