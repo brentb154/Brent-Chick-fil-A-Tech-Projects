@@ -88,6 +88,7 @@
         .project-card.productivity { --accent-color: #10B981; --accent-secondary: #34D399; }
         .project-card.training { --accent-color: #E53935; --accent-secondary: #FF7043; }
         .project-card.huddle { --accent-color: #7C4DFF; --accent-secondary: #B388FF; }
+        .project-card.schedule-gas { --accent-color: #DD0031; --accent-secondary: #FF4444; }
 
         .project-icon {
             font-size: 2.5rem;
@@ -301,6 +302,24 @@
                 <div class="project-links">
                     <a href="schedule-counter/Schedule Counter 3.1.html" class="project-link primary">Launch Tool</a>
                     <button onclick="downloadZip('schedule-counter',['Schedule Counter 3.1.html'],'schedule-counter.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
+                </div>
+            </div>
+
+            <!-- Schedule Counter GAS -->
+            <div class="project-card schedule-gas">
+                <div class="project-icon">📈</div>
+                <h3 class="project-title">Schedule Counter (GAS)</h3>
+                <p class="project-description">
+                    Google Apps Script-powered schedule analysis with automated weekly pipelines, sales forecasting, exponential smoothing, SPLH tracking, trend history, and email reminders. Runs entirely inside Google Sheets.
+                </p>
+                <div>
+                    <span class="tag">Google Apps Script</span>
+                    <span class="tag">Sheets Integration</span>
+                    <span class="tag">Automated Pipeline</span>
+                </div>
+                <div class="project-links">
+                    <a href="schedule-counter-gas/" class="project-link primary">View Files</a>
+                    <button onclick="downloadZip('schedule-counter-gas',['Code.gs','Index.html','JavaScript.html','Stylesheet.html','Onboarding.html','TrackerEmbed.html','ProductivityTracker.html'],'schedule-counter-gas.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
                 </div>
             </div>
 

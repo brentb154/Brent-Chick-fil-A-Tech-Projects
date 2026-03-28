@@ -1,0 +1,561 @@
+<script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // ── SVG icon components ────────────────────────────────────
+    const TrendingUp = ({ size = 24, ...props }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+        <polyline points="17 6 23 6 23 12"></polyline>
+      </svg>
+    );
+    const Download = ({ size = 24, ...props }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+    );
+    const Upload = ({ size = 24, ...props }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="17 8 12 3 7 8"></polyline>
+        <line x1="12" y1="3" x2="12" y2="15"></line>
+      </svg>
+    );
+    const Plus = ({ size = 24, ...props }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+    );
+    const Trash2 = ({ size = 24, ...props }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        <line x1="10" y1="11" x2="10" y2="17"></line>
+        <line x1="14" y1="11" x2="14" y2="17"></line>
+      </svg>
+    );
+    const Edit2 = ({ size = 24, ...props }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+      </svg>
+    );
+    const Check = ({ size = 24, ...props }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    );
+    const XIcon = ({ size = 24, ...props }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    );
+
+    // ── Month picker helpers ───────────────────────────────────
+    const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const inputToMonthStr = (raw) => {
+      if (!raw) return '';
+      const [yr, mon] = raw.split('-');
+      return `${MONTH_NAMES[parseInt(mon) - 1]} ${yr}`;
+    };
+    const monthStrToInput = (str) => {
+      if (!str || !str.includes(' ')) return '';
+      const [mon, yr] = str.split(' ');
+      const idx = MONTH_NAMES.indexOf(mon);
+      if (idx === -1) return '';
+      return `${yr}-${String(idx + 1).padStart(2, '0')}`;
+    };
+
+    // ── Main component ─────────────────────────────────────────
+    const ProductivityTracker = () => {
+      const takeoverMonth = "Feb 2025";
+      const [data, setData]                   = useState([]);
+      const [newMonth, setNewMonth]           = useState({ monthRaw: '', month: '', productivity: '', sales: '', hours: '' });
+      const [showAddForm, setShowAddForm]     = useState(false);
+      const [editingIndex, setEditingIndex]   = useState(null);
+      const [editForm, setEditForm]           = useState({ monthRaw: '', month: '', productivity: '', sales: '', hours: '' });
+      const [deleteConfirm, setDeleteConfirm] = useState(null);
+      const [showResetConfirm, setShowResetConfirm] = useState(false);
+      const [isLoaded, setIsLoaded]           = useState(false);
+      const [hasUnsaved, setHasUnsaved]       = useState(false);
+      const [isSaving, setIsSaving]           = useState(false);
+      const chartInstance = useRef(null);
+
+      // ── Normalize a month value to "MMM yyyy" string ─────────
+      // GAS may serialize Date objects as JS Date instances on the client,
+      // or pass a stringified date like "Sun Feb 01 2026 00:00:00 GMT-0600".
+      // This converts both cases to the canonical "Feb 2026" format.
+      const normalizeMonth = (m) => {
+        if (!m) return '';
+        if (m instanceof Date) {
+          return MONTH_NAMES[m.getMonth()] + ' ' + m.getFullYear();
+        }
+        const s = String(m).trim();
+        // Already correct format: "Feb 2025"
+        if (/^[A-Za-z]{3} \d{4}$/.test(s)) return s;
+        // Looks like a serialized date string — parse and reformat
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) {
+          return MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear();
+        }
+        return s;
+      };
+
+      // ── Load from Sheets on mount ────────────────────────────
+      useEffect(() => {
+        google.script.run
+          .withSuccessHandler(function(rows) {
+            if (rows && rows.length > 0) {
+              setData(rows.map(r => ({ ...r, month: normalizeMonth(r.month) })));
+            }
+            setIsLoaded(true);
+          })
+          .withFailureHandler(function(err) {
+            console.error('Error loading productivity data:', err);
+            setIsLoaded(true);
+          })
+          .getProductivityData();
+      }, []);
+
+      // ── Track unsaved changes — fires when data changes after initial load
+      useEffect(() => {
+        if (!isLoaded) return;
+        setHasUnsaved(true);
+      }, [data]);
+
+      // ── Chart.js trend chart ─────────────────────────────────
+      useEffect(() => {
+        // Destroy previous chart if it exists
+        if (chartInstance.current) {
+          chartInstance.current.destroy();
+          chartInstance.current = null;
+        }
+        if (data.length === 0) return;
+
+        // defer one tick so React has flushed the canvas into the DOM
+        const timer = setTimeout(function() {
+          const canvas = document.getElementById('trackerProductivityChart');
+          if (!canvas || typeof Chart === 'undefined') return;
+          // Destroy any existing chart on this canvas (handles React remount)
+          var existing = Chart.getChart(canvas);
+          if (existing) { existing.destroy(); }
+          if (chartInstance.current) { chartInstance.current.destroy(); chartInstance.current = null; }
+
+          chartInstance.current = new Chart(canvas, {
+            type: 'line',
+            data: {
+              labels: data.map(function(d) { return d.month; }),
+              datasets: [
+                {
+                  label: 'Productivity',
+                  data: data.map(function(d) { return d.productivity; }),
+                  borderColor: '#3b82f6',
+                  backgroundColor: 'rgba(59,130,246,0.08)',
+                  borderWidth: 2,
+                  pointRadius: 3,
+                  pointHoverRadius: 6,
+                  tension: 0.1,
+                  fill: true
+                },
+                {
+                  label: 'Goal (90)',
+                  data: data.map(function() { return 90; }),
+                  borderColor: '#ef4444',
+                  borderWidth: 1.5,
+                  borderDash: [5, 5],
+                  pointRadius: 0,
+                  fill: false
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: { min: 60, max: 100 },
+                x: { ticks: { maxRotation: 45, minRotation: 45, maxTicksLimit: 20 } }
+              },
+              plugins: {
+                legend: { display: true },
+                tooltip: { mode: 'index', intersect: false }
+              }
+            }
+          });
+        }, 0);
+
+        return function() { clearTimeout(timer); };
+      }, [data]);
+
+      // ── Stats computation ────────────────────────────────────
+      const getStats = () => {
+        if (data.length === 0) {
+          return { beforeAvg:"0.00", afterAvg:"0.00", improvement:"0.00", percentImprovement:"0.0",
+                   beforeGoalPercent:"0.0", afterGoalPercent:"0.0", beforeCount:0, afterCount:0,
+                   latestMonth:{ productivity:0, month:"N/A" } };
+        }
+        const idx = data.findIndex(d => d.month === takeoverMonth);
+        const before = idx > 0 ? data.slice(0, idx) : [];
+        const after  = idx >= 0 ? data.slice(idx) : data;
+        const avg = arr => arr.length > 0 ? arr.reduce((s,v) => s+v, 0) / arr.length : 0;
+        const ba = avg(before.map(d => d.productivity));
+        const aa = avg(after.map(d => d.productivity));
+        const imp = aa - ba;
+        return {
+          beforeAvg: ba.toFixed(2),
+          afterAvg:  aa.toFixed(2),
+          improvement: imp.toFixed(2),
+          percentImprovement: ba > 0 ? ((imp/ba)*100).toFixed(1) : "0.0",
+          beforeGoalPercent: before.length > 0 ? ((before.filter(d=>d.productivity>=90).length/before.length)*100).toFixed(1) : "0.0",
+          afterGoalPercent:  after.length  > 0 ? ((after.filter(d=>d.productivity>=90).length/after.length)*100).toFixed(1)  : "0.0",
+          beforeCount: before.length,
+          afterCount:  after.length,
+          latestMonth: data[data.length - 1]
+        };
+      };
+      const stats = getStats();
+
+      // ── Data handlers ────────────────────────────────────────
+      const handleSave = () => {
+        setIsSaving(true);
+        google.script.run
+          .withSuccessHandler(function() {
+            setIsSaving(false);
+            setHasUnsaved(false);
+          })
+          .withFailureHandler(function(err) {
+            console.error('Error saving productivity data:', err);
+            setIsSaving(false);
+          })
+          .saveProductivityData(data);
+      };
+      const handleAddMonth = () => {
+        if (!newMonth.month || !newMonth.productivity || !newMonth.sales || !newMonth.hours) return;
+        setData([...data, {
+          month: newMonth.month,
+          productivity: parseFloat(newMonth.productivity),
+          sales: parseFloat(newMonth.sales),
+          hours: parseFloat(newMonth.hours)
+        }]);
+        setNewMonth({ monthRaw:'', month:'', productivity:'', sales:'', hours:'' });
+        setShowAddForm(false);
+      };
+      const confirmDelete = () => {
+        if (!deleteConfirm) return;
+        const d = [...data]; d.splice(deleteConfirm.index, 1);
+        setData(d); setDeleteConfirm(null);
+      };
+      const handleEditMonth = idx => {
+        setEditingIndex(idx);
+        setEditForm({ monthRaw: monthStrToInput(data[idx].month), month: data[idx].month,
+                      productivity: String(data[idx].productivity),
+                      sales: String(data[idx].sales), hours: String(data[idx].hours) });
+      };
+      const handleSaveEdit = () => {
+        if (!editForm.month || !editForm.productivity || !editForm.sales || !editForm.hours) return;
+        const d = [...data];
+        d[editingIndex] = { month: editForm.month, productivity: parseFloat(editForm.productivity),
+                            sales: parseFloat(editForm.sales), hours: parseFloat(editForm.hours) };
+        setData(d); setEditingIndex(null); setEditForm({ monthRaw:'', month:'', productivity:'', sales:'', hours:'' });
+      };
+      const exportData = () => {
+        const csv = ['Month,Productivity,Total Sales,Total Hours']
+          .concat(data.map(r => `${r.month},${r.productivity},${r.sales},${r.hours}`))
+          .join('\n');
+        const url = URL.createObjectURL(new Blob([csv], { type:'text/csv' }));
+        const a = document.createElement('a');
+        a.href = url; a.download = `productivity-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      };
+      const importData = e => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          try {
+            const parsed = Papa.parse(ev.target.result, { header:true, dynamicTyping:true, skipEmptyLines:true });
+            setData(parsed.data.map(r => ({
+              month: r.Month || r.month,
+              productivity: parseFloat(r.Productivity || r.productivity),
+              sales: parseFloat(r['Total Sales'] || r.sales),
+              hours: parseFloat(r['Total Hours']  || r.hours)
+            })));
+            alert('Data imported successfully!');
+          } catch(err) { alert('Error importing CSV. Check file format.'); }
+        };
+        reader.readAsText(file);
+      };
+      const confirmReset = () => {
+        setData([]);
+        setIsSaving(true);
+        google.script.run
+          .withSuccessHandler(function() { setIsSaving(false); setHasUnsaved(false); })
+          .withFailureHandler(function(err) { console.error('Reset error:', err); setIsSaving(false); })
+          .saveProductivityData([]);
+        setShowResetConfirm(false);
+      };
+
+      // ── Render ───────────────────────────────────────────────
+      return (
+        <div className="w-full max-w-7xl mx-auto p-6 bg-gray-50 min-h-screen">
+
+          {/* Header card */}
+          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
+                  <TrendingUp className="text-green-600" />
+                  Productivity Performance Tracker
+                </h1>
+                <p className="text-gray-600 mt-1">Supervision began: {takeoverMonth}</p>
+              </div>
+              <div className="flex gap-2 flex-wrap justify-end">
+                <button onClick={() => setShowAddForm(!showAddForm)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                  <Plus size={20} /> Add Month
+                </button>
+                <button onClick={handleSave} disabled={!hasUnsaved || isSaving}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition font-semibold ${
+                    isSaving ? 'bg-green-400 text-white cursor-wait'
+                    : hasUnsaved ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}>
+                  {isSaving ? 'Saving…' : hasUnsaved ? '● Save' : 'Saved'}
+                </button>
+                <button onClick={exportData} disabled={data.length === 0}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
+                  <Download size={20} /> Export
+                </button>
+                <label className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition cursor-pointer">
+                  <Upload size={20} /> Import
+                  <input type="file" accept=".csv" onChange={importData} className="hidden" />
+                </label>
+                <button onClick={() => setShowResetConfirm(true)} disabled={data.length === 0}
+                  className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition">
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            {/* Add form */}
+            {showAddForm && (
+              <div className="bg-blue-50 p-4 rounded-lg mb-6 border border-blue-200">
+                <h3 className="font-semibold mb-3 text-gray-800">Add New Month</h3>
+                <div className="grid grid-cols-4 gap-3">
+                  <input type="month" value={newMonth.monthRaw}
+                    onChange={e => setNewMonth({...newMonth, monthRaw: e.target.value, month: inputToMonthStr(e.target.value)})}
+                    className="px-3 py-2 border border-gray-300 rounded" />
+                  <input type="number" step="0.01" placeholder="Productivity" value={newMonth.productivity}
+                    onChange={e => setNewMonth({...newMonth, productivity: e.target.value})}
+                    className="px-3 py-2 border border-gray-300 rounded" />
+                  <input type="number" step="0.01" placeholder="Total Sales" value={newMonth.sales}
+                    onChange={e => setNewMonth({...newMonth, sales: e.target.value})}
+                    className="px-3 py-2 border border-gray-300 rounded" />
+                  <input type="number" step="0.01" placeholder="Total Hours" value={newMonth.hours}
+                    onChange={e => setNewMonth({...newMonth, hours: e.target.value})}
+                    className="px-3 py-2 border border-gray-300 rounded" />
+                </div>
+                <button onClick={handleAddMonth}
+                  className="mt-3 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+                  Add to Database
+                </button>
+              </div>
+            )}
+
+            {/* Stats cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg shadow">
+                <div className="text-sm opacity-90">Before Supervision</div>
+                <div className="text-3xl font-bold">{stats.beforeAvg}</div>
+                <div className="text-xs opacity-75 mt-1">{stats.beforeCount} months</div>
+              </div>
+              <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-4 rounded-lg shadow">
+                <div className="text-sm opacity-90">Under Your Supervision</div>
+                <div className="text-3xl font-bold">{stats.afterAvg}</div>
+                <div className="text-xs opacity-75 mt-1">{stats.afterCount} months</div>
+              </div>
+              <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-4 rounded-lg shadow">
+                <div className="text-sm opacity-90">Improvement</div>
+                <div className="text-3xl font-bold">+{stats.improvement}</div>
+                <div className="text-xs opacity-75 mt-1">{stats.percentImprovement}% increase</div>
+              </div>
+              <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-4 rounded-lg shadow">
+                <div className="text-sm opacity-90">Latest Month</div>
+                <div className="text-3xl font-bold">
+                  {typeof stats.latestMonth.productivity === 'number' ? stats.latestMonth.productivity.toFixed(2) : 'N/A'}
+                </div>
+                <div className="text-xs opacity-75 mt-1">{stats.latestMonth.month}</div>
+              </div>
+            </div>
+
+            {/* Goal bars */}
+            <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+              <h3 className="font-semibold mb-2 text-gray-800">Goal Achievement ($90+ SPLH Target)</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm text-gray-600">Before: {stats.beforeGoalPercent}% of months</div>
+                  <div className="w-full bg-gray-200 rounded-full h-3 mt-1">
+                    <div className="bg-blue-500 h-3 rounded-full transition-all"
+                      style={{ width: `${stats.beforeGoalPercent}%` }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-600">After: {stats.afterGoalPercent}% of months</div>
+                  <div className="w-full bg-gray-200 rounded-full h-3 mt-1">
+                    <div className="bg-green-500 h-3 rounded-full transition-all"
+                      style={{ width: `${stats.afterGoalPercent}%` }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Trend chart — uses Chart.js (already loaded in page) */}
+          {data.length > 0 && (
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+              <h2 className="text-xl font-bold mb-4 text-gray-800">Productivity Trend</h2>
+              <div style={{ position:'relative', height:'360px' }}>
+                <canvas id="trackerProductivityChart"></canvas>
+              </div>
+            </div>
+          )}
+
+          {/* Data table */}
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Monthly Details</h2>
+            {data.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <p className="text-lg mb-2">No data yet</p>
+                <p>Click "Add Month" to start tracking your productivity</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Month</th>
+                      <th className="px-4 py-2 text-right">Productivity</th>
+                      <th className="px-4 py-2 text-right">Total Sales</th>
+                      <th className="px-4 py-2 text-right">Total Hours</th>
+                      <th className="px-4 py-2 text-center">Goal Met</th>
+                      <th className="px-4 py-2 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.slice().reverse().map((row, idx) => {
+                      const actualIdx = data.length - 1 - idx;
+                      const isEditing = editingIndex === actualIdx;
+                      return (
+                        <tr key={actualIdx}
+                          className={`border-b ${row.month === takeoverMonth ? 'bg-green-50 border-green-300' : ''}`}>
+                          {isEditing ? (
+                            <>
+                              <td className="px-4 py-2">
+                                <input type="month" value={editForm.monthRaw}
+                                  onChange={e => setEditForm({...editForm, monthRaw: e.target.value, month: inputToMonthStr(e.target.value)})}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded" />
+                              </td>
+                              <td className="px-4 py-2">
+                                <input type="number" step="0.01" value={editForm.productivity}
+                                  onChange={e => setEditForm({...editForm, productivity: e.target.value})}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-right" />
+                              </td>
+                              <td className="px-4 py-2">
+                                <input type="number" value={editForm.sales}
+                                  onChange={e => setEditForm({...editForm, sales: e.target.value})}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-right" />
+                              </td>
+                              <td className="px-4 py-2">
+                                <input type="number" step="0.01" value={editForm.hours}
+                                  onChange={e => setEditForm({...editForm, hours: e.target.value})}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-right" />
+                              </td>
+                              <td className="px-4 py-2 text-center">
+                                {parseFloat(editForm.productivity) >= 90
+                                  ? <span className="text-green-600 font-bold">✓</span>
+                                  : <span className="text-gray-400">—</span>}
+                              </td>
+                              <td className="px-4 py-2 text-center">
+                                <div className="flex gap-2 justify-center">
+                                  <button onClick={handleSaveEdit}
+                                    className="text-green-600 hover:text-green-800 hover:bg-green-50 p-1 rounded transition"
+                                    title="Save changes"><Check size={18} /></button>
+                                  <button onClick={() => { setEditingIndex(null); setEditForm({ month:'', productivity:'', sales:'', hours:'' }); }}
+                                    className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 p-1 rounded transition"
+                                    title="Cancel"><XIcon size={18} /></button>
+                                </div>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-4 py-2 font-medium">{row.month}</td>
+                              <td className="px-4 py-2 text-right">{row.productivity.toFixed(2)}</td>
+                              <td className="px-4 py-2 text-right">${row.sales.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right">{row.hours.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-center">
+                                {row.productivity >= 90
+                                  ? <span className="text-green-600 font-bold">✓</span>
+                                  : <span className="text-gray-400">—</span>}
+                              </td>
+                              <td className="px-4 py-2 text-center">
+                                <div className="flex gap-2 justify-center">
+                                  <button onClick={() => handleEditMonth(actualIdx)}
+                                    className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1 rounded transition"
+                                    title="Edit"><Edit2 size={18} /></button>
+                                  <button onClick={() => setDeleteConfirm({ index: actualIdx, month: row.month })}
+                                    className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1 rounded transition"
+                                    title="Delete"><Trash2 size={18} /></button>
+                                </div>
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Delete modal */}
+          {deleteConfirm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg shadow-xl p-6 max-w-md">
+                <h3 className="text-xl font-bold mb-4">Confirm Delete</h3>
+                <p className="mb-6">Delete <strong>{deleteConfirm.month}</strong>?</p>
+                <div className="flex gap-3 justify-end">
+                  <button onClick={() => setDeleteConfirm(null)}
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition">Cancel</button>
+                  <button onClick={confirmDelete}
+                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">Delete</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Reset modal */}
+          {showResetConfirm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg shadow-xl p-6 max-w-md">
+                <h3 className="text-xl font-bold mb-4">Confirm Reset</h3>
+                <p className="mb-6">Reset to empty? This will delete all months.</p>
+                <div className="flex gap-3 justify-end">
+                  <button onClick={() => setShowResetConfirm(false)}
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition">Cancel</button>
+                  <button onClick={confirmReset}
+                    className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition">Reset</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // Mount into the tab panel div
+    const trackerRootEl = document.getElementById('trackerRoot');
+    if (trackerRootEl) {
+      ReactDOM.createRoot(trackerRootEl).render(<ProductivityTracker />);
+    }
+</script>

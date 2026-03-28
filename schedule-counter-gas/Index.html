@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schedule Counter &mdash; Cockrell Hill</title>
+  <?!= include('Stylesheet') ?>
+</head>
+<body>
+
+  <!-- ── Loading Overlay ─────────────────────────────────── -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loadingText">Loading configuration&hellip;</div>
+  </div>
+
+  <!-- ── Onboarding Overlay ──────────────────────────────── -->
+  <div id="onboardingOverlay" class="onboarding-overlay" style="display:none;">
+    <div class="onboarding-overlay-inner">
+
+      <div class="header">
+        <h1>&#128202; Schedule Counter Setup</h1>
+        <p>Let&rsquo;s get your location configured in 5 quick steps.</p>
+      </div>
+
+      <!-- Progress dots -->
+      <div class="onboarding-progress">
+        <div class="onboarding-step-dot active" id="dot-1"></div>
+        <div class="onboarding-step-line"></div>
+        <div class="onboarding-step-dot" id="dot-2"></div>
+        <div class="onboarding-step-line"></div>
+        <div class="onboarding-step-dot" id="dot-3"></div>
+        <div class="onboarding-step-line"></div>
+        <div class="onboarding-step-dot" id="dot-4"></div>
+        <div class="onboarding-step-line"></div>
+        <div class="onboarding-step-dot" id="dot-5"></div>
+      </div>
+
+      <!-- Step 1: Welcome -->
+      <div id="onboard-step-1" class="onboarding-card">
+        <div class="onboarding-step-label">Step 1 of 5</div>
+        <h2>Welcome to Schedule Counter</h2>
+        <p>Combine your HotSchedules export with your daily sales to see staffing vs. productivity in real time.</p>
+        <div class="onboarding-feature-grid">
+          <div class="onboarding-feature">
+            <div class="onboarding-feature-icon">&#128202;</div>
+            <strong>Visual Grid</strong>
+            <span>Staffing heatmaps by day &amp; hour</span>
+          </div>
+          <div class="onboarding-feature">
+            <div class="onboarding-feature-icon">&#128176;</div>
+            <strong>SPLH Tracking</strong>
+            <span>Sales per labor hour vs. your goal</span>
+          </div>
+          <div class="onboarding-feature">
+            <div class="onboarding-feature-icon">&#128200;</div>
+            <strong>Trend History</strong>
+            <span>Week-over-week performance charts</span>
+          </div>
+          <div class="onboarding-feature">
+            <div class="onboarding-feature-icon">&#9993;&#65039;</div>
+            <strong>Weekly Email</strong>
+            <span>Auto summary after every report</span>
+          </div>
+        </div>
+        <div class="onboarding-actions">
+          <button class="btn-primary" onclick="onboardGoTo(2)">Get Started &rarr;</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Initialize Spreadsheet -->
+      <div id="onboard-step-2" class="onboarding-card" style="display:none;">
+        <div class="onboarding-step-label">Step 2 of 5</div>
+        <h2>Initialize Spreadsheet</h2>
+        <p>
+          This creates all required tabs in your spreadsheet:
+          <code>schedule_history</code>, <code>sales_history</code>,
+          <code>sales_curves</code>, <code>config</code>,
+          <code>weekly_summary</code>, and <code>app_cache</code>.
+          It&rsquo;s safe to run multiple times &mdash; existing tabs are never overwritten.
+        </p>
+        <div id="onboard-init-status" class="onboarding-status" style="display:none;"></div>
+        <div class="onboarding-actions">
+          <button class="btn-secondary" onclick="onboardGoTo(1)">Back</button>
+          <button class="btn-primary" id="onboard-init-btn" onclick="onboardInitSheets()">
+            Initialize Spreadsheet
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 3: Location & Notifications -->
+      <div id="onboard-step-3" class="onboarding-card" style="display:none;">
+        <div class="onboarding-step-label">Step 3 of 5</div>
+        <h2>Location &amp; Notifications</h2>
+        <p>Set your location name and the email address that will receive weekly labor summaries.</p>
+        <div class="settings-grid-2" style="margin-top:20px;">
+          <div class="settings-field">
+            <label for="onboard-location-name">Location Name</label>
+            <input type="text" id="onboard-location-name" placeholder="Cockrell Hill" value="Cockrell Hill">
+          </div>
+          <div class="settings-field">
+            <label for="onboard-operator-email">Operator Email</label>
+            <input type="email" id="onboard-operator-email" placeholder="you@example.com">
+          </div>
+        </div>
+        <div id="onboard-location-status" class="onboarding-status" style="display:none;"></div>
+        <div class="onboarding-actions">
+          <button class="btn-secondary" onclick="onboardGoTo(2)">Back</button>
+          <button class="btn-primary" id="onboard-location-btn" onclick="onboardSaveLocation()">
+            Save &amp; Continue &rarr;
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 4: Automated Triggers -->
+      <div id="onboard-step-4" class="onboarding-card" style="display:none;">
+        <div class="onboarding-step-label">Step 4 of 5</div>
+        <h2>Automated Triggers</h2>
+        <p style="font-size:14px; color:#64748b; line-height:1.6; margin-bottom:16px;">
+          Two time-based triggers run automatically each week so you never have to touch the spreadsheet manually.
+        </p>
+        <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+          <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:14px; display:flex; gap:12px; align-items:flex-start;">
+            <span style="font-size:22px; line-height:1;">&#128315;</span>
+            <div>
+              <strong style="font-size:13px; color:#15803d; display:block; margin-bottom:3px;">Sunday 22:00 &mdash; Sync Check</strong>
+              <span style="font-size:12px; color:#64748b; line-height:1.5;">Validates that CFA sales data arrived in Sheet1. Sends an alert email if the sync looks like it failed.</span>
+            </div>
+          </div>
+          <div style="background:#eff6ff; border:1px solid #93c5fd; border-radius:10px; padding:14px; display:flex; gap:12px; align-items:flex-start;">
+            <span style="font-size:22px; line-height:1;">&#9654;&#65039;</span>
+            <div>
+              <strong style="font-size:13px; color:#1d4ed8; display:block; margin-bottom:3px;">Monday 06:00 &mdash; Weekly Pipeline</strong>
+              <span style="font-size:12px; color:#64748b; line-height:1.5;">Reads Sheet1, archives sales to history, updates your sales curves via smoothing, runs bias detection, cleans up old data, and writes the app cache &mdash; all before you sit down.</span>
+            </div>
+          </div>
+        </div>
+        <div id="onboard-trigger-status" class="onboarding-status" style="display:none;"></div>
+        <div class="onboarding-actions">
+          <button class="btn-secondary" onclick="onboardGoTo(3)">Back</button>
+          <button class="btn-secondary" onclick="onboardGoTo(5)">Install Later from Settings</button>
+          <button class="btn-primary" id="onboard-trigger-btn" onclick="onboardInstallTriggers()">
+            &#9654; Install Triggers &rarr;
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 5: Sales Curves -->
+      <div id="onboard-step-5" class="onboarding-card" style="display:none;">
+        <div class="onboarding-step-label">Step 5 of 5</div>
+        <h2>Sales Curves</h2>
+        <p>
+          All 7 days start with the same default curve that distributes your daily sales
+          estimate across the 19 tracked hours. The app refines each day&rsquo;s curve
+          automatically once CFA data starts flowing in Chunk 3.
+        </p>
+        <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:16px; margin:16px 0;">
+          <strong style="color:#15803d; font-size:13px; display:block; margin-bottom:10px;">
+            Default Curve &mdash; Top Hours by Weight
+          </strong>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <div style="background:white; border:1px solid #e2e8f0; border-radius:6px; padding:6px 10px; text-align:center; font-size:12px;">
+              <div style="font-weight:700; color:#1e293b;">12 PM</div><div style="color:#16a34a;">9.8%</div>
+            </div>
+            <div style="background:white; border:1px solid #e2e8f0; border-radius:6px; padding:6px 10px; text-align:center; font-size:12px;">
+              <div style="font-weight:700; color:#1e293b;">11 AM</div><div style="color:#16a34a;">9.8%</div>
+            </div>
+            <div style="background:white; border:1px solid #e2e8f0; border-radius:6px; padding:6px 10px; text-align:center; font-size:12px;">
+              <div style="font-weight:700; color:#1e293b;">10 AM</div><div style="color:#16a34a;">9.8%</div>
+            </div>
+            <div style="background:white; border:1px solid #e2e8f0; border-radius:6px; padding:6px 10px; text-align:center; font-size:12px;">
+              <div style="font-weight:700; color:#1e293b;">1 PM</div><div style="color:#16a34a;">8.8%</div>
+            </div>
+            <div style="background:white; border:1px solid #e2e8f0; border-radius:6px; padding:6px 10px; text-align:center; font-size:12px;">
+              <div style="font-weight:700; color:#1e293b;">9 AM</div><div style="color:#16a34a;">9.8%</div>
+            </div>
+          </div>
+          <p style="font-size:11px; color:#94a3b8; margin-top:10px; margin-bottom:0;">
+            You can edit any day&rsquo;s curve in <strong>Settings &rarr; Sales Curves</strong> at any time.
+          </p>
+        </div>
+        <div id="onboard-complete-status" class="onboarding-status" style="display:none;"></div>
+        <div class="onboarding-actions">
+          <button class="btn-secondary" onclick="onboardGoTo(4)">Back</button>
+          <button class="btn-primary" id="onboard-launch-btn" onclick="onboardComplete()">
+            Accept Defaults &amp; Launch &rarr;
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /onboarding-overlay-inner -->
+  </div><!-- /onboardingOverlay -->
+
+  <!-- ── Warning Banner ──────────────────────────────────── -->
+  <div id="warningBanner" class="warning-banner" style="display:none;">
+    <span id="warningBannerText"></span>
+    <button class="warning-banner-close" onclick="document.getElementById('warningBanner').style.display='none'">&times;</button>
+  </div>
+
+  <!-- ── Header ──────────────────────────────────────────── -->
+  <div class="header" style="display:flex; justify-content:space-between; align-items:center; text-align:left;">
+    <div>
+      <h1>&#128202; Schedule Counter</h1>
+      <p id="headerSubtitle">Cockrell Hill &mdash; Analyze staffing with sales data &amp; productivity metrics</p>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <button onclick="showWalkthrough()" style="background:white; color:#DD0031; border:none; padding:12px 24px; border-radius:8px; font-weight:700; font-size:16px; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.1); display:flex; align-items:center; gap:8px; transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+        <span style="font-size:20px;">&#10067;</span> How to Use
+      </button>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- ── Main Tabs ───────────────────────────────────────── -->
+    <div class="main-tabs">
+      <button id="tab-converter" class="tab-button active" type="button" onclick="switchMainPanel('converter')">
+        <span class="step-number">1</span> File Converter
+      </button>
+      <button id="tab-counter" class="tab-button" type="button" onclick="switchMainPanel('counter')">
+        <span class="step-number">2</span> Schedule Analysis
+      </button>
+      <button id="tab-trends" class="tab-button" type="button" onclick="switchMainPanel('trends')">
+        &#128200; Trends
+      </button>
+      <button id="tab-settings" class="tab-button" type="button" onclick="switchMainPanel('settings')">
+        &#9881;&#65039; Settings
+      </button>
+      <button id="tab-tracker" class="tab-button" type="button" onclick="switchMainPanel('tracker')">
+        &#128200; Productivity Tracker
+      </button>
+      <button id="tab-forecast" class="tab-button" type="button" onclick="switchMainPanel('forecast')">
+        &#128302; Forecast
+      </button>
+      <button id="tab-info" class="tab-button" type="button" onclick="switchMainPanel('info')">
+        &#128214; Information
+      </button>
+    </div>
+
+    <div id="viewBadge" class="view-badge" style="margin-bottom:12px; font-size:12px; font-weight:600; color:#64748b;">
+      Current View: Overall &middot; Daypart: All Day
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         TAB 1: FILE CONVERTER
+    ════════════════════════════════════════════════════════ -->
+    <div id="converterTabPanel" class="tab-panel converter-panel" style="display:block;">
+      <div class="converter-layout">
+
+        <!-- LEFT: Upload & Action -->
+        <div class="converter-left">
+          <div class="card">
+            <div class="card-header">
+              <div class="title-block">
+                <h1>Schedule CSV Generator</h1>
+                <p class="subtitle">Upload your raw HotSchedules export to generate an hourly CSV.</p>
+              </div>
+            </div>
+
+            <label class="dropzone">
+              <input type="file" id="fileInput" accept=".xls,.html,.htm,.txt" />
+              <div class="dropzone-content">
+                <div class="dropzone-icon">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0l-4 4m4-4l4 4" /><path d="M6 12v5a3 3 0 003 3h6a3 3 0 003-3v-5" /></svg>
+                </div>
+                <div>
+                  <div class="dropzone-text-main">Click to choose your schedule file</div>
+                  <div class="dropzone-text-sub">After generating, use the file in Step 2 as FOH/BOH hourly CSV.</div>
+                </div>
+              </div>
+            </label>
+
+            <div class="hint-row">
+              <span>Expected input: HotSchedules &ldquo;Schedule Report&rdquo; (Excel/HTML export).</span>
+              <span class="pill">Hourly CSV</span>
+            </div>
+
+            <div id="error" class="error"></div>
+            <div id="status" class="status"></div>
+
+            <div class="actions-row" style="justify-content:flex-end; margin-top:16px;">
+              <button id="processBtn" style="width:100%; padding:14px; font-size:16px;">
+                <span>&#128640; Convert &amp; Download CSV</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Instructions -->
+        <div class="converter-right">
+          <h3 style="margin-top:0; color:#1e293b; font-size:18px; display:flex; align-items:center; gap:8px;">
+            <span>&#128216;</span> How to Get the Correct File
+          </h3>
+          <ol style="padding-left:20px; line-height:1.6; color:#475569; font-size:14px;">
+            <li style="margin-bottom:8px;">Go to <strong>HotSchedules</strong> &rarr; Reporting &rarr; Dashboard &rarr; Schedules and Rosters &rarr; <strong>Schedule Report</strong>.</li>
+            <li style="margin-bottom:8px;">Select the <strong>week</strong> you want to review.</li>
+            <li style="margin-bottom:8px;">Change the Output option to <strong>EXCEL XP&ndash;2007</strong>.</li>
+            <li style="margin-bottom:8px;">Under Schedule Report Details, check <strong>Include Out Times</strong>.</li>
+            <li style="margin-bottom:8px;">Under Available Shifts, check <strong>Total Day</strong>.</li>
+            <li style="margin-bottom:8px;">Under Schedule Selection, choose the schedule(s) you want.</li>
+          </ol>
+          <div style="background:#f1f5f9; padding:12px; border-radius:8px; margin-top:16px;">
+            <strong style="font-size:13px; color:#334155; display:block; margin-bottom:4px;">Important Notes:</strong>
+            <ul style="padding-left:20px; font-size:13px; color:#64748b; margin:0;">
+              <li>FOH and BOH must be pulled separately to analyze them separately in Step 2.</li>
+              <li>Ensure &ldquo;Job Codes&rdquo; are included if you want role-specific data.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         TAB 2: SCHEDULE ANALYSIS
+    ════════════════════════════════════════════════════════ -->
+    <div id="counterTabPanel" class="tab-panel" style="display:none;">
+
+      <!-- Bias Flag Banner (populated by applyBiasBanner() in JavaScript.html) -->
+      <div id="biasBanner" class="bias-banner" style="display:none;">
+        <div id="biasBannerBody"></div>
+        <button class="bias-banner-close" onclick="dismissBiasBanner()" title="Dismiss">&times;</button>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <div class="control-row">
+          <div class="control-group">
+            <label>&#128202; FOH Schedule File (CSV)</label>
+            <input type="file" id="fohScheduleFile" accept=".csv">
+            <small style="color:#64748b; margin-top:4px; font-size:11px;">
+              Front of House &mdash; Format: Date,Time,Employee
+            </small>
+          </div>
+          <div class="control-group">
+            <label>&#127859; BOH Schedule File (CSV)</label>
+            <input type="file" id="bohScheduleFile" accept=".csv">
+            <small style="color:#64748b; margin-top:4px; font-size:11px;">
+              Back of House &mdash; Format: Date,Time,Employee
+            </small>
+          </div>
+        </div>
+        <div class="button-group">
+          <button class="btn-primary" onclick="generateReport()">
+            &#128200; Generate Analysis
+          </button>
+          <button class="btn-secondary" onclick="loadDemoData()">
+            &#129684; Load Demo Data
+          </button>
+          <button class="btn-secondary" onclick="downloadResults()">
+            &#128229; Export Report
+          </button>
+          <button class="btn-secondary" onclick="showFormatHelp()">
+            &#10067; CSV Format Help
+          </button>
+          <button class="btn-secondary" type="button" onclick="generateIdealSchedule()">
+            &#10024; Ideal Model
+          </button>
+          <button class="btn-secondary" type="button" onclick="toggleManagerPanel()">
+            &#128084; Manager Shifts
+          </button>
+        </div>
+      </div>
+
+      <!-- Ideal Model Panel -->
+      <div class="chart-container" id="idealModelPanel" style="display:none; margin-bottom:24px; border:2px solid #667eea;">
+        <div class="chart-header">
+          <span>&#10024; Ideal Staffing Model (Target Headcount)</span>
+          <button class="btn-secondary" type="button" onclick="document.getElementById('idealModelPanel').style.display='none'">
+            Close
+          </button>
+        </div>
+        <div style="margin-bottom:12px; font-size:13px; color:#64748b;">
+          This model calculates exactly how many people you need to hit your <strong>$<span id="idealModelGoal"></span>/hr</strong> goal based on your sales forecast.
+        </div>
+        <div class="schedule-grid" style="box-shadow:none; padding:0;">
+          <table id="idealScheduleTable">
+            <thead>
+              <tr><th>Hour</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th><th>Saturday</th></tr>
+            </thead>
+            <tbody id="idealScheduleBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Metrics Dashboard -->
+      <div class="metrics-dashboard" id="metricsPanel" style="display:grid;">
+        <div class="metric-card">
+          <div class="metric-label">Avg Staff/Hour</div>
+          <div class="metric-value" id="avgStaff">--</div>
+          <div class="metric-change">Upload a schedule to begin</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Overall Productivity ($/LH)</div>
+          <div class="metric-value" id="peakEfficiency">--</div>
+          <div class="metric-change">Average across staffed hours</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label" id="splhLabel">Overall $/LH (Goal: $90)</div>
+          <div class="metric-value" id="splh">--</div>
+          <div class="metric-change" id="splhChange">Enter daily sales estimates to see $/LH</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Total Labor Hours</div>
+          <div class="metric-value" id="laborCost">--</div>
+          <div class="metric-change">Overall scheduled hours</div>
+        </div>
+        <div class="metric-card clickable" id="otCard" onclick="showOTBreakdown()">
+          <div class="metric-label">&#9201;&#65039; Overtime Hours</div>
+          <div class="metric-value" id="otHours">0 hrs</div>
+          <div class="metric-change positive" id="otSubtext">No overtime detected</div>
+        </div>
+      </div>
+
+      <!-- OT Breakdown Modal -->
+      <div class="ot-modal" id="otModal">
+        <div class="ot-modal-content">
+          <div class="ot-modal-header">
+            <h3>&#9201;&#65039; Overtime Breakdown</h3>
+            <button class="ot-modal-close" onclick="hideOTModal()">&times;</button>
+          </div>
+          <div class="ot-modal-body" id="otModalBody"></div>
+        </div>
+      </div>
+
+      <!-- Schedule Grid -->
+      <div class="schedule-grid" id="scheduleGrid" style="display:block;">
+        <div class="grid-header">
+          <div class="grid-title" id="gridTitle">Overall Staff Coverage vs Sales Volume</div>
+          <div>
+            <div class="view-toggle">
+              <button class="active" onclick="switchDepartmentView('overall', event)">Overall</button>
+              <button onclick="switchDepartmentView('foh', event)">FOH</button>
+              <button onclick="switchDepartmentView('boh', event)">BOH</button>
+            </div>
+            <div class="daypart-toggle">
+              <span class="daypart-toggle-label">Daypart:</span>
+              <button class="active" onclick="setDaypart('all', event)">All Day</button>
+              <button onclick="setDaypart('breakfast', event)">Breakfast</button>
+              <button onclick="setDaypart('lunch', event)">Lunch</button>
+              <button onclick="setDaypart('afternoon', event)">Afternoon</button>
+              <button onclick="setDaypart('dinner', event)">Dinner</button>
+              <button onclick="setDaypart('latenight', event)">Late Night</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Daily Sales Inputs -->
+        <div class="daily-sales-bar">
+          <div class="daily-sales-label">&#128176; Estimated Daily Sales (Mon&ndash;Sat)</div>
+          <div class="daily-sales-grid">
+            <div class="daily-sales-item"><span>Mon</span><input type="number" id="sales-Monday"    min="0" step="1" placeholder="0"></div>
+            <div class="daily-sales-item"><span>Tue</span><input type="number" id="sales-Tuesday"   min="0" step="1" placeholder="0"></div>
+            <div class="daily-sales-item"><span>Wed</span><input type="number" id="sales-Wednesday" min="0" step="1" placeholder="0"></div>
+            <div class="daily-sales-item"><span>Thu</span><input type="number" id="sales-Thursday"  min="0" step="1" placeholder="0"></div>
+            <div class="daily-sales-item"><span>Fri</span><input type="number" id="sales-Friday"    min="0" step="1" placeholder="0"></div>
+            <div class="daily-sales-item"><span>Sat</span><input type="number" id="sales-Saturday"  min="0" step="1" placeholder="0"></div>
+          </div>
+          <div class="daily-sales-help">
+            These values stay in place as you re-upload FOH/BOH schedules and are distributed across the day using the per-day sales curve.
+          </div>
+        </div>
+
+        <!-- Manager Grid -->
+        <div class="manager-grid" id="managerGrid" style="display:none;"></div>
+
+        <!-- Schedule Table -->
+        <table id="scheduleTable">
+          <thead id="scheduleHead">
+            <tr><th>Hour</th></tr>
+          </thead>
+          <tbody id="scheduleBody">
+            <tr><td colspan="7" style="text-align:center; padding:60px 20px; color:#94a3b8; font-size:16px;">
+              <div style="display:flex; flex-direction:column; align-items:center; gap:12px;">
+                <svg width="48" height="48" fill="none" stroke="#cbd5e1" stroke-width="1.5" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                <div>Upload a schedule to get started</div>
+                <div style="font-size:13px; color:#b0b8c4;">Use the FOH / BOH file inputs above, or click Load Demo Data</div>
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+
+        <!-- Legend -->
+        <div class="legend">
+          <div class="legend-section">
+            <span class="legend-title">Staffing Levels:</span>
+            <div class="legend-item"><div class="legend-color understaffed"></div><span>Severely understaffed (2+ below suggested)</span></div>
+            <div class="legend-item"><div class="legend-color low-staffed"></div><span>Slightly off (&plusmn;1 from suggested)</span></div>
+            <div class="legend-item"><div class="legend-color well-staffed"></div><span>On target (matches suggested)</span></div>
+            <div class="legend-item"><div class="legend-color overstaffed"></div><span>Overstaffed (2+ above suggested)</span></div>
+          </div>
+          <div class="legend-section">
+            <span class="legend-title">Sales Volume:</span>
+            <div class="legend-item"><div class="legend-color" style="background:rgba(59,130,246,0.3);"></div><span>Blue overlay = Sales intensity</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart Container -->
+      <div class="chart-container" id="chartContainer" style="display:block;">
+        <div class="chart-header">
+          <span>&#128200; Hourly Trends: Staffing vs Sales vs Productivity</span>
+        </div>
+        <div style="position:relative; height:250px; width:100%;">
+          <canvas id="salesChart"></canvas>
+        </div>
+        <div id="dayChartsGrid" class="day-charts-grid"></div>
+        <div id="dailyProductivitySummary" class="daily-productivity-summary"></div>
+      </div>
+
+      <!-- Insights Panel -->
+      <div class="insights-panel" id="insightsPanel" style="display:block;">
+        <div class="insights-header">&#128161; Optimization Insights</div>
+        <div id="insightsList">
+          <div style="text-align:center; padding:40px; color:#94a3b8; font-size:14px;">
+            Generate a report to see staffing insights and action recommendations.
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /counterTabPanel -->
+
+    <!-- ═══════════════════════════════════════════════════════
+         TAB 3: TRENDS
+    ════════════════════════════════════════════════════════ -->
+    <div id="trendsTabPanel" class="tab-panel" style="display:none;">
+
+      <!-- Spinner -->
+      <div id="trendsSpinner" class="trends-spinner" style="display:none;">
+        <div class="loading-spinner"></div>
+        <span style="font-size:14px; font-weight:600; color:#64748b;">Loading trends&hellip;</span>
+      </div>
+
+      <!-- Error state -->
+      <div id="trendsError" class="trends-error" style="display:none;"></div>
+
+      <!-- Empty state -->
+      <div id="trendsEmpty" class="trends-empty" style="display:none;">
+        <div style="font-size:48px; margin-bottom:16px;">&#128200;</div>
+        <div style="font-size:20px; font-weight:700; color:#64748b; margin-bottom:8px;">No History Yet</div>
+        <div style="font-size:14px; color:#94a3b8; line-height:1.6;">
+          Run your first report to begin tracking week-over-week trends.
+        </div>
+      </div>
+
+      <!-- Sales History Chart — shows independently of weekly_summary data -->
+      <div class="chart-container" id="trendsSalesHistoryContainer" style="display:none;">
+        <div class="chart-header">&#128176; Weekly Total Sales</div>
+        <div style="position:relative; height:260px;">
+          <canvas id="trendsSalesHistoryChart"></canvas>
+        </div>
+        <div id="trendsSalesHistoryDayBreakdown" style="margin-top:16px; overflow-x:auto;"></div>
+      </div>
+
+      <!-- Daily Sales Breakdown for most recent week -->
+      <div class="chart-container" id="trendsDailyBreakdownContainer" style="display:none; margin-top:24px;">
+        <div class="chart-header">&#128197; Daily Sales Breakdown <span id="trendsDailyWeekLabel" style="font-size:12px; font-weight:400; color:#94a3b8;"></span></div>
+        <div style="position:relative; height:240px;">
+          <canvas id="trendsDailyBreakdownChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Content (hidden until weekly_summary data loads) -->
+      <div id="trendsContent" style="display:none;">
+
+        <!-- SPLH Line Chart -->
+        <div class="chart-container" style="margin-top:24px;">
+          <div class="chart-header">&#128200; SPLH Week Over Week</div>
+          <div style="position:relative; height:260px;">
+            <canvas id="trendsSplhChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Stacked Bar Chart -->
+        <div class="chart-container" style="margin-top:24px;">
+          <div class="chart-header">Goal Distribution by Week</div>
+          <div style="position:relative; height:220px;">
+            <canvas id="trendsStackedChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Summary Table -->
+        <div class="chart-container" style="margin-top:24px;">
+          <div class="chart-header">
+            Weekly Summary
+            <span style="font-size:12px; font-weight:400; color:#94a3b8;">Click any row to view hourly detail</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="trends-summary-table">
+              <thead>
+                <tr>
+                  <th>Week</th>
+                  <th>Avg SPLH</th>
+                  <th>vs Goal</th>
+                  <th>Peak Hour</th>
+                  <th>% Below Goal</th>
+                  <th>Hours Scheduled</th>
+                </tr>
+              </thead>
+              <tbody id="trendsSummaryBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Bias Section — populated by renderBiasSection() -->
+        <div id="trendsBiasSection" class="trends-bias-section">
+          <!-- rendered by renderBiasSection() in JavaScript.html -->
+        </div>
+
+      </div><!-- /trendsContent -->
+
+      <!-- Drill-Down Modal -->
+      <div id="drillDownModal" class="modal" style="display:none;" onclick="if(event.target===this)closeDrillDown();">
+        <div class="modal-content" style="max-width:960px; width:96%; padding:24px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h3 id="drillDownTitle" style="margin:0; font-size:18px; font-weight:700; color:#1e293b;">Week Detail</h3>
+            <button class="btn-secondary" onclick="closeDrillDown()" style="padding:6px 14px; font-size:13px;">Close</button>
+          </div>
+          <div id="drillDownSpinner" style="display:none; text-align:center; padding:40px;">
+            <div class="loading-spinner" style="margin:0 auto 12px;"></div>
+            <div style="font-size:14px; color:#64748b;">Loading week detail&hellip;</div>
+          </div>
+          <div id="drillDownError" style="display:none; padding:20px; color:#dc2626; font-size:14px;"></div>
+          <div id="drillDownContent" style="overflow-x:auto;"></div>
+        </div>
+      </div>
+
+    </div><!-- /trendsTabPanel -->
+
+    <!-- ═══════════════════════════════════════════════════════
+         TAB 4: SETTINGS
+    ════════════════════════════════════════════════════════ -->
+    <div id="settingsTabPanel" class="tab-panel" style="display:none;">
+
+      <!-- SPLH Goals -->
+      <div class="settings-section">
+        <div class="settings-section-title">SPLH Goals (Sales Per Labor Hour)</div>
+        <div class="settings-grid-3">
+          <div class="settings-field">
+            <label for="settings-goal-overall">Overall ($/LH)</label>
+            <input type="number" id="settings-goal-overall" min="0" step="1" placeholder="90">
+          </div>
+          <div class="settings-field">
+            <label for="settings-goal-foh">FOH ($/LH)</label>
+            <input type="number" id="settings-goal-foh" min="0" step="0.1" placeholder="90">
+          </div>
+          <div class="settings-field">
+            <label for="settings-goal-boh">BOH ($/LH)</label>
+            <input type="number" id="settings-goal-boh" min="0" step="0.1" placeholder="90">
+          </div>
+        </div>
+        <button class="btn-primary settings-save-btn" onclick="saveSettingsSPLH()">Save SPLH Goals</button>
+      </div>
+
+      <!-- Labor Shares -->
+      <div class="settings-section">
+        <div class="settings-section-title">Labor Shares</div>
+        <div class="settings-grid-3">
+          <div class="settings-field">
+            <label for="settings-share-foh">FOH %</label>
+            <input type="number" id="settings-share-foh" min="0" max="100" step="0.1" oninput="updateLaborSharesTotal()">
+          </div>
+          <div class="settings-field">
+            <label for="settings-share-boh">BOH %</label>
+            <input type="number" id="settings-share-boh" min="0" max="100" step="0.1" oninput="updateLaborSharesTotal()">
+          </div>
+          <div class="settings-field">
+            <label for="settings-share-other">Other %</label>
+            <input type="number" id="settings-share-other" min="0" max="100" step="0.1" oninput="updateLaborSharesTotal()">
+          </div>
+        </div>
+        <div class="settings-total-row">
+          <span>Total:</span>
+          <span id="settings-share-total" class="settings-total-value">0.0%</span>
+          <span id="settings-share-hint" style="font-size:11px; color:#94a3b8; margin-left:8px;">Must equal 100%</span>
+        </div>
+        <button class="btn-primary settings-save-btn" id="settings-share-save" onclick="saveSettingsLaborShares()" disabled>Save Labor Shares</button>
+      </div>
+
+      <!-- Sales Curves -->
+      <div class="settings-section">
+        <div class="settings-section-title">Sales Curves</div>
+        <p style="font-size:13px; color:#64748b; margin-bottom:16px;">
+          Each day&rsquo;s 19 hourly weights determine how daily sales are distributed across the day.
+          All active weights per day must sum to 1.000. 5&nbsp;AM and 11&nbsp;PM are outside CFA data range.
+        </p>
+        <div id="curveAccordions">
+          <!-- Built by buildCurveAccordions() in JavaScript.html -->
+          <div style="text-align:center; padding:20px; color:#94a3b8;">Loading curves&hellip;</div>
+        </div>
+      </div>
+
+      <!-- Location & Notifications -->
+      <div class="settings-section">
+        <div class="settings-section-title">Location &amp; Notifications</div>
+        <div class="settings-grid-2">
+          <div class="settings-field">
+            <label for="settings-location-name">Location Name</label>
+            <input type="text" id="settings-location-name" placeholder="Cockrell Hill">
+          </div>
+          <div class="settings-field">
+            <label for="settings-operator-email">Operator Email</label>
+            <input type="email" id="settings-operator-email" placeholder="you@example.com">
+          </div>
+        </div>
+        <button class="btn-primary settings-save-btn" onclick="saveSettingsLocation()">Save Location &amp; Notifications</button>
+      </div>
+
+      <!-- Advanced -->
+      <div class="settings-section settings-advanced">
+        <div class="settings-section-title">Advanced</div>
+        <p class="settings-note">Managed automatically &mdash; change only if advised.</p>
+        <div class="settings-grid-2">
+          <div class="settings-field">
+            <label for="settings-smoothing-alpha">Smoothing Alpha (0.1&ndash;0.9)</label>
+            <input type="number" id="settings-smoothing-alpha" min="0.1" max="0.9" step="0.05" placeholder="0.3">
+          </div>
+          <div class="settings-field">
+            <label for="settings-bias-threshold">Bias Threshold (%)</label>
+            <input type="number" id="settings-bias-threshold" min="1" max="50" step="1" placeholder="10">
+          </div>
+        </div>
+        <!-- Hidden burnout input used by generateInsights() -->
+        <input type="hidden" id="config-burnout" value="150">
+        <button class="btn-secondary settings-save-btn" onclick="saveSettingsAdvanced()">Save Advanced</button>
+      </div>
+
+      <!-- Automation -->
+      <div class="settings-section">
+        <div class="settings-section-title">&#9654;&#65039; Automation</div>
+        <p class="settings-note">Time-based triggers run automatically every week. Install once — they persist across deployments.</p>
+
+        <!-- Trigger status display -->
+        <div class="automation-status-grid" id="triggerStatusGrid">
+          <div class="automation-status-row">
+            <span class="automation-status-label">&#128315; Sunday 22:00 &mdash; Sync Check</span>
+            <span class="automation-status-badge" id="status-sunday">&#8212;</span>
+          </div>
+          <div class="automation-status-row">
+            <span class="automation-status-label">&#128197; Monday 06:00 &mdash; Weekly Pipeline</span>
+            <span class="automation-status-badge" id="status-monday">&#8212;</span>
+          </div>
+          <div class="automation-status-row">
+            <span class="automation-status-label">&#128197; Thursday 19:00 &mdash; Schedule Reminder</span>
+            <span class="automation-status-badge" id="status-thursday">&#8212;</span>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; align-items:center;">
+          <button class="btn-primary settings-save-btn" id="btn-install-triggers"
+              onclick="installTriggersFromSettings()" style="margin-top:0;">
+            &#9654; Install Triggers
+          </button>
+          <button class="btn-secondary settings-save-btn" id="btn-test-pipeline"
+              onclick="runTestPipeline()" style="margin-top:0;">
+            &#9654; Test Pipeline Now
+          </button>
+          <button class="btn-secondary settings-save-btn" id="btn-backfill"
+              onclick="runBackfill()" style="margin-top:0;" title="Reads all historical data from Sheet1 and archives it to sales_history so the Forecast tab has data to work with.">
+            &#11014; Backfill History
+          </button>
+          <button class="btn-secondary settings-save-btn" id="btn-rebuild-curves"
+              onclick="runRebuildCurves()" style="margin-top:0;" title="Re-runs exponential smoothing on all sales_history data to produce accurate per-day sales curves.">
+            &#128200; Rebuild Curves
+          </button>
+          <button class="btn-secondary settings-save-btn" id="btn-test-reminder"
+              onclick="testThursdayReminderFromUI()" style="margin-top:0;" title="Send a test Thursday reminder email now to verify it works.">
+            &#128231; Test Reminder
+          </button>
+          <button class="btn-secondary settings-save-btn"
+              onclick="loadTriggersStatus()" style="margin-top:0;">
+            &#8635; Refresh Status
+          </button>
+        </div>
+
+        <div id="automation-result" style="display:none; margin-top:12px; padding:10px 14px; border-radius:8px; font-size:13px;"></div>
+      </div>
+
+    </div><!-- /settingsTabPanel -->
+
+    <!-- ═══════════════════════════════════════════════════════
+         TAB 5: PRODUCTIVITY TRACKER
+    ══════════════════════════════════════════════════════════ -->
+    <div id="trackerTabPanel" class="tab-panel" style="display:none;">
+      <div id="trackerRoot"></div>
+    </div><!-- /trackerTabPanel -->
+
+    <!-- ═══════════════════════════════════════════════════════
+         TAB 6: FORECAST
+    ══════════════════════════════════════════════════════════ -->
+    <div id="forecastTabPanel" class="tab-panel" style="display:none;">
+
+      <!-- Spinner -->
+      <div id="forecastSpinner" style="display:none; align-items:center; gap:12px; padding:40px 0;">
+        <div class="loading-spinner"></div>
+        <span style="font-size:14px; font-weight:600; color:#64748b;">Loading forecast&hellip;</span>
+      </div>
+
+      <!-- Error -->
+      <div id="forecastError" style="display:none; padding:20px; color:#dc2626; font-size:14px; background:#fef2f2; border:1px solid #fecaca; border-radius:10px; margin-bottom:16px;"></div>
+
+      <!-- Content -->
+      <div id="forecastContent" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
+          <div>
+            <h2 style="margin:0; font-size:20px; font-weight:700; color:#1e293b;">&#128302; Next-Week Sales Forecast</h2>
+            <p id="forecastWeekLabel" style="margin:4px 0 0; font-size:13px; color:#64748b;"></p>
+          </div>
+          <button class="btn-secondary" onclick="loadForecastData()" style="font-size:13px; padding:8px 16px;">
+            &#8635; Refresh
+          </button>
+        </div>
+
+        <p style="font-size:13px; color:#64748b; margin-bottom:16px; line-height:1.6;">
+          Predictions use exponential smoothing on your historical daily sales.
+          More weeks of data = higher accuracy. Sunday is excluded.
+        </p>
+
+        <!-- Day cards -->
+        <div id="forecastCards" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:12px; margin-bottom:24px;"></div>
+
+        <!-- Bar chart -->
+        <div class="chart-container">
+          <div class="chart-header">Predicted Daily Sales</div>
+          <div style="position:relative; height:260px;">
+            <canvas id="forecastChart"></canvas>
+          </div>
+        </div>
+
+        <p style="font-size:11px; color:#94a3b8; margin-top:16px; text-align:center;">
+          This is a statistical estimate, not a guarantee. Actual sales depend on weather, promotions, and other factors.
+        </p>
+      </div>
+
+    </div><!-- /forecastTabPanel -->
+
+    <!-- ═══════════════════════════════════════════════════════
+         TAB 7: INFORMATION
+    ══════════════════════════════════════════════════════════ -->
+    <div id="infoTabPanel" class="tab-panel" style="display:none;">
+      <div style="max-width:900px; margin:0 auto;">
+
+        <!-- Header -->
+        <div style="text-align:center; margin-bottom:32px;">
+          <h1 style="font-size:28px; font-weight:800; color:#1e293b; margin:0;">&#128202; Schedule Counter</h1>
+          <p style="font-size:15px; color:#64748b; margin-top:8px;">Cockrell Hill &mdash; Staffing Analysis &amp; Labor Optimization</p>
+          <p style="font-size:12px; color:#94a3b8; margin-top:4px;">Version 3.1 &middot; Built for non-technical operators</p>
+        </div>
+
+        <!-- What Is This? -->
+        <div class="chart-container" style="margin-bottom:24px;">
+          <div class="chart-header">What Is This?</div>
+          <p style="font-size:14px; color:#475569; line-height:1.8; margin:0;">
+            Schedule Counter combines your <strong>HotSchedules export</strong> with <strong>daily sales data</strong>
+            to show exactly where you&rsquo;re overstaffed, understaffed, or on target &mdash; hour by hour, day by day.
+            It replaces the guesswork of &ldquo;do we have enough people?&rdquo; with a color-coded grid, actionable
+            insights, and automated weekly forecasts. Everything runs inside Google Sheets with no external services required.
+          </p>
+        </div>
+
+        <!-- Tab-by-Tab Guide -->
+        <div class="chart-container" style="margin-bottom:24px;">
+          <div class="chart-header">Tab-by-Tab Guide</div>
+
+          <!-- File Converter -->
+          <div style="border-bottom:1px solid #e2e8f0; padding:16px 0;">
+            <h3 style="margin:0 0 8px; font-size:15px; font-weight:700; color:#1e293b;">
+              <span style="display:inline-block; background:#DD0031; color:white; width:24px; height:24px; border-radius:6px; text-align:center; line-height:24px; font-size:12px; margin-right:8px;">1</span>
+              File Converter
+            </h3>
+            <p style="font-size:13px; color:#475569; line-height:1.7; margin:0;">
+              Converts your raw HotSchedules &ldquo;Schedule Report&rdquo; export (Excel/HTML format) into a clean hourly CSV
+              that Schedule Analysis can read. Upload the file, click <strong>Convert &amp; Download</strong>, and save the CSV.
+              You need to pull FOH and BOH separately from HotSchedules to get per-department analysis.
+            </p>
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-top:10px;">
+              <strong style="font-size:12px; color:#334155;">How to get the file:</strong>
+              <span style="font-size:12px; color:#64748b;">
+                HotSchedules &rarr; Reporting &rarr; Dashboard &rarr; Schedules and Rosters &rarr; Schedule Report.
+                Set output to Excel XP&ndash;2007. Check &ldquo;Include Out Times&rdquo; and &ldquo;Total Day&rdquo; under Available Shifts.
+              </span>
+            </div>
+          </div>
+
+          <!-- Schedule Analysis -->
+          <div style="border-bottom:1px solid #e2e8f0; padding:16px 0;">
+            <h3 style="margin:0 0 8px; font-size:15px; font-weight:700; color:#1e293b;">
+              <span style="display:inline-block; background:#DD0031; color:white; width:24px; height:24px; border-radius:6px; text-align:center; line-height:24px; font-size:12px; margin-right:8px;">2</span>
+              Schedule Analysis
+            </h3>
+            <p style="font-size:13px; color:#475569; line-height:1.7; margin:0;">
+              The main analysis screen. Upload your FOH and/or BOH CSVs from Step 1, enter daily sales estimates
+              (or let the forecast fill them), and click <strong>Generate Analysis</strong>. You get:
+            </p>
+            <ul style="font-size:13px; color:#475569; line-height:1.8; margin:8px 0 0; padding-left:20px;">
+              <li><strong>Color-coded staffing grid</strong> &mdash; green = on target, red = understaffed, blue overlay = sales intensity</li>
+              <li><strong>Metrics dashboard</strong> &mdash; avg staff/hour, overall $/LH (SPLH), total labor hours, overtime detection</li>
+              <li><strong>Department views</strong> &mdash; toggle between Overall, FOH, and BOH</li>
+              <li><strong>Daypart filters</strong> &mdash; breakfast, lunch, afternoon, dinner, late night</li>
+              <li><strong>Optimization insights</strong> &mdash; specific recommendations on where to add or cut staff</li>
+              <li><strong>Ideal staffing model</strong> &mdash; shows exactly how many people you need per hour to hit your SPLH goal</li>
+              <li><strong>Manager shift view</strong> &mdash; highlights manager coverage gaps</li>
+            </ul>
+            <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:10px 12px; margin-top:10px; font-size:12px; color:#15803d;">
+              <strong>Tip:</strong> Every time you generate, the data is saved to history automatically. You can re-upload different versions freely &mdash; no emails are sent until Thursday.
+            </div>
+          </div>
+
+          <!-- Trends -->
+          <div style="border-bottom:1px solid #e2e8f0; padding:16px 0;">
+            <h3 style="margin:0 0 8px; font-size:15px; font-weight:700; color:#1e293b;">
+              &#128200; Trends
+            </h3>
+            <p style="font-size:13px; color:#475569; line-height:1.7; margin:0;">
+              Week-over-week performance tracking. Shows SPLH trends, goal distribution over time,
+              weekly total sales history, and a drill-down for any individual week. Also includes
+              <strong>forecast accuracy flags</strong> that detect when your sales curves are consistently
+              over- or under-estimating for specific days. Data populates automatically as you upload schedules
+              and as the Monday pipeline archives real CFA sales.
+            </p>
+          </div>
+
+          <!-- Settings -->
+          <div style="border-bottom:1px solid #e2e8f0; padding:16px 0;">
+            <h3 style="margin:0 0 8px; font-size:15px; font-weight:700; color:#1e293b;">
+              &#9881;&#65039; Settings
+            </h3>
+            <p style="font-size:13px; color:#475569; line-height:1.7; margin:0;">
+              All configuration lives here. Nothing is hardcoded &mdash; operators can adjust everything:
+            </p>
+            <ul style="font-size:13px; color:#475569; line-height:1.8; margin:8px 0 0; padding-left:20px;">
+              <li><strong>SPLH Goals</strong> &mdash; set overall, FOH, and BOH targets (default $90/LH)</li>
+              <li><strong>Labor Shares</strong> &mdash; how sales are split between FOH/BOH (e.g., 50/40/10)</li>
+              <li><strong>Sales Curves</strong> &mdash; per-day hourly weight distributions (auto-updated by the pipeline, manually editable)</li>
+              <li><strong>Location &amp; Notifications</strong> &mdash; location name and operator email for reminders</li>
+              <li><strong>Advanced</strong> &mdash; smoothing alpha and bias threshold (rarely need changing)</li>
+              <li><strong>Automation</strong> &mdash; install/check triggers, test pipeline, backfill history, rebuild curves, test reminder</li>
+            </ul>
+          </div>
+
+          <!-- Productivity Tracker -->
+          <div style="border-bottom:1px solid #e2e8f0; padding:16px 0;">
+            <h3 style="margin:0 0 8px; font-size:15px; font-weight:700; color:#1e293b;">
+              &#128200; Productivity Tracker
+            </h3>
+            <p style="font-size:13px; color:#475569; line-height:1.7; margin:0;">
+              A standalone monthly productivity view. Upload or enter monthly SPLH figures to track long-term
+              trends and compare before/after periods (e.g., before vs. after implementing schedule changes).
+              Includes a trend chart and statistical breakdown.
+            </p>
+          </div>
+
+          <!-- Forecast -->
+          <div style="padding:16px 0;">
+            <h3 style="margin:0 0 8px; font-size:15px; font-weight:700; color:#1e293b;">
+              &#128302; Forecast
+            </h3>
+            <p style="font-size:13px; color:#475569; line-height:1.7; margin:0;">
+              Predicts daily total sales for the week you&rsquo;re scheduling (2 weeks out). Uses a
+              <strong>linearly-weighted moving average</strong> with outlier exclusion and trend adjustment
+              across your last 8 weeks of CFA sales data. Each day shows a predicted total, trend direction,
+              and how many weeks of data were used. More history = more accurate forecasts.
+            </p>
+          </div>
+        </div>
+
+        <!-- How Automation Works -->
+        <div class="chart-container" style="margin-bottom:24px;">
+          <div class="chart-header">How Automation Works</div>
+          <p style="font-size:13px; color:#475569; line-height:1.7; margin:0 0 16px;">
+            Three time-driven triggers run automatically each week. Install them once from Settings &rarr; Automation.
+          </p>
+
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:14px; display:flex; gap:12px; align-items:flex-start;">
+              <span style="font-size:22px; line-height:1;">&#128315;</span>
+              <div>
+                <strong style="font-size:13px; color:#92400e; display:block; margin-bottom:3px;">Sunday 10:00 PM &mdash; Sync Check</strong>
+                <span style="font-size:12px; color:#64748b; line-height:1.5;">
+                  Validates that CFA sales data arrived in Sheet1. If the sync from CFA didn&rsquo;t run
+                  or Sheet1 is empty, you get an alert email so you can fix it before Monday.
+                </span>
+              </div>
+            </div>
+            <div style="background:#eff6ff; border:1px solid #93c5fd; border-radius:10px; padding:14px; display:flex; gap:12px; align-items:flex-start;">
+              <span style="font-size:22px; line-height:1;">&#9654;&#65039;</span>
+              <div>
+                <strong style="font-size:13px; color:#1d4ed8; display:block; margin-bottom:3px;">Monday 6:00 AM &mdash; Weekly Pipeline</strong>
+                <span style="font-size:12px; color:#64748b; line-height:1.5;">
+                  The main automation. Reads Sheet1, archives sales to history, runs exponential smoothing
+                  to update your sales curves, detects forecast bias, cleans up old data (&gt;90 days),
+                  clears Sheet1, and rebuilds the app cache. All before your day starts.
+                </span>
+              </div>
+            </div>
+            <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:14px; display:flex; gap:12px; align-items:flex-start;">
+              <span style="font-size:22px; line-height:1;">&#128231;</span>
+              <div>
+                <strong style="font-size:13px; color:#15803d; display:block; margin-bottom:3px;">Thursday 7:00 PM &mdash; Schedule Reminder</strong>
+                <span style="font-size:12px; color:#64748b; line-height:1.5;">
+                  Sends a reminder email to the operator to post next week&rsquo;s schedule. Includes a
+                  summary of the latest uploaded schedule&rsquo;s performance (SPLH, goal breakdown, staffing hours,
+                  daily sales) so you have context as you build the next one.
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- How Sales Curves Work -->
+        <div class="chart-container" style="margin-bottom:24px;">
+          <div class="chart-header">How Sales Curves Work</div>
+          <p style="font-size:13px; color:#475569; line-height:1.7; margin:0 0 12px;">
+            Sales curves control how your daily sales estimate gets distributed across hours.
+            Each day (Monday&ndash;Saturday) has its own curve of 19 hourly weights that sum to 1.0.
+          </p>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+              <strong style="font-size:13px; color:#1e293b; display:block; margin-bottom:6px;">Default Curve</strong>
+              <span style="font-size:12px; color:#64748b; line-height:1.6;">
+                Starts with a generic distribution (peak at 10 AM&ndash;12 PM). Applied to all days until real data arrives.
+              </span>
+            </div>
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+              <strong style="font-size:13px; color:#1e293b; display:block; margin-bottom:6px;">Exponential Smoothing</strong>
+              <span style="font-size:12px; color:#64748b; line-height:1.6;">
+                Each Monday, the pipeline blends last week&rsquo;s actual hourly sales fractions into the curve
+                using &alpha;=0.3. New data gets 30% weight, existing curve keeps 70%. Curves adapt gradually.
+              </span>
+            </div>
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+              <strong style="font-size:13px; color:#1e293b; display:block; margin-bottom:6px;">Outlier Protection</strong>
+              <span style="font-size:12px; color:#64748b; line-height:1.6;">
+                Before smoothing, hourly fractions are capped at mean + 2 standard deviations of the current curve.
+                This prevents one large catering order from distorting the entire day&rsquo;s curve.
+              </span>
+            </div>
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+              <strong style="font-size:13px; color:#1e293b; display:block; margin-bottom:6px;">Manual Override</strong>
+              <span style="font-size:12px; color:#64748b; line-height:1.6;">
+                You can always edit any day&rsquo;s curve manually in Settings &rarr; Sales Curves. Weights must sum to 1.000.
+                The pipeline will continue smoothing from your manual values going forward.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- How the Forecast Works -->
+        <div class="chart-container" style="margin-bottom:24px;">
+          <div class="chart-header">How the Forecast Works</div>
+          <p style="font-size:13px; color:#475569; line-height:1.7; margin:0 0 12px;">
+            The Forecast tab predicts total sales for each day of the week you&rsquo;re scheduling (2 weeks out).
+          </p>
+          <ol style="font-size:13px; color:#475569; line-height:1.8; margin:0; padding-left:20px;">
+            <li><strong>Window:</strong> Takes the last N weeks of daily totals from sales_history (default 8 weeks, configurable via <code>forecast_weeks</code> in the config sheet).</li>
+            <li><strong>Outlier exclusion:</strong> Removes values more than 2 standard deviations from the mean (with at least 4 weeks of data). Never drops below 3 data points.</li>
+            <li><strong>Linearly-weighted average:</strong> Recent weeks count more. Week 8 gets 8x the weight of week 1.</li>
+            <li><strong>Trend adjustment:</strong> Compares the recent half to the older half. If sales are trending up or down, adds a per-week slope adjustment, capped at &plusmn;10% of the average.</li>
+          </ol>
+        </div>
+
+        <!-- Data Architecture -->
+        <div class="chart-container" style="margin-bottom:24px;">
+          <div class="chart-header">Data Architecture</div>
+          <p style="font-size:13px; color:#475569; line-height:1.7; margin:0 0 12px;">
+            All data lives in Google Sheets tabs. No external databases or services.
+          </p>
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+              <thead>
+                <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0;">
+                  <th style="text-align:left; padding:10px 12px; font-weight:700; color:#1e293b;">Sheet Tab</th>
+                  <th style="text-align:left; padding:10px 12px; font-weight:700; color:#1e293b;">Purpose</th>
+                  <th style="text-align:left; padding:10px 12px; font-weight:700; color:#1e293b;">Written By</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom:1px solid #e2e8f0;">
+                  <td style="padding:10px 12px; font-weight:600; color:#1e293b;"><code>config</code></td>
+                  <td style="padding:10px 12px; color:#475569;">All settings (goals, email, shares, alpha, bias flags)</td>
+                  <td style="padding:10px 12px; color:#64748b;">Settings tab / pipeline</td>
+                </tr>
+                <tr style="border-bottom:1px solid #e2e8f0;">
+                  <td style="padding:10px 12px; font-weight:600; color:#1e293b;"><code>schedule_history</code></td>
+                  <td style="padding:10px 12px; color:#475569;">Hourly staffing per day (FOH, BOH, combined) per week</td>
+                  <td style="padding:10px 12px; color:#64748b;">Report generation</td>
+                </tr>
+                <tr style="border-bottom:1px solid #e2e8f0;">
+                  <td style="padding:10px 12px; font-weight:600; color:#1e293b;"><code>sales_history</code></td>
+                  <td style="padding:10px 12px; color:#475569;">Hourly sales per day per week (estimated + actual/api)</td>
+                  <td style="padding:10px 12px; color:#64748b;">Report generation / Monday pipeline</td>
+                </tr>
+                <tr style="border-bottom:1px solid #e2e8f0;">
+                  <td style="padding:10px 12px; font-weight:600; color:#1e293b;"><code>sales_curves</code></td>
+                  <td style="padding:10px 12px; color:#475569;">Per-day hourly weight distributions (19 hours &times; 6 days)</td>
+                  <td style="padding:10px 12px; color:#64748b;">Monday pipeline / manual edit</td>
+                </tr>
+                <tr style="border-bottom:1px solid #e2e8f0;">
+                  <td style="padding:10px 12px; font-weight:600; color:#1e293b;"><code>weekly_summary</code></td>
+                  <td style="padding:10px 12px; color:#475569;">One row per week: avg SPLH, peak hour, goal %, total hours</td>
+                  <td style="padding:10px 12px; color:#64748b;">Report generation</td>
+                </tr>
+                <tr style="border-bottom:1px solid #e2e8f0;">
+                  <td style="padding:10px 12px; font-weight:600; color:#1e293b;"><code>app_cache</code></td>
+                  <td style="padding:10px 12px; color:#475569;">Pre-computed JSON blob for fast app load (~200ms vs 2&ndash;3s)</td>
+                  <td style="padding:10px 12px; color:#64748b;">Monday pipeline</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 12px; font-weight:600; color:#1e293b;"><code>Sheet1</code></td>
+                  <td style="padding:10px 12px; color:#475569;">Raw CFA sales data landing zone (cleared after pipeline runs)</td>
+                  <td style="padding:10px 12px; color:#64748b;">CFA sync / manual paste</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Key Concepts -->
+        <div class="chart-container" style="margin-bottom:24px;">
+          <div class="chart-header">Key Concepts</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+              <strong style="font-size:13px; color:#1e293b; display:block; margin-bottom:6px;">SPLH (Sales Per Labor Hour)</strong>
+              <span style="font-size:12px; color:#64748b; line-height:1.6;">
+                The core metric. Total sales for an hour &divide; number of staff working that hour.
+                Higher = more productive. Your goal (default $90) sets the target.
+              </span>
+            </div>
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+              <strong style="font-size:13px; color:#1e293b; display:block; margin-bottom:6px;">Labor Shares</strong>
+              <span style="font-size:12px; color:#64748b; line-height:1.6;">
+                How total sales are attributed to FOH vs. BOH. If FOH is 50% and BOH is 40%,
+                then FOH gets credit for 50/(50+40) = 55.6% of sales when computing department SPLH.
+              </span>
+            </div>
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+              <strong style="font-size:13px; color:#1e293b; display:block; margin-bottom:6px;">Bias Detection</strong>
+              <span style="font-size:12px; color:#64748b; line-height:1.6;">
+                Compares your estimated hourly sales (from the curve) to actual CFA sales for each day.
+                If a day is consistently over- or under-estimated beyond the threshold (default 10%),
+                a bias flag appears on the analysis screen.
+              </span>
+            </div>
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+              <strong style="font-size:13px; color:#1e293b; display:block; margin-bottom:6px;">Idempotent Design</strong>
+              <span style="font-size:12px; color:#64748b; line-height:1.6;">
+                Everything is safe to re-run. Uploading the same week twice overwrites the previous data.
+                Running the pipeline twice won&rsquo;t duplicate rows. Setup functions skip tabs that already exist.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Typical Weekly Workflow -->
+        <div class="chart-container" style="margin-bottom:24px;">
+          <div class="chart-header">Typical Weekly Workflow</div>
+          <div style="display:flex; flex-direction:column; gap:0;">
+            <div style="display:flex; gap:16px; padding:14px 0; border-bottom:1px solid #e2e8f0;">
+              <div style="min-width:100px; font-weight:700; font-size:13px; color:#DD0031;">Monday AM</div>
+              <div style="font-size:13px; color:#475569; line-height:1.6;">
+                Pipeline runs automatically at 6 AM. Archives last week&rsquo;s CFA sales, updates curves, rebuilds cache.
+              </div>
+            </div>
+            <div style="display:flex; gap:16px; padding:14px 0; border-bottom:1px solid #e2e8f0;">
+              <div style="min-width:100px; font-weight:700; font-size:13px; color:#DD0031;">Thursday PM</div>
+              <div style="font-size:13px; color:#475569; line-height:1.6;">
+                Reminder email arrives at 7 PM with last schedule&rsquo;s performance summary.
+                Open the app, check the Forecast tab for next week&rsquo;s predicted sales.
+              </div>
+            </div>
+            <div style="display:flex; gap:16px; padding:14px 0; border-bottom:1px solid #e2e8f0;">
+              <div style="min-width:100px; font-weight:700; font-size:13px; color:#DD0031;">Thu/Fri</div>
+              <div style="font-size:13px; color:#475569; line-height:1.6;">
+                Build the schedule in HotSchedules. Export it, convert with File Converter,
+                upload to Schedule Analysis with forecast sales numbers. Iterate until the grid looks good.
+              </div>
+            </div>
+            <div style="display:flex; gap:16px; padding:14px 0; border-bottom:1px solid #e2e8f0;">
+              <div style="min-width:100px; font-weight:700; font-size:13px; color:#DD0031;">Friday</div>
+              <div style="font-size:13px; color:#475569; line-height:1.6;">
+                Post the final schedule. The last version you uploaded is saved to history for trend tracking.
+              </div>
+            </div>
+            <div style="display:flex; gap:16px; padding:14px 0;">
+              <div style="min-width:100px; font-weight:700; font-size:13px; color:#DD0031;">Sunday PM</div>
+              <div style="font-size:13px; color:#475569; line-height:1.6;">
+                Sync check runs at 10 PM. Verifies CFA data landed in Sheet1 for Monday&rsquo;s pipeline.
+                Alerts you if something&rsquo;s missing.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Troubleshooting -->
+        <div class="chart-container" style="margin-bottom:24px;">
+          <div class="chart-header">Troubleshooting</div>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:14px;">
+              <strong style="font-size:13px; color:#991b1b; display:block; margin-bottom:4px;">Forecast shows &ldquo;Not enough sales history&rdquo;</strong>
+              <span style="font-size:12px; color:#64748b; line-height:1.5;">
+                The Monday pipeline hasn&rsquo;t run yet, or Sheet1 never had data. Go to Settings &rarr; Automation &rarr; <strong>Backfill History</strong>
+                to import any existing data, then <strong>Rebuild Curves</strong>.
+              </span>
+            </div>
+            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:14px;">
+              <strong style="font-size:13px; color:#92400e; display:block; margin-bottom:4px;">SPLH shows $0 or metrics look wrong</strong>
+              <span style="font-size:12px; color:#64748b; line-height:1.5;">
+                Make sure you entered daily sales estimates in the sales bar on the Schedule Analysis tab.
+                Without sales data, SPLH can&rsquo;t be calculated.
+              </span>
+            </div>
+            <div style="background:#eff6ff; border:1px solid #93c5fd; border-radius:8px; padding:14px;">
+              <strong style="font-size:13px; color:#1e40af; display:block; margin-bottom:4px;">Optimization insights recommend unrealistic staffing</strong>
+              <span style="font-size:12px; color:#64748b; line-height:1.5;">
+                This usually means catering orders inflated the sales curve for certain hours. Go to Settings &rarr; Automation &rarr;
+                <strong>Rebuild Curves</strong> to reprocess all history with outlier protection applied.
+              </span>
+            </div>
+            <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:14px;">
+              <strong style="font-size:13px; color:#166534; display:block; margin-bottom:4px;">Triggers aren&rsquo;t firing</strong>
+              <span style="font-size:12px; color:#64748b; line-height:1.5;">
+                Go to Settings &rarr; Automation and click <strong>Refresh Status</strong>. If a trigger shows as not installed,
+                click <strong>Install Triggers</strong>. You can also use <strong>Test Pipeline Now</strong> or <strong>Test Reminder</strong> to verify manually.
+              </span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /infoTabPanel -->
+
+  </div><!-- /container -->
+
+  <!-- ── Staff Side Panel ─────────────────────────────────── -->
+  <div id="staffSidePanel" class="staff-side-panel">
+    <div class="staff-side-panel-header">
+      <div class="staff-side-panel-title" id="staffSidePanelTitle">Staff on Shift</div>
+      <span class="close" onclick="closeStaffModal()" style="font-size:24px; line-height:1; cursor:pointer;">&times;</span>
+    </div>
+    <div class="staff-side-panel-body">
+      <ul id="staffList" class="staff-list"></ul>
+    </div>
+  </div>
+
+  <!-- ── Toast Container ──────────────────────────────────── -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ── Chart.js ─────────────────────────────────────────── -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- ── Productivity Tracker dependencies ─────────────────── -->
+  <!-- React/ReactDOM and PapaParse must load BEFORE Babel.                  -->
+  <!-- Babel processes text/babel scripts the moment it loads, so all        -->
+  <!-- globals those scripts reference must already exist in window.         -->
+  <!-- The trend chart uses Chart.js (already loaded above) — no Recharts.  -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <!-- important:'#trackerRoot' scopes all Tailwind rules to the tracker div only -->
+  <script>tailwind = { config: { corePlugins: { preflight: false }, important: '#trackerRoot' } };</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <?!= include('JavaScript') ?>
+
+  <?!= include('TrackerEmbed') ?>
+
+</body>
+</html>

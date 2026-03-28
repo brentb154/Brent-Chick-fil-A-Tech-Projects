@@ -1,0 +1,2967 @@
+<script>
+// ============================================================
+// JavaScript.html — Schedule Counter GAS Frontend
+// Chunk 2: History, Trends & Email
+// ============================================================
+
+// ── Global State ─────────────────────────────────────────────
+var fohScheduleData = {};
+var bohScheduleData = {};
+var fohStaffNames   = {};
+var bohStaffNames   = {};
+var scheduleData    = {};
+var salesData       = {};
+var chartInstance   = null;
+var dayChartInstances = {};
+var currentDepartmentView = 'overall';
+var currentDaypart        = 'all';
+var managerShifts         = {};
+var managerGridVisible    = false;
+var salesConfig           = null;       // { goals, laborSharesPercent } — set by applyConfig()
+var salesCurvesByDay      = {};         // { Monday: { '6 AM': 0.018, ... }, ... }
+var _lastLoadedConfig     = null;       // full config object from GAS, used by Settings
+var scheduleWeekDates     = [];         // Date objects from FOH CSV parse — used by detectWeekStart()
+var currentSalesSource    = 'estimated'; // Always 'estimated' in Chunk 2; Chunk 3 sets 'api'
+var trendsLoaded          = false;      // lazy-load flag for Trends tab
+var trendsSplhChart       = null;       // Chart.js instance for SPLH line
+var trendsStackedChart    = null;       // Chart.js instance for stacked bar
+
+// ── Constants ─────────────────────────────────────────────────
+var HOURS = [
+  '5 AM','6 AM','7 AM','8 AM','9 AM','10 AM','11 AM','12 PM',
+  '1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM',
+  '9 PM','10 PM','11 PM'
+];
+
+var DAYS = [
+  'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'
+];
+
+var DAYPARTS = {
+  all:       { label:'All Day',    ranges:[[5,23]] },
+  breakfast: { label:'Breakfast',  ranges:[[5,10]] },
+  lunch:     { label:'Lunch',      ranges:[[11,14]] },
+  afternoon: { label:'Afternoon',  ranges:[[15,16]] },
+  dinner:    { label:'Dinner',     ranges:[[17,21]] },
+  latenight: { label:'Late Night', ranges:[[22,23]] }
+};
+
+// Default curve (relative weights, sum = 102.5)
+var DEFAULT_SALES_CURVE = {
+  '5 AM':0.01951,'6 AM':0.03902,'7 AM':0.05854,'8 AM':0.07805,'9 AM':0.09756,
+  '10 AM':0.09756,'11 AM':0.09756,'12 PM':0.09756,'1 PM':0.08780,'2 PM':0.07805,
+  '3 PM':0.05854,'4 PM':0.04878,'5 PM':0.03902,'6 PM':0.02927,'7 PM':0.02439,
+  '8 PM':0.01951,'9 PM':0.01463,'10 PM':0.00976,'11 PM':0.00488
+};
+
+var DEFAULT_SALES_CONFIG = {
+  goals: { overall:90.0, foh:90.0, boh:90.0 },
+  laborSharesPercent: { foh:50, boh:40, other:10 }
+};
+
+// ── Onboarding Overlay ────────────────────────────────────────
+var _onboardCurrentStep = 1;
+
+function showOnboardingOverlay() {
+  var el = document.getElementById('onboardingOverlay');
+  if (el) el.style.display = 'block';
+}
+
+function hideOnboardingOverlay() {
+  var el = document.getElementById('onboardingOverlay');
+  if (el) el.style.display = 'none';
+}
+
+function onboardGoTo(step) {
+  var prev = document.getElementById('onboard-step-' + _onboardCurrentStep);
+  var dot  = document.getElementById('dot-' + _onboardCurrentStep);
+  if (prev) prev.style.display = 'none';
+  if (dot)  dot.classList.remove('active');
+  _onboardCurrentStep = step;
+  var next    = document.getElementById('onboard-step-' + step);
+  var nextDot = document.getElementById('dot-' + step);
+  if (next)    next.style.display = 'block';
+  if (nextDot) nextDot.classList.add('active');
+  var overlay = document.getElementById('onboardingOverlay');
+  if (overlay) overlay.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function onboardInitSheets() {
+  var btn    = document.getElementById('onboard-init-btn');
+  var status = document.getElementById('onboard-init-status');
+  btn.disabled    = true;
+  btn.textContent = 'Initializing\u2026';
+  status.style.display = 'none';
+
+  google.script.run
+    .withSuccessHandler(function() {
+      status.className   = 'onboarding-status success';
+      status.textContent = 'Spreadsheet initialized successfully!';
+      status.style.display = 'block';
+      setTimeout(function() { onboardGoTo(3); }, 800);
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled    = false;
+      btn.textContent = 'Retry Initialize';
+      status.className   = 'onboarding-status error';
+      status.textContent = 'Error: ' + err.message;
+      status.style.display = 'block';
+    })
+    .initSheets();
+}
+
+function onboardSaveLocation() {
+  var name   = (document.getElementById('onboard-location-name').value  || '').trim() || 'Cockrell Hill';
+  var email  = (document.getElementById('onboard-operator-email').value || '').trim();
+  var btn    = document.getElementById('onboard-location-btn');
+  var status = document.getElementById('onboard-location-status');
+  btn.disabled    = true;
+  btn.textContent = 'Saving\u2026';
+  status.style.display = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled    = false;
+      btn.textContent = 'Save & Continue \u2192';
+      if (res && res.error) {
+        status.className   = 'onboarding-status error';
+        status.textContent = 'Error: ' + res.error;
+        status.style.display = 'block';
+        return;
+      }
+      onboardGoTo(4);
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled    = false;
+      btn.textContent = 'Save & Continue \u2192';
+      status.className   = 'onboarding-status error';
+      status.textContent = 'Error: ' + err.message;
+      status.style.display = 'block';
+    })
+    .saveConfig({ locationName: name, operatorEmail: email });
+}
+
+function onboardComplete() {
+  var btn    = document.getElementById('onboard-launch-btn');
+  var status = document.getElementById('onboard-complete-status');
+  btn.disabled    = true;
+  btn.textContent = 'Launching\u2026';
+  status.style.display = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.error) {
+        btn.disabled    = false;
+        btn.textContent = 'Accept Defaults & Launch \u2192';
+        status.className   = 'onboarding-status error';
+        status.textContent = 'Error: ' + res.error;
+        status.style.display = 'block';
+        return;
+      }
+      // Reload config from server, then hide the overlay
+      google.script.run
+        .withSuccessHandler(function(config) {
+          applyConfig(config, true);
+        })
+        .withFailureHandler(function() {
+          hideOnboardingOverlay();
+        })
+        .loadAppCache();
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled    = false;
+      btn.textContent = 'Accept Defaults & Launch \u2192';
+      status.className   = 'onboarding-status error';
+      status.textContent = 'Error: ' + err.message;
+      status.style.display = 'block';
+    })
+    .saveConfig({ setupComplete: true });
+}
+
+// ── Loading / Warning UI ──────────────────────────────────────
+function showLoadingState(msg) {
+  var overlay = document.getElementById('loadingOverlay');
+  var text    = document.getElementById('loadingText');
+  if (overlay) overlay.classList.remove('hidden');
+  if (text && msg) text.textContent = msg;
+}
+
+function hideLoadingState() {
+  var overlay = document.getElementById('loadingOverlay');
+  if (overlay) overlay.classList.add('hidden');
+}
+
+function showWarningBanner(msg) {
+  var banner = document.getElementById('warningBanner');
+  var text   = document.getElementById('warningBannerText');
+  if (banner) banner.style.display = 'flex';
+  if (text)   text.textContent = msg;
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+function showToast(message, type, duration) {
+  type     = type     || 'info';
+  duration = duration || 4000;
+  var container = document.getElementById('toastContainer');
+  if (!container) return;
+  var toast = document.createElement('div');
+  toast.className  = 'toast toast-' + type;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(function() {
+    toast.classList.add('toast-exit');
+    toast.addEventListener('animationend', function() { toast.remove(); });
+  }, duration);
+}
+
+// ── GAS Config Layer ──────────────────────────────────────────
+
+function getDefaultConfig() {
+  var defaultCurves = {};
+  DAYS.forEach(function(day) {
+    defaultCurves[day] = Object.assign({}, DEFAULT_SALES_CURVE);
+  });
+  var defaultConf = {};
+  DAYS.forEach(function(day) {
+    defaultConf[day] = { confident:false, sampleCount:0 };
+  });
+  return {
+    splhGoals:       { overall:90, foh:90, boh:90 },
+    laborShares:     { foh:50, boh:40, other:10 },
+    smoothingAlpha:  0.3,
+    biasThreshold:   10,
+    operatorEmail:   '',
+    locationName:    'Cockrell Hill',
+    setupComplete:   false,
+    biasFlags:       {},
+    salesCurves:     defaultCurves,
+    curveConfidence: defaultConf
+  };
+}
+
+/**
+ * Called after loadAppCache() (or getConfig()) returns from GAS.
+ * isServerData=true means we received real data from the server and should
+ * show/hide the onboarding overlay based on setupComplete.
+ */
+function applyConfig(config, isServerData) {
+  if (!config) config = getDefaultConfig();
+  if (isServerData) {
+    if (config.setupComplete) {
+      hideOnboardingOverlay();
+    } else {
+      showOnboardingOverlay();
+    }
+  }
+  _lastLoadedConfig = config;
+
+  // Update salesConfig in the shape used by existing functions
+  salesConfig = {
+    goals: {
+      overall: config.splhGoals.overall,
+      foh:     config.splhGoals.foh,
+      boh:     config.splhGoals.boh
+    },
+    laborSharesPercent: {
+      foh:   config.laborShares.foh,
+      boh:   config.laborShares.boh,
+      other: config.laborShares.other
+    }
+  };
+
+  // Set per-day curves; fill any missing days with defaults
+  salesCurvesByDay = config.salesCurves || {};
+  DAYS.forEach(function(day) {
+    if (!salesCurvesByDay[day] || Object.keys(salesCurvesByDay[day]).length === 0) {
+      salesCurvesByDay[day] = Object.assign({}, DEFAULT_SALES_CURVE);
+    }
+  });
+
+  console.log('[applyConfig] salesCurvesByDay loaded. Monday sample:',
+    JSON.stringify(salesCurvesByDay['Monday']).substring(0, 80));
+
+  // Update header subtitle with location name
+  var subtitle = document.getElementById('headerSubtitle');
+  if (subtitle && config.locationName) {
+    subtitle.textContent = config.locationName + ' \u2014 Staffing & Productivity Analysis';
+  }
+
+  // If schedule data is loaded, regenerate to reflect new curves/goals
+  if (Object.keys(scheduleData).length > 0) {
+    updateSalesDataFromDailyTotals();
+    generateReport();
+  }
+
+  // Populate settings UI if it was already built
+  populateSettingsFromConfig(config);
+  buildCurveAccordions(config);
+
+  // ── Chunk 3 additions ───────────────────────────────────────
+
+  // Curve confidence indicators in Settings > Sales Curves accordion headers
+  var confData = config.curveConfidence || {};
+  Object.keys(confData).forEach(function(day) {
+    var el = document.querySelector('.curve-confidence[data-day="' + day + '"]');
+    if (!el) return;
+    var sampleCount = confData[day].sampleCount || 0;
+    var confident   = confData[day].confident;
+    if (sampleCount === 0) {
+      el.textContent = 'No CFA data yet';
+      el.style.color = '#94a3b8';
+    } else if (confident) {
+      el.textContent = sampleCount + ' weeks of CFA data';
+      el.style.color = '#15803d';
+    } else {
+      el.textContent = sampleCount + ' week(s) \u2014 curve still building';
+      el.style.color = '#d97706';
+    }
+  });
+
+  // Bias flag banner in Schedule Analysis tab
+  applyBiasBanner(config.biasFlags || {}, config.biasThreshold || 10);
+
+  // Render bias section in Trends tab (if it is currently visible)
+  renderBiasSection(config.biasFlags || {});
+
+  // CFA pre-fill suggestions in daily sales inputs
+  if (config.currentWeekSales && Object.keys(config.currentWeekSales).length > 0) {
+    applyCFASuggestions(config.currentWeekSales);
+  }
+}
+
+// ── Tab Navigation ────────────────────────────────────────────
+function switchMainPanel(panel) {
+  var panels = ['converter','counter','trends','settings','tracker','forecast','info'];
+  panels.forEach(function(p) {
+    var panelEl = document.getElementById(p + 'TabPanel');
+    var tabEl   = document.getElementById('tab-' + p);
+    if (panelEl) panelEl.style.display = (p === panel) ? 'block' : 'none';
+    if (tabEl) {
+      if (p === panel) tabEl.classList.add('active');
+      else             tabEl.classList.remove('active');
+    }
+  });
+
+  if (panel === 'settings') {
+    google.script.run
+      .withSuccessHandler(function(freshConfig) {
+        _lastLoadedConfig = freshConfig;
+        populateSettingsFromConfig(freshConfig);
+        buildCurveAccordions(freshConfig);
+        loadTriggersStatus();
+      })
+      .withFailureHandler(function() {
+        if (_lastLoadedConfig) {
+          populateSettingsFromConfig(_lastLoadedConfig);
+          buildCurveAccordions(_lastLoadedConfig);
+        }
+        loadTriggersStatus();
+      })
+      .getConfig();
+  }
+
+  if (panel === 'trends' && !trendsLoaded) loadTrendsData();
+  if (panel === 'forecast') loadForecastData();
+
+  // viewBadge is only relevant on counter tab
+  var badge = document.getElementById('viewBadge');
+  if (badge) badge.style.display = (panel === 'counter') ? 'block' : 'none';
+}
+
+// ── Settings Tab ──────────────────────────────────────────────
+
+function populateSettingsFromConfig(config) {
+  if (!config) return;
+  var set = function(id, val) {
+    var el = document.getElementById(id);
+    if (el && val !== undefined && val !== null) el.value = val;
+  };
+  set('settings-goal-overall',    config.splhGoals.overall);
+  set('settings-goal-foh',        config.splhGoals.foh);
+  set('settings-goal-boh',        config.splhGoals.boh);
+  set('settings-share-foh',       config.laborShares.foh);
+  set('settings-share-boh',       config.laborShares.boh);
+  set('settings-share-other',     config.laborShares.other);
+  set('settings-location-name',   config.locationName);
+  set('settings-operator-email',  config.operatorEmail);
+  set('settings-smoothing-alpha', config.smoothingAlpha);
+  set('settings-bias-threshold',  config.biasThreshold);
+  updateLaborSharesTotal();
+}
+
+function updateLaborSharesTotal() {
+  var foh   = parseFloat(document.getElementById('settings-share-foh').value)   || 0;
+  var boh   = parseFloat(document.getElementById('settings-share-boh').value)   || 0;
+  var other = parseFloat(document.getElementById('settings-share-other').value) || 0;
+  var total = foh + boh + other;
+  var totalEl   = document.getElementById('settings-share-total');
+  var saveBtn   = document.getElementById('settings-share-save');
+  var isValid   = Math.abs(total - 100) < 0.15;
+  if (totalEl) {
+    totalEl.textContent = total.toFixed(1) + '%';
+    totalEl.style.color = isValid ? '#16a34a' : '#dc2626';
+  }
+  if (saveBtn) saveBtn.disabled = !isValid;
+}
+
+function saveSettingsSPLH() {
+  var overall = parseFloat(document.getElementById('settings-goal-overall').value);
+  var foh     = parseFloat(document.getElementById('settings-goal-foh').value);
+  var boh     = parseFloat(document.getElementById('settings-goal-boh').value);
+  if (isNaN(overall) || isNaN(foh) || isNaN(boh)) {
+    showToast('Please enter valid numbers for all SPLH goals.', 'warning');
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.error) { showToast('Save failed: ' + res.error, 'error'); return; }
+      showToast('SPLH goals saved.', 'success');
+      if (_lastLoadedConfig) {
+        _lastLoadedConfig.splhGoals = { overall:overall, foh:foh, boh:boh };
+        applyConfig(_lastLoadedConfig);
+      }
+    })
+    .withFailureHandler(function(err) { showToast('Save failed: ' + err.message, 'error'); })
+    .saveConfig({ splhGoals:{ overall:overall, foh:foh, boh:boh } });
+}
+
+function saveSettingsLaborShares() {
+  var foh   = parseFloat(document.getElementById('settings-share-foh').value);
+  var boh   = parseFloat(document.getElementById('settings-share-boh').value);
+  var other = parseFloat(document.getElementById('settings-share-other').value);
+  var total = foh + boh + other;
+  if (Math.abs(total - 100) > 0.15) {
+    showToast('Labor shares must total 100%.', 'warning');
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.error) { showToast('Save failed: ' + res.error, 'error'); return; }
+      showToast('Labor shares saved.', 'success');
+      if (_lastLoadedConfig) {
+        _lastLoadedConfig.laborShares = { foh:foh, boh:boh, other:other };
+        applyConfig(_lastLoadedConfig);
+      }
+    })
+    .withFailureHandler(function(err) { showToast('Save failed: ' + err.message, 'error'); })
+    .saveConfig({ laborShares:{ foh:foh, boh:boh, other:other } });
+}
+
+function saveSettingsLocation() {
+  var locationName  = (document.getElementById('settings-location-name').value  || '').trim();
+  var operatorEmail = (document.getElementById('settings-operator-email').value || '').trim();
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.error) { showToast('Save failed: ' + res.error, 'error'); return; }
+      showToast('Location & notifications saved.', 'success');
+      if (_lastLoadedConfig) {
+        _lastLoadedConfig.locationName  = locationName;
+        _lastLoadedConfig.operatorEmail = operatorEmail;
+        applyConfig(_lastLoadedConfig);
+      }
+    })
+    .withFailureHandler(function(err) { showToast('Save failed: ' + err.message, 'error'); })
+    .saveConfig({ locationName:locationName, operatorEmail:operatorEmail });
+}
+
+function saveSettingsAdvanced() {
+  var alpha     = parseFloat(document.getElementById('settings-smoothing-alpha').value);
+  var threshold = parseFloat(document.getElementById('settings-bias-threshold').value);
+  if (isNaN(alpha) || alpha < 0.1 || alpha > 0.9) {
+    showToast('Smoothing alpha must be between 0.1 and 0.9.', 'warning');
+    return;
+  }
+  if (isNaN(threshold) || threshold < 1) {
+    showToast('Bias threshold must be a positive number.', 'warning');
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.error) { showToast('Save failed: ' + res.error, 'error'); return; }
+      showToast('Advanced settings saved.', 'success');
+    })
+    .withFailureHandler(function(err) { showToast('Save failed: ' + err.message, 'error'); })
+    .saveConfig({ smoothingAlpha:alpha, biasThreshold:threshold });
+}
+
+// ── Curve Accordions ──────────────────────────────────────────
+
+function buildCurveAccordions(config) {
+  var container = document.getElementById('curveAccordions');
+  if (!container) return;
+  container.innerHTML = '';
+
+  DAYS.forEach(function(day) {
+    var dayCurve    = (config.salesCurves    && config.salesCurves[day])    || Object.assign({}, DEFAULT_SALES_CURVE);
+    var dayConf     = (config.curveConfidence && config.curveConfidence[day]) || { confident:false, sampleCount:0 };
+    var weightSum   = HOURS.reduce(function(s, h) { return s + (parseFloat(dayCurve[h]) || 0); }, 0);
+    var accordion   = document.createElement('div');
+    accordion.className = 'curve-accordion';
+    accordion.id        = 'accordion-' + day;
+
+    // Header
+    var header = document.createElement('div');
+    header.className = 'curve-accordion-header';
+    header.innerHTML =
+      '<span class="curve-accordion-title">' + day + '</span>' +
+      '<span class="curve-accordion-meta">' +
+        '<span class="curve-confidence" data-day="' + day + '"></span>' +
+        '<span id="curve-total-' + day + '" style="font-weight:700;">' + (weightSum * 100).toFixed(1) + '%</span>' +
+        '<span style="color:#94a3b8;">&#9660;</span>' +
+      '</span>';
+    header.onclick = function() {
+      var body = document.getElementById('curve-body-' + day);
+      if (body) body.classList.toggle('open');
+    };
+
+    // Body
+    var body = document.createElement('div');
+    body.className = 'curve-accordion-body';
+    body.id        = 'curve-body-' + day;
+
+    var grid = document.createElement('div');
+    grid.className = 'curve-inputs-grid';
+
+    HOURS.forEach(function(hour) {
+      var isOutOfRange = (hour === '5 AM' || hour === '11 PM');
+      var row = document.createElement('div');
+      row.className = 'curve-input-row' + (isOutOfRange ? ' disabled-hour' : '');
+
+      var lbl = document.createElement('label');
+      lbl.textContent = hour;
+      lbl.title = isOutOfRange ? 'Outside CFA data range' : '';
+
+      var inp = document.createElement('input');
+      inp.type      = 'number';
+      inp.min       = '0';
+      inp.max       = '1';
+      inp.step      = '0.0001';
+      inp.value     = parseFloat(dayCurve[hour] || 0).toFixed(5);
+      inp.dataset.day  = day;
+      inp.dataset.hour = hour;
+      inp.id        = 'curve-inp-' + day + '-' + hour.replace(' ','');
+      if (isOutOfRange) inp.title = 'Outside CFA data range — editing not recommended';
+      inp.oninput   = function() { updateCurveWeightTotal(day); };
+
+      row.appendChild(lbl);
+      row.appendChild(inp);
+      grid.appendChild(row);
+    });
+
+    // Total row
+    var totalRow = document.createElement('div');
+    totalRow.className = 'curve-weight-total';
+    totalRow.innerHTML =
+      'Total: <strong id="curve-sum-' + day + '">' + (weightSum * 100).toFixed(3) + '%</strong>' +
+      '<span style="color:#94a3b8; margin-left:4px;">(must equal 100.000%)</span>';
+
+    // Confidence placeholder (populated by Chunk 3 trigger)
+    var confDiv = document.createElement('div');
+    confDiv.className  = 'curve-confidence';
+    confDiv.dataset.day = day;
+    if (dayConf.sampleCount > 0) {
+      confDiv.textContent = dayConf.confident
+        ? ('Based on ' + dayConf.sampleCount + ' weeks of data')
+        : ('Limited data: ' + dayConf.sampleCount + ' week(s). Refine manually.');
+      confDiv.style.color = dayConf.confident ? '#16a34a' : '#f59e0b';
+    }
+
+    // Action buttons
+    var actionsDiv = document.createElement('div');
+    actionsDiv.className = 'curve-actions';
+
+    var resetBtn = document.createElement('button');
+    resetBtn.className   = 'btn-secondary';
+    resetBtn.textContent = 'Reset to Default';
+    resetBtn.style.fontSize = '12px';
+    resetBtn.onclick = (function(d) { return function() { resetDayCurveToDefault(d); }; })(day);
+
+    var saveBtn = document.createElement('button');
+    saveBtn.className   = 'btn-primary';
+    saveBtn.textContent = 'Save ' + day + ' Curve';
+    saveBtn.style.fontSize = '12px';
+    saveBtn.onclick = (function(d) { return function() { saveDayCurve(d); }; })(day);
+
+    actionsDiv.appendChild(resetBtn);
+    actionsDiv.appendChild(saveBtn);
+
+    body.appendChild(grid);
+    body.appendChild(totalRow);
+    body.appendChild(confDiv);
+    body.appendChild(actionsDiv);
+
+    accordion.appendChild(header);
+    accordion.appendChild(body);
+    container.appendChild(accordion);
+  });
+}
+
+function updateCurveWeightTotal(day) {
+  var sum = 0;
+  HOURS.forEach(function(hour) {
+    var inp = document.getElementById('curve-inp-' + day + '-' + hour.replace(' ',''));
+    if (inp) sum += parseFloat(inp.value) || 0;
+  });
+  var sumEl   = document.getElementById('curve-sum-' + day);
+  var totalEl = document.getElementById('curve-total-' + day);
+  var pct = (sum * 100).toFixed(3);
+  if (sumEl)   sumEl.textContent = pct + '%';
+  if (totalEl) totalEl.textContent = pct + '%';
+  var isValid = Math.abs(sum - 1.0) < 0.001;
+  if (sumEl) sumEl.style.color = isValid ? '#16a34a' : '#dc2626';
+}
+
+function resetDayCurveToDefault(day) {
+  if (!confirm('Reset ' + day + ' curve to defaults? Unsaved changes will be lost.')) return;
+  HOURS.forEach(function(hour) {
+    var inp = document.getElementById('curve-inp-' + day + '-' + hour.replace(' ',''));
+    if (inp) inp.value = parseFloat(DEFAULT_SALES_CURVE[hour] || 0).toFixed(5);
+  });
+  updateCurveWeightTotal(day);
+}
+
+function saveDayCurve(day) {
+  var dayCurve = {};
+  var sum      = 0;
+  HOURS.forEach(function(hour) {
+    var inp = document.getElementById('curve-inp-' + day + '-' + hour.replace(' ',''));
+    var val = inp ? (parseFloat(inp.value) || 0) : 0;
+    dayCurve[hour] = val;
+    sum += val;
+  });
+
+  if (Math.abs(sum - 1.0) > 0.001) {
+    showToast(
+      day + ' curve weights sum to ' + (sum * 100).toFixed(3) + '% — must be 100.000% before saving.',
+      'warning', 5000
+    );
+    return;
+  }
+
+  var payload = { salesCurves:{} };
+  payload.salesCurves[day] = dayCurve;
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.error) { showToast('Save failed: ' + res.error, 'error'); return; }
+      showToast(day + ' curve saved.', 'success');
+      if (_lastLoadedConfig) {
+        _lastLoadedConfig.salesCurves[day] = dayCurve;
+        salesCurvesByDay[day] = dayCurve;
+        if (Object.keys(scheduleData).length > 0) {
+          updateSalesDataFromDailyTotals();
+          generateReport();
+        }
+      }
+    })
+    .withFailureHandler(function(err) { showToast('Save failed: ' + err.message, 'error'); })
+    .saveConfig(payload);
+}
+
+// ── Config Getters (used by analysis functions) ───────────────
+
+function getConfiguredGoals() {
+  if (salesConfig && salesConfig.goals) return salesConfig.goals;
+  return DEFAULT_SALES_CONFIG.goals;
+}
+
+function getProductivityGoal() {
+  var goals = getConfiguredGoals();
+  if (currentDepartmentView === 'foh') return goals.foh;
+  if (currentDepartmentView === 'boh') return goals.boh;
+  return goals.overall;
+}
+
+function getLaborShares() {
+  var shares = (salesConfig && salesConfig.laborSharesPercent) || DEFAULT_SALES_CONFIG.laborSharesPercent;
+  var foh   = Number(shares.foh)   || 0;
+  var boh   = Number(shares.boh)   || 0;
+  var other = Number(shares.other) || 0;
+  var total = foh + boh + other || 1;
+  return { fohShare:foh/total, bohShare:boh/total, otherShare:other/total };
+}
+
+function getSalesFractions() {
+  var shares     = (salesConfig && salesConfig.laborSharesPercent) || DEFAULT_SALES_CONFIG.laborSharesPercent;
+  var foh        = Number(shares.foh) || 0;
+  var boh        = Number(shares.boh) || 0;
+  var totalFOHBOH = foh + boh || 1;
+  return { fohFraction:foh/totalFOHBOH, bohFraction:boh/totalFOHBOH };
+}
+
+// ── Sales Data (per-day curve) ────────────────────────────────
+
+function getDailySalesTotalsFromInputs() {
+  var totals  = {};
+  var dayIds  = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  dayIds.forEach(function(day) {
+    var input = document.getElementById('sales-' + day);
+    if (!input) return;
+    var raw = input.value;
+    if (raw === '') return;
+    var val = parseFloat(raw);
+    if (!isNaN(val) && val > 0) totals[day] = val;
+  });
+  return totals;
+}
+
+/**
+ * Replaces the old single-curve approach.
+ * Per spec section 6.2: uses per-day curve lookup from salesCurvesByDay.
+ */
+function updateSalesDataFromDailyTotals() {
+  salesData = {};
+  var dailyTotals = getDailySalesTotalsFromInputs();
+  if (Object.keys(dailyTotals).length === 0) return;
+
+  Object.keys(scheduleData).forEach(function(day) {
+    var totalSales = dailyTotals[day] || 0;
+    if (totalSales <= 0) return;
+
+    var dayCurve  = salesCurvesByDay[day] || salesCurvesByDay['Monday'] || DEFAULT_SALES_CURVE;
+    var weightSum = Object.keys(dayCurve).reduce(function(s, h) {
+      return s + (parseFloat(dayCurve[h]) || 0);
+    }, 0);
+    if (weightSum <= 0) return;
+
+    salesData[day] = {};
+    HOURS.forEach(function(hour) {
+      var weight = parseFloat(dayCurve[hour]) || 0;
+      salesData[day][hour] = totalSales * (weight / weightSum);
+    });
+  });
+}
+
+// ── Persistence (localStorage — sales inputs & manager shifts) ─
+
+function saveSalesInputs() {
+  var inputs = {};
+  var dayIds = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  dayIds.forEach(function(day) {
+    var el = document.getElementById('sales-' + day);
+    if (el) inputs[day] = el.value;
+  });
+  try { localStorage.setItem('scheduleCounter_salesInputs_v1', JSON.stringify(inputs)); } catch(e) {}
+}
+
+function loadSalesInputs() {
+  try {
+    var stored = localStorage.getItem('scheduleCounter_salesInputs_v1');
+    if (stored) {
+      var inputs = JSON.parse(stored);
+      Object.keys(inputs).forEach(function(day) {
+        var el = document.getElementById('sales-' + day);
+        if (el) el.value = inputs[day];
+      });
+    }
+  } catch(e) { console.warn('Failed to load sales inputs', e); }
+
+  var dayIds = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  dayIds.forEach(function(day) {
+    var el = document.getElementById('sales-' + day);
+    if (el) {
+      el.addEventListener('change', function() {
+        validateSalesInput(el);
+        saveSalesInputs();
+        if (Object.keys(scheduleData).length > 0) generateReport();
+      });
+    }
+  });
+}
+
+function saveManagerShifts() {
+  try { localStorage.setItem('managerShifts_v1', JSON.stringify(managerShifts)); } catch(e) {}
+}
+
+function loadManagerShifts() {
+  try {
+    var saved = localStorage.getItem('managerShifts_v1');
+    if (saved) {
+      var parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object') {
+        var isOldFormat = ['overall','foh','boh'].some(function(d) { return Array.isArray(parsed[d]); });
+        if (!isOldFormat) managerShifts = parsed;
+      }
+    }
+  } catch(e) {}
+}
+
+// ── Input Validation ──────────────────────────────────────────
+
+function setInputWarning(input, message) {
+  if (!input) return;
+  if (message) { input.classList.add('input-warning');    input.title = message; }
+  else         { input.classList.remove('input-warning'); input.title = ''; }
+}
+
+function validateSalesInput(input) {
+  var raw = input.value;
+  if (!raw) { setInputWarning(input, ''); return; }
+  var val = parseFloat(raw);
+  if (isNaN(val)) { setInputWarning(input, 'Please enter a number.'); return; }
+  if (val < 500 || val > 100000) setInputWarning(input, 'Unusual daily sales value \u2014 double-check this number.');
+  else setInputWarning(input, '');
+}
+
+// ── Hour Helpers ──────────────────────────────────────────────
+
+function hourLabelTo24(label) {
+  if (!label) return null;
+  var clean = label.toString().trim();
+  clean = clean.replace('AM',' AM').replace('PM',' PM').replace(/\s+/g,' ').trim();
+  var parts = clean.split(' ');
+  if (parts.length !== 2) return null;
+  var hour = parseInt(parts[0], 10);
+  var ampm = parts[1].toUpperCase();
+  if (isNaN(hour)) return null;
+  if (ampm === 'PM' && hour !== 12) hour += 12;
+  if (ampm === 'AM' && hour === 12) hour  = 0;
+  return hour;
+}
+
+function isHourInCurrentDaypart(hourLabel) {
+  if (currentDaypart === 'all') return true;
+  var info = DAYPARTS[currentDaypart];
+  if (!info) return true;
+  var h24 = hourLabelTo24(hourLabel);
+  if (h24 === null) return true;
+  return info.ranges.some(function(r) { return h24 >= r[0] && h24 <= r[1]; });
+}
+
+function setDaypart(part, event) {
+  if (!DAYPARTS[part]) part = 'all';
+  currentDaypart = part;
+  document.querySelectorAll('.daypart-toggle button').forEach(function(btn) { btn.classList.remove('active'); });
+  if (event && event.target) {
+    event.target.classList.add('active');
+  } else {
+    var btn = Array.from(document.querySelectorAll('.daypart-toggle button'))
+      .find(function(b) { return b.textContent.toLowerCase().includes(DAYPARTS[part].label.toLowerCase().split(' ')[0]); });
+    if (btn) btn.classList.add('active');
+  }
+  if (Object.keys(scheduleData).length > 0) generateReport();
+  var idealPanel = document.getElementById('idealModelPanel');
+  if (idealPanel && idealPanel.style.display !== 'none') generateIdealSchedule();
+}
+
+function updateViewBadge() {
+  var badge = document.getElementById('viewBadge');
+  if (!badge) return;
+  var deptName    = currentDepartmentView === 'foh' ? 'FOH' : currentDepartmentView === 'boh' ? 'BOH' : 'Overall';
+  var daypartInfo = DAYPARTS[currentDaypart] || DAYPARTS.all;
+  badge.textContent = 'Current View: ' + deptName + ' \u00b7 Daypart: ' + daypartInfo.label;
+}
+
+// ── Department View ───────────────────────────────────────────
+
+function combineScheduleData() {
+  scheduleData = {};
+  var days  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var hours = ['5 AM','6 AM','7 AM','8 AM','9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM','9 PM','10 PM','11 PM'];
+  days.forEach(function(day) {
+    scheduleData[day] = {};
+    hours.forEach(function(hour) {
+      var foh = (fohScheduleData[day] && fohScheduleData[day][hour]) || 0;
+      var boh = (bohScheduleData[day] && bohScheduleData[day][hour]) || 0;
+      scheduleData[day][hour] = foh + boh;
+    });
+  });
+  Object.keys(scheduleData).forEach(function(day) {
+    var hasData = Object.values(scheduleData[day]).some(function(c) { return c > 0; });
+    if (!hasData) delete scheduleData[day];
+  });
+}
+
+function switchDepartmentView(view, event) {
+  currentDepartmentView = view;
+  document.querySelectorAll('.view-toggle button').forEach(function(btn) { btn.classList.remove('active'); });
+  if (event && event.target) event.target.classList.add('active');
+  if (view === 'foh')      scheduleData = Object.assign({}, fohScheduleData);
+  else if (view === 'boh') scheduleData = Object.assign({}, bohScheduleData);
+  else                     combineScheduleData();
+  updateViewBadge();
+  if (Object.keys(scheduleData).length > 0) generateReport();
+  renderManagerGrid();
+  var idealPanel = document.getElementById('idealModelPanel');
+  if (idealPanel && idealPanel.style.display !== 'none') generateIdealSchedule();
+}
+
+// ── CSV Parsers ───────────────────────────────────────────────
+
+function isRawHotSchedulesExport(text) {
+  if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) return true;
+  if (text.includes('HotSchedules') && !text.includes('Department,Employee,Day,Date')) return true;
+  if (text.includes('Job Code,') || (text.includes('Employee,') && !text.includes('Department,Employee,Day,Date'))) return true;
+  return false;
+}
+
+function handleFOHScheduleUpload(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
+    reader.onload = function(e) {
+      var content = e.target.result;
+      if (isRawHotSchedulesExport(content)) {
+        showToast('This looks like a raw HotSchedules export! Use "Step 1: File Converter" first.', 'warning', 5000);
+        event.target.value = '';
+        return;
+      }
+      parseFOHScheduleCSV(content);
+    };
+    reader.readAsText(file);
+  } else {
+    showToast('Please upload a CSV file.', 'warning');
+  }
+}
+
+function handleBOHScheduleUpload(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
+    reader.onload = function(e) {
+      var content = e.target.result;
+      if (isRawHotSchedulesExport(content)) {
+        showToast('This looks like a raw HotSchedules export! Use "Step 1: File Converter" first.', 'warning', 5000);
+        event.target.value = '';
+        return;
+      }
+      parseBOHScheduleCSV(content);
+    };
+    reader.readAsText(file);
+  } else {
+    showToast('Please upload a CSV file.', 'warning');
+  }
+}
+
+function parseScheduleCSV(csvText, department) {
+  var isFoh = department === 'foh';
+  var label = isFoh ? 'FOH' : 'BOH';
+  var schedData = { Sunday:{}, Monday:{}, Tuesday:{}, Wednesday:{}, Thursday:{}, Friday:{}, Saturday:{} };
+  var namesData = { Sunday:{}, Monday:{}, Tuesday:{}, Wednesday:{}, Thursday:{}, Friday:{}, Saturday:{} };
+  var hours = ['5 AM','6 AM','7 AM','8 AM','9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM','9 PM','10 PM','11 PM'];
+  Object.keys(schedData).forEach(function(day) {
+    hours.forEach(function(hour) { schedData[day][hour] = 0; namesData[day][hour] = []; });
+  });
+  var employeesByDayHour = {};
+  var lines = csvText.split('\n');
+  for (var i = 1; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+    var parts = line.split(',');
+    if (parts.length < 3) continue;
+    var dateStr  = parts[0].trim();
+    var timeStr  = parts[1].trim();
+    var employee = parts[2].trim();
+    if (!dateStr || !timeStr || !employee) continue;
+    var dateParts = dateStr.split('/');
+    if (dateParts.length === 3) {
+      var month  = parseInt(dateParts[0]) - 1;
+      var day    = parseInt(dateParts[1]);
+      var year   = parseInt(dateParts[2]);
+      var date   = new Date(year, month, day);
+      if (isFoh) scheduleWeekDates.push(date); // Track dates for detectWeekStart()
+      var dayNames   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      var dayOfWeek  = dayNames[date.getDay()];
+      var normalizedTime = timeStr;
+      var timeParts = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (timeParts) {
+        var h   = parseInt(timeParts[1]);
+        var per = timeParts[3].toUpperCase();
+        normalizedTime = h + ':' + timeParts[2] + ' ' + per;
+        if (timeParts[2] === '00') normalizedTime = h + ' ' + per;
+      }
+      var key = dayOfWeek + '-' + normalizedTime;
+      if (!employeesByDayHour[key]) employeesByDayHour[key] = new Set();
+      employeesByDayHour[key].add(employee);
+    }
+  }
+  Object.keys(employeesByDayHour).forEach(function(key) {
+    var idx  = key.indexOf('-');
+    var dow  = key.substring(0, idx);
+    var time = key.substring(idx + 1);
+    if (schedData[dow] && hours.includes(time)) {
+      schedData[dow][time] = employeesByDayHour[key].size;
+      namesData[dow][time] = Array.from(employeesByDayHour[key]).sort();
+    }
+  });
+  Object.keys(schedData).forEach(function(day) {
+    var hasData = hours.some(function(h) { return schedData[day][h] > 0; });
+    if (!hasData) { delete schedData[day]; delete namesData[day]; }
+  });
+  if (isFoh) { fohScheduleData = schedData; fohStaffNames = namesData; }
+  else        { bohScheduleData = schedData; bohStaffNames = namesData; }
+  combineScheduleData();
+  var hasData = Object.keys(schedData).some(function(day) {
+    return Object.values(schedData[day]).some(function(c) { return c > 0; });
+  });
+  if (hasData) showToast(label + ' schedule loaded! Days: ' + Object.keys(schedData).join(', '), 'success');
+  else         showToast('No ' + label + ' schedule data found. Check your CSV format.', 'error');
+}
+
+function parseFOHScheduleCSV(csvText) {
+  scheduleWeekDates = []; // Reset on each FOH parse
+  parseScheduleCSV(csvText, 'foh');
+}
+function parseBOHScheduleCSV(csvText) { parseScheduleCSV(csvText, 'boh'); }
+
+function parseTime(timeStr) {
+  var match = timeStr.match(/(\d{1,2}):?(\d{0,2})\s*(AM|PM)/i);
+  if (!match) return 0;
+  var hours = parseInt(match[1]);
+  var isPM  = match[3].toUpperCase() === 'PM';
+  if (hours === 12 && !isPM) hours = 0;
+  if (hours !== 12 && isPM) hours += 12;
+  return hours;
+}
+
+function splitCSVLine(line) {
+  var result = [], current = '', inQuotes = false;
+  for (var i = 0; i < line.length; i++) {
+    var char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current); current = '';
+    } else { current += char; }
+  }
+  result.push(current);
+  return result.map(function(v) {
+    var val = v.trim();
+    if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1,-1).replace(/""/g,'"');
+    return val;
+  });
+}
+
+// ── Report Generation ─────────────────────────────────────────
+
+function generateReport() {
+  document.getElementById('metricsPanel').style.display   = 'grid';
+  document.getElementById('scheduleGrid').style.display   = 'block';
+  document.getElementById('chartContainer').style.display = 'block';
+  document.getElementById('insightsPanel').style.display  = 'block';
+
+  var hasFOHData = Object.keys(fohScheduleData).length > 0;
+  var hasBOHData = Object.keys(bohScheduleData).length > 0;
+
+  if (!hasFOHData && !hasBOHData) {
+    showToast('Please upload at least one schedule file (FOH or BOH)!', 'warning');
+    document.getElementById('metricsPanel').style.display   = 'none';
+    document.getElementById('scheduleGrid').style.display   = 'none';
+    document.getElementById('chartContainer').style.display = 'none';
+    document.getElementById('insightsPanel').style.display  = 'none';
+    return;
+  }
+
+  if (currentDepartmentView === 'foh')      scheduleData = JSON.parse(JSON.stringify(fohScheduleData));
+  else if (currentDepartmentView === 'boh') scheduleData = JSON.parse(JSON.stringify(bohScheduleData));
+  else                                      combineScheduleData();
+
+  if (currentDepartmentView === 'foh' && !hasFOHData) switchDepartmentView('overall', null);
+  else if (currentDepartmentView === 'boh' && !hasBOHData) switchDepartmentView('overall', null);
+
+  updateSalesDataFromDailyTotals();
+  calculateMetrics();
+  generateScheduleTable();
+  renderManagerGrid();
+  createChart();
+  createDayCharts();
+  generateInsights();
+
+  // Fire-and-forget: persist to history (email moved to Thursday reminder only).
+  var snapshot = buildSnapshotPayload();
+  if (snapshot.weekStart) {
+    google.script.run
+      .withSuccessHandler(function() { showToast('Saved to history.', 'info', 2000); })
+      .withFailureHandler(function(err) { console.error('History save failed:', err); })
+      .saveWeekSnapshot(snapshot);
+    trendsLoaded = false; // Invalidate trends cache — reload on next visit
+  }
+}
+
+function calculateMetrics() {
+  var totalStaff = 0, totalHours = 0, totalSales = 0, totalLaborHours = 0;
+  var sumSPLH = 0, splhSamples = 0;
+  var dailySalesTotals = {}, dailyLaborTotals = {};
+  var hasSalesData  = Object.keys(salesData).length > 0;
+  var goal          = getProductivityGoal();
+  var salesFractions = hasSalesData ? getSalesFractions() : { fohFraction:0, bohFraction:0 };
+
+  Object.keys(scheduleData).forEach(function(day) {
+    Object.keys(scheduleData[day]).forEach(function(hour) {
+      if (!isHourInCurrentDaypart(hour)) return;
+      var staff = scheduleData[day][hour];
+      if (staff > 0) {
+        totalStaff += staff; totalHours++; totalLaborHours += staff;
+        if (!dailyLaborTotals[day]) dailyLaborTotals[day] = 0;
+        dailyLaborTotals[day] += staff;
+      }
+      if (hasSalesData && salesData[day] && salesData[day][hour] && staff > 0) {
+        var rawSales = salesData[day][hour];
+        var effectiveSales = rawSales;
+        if (currentDepartmentView === 'foh') effectiveSales = rawSales * salesFractions.fohFraction;
+        else if (currentDepartmentView === 'boh') effectiveSales = rawSales * salesFractions.bohFraction;
+        totalSales += effectiveSales;
+        if (!dailySalesTotals[day]) dailySalesTotals[day] = 0;
+        dailySalesTotals[day] += effectiveSales;
+        sumSPLH += effectiveSales / staff;
+        splhSamples++;
+      }
+    });
+  });
+
+  var avgStaff = totalHours > 0 ? (totalStaff / totalHours).toFixed(1) : '0';
+  document.getElementById('avgStaff').textContent = avgStaff;
+
+  var deptName = currentDepartmentView === 'foh' ? 'FOH' : currentDepartmentView === 'boh' ? 'BOH' : 'Overall';
+  var splhLabel = document.querySelector('#splh') ? document.querySelector('#splh').parentElement.querySelector('.metric-label') : null;
+  var prodLabel = document.querySelector('#peakEfficiency') ? document.querySelector('#peakEfficiency').parentElement.querySelector('.metric-label') : null;
+  if (splhLabel) splhLabel.textContent = deptName + ' $/LH (Goal: $' + goal.toFixed(2) + ')';
+  if (prodLabel) prodLabel.textContent = deptName + ' Productivity ($/LH)';
+
+  if (hasSalesData && totalLaborHours > 0) {
+    var splh = Math.round(totalSales / totalLaborHours);
+    document.getElementById('peakEfficiency').textContent = '$' + splh;
+    document.getElementById('splh').textContent           = '$' + splh;
+    var splhChange = document.querySelector('#splh') ? document.querySelector('#splh').nextElementSibling : null;
+    var diff = splh - goal;
+    if (splhChange) {
+      splhChange.textContent = (diff > 0 ? '+' : '') + '$' + diff.toFixed(0) + ' vs $' + goal.toFixed(0) + ' goal';
+      splhChange.className   = 'metric-change ' + (diff > 0 ? 'positive' : 'negative');
+    }
+    var effChange = document.querySelector('#peakEfficiency') ? document.querySelector('#peakEfficiency').nextElementSibling : null;
+    if (effChange) { effChange.textContent = 'Total Sales / Total Hours'; effChange.className = 'metric-change'; }
+  } else {
+    document.getElementById('peakEfficiency').textContent = 'N/A';
+    document.getElementById('splh').textContent           = 'N/A';
+    var sc = document.querySelector('#splh') ? document.querySelector('#splh').nextElementSibling : null;
+    if (sc) { sc.textContent = 'Enter daily sales estimates to see $/LH'; sc.className = 'metric-change'; }
+  }
+
+  document.getElementById('laborCost').textContent = totalLaborHours + ' hrs';
+  var lcChange = document.querySelector('#laborCost') ? document.querySelector('#laborCost').nextElementSibling : null;
+  if (lcChange) { lcChange.textContent = deptName + ' scheduled hours'; lcChange.className = 'metric-change'; }
+
+  var asChange = document.querySelector('#avgStaff') ? document.querySelector('#avgStaff').nextElementSibling : null;
+  if (asChange) {
+    if (avgStaff < 10)      { asChange.textContent = 'Light coverage';    asChange.className = 'metric-change negative'; }
+    else if (avgStaff > 15) { asChange.textContent = 'Heavy coverage';    asChange.className = 'metric-change'; }
+    else                    { asChange.textContent = 'Balanced coverage'; asChange.className = 'metric-change positive'; }
+  }
+
+  var summaryEl = document.getElementById('dailyProductivitySummary');
+  if (summaryEl) {
+    if (!hasSalesData || Object.keys(dailySalesTotals).length === 0) {
+      summaryEl.textContent = 'Enter daily sales estimates above to see per-day productivity ($/LH).';
+    } else {
+      var parts = [];
+      Object.keys(dailySalesTotals).forEach(function(day) {
+        var ds = dailySalesTotals[day] || 0, dl = dailyLaborTotals[day] || 0;
+        if (ds > 0 && dl > 0) parts.push(day + ': $' + (ds/dl).toFixed(0) + '/LH');
+      });
+      summaryEl.textContent = parts.length > 0
+        ? (deptName + ' daily productivity: ' + parts.join(' \u00b7 '))
+        : 'No per-day productivity available yet for this view.';
+    }
+  }
+  updateOvertimeDisplay();
+}
+
+// ── Overtime ──────────────────────────────────────────────────
+
+function calculateOvertimeData() {
+  var employeeHours = {};
+  [fohStaffNames, bohStaffNames].forEach(function(namesObj) {
+    Object.keys(namesObj).forEach(function(day) {
+      Object.keys(namesObj[day]).forEach(function(hour) {
+        (namesObj[day][hour] || []).forEach(function(name) {
+          if (!name || !name.trim()) return;
+          var n = name.trim();
+          if (!employeeHours[n]) employeeHours[n] = 0;
+          employeeHours[n]++;
+        });
+      });
+    });
+  });
+  var totalOTHours = 0, employeesInOT = [];
+  Object.keys(employeeHours).forEach(function(name) {
+    var h = employeeHours[name];
+    if (h > 40) { var ot = h-40; totalOTHours += ot; employeesInOT.push({name:name,totalHours:h,otHours:ot}); }
+  });
+  employeesInOT.sort(function(a,b) { return b.otHours - a.otHours; });
+  return { totalOTHours:totalOTHours, employeesInOT:employeesInOT, employeeCount:employeesInOT.length, allEmployeeHours:employeeHours, totalEmployees:Object.keys(employeeHours).length };
+}
+
+function updateOvertimeDisplay() {
+  var data  = calculateOvertimeData();
+  var hoursEl = document.getElementById('otHours');
+  var subEl   = document.getElementById('otSubtext');
+  if (!hoursEl || !subEl) return;
+  hoursEl.textContent = data.totalOTHours + ' hrs';
+  if (data.employeeCount === 0)      { subEl.textContent = 'No overtime this week';                        subEl.className = 'metric-change positive'; }
+  else if (data.employeeCount === 1) { subEl.textContent = '1 employee over 40 hrs';                       subEl.className = 'metric-change warning'; }
+  else                               { subEl.textContent = data.employeeCount + ' employees over 40 hrs';  subEl.className = 'metric-change warning'; }
+}
+
+function showOTBreakdown() {
+  var data = calculateOvertimeData(), modalBody = document.getElementById('otModalBody');
+  if (!modalBody) return;
+  var html = '<div class="ot-summary"><div class="ot-summary-value">' + data.totalOTHours + ' hrs</div>' +
+    '<div class="ot-summary-label">Total Overtime (' + data.employeeCount + ' of ' + data.totalEmployees + ' employees)</div></div>';
+  if (data.employeesInOT.length === 0) {
+    html += '<div class="ot-no-overtime"><div class="ot-no-overtime-icon">\uD83C\uDF89</div><div class="ot-no-overtime-text">No employees are in overtime this week!</div></div>';
+  } else {
+    html += '<div class="ot-list"><div class="ot-list-header"><span class="ot-col-name">Employee</span><span class="ot-col-hrs">Total</span><span class="ot-col-ot">OT</span></div>';
+    data.employeesInOT.forEach(function(emp) {
+      html += '<div class="ot-list-row"><span class="ot-col-name" title="' + emp.name + '">' + emp.name + '</span><span class="ot-col-hrs">' + emp.totalHours + '</span><span class="ot-col-ot">' + emp.otHours + '</span></div>';
+    });
+    html += '</div>';
+  }
+  modalBody.innerHTML = html;
+  document.getElementById('otModal').style.display = 'flex';
+}
+
+function hideOTModal() { document.getElementById('otModal').style.display = 'none'; }
+
+document.addEventListener('click', function(event) {
+  var modal = document.getElementById('otModal');
+  if (event.target === modal) hideOTModal();
+});
+
+// ── Schedule Table ────────────────────────────────────────────
+
+function generateScheduleTable() {
+  var tbody = document.getElementById('scheduleBody');
+  tbody.innerHTML = '';
+  var gridTitle = document.getElementById('gridTitle');
+  var deptName  = currentDepartmentView === 'foh' ? 'FOH' : currentDepartmentView === 'boh' ? 'BOH' : 'Overall';
+  if (gridTitle) gridTitle.textContent = deptName + ' Staff Coverage vs Sales Volume';
+  var hours        = HOURS.filter(function(h) { return isHourInCurrentDaypart(h); });
+  var hasSalesData = Object.keys(salesData).length > 0;
+  var dynamicMaxSales = 100;
+  if (hasSalesData) {
+    Object.keys(salesData).forEach(function(d) {
+      Object.values(salesData[d]).forEach(function(v) { if (v > dynamicMaxSales) dynamicMaxSales = v; });
+    });
+  }
+  var daysWithData = Object.keys(scheduleData);
+  var thead = document.querySelector('#scheduleTable thead tr');
+  thead.innerHTML = '<th>Hour</th>';
+  daysWithData.forEach(function(day) { thead.innerHTML += '<th>' + day + '</th>'; });
+
+  var goals  = getConfiguredGoals();
+  var shares = getLaborShares();
+  var recFOH = {}, recBOH = {};
+  if (hasSalesData) {
+    daysWithData.forEach(function(day) {
+      recFOH[day] = {}; recBOH[day] = {};
+      hours.forEach(function(hour) {
+        var sh = salesData[day] && salesData[day][hour] !== undefined ? salesData[day][hour] : 0;
+        if (sh > 0) {
+          recFOH[day][hour] = Math.floor((sh / goals.overall) * shares.fohShare);
+          recBOH[day][hour] = Math.floor((sh / goals.overall) * shares.bohShare);
+        } else { recFOH[day][hour] = 0; recBOH[day][hour] = 0; }
+      });
+    });
+  }
+
+  hours.forEach(function(hour) {
+    var row = document.createElement('tr');
+    row.innerHTML = '<td class="hour-label">' + hour + '</td>';
+    daysWithData.forEach(function(day) {
+      var cell       = document.createElement('td');
+      var staffCount = scheduleData[day][hour] || 0;
+      var rawSales   = hasSalesData && salesData[day] && salesData[day][hour] !== undefined ? salesData[day][hour] : 0;
+      var effectiveSales = rawSales, rec = 0, staffClass = '', suggestionHtml = '';
+
+      if (currentDepartmentView === 'foh') {
+        effectiveSales = rawSales * getSalesFractions().fohFraction;
+        rec = recFOH[day] ? recFOH[day][hour] : 0;
+      } else if (currentDepartmentView === 'boh') {
+        effectiveSales = rawSales * getSalesFractions().bohFraction;
+        rec = recBOH[day] ? recBOH[day][hour] : 0;
+      }
+
+      if (currentDepartmentView !== 'overall') {
+        if (rec > 0 && hasSalesData) {
+          var diff = staffCount - rec;
+          if (diff <= -2)             staffClass = 'understaffed';
+          else if (diff === -1 || diff === 1) staffClass = 'low-staffed';
+          else if (diff === 0)        staffClass = 'well-staffed';
+          else if (diff >= 2)         staffClass = 'overstaffed';
+          if (staffCount < rec)      suggestionHtml = '<div class="staff-suggestion staff-suggestion-below">Suggested: '+rec+' (below)</div>';
+          else if (staffCount > rec) suggestionHtml = '<div class="staff-suggestion staff-suggestion-above">Suggested: '+rec+' (above)</div>';
+          else                       suggestionHtml = '<div class="staff-suggestion staff-suggestion-at">Suggested: '+rec+' (perfect)</div>';
+        }
+      } else if (hasSalesData) {
+        var actualFOH  = fohScheduleData[day] ? (fohScheduleData[day][hour] || 0) : 0;
+        var actualBOH  = bohScheduleData[day] ? (bohScheduleData[day][hour] || 0) : 0;
+        var targetFOH  = recFOH[day] ? recFOH[day][hour] : 0;
+        var targetBOH  = recBOH[day] ? recBOH[day][hour] : 0;
+        if (targetFOH > 0 && targetBOH > 0) {
+          var diffFOH  = actualFOH - targetFOH;
+          var diffBOH  = actualBOH - targetBOH;
+          var isSevere = function(d) { return Math.abs(d) >= 2; };
+          var isMild   = function(d) { return Math.abs(d) === 1; };
+          if (isSevere(diffFOH) || isSevere(diffBOH))     staffClass = 'understaffed';
+          else if (isMild(diffFOH) || isMild(diffBOH))    staffClass = 'low-staffed';
+          else                                              staffClass = 'well-staffed';
+          var badgeStyle = 'background:rgba(255,255,255,0.9);color:#0f172a;padding:1px 5px;border-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,0.15);font-weight:700;border:1px solid rgba(0,0,0,0.1);';
+          var severeStyle = 'color:#dc2626;';
+          var fohMsg = '', bohMsg = '';
+          if (diffFOH !== 0) fohMsg = '<span style="' + (Math.abs(diffFOH)>=2?severeStyle:'') + '">FOH: ' + (diffFOH>0?'+':'') + diffFOH + '</span>';
+          if (diffBOH !== 0) bohMsg = '<span style="' + (Math.abs(diffBOH)>=2?severeStyle:'') + '">BOH: ' + (diffBOH>0?'+':'') + diffBOH + '</span>';
+          if (diffFOH === 0 && diffBOH === 0) {
+            suggestionHtml = '<div class="staff-suggestion staff-suggestion-at" style="' + badgeStyle + 'color:#15803d;">Balanced</div>';
+          } else {
+            var p = []; if (fohMsg) p.push(fohMsg); if (bohMsg) p.push(bohMsg);
+            suggestionHtml = '<div class="staff-suggestion" style="display:flex;gap:4px;justify-content:center;font-size:10px;' + badgeStyle + '">' + p.join('<span style="color:#cbd5e1;margin:0 2px;">|</span>') + '</div>';
+          }
+        }
+      }
+
+      if (!staffClass) {
+        if (staffCount < 10) staffClass = 'understaffed';
+        else if (staffCount < 15) staffClass = 'low-staffed';
+        else if (staffCount < 20) staffClass = 'adequate-staffed';
+        else staffClass = 'well-staffed';
+      }
+
+      var salesHeight = hasSalesData && rawSales > 0 ? Math.min((rawSales/dynamicMaxSales)*100, 100) : 0;
+      cell.innerHTML =
+        '<div class="staff-cell ' + staffClass + '" onclick="openStaffModal(\'' + day + '\',\'' + hour + '\',event)">' +
+        (hasSalesData ? '<div class="sales-overlay" style="height:' + salesHeight + '%;"></div>' : '') +
+        '<div class="staff-count">' + staffCount +
+        '<div class="staff-label">staff</div>' + suggestionHtml + '</div></div>';
+      row.appendChild(cell);
+    });
+    tbody.appendChild(row);
+  });
+}
+
+// ── Charts ────────────────────────────────────────────────────
+
+function createChart() {
+  var ctx = document.getElementById('salesChart').getContext('2d');
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  var hasSalesData = Object.keys(salesData).length > 0;
+  var baseHours = ['5AM','6AM','7AM','8AM','9AM','10AM','11AM','12PM','1PM','2PM','3PM','4PM','5PM','6PM','7PM','8PM','9PM','10PM','11PM'];
+
+  if (!hasSalesData) {
+    var hours = [], avgStaffing = [];
+    baseHours.forEach(function(hour) {
+      var hl = hour.replace('AM',' AM').replace('PM',' PM');
+      if (!isHourInCurrentDaypart(hl)) return;
+      hours.push(hour);
+      var ts = 0, dc = 0;
+      Object.keys(scheduleData).forEach(function(d) { if (scheduleData[d][hl]) { ts += scheduleData[d][hl]; dc++; } });
+      avgStaffing.push(dc > 0 ? ts/dc : 0);
+    });
+    chartInstance = new Chart(ctx, { type:'line', data:{ labels:hours, datasets:[{ label:'Average Staff Count', data:avgStaffing, borderColor:'rgb(102,126,234)', backgroundColor:'rgba(102,126,234,0.1)', tension:0.3 }] }, options:{ responsive:true, maintainAspectRatio:true, aspectRatio:3, plugins:{ title:{ display:true, text:'Staffing Levels Only (No Sales Data)' } } } });
+    return;
+  }
+
+  var hours = [], avgStaffing = [], avgProductivity = [];
+  baseHours.forEach(function(hour) {
+    var hl = hour.replace('AM',' AM').replace('PM',' PM');
+    if (!isHourInCurrentDaypart(hl)) return;
+    hours.push(hour);
+    var ts = 0, tSPLH = 0, dc = 0;
+    var fractions = getSalesFractions();
+    Object.keys(scheduleData).forEach(function(d) {
+      if (scheduleData[d][hl] !== undefined) {
+        var staff = scheduleData[d][hl]; ts += staff;
+        if (salesData[d] && salesData[d][hl] !== undefined) {
+          var rs = salesData[d][hl], eff = rs;
+          if (currentDepartmentView === 'foh') eff = rs * fractions.fohFraction;
+          else if (currentDepartmentView === 'boh') eff = rs * fractions.bohFraction;
+          if (staff > 0) tSPLH += eff/staff;
+        }
+        dc++;
+      }
+    });
+    avgStaffing.push(dc > 0 ? ts/dc : 0);
+    avgProductivity.push(dc > 0 ? Math.round(tSPLH/dc) : null);
+  });
+
+  chartInstance = new Chart(ctx, { type:'line', data:{ labels:hours, datasets:[
+    { label:'Average Staff Count', data:avgStaffing, borderColor:'rgb(102,126,234)', backgroundColor:'rgba(102,126,234,0.1)', yAxisID:'y', tension:0.3 },
+    { label:'Sales per Labor Hour ($)', data:avgProductivity, borderColor:'rgb(251,146,60)', backgroundColor:'rgba(251,146,60,0.1)', yAxisID:'y2', tension:0.3, borderDash:[5,5], spanGaps:true }
+  ]}, options:{ responsive:true, maintainAspectRatio:true, aspectRatio:3, interaction:{ mode:'index', intersect:false }, scales:{ y:{ type:'linear', display:true, position:'left', title:{ display:true, text:'Staff Count' } }, y2:{ type:'linear', display:false } }, plugins:{ legend:{ display:true, position:'bottom' }, tooltip:{ callbacks:{ label:function(ctx) { var l = ctx.dataset.label ? ctx.dataset.label + ': ' : ''; if (ctx.parsed.y !== null) l += l.includes('Sales') ? '$'+ctx.parsed.y.toFixed(0) : ctx.parsed.y.toFixed(1); return l; } } } } } });
+}
+
+function createDayCharts() {
+  var grid = document.getElementById('dayChartsGrid');
+  if (!grid) return;
+  Object.values(dayChartInstances).forEach(function(inst) { if (inst && inst.destroy) inst.destroy(); });
+  dayChartInstances = {};
+  grid.innerHTML = '';
+  var desired = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var toRender = desired.filter(function(d) { return scheduleData[d]; });
+  if (toRender.length === 0) return;
+  var baseHours = ['5AM','6AM','7AM','8AM','9AM','10AM','11AM','12PM','1PM','2PM','3PM','4PM','5PM','6PM','7PM','8PM','9PM','10PM','11PM'];
+  toRender.forEach(function(day) {
+    var card = document.createElement('div'); card.className = 'day-chart-card';
+    var title = document.createElement('div'); title.className = 'day-chart-title'; title.textContent = day;
+    var canvas = document.createElement('canvas');
+    card.appendChild(title); card.appendChild(canvas); grid.appendChild(card);
+    var dh = [], ss = [], sp = [];
+    baseHours.forEach(function(h) {
+      var hl = h.replace('AM',' AM').replace('PM',' PM');
+      if (!isHourInCurrentDaypart(hl)) return;
+      dh.push(h);
+      var staff = scheduleData[day] && scheduleData[day][hl] !== undefined ? scheduleData[day][hl] : 0;
+      var rawSales = salesData[day] && salesData[day][hl] !== undefined ? salesData[day][hl] : null;
+      var fractions = getSalesFractions(), eff = rawSales;
+      if (rawSales !== null) {
+        if (currentDepartmentView === 'foh') eff = rawSales * fractions.fohFraction;
+        else if (currentDepartmentView === 'boh') eff = rawSales * fractions.bohFraction;
+      }
+      ss.push(staff);
+      sp.push(staff > 0 && eff !== null ? Math.round(eff/staff) : null);
+    });
+    var ctx2 = canvas.getContext('2d');
+    dayChartInstances[day] = new Chart(ctx2, { type:'line', data:{ labels:dh, datasets:[
+      { label:'Staff Count', data:ss, borderColor:'rgb(102,126,234)', backgroundColor:'rgba(102,126,234,0.1)', yAxisID:'y', tension:0.3 },
+      { label:'$/LH', data:sp, borderColor:'rgb(251,146,60)', backgroundColor:'rgba(251,146,60,0.1)', yAxisID:'y2', tension:0.3, borderDash:[5,5], spanGaps:true }
+    ]}, options:{ responsive:true, maintainAspectRatio:true, aspectRatio:2.2, interaction:{ mode:'index', intersect:false }, scales:{ y:{ type:'linear', display:true, position:'left', ticks:{ maxTicksLimit:5 } }, y2:{ type:'linear', display:false } }, plugins:{ legend:{ display:false } } } });
+  });
+}
+
+// ── Insights ──────────────────────────────────────────────────
+
+function generateInsights() {
+  var insightsList = document.getElementById('insightsList');
+  insightsList.innerHTML = '';
+  var hasSalesData = Object.keys(salesData).length > 0;
+  var burnoutThreshold = document.getElementById('config-burnout') ? (parseFloat(document.getElementById('config-burnout').value) || 150) : 150;
+  var planCuts = [], planAdds = [], planBurnout = [];
+
+  Object.keys(scheduleData).forEach(function(day) {
+    Object.keys(scheduleData[day]).forEach(function(hour) {
+      var staff = scheduleData[day][hour];
+      if (!hasSalesData) {
+        if (staff < 10 && (hour==='12 PM'||hour==='1 PM'||hour==='6 PM'||hour==='7 PM'))
+          planAdds.push({ day:day, hour:hour, title:'Add Staff (Peak)', desc:'Only '+staff+' scheduled for peak.', score:30-staff });
+        if (staff > 20 && (hour==='5 AM'||hour==='10 PM'||hour==='11 PM'))
+          planCuts.push({ day:day, hour:hour, title:'Cut Staff (Off-Peak)', desc:staff+' scheduled for off-peak.', score:staff-15 });
+      } else {
+        var sales = salesData[day] && salesData[day][hour] ? salesData[day][hour] : 0;
+        var splh  = staff > 0 ? sales/staff : 0;
+        var goal  = getProductivityGoal();
+        if (staff > 0 && splh > burnoutThreshold)
+          planBurnout.push({ day:day, hour:hour, title:'Burnout Risk ($'+splh.toFixed(0)+'/hr)', desc:staff+' staff handling $'+sales.toFixed(0)+' sales.', score:splh-burnoutThreshold });
+        if (staff < 10 && sales > goal*10) {
+          var needed = Math.ceil(sales/goal - staff);
+          planAdds.push({ day:day, hour:hour, title:'Add '+needed+' Staff', desc:'Missed potential ($'+sales.toFixed(0)+'). Goal: $'+goal+'.', score:Math.max(0,needed)*goal });
+        } else if (splh > goal*1.2 && splh <= burnoutThreshold) {
+          var n2 = Math.ceil(sales/goal - staff);
+          if (n2 > 0) planAdds.push({ day:day, hour:hour, title:'Add '+n2+' Staff', desc:'High productivity ($'+splh.toFixed(0)+').', score:(splh-goal)*staff });
+        }
+        if (staff > 2 && splh < goal*0.75) {
+          var potRed = Math.max(0, Math.floor(staff-(sales/goal)));
+          if (potRed > 0) planCuts.push({ day:day, hour:hour, title:'Cut '+potRed+' Staff', desc:'Productivity low ($'+splh.toFixed(0)+'). Goal: $'+goal+'.', score:(goal-splh)*staff });
+        }
+      }
+    });
+  });
+
+  var sortFn = function(a,b) { return b.score - a.score; };
+  planBurnout.sort(sortFn); planAdds.sort(sortFn); planCuts.sort(sortFn);
+
+  var allItems = [
+    ...planBurnout.map(function(i) { return Object.assign({},i,{type:'burnout',icon:'\uD83D\uDD25',label:'BURNOUT RISK'}); }),
+    ...planAdds.map(function(i)    { return Object.assign({},i,{type:'add',icon:'\u2795',label:'UNDERSTAFFED'}); }),
+    ...planCuts.map(function(i)    { return Object.assign({},i,{type:'cut',icon:'\u2702\uFE0F',label:'OVERSTAFFED'}); })
+  ];
+  allItems.sort(sortFn);
+  var criticalItems = allItems.slice(0,3);
+
+  if (criticalItems.length > 0) {
+    var critSection = document.createElement('div');
+    critSection.className = 'critical-section';
+    critSection.innerHTML = '<div class="critical-header"><span>\uD83D\uDEA8 CRITICAL ACTIONS REQUIRED</span></div>' +
+      '<div class="critical-grid">' +
+      criticalItems.map(function(item) {
+        return '<div class="plan-item '+item.type+'" style="border-width:1px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">' +
+          '<div class="plan-item-top"><span class="plan-day-time">'+item.day+' '+item.hour+'</span><span class="plan-badge">'+item.label+'</span></div>' +
+          '<div class="plan-title">'+item.title+'</div><div class="plan-desc">'+item.desc+'</div></div>';
+      }).join('') + '</div>';
+    insightsList.appendChild(critSection);
+  }
+
+  var grid2 = document.createElement('div');
+  grid2.className = 'shift-plan-grid';
+  var renderCol = function(title, items, typeClass) {
+    var col = document.createElement('div'); col.className = 'plan-column';
+    col.innerHTML = '<div class="plan-column-header"><h3>'+title+'</h3><span class="plan-badge">'+items.length+'</span></div>';
+    var list = document.createElement('div'); list.className = 'plan-list';
+    if (items.length === 0) {
+      list.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:20px;font-size:13px;">No issues found.</div>';
+    } else {
+      var renderItem = function(item) {
+        return '<div class="plan-item '+typeClass+'"><div class="plan-item-top"><span class="plan-day-time">'+item.day+' '+item.hour+'</span></div>' +
+          '<div class="plan-title">'+item.title+'</div><div class="plan-desc">'+item.desc+'</div></div>';
+      };
+      items.slice(0,20).forEach(function(item) { list.innerHTML += renderItem(item); });
+      if (items.length > 20) {
+        var remaining = items.slice(20);
+        var btnDiv = document.createElement('div'); btnDiv.style.cssText = 'text-align:center;padding:12px;border-top:1px solid #e2e8f0;';
+        var btn = document.createElement('button'); btn.className = 'btn-secondary'; btn.style.fontSize = '12px'; btn.style.width = '100%';
+        btn.textContent = 'Show ' + remaining.length + ' more hidden issues';
+        btn.onclick = function() { btnDiv.remove(); remaining.forEach(function(item) { var tmp = document.createElement('div'); tmp.innerHTML = renderItem(item); list.appendChild(tmp.firstElementChild); }); };
+        btnDiv.appendChild(btn); list.appendChild(btnDiv);
+      }
+    }
+    col.appendChild(list); return col;
+  };
+  grid2.appendChild(renderCol('\uD83D\uDD25 Burnout Risks', planBurnout, 'burnout'));
+  grid2.appendChild(renderCol('\u2795 Hire / Add Staff', planAdds,    'add'));
+  grid2.appendChild(renderCol('\u2702\uFE0F Cut / Send Home', planCuts, 'cut'));
+  insightsList.appendChild(grid2);
+}
+
+// ── Ideal Schedule ────────────────────────────────────────────
+
+function generateIdealSchedule() {
+  var panel    = document.getElementById('idealModelPanel');
+  var tbody    = document.getElementById('idealScheduleBody');
+  var goalSpan = document.getElementById('idealModelGoal');
+  if (!panel || !tbody) return;
+  if (Object.keys(salesData).length === 0) { showToast('Enter daily sales estimates first to generate an ideal model.', 'warning'); return; }
+  var goal     = getProductivityGoal();
+  var deptName = currentDepartmentView === 'foh' ? 'FOH' : currentDepartmentView === 'boh' ? 'BOH' : 'Overall';
+  var ht = document.querySelector('#idealModelPanel .chart-header span');
+  if (ht) ht.textContent = '\u2728 Ideal Staffing Model (' + deptName + ' Target)';
+  goalSpan.textContent = goal.toFixed(2);
+  panel.style.display  = 'block';
+  tbody.innerHTML      = '';
+  var days     = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var hours    = HOURS.filter(function(h) { return isHourInCurrentDaypart(h); });
+  var fractions = getSalesFractions();
+  hours.forEach(function(hour) {
+    var row = document.createElement('tr');
+    row.innerHTML = '<td class="hour-label">' + hour + '</td>';
+    days.forEach(function(day) {
+      var cell = document.createElement('td'), ideal = 0;
+      if (salesData[day] && salesData[day][hour]) {
+        var rs = salesData[day][hour], eff = rs;
+        if (currentDepartmentView === 'foh')      eff = rs * fractions.fohFraction;
+        else if (currentDepartmentView === 'boh') eff = rs * fractions.bohFraction;
+        if (eff > 0) { ideal = Math.ceil(eff/goal); if (ideal < 1) ideal = 1; }
+      }
+      var current = scheduleData[day] && scheduleData[day][hour] ? scheduleData[day][hour] : 0;
+      var diff    = current - ideal;
+      var diffHtml = '';
+      if (current > 0 || ideal > 0) {
+        if (diff === 0)  diffHtml = '<span style="color:#22c55e;font-size:10px;display:block">Matched</span>';
+        else if (diff<0) diffHtml = '<span style="color:#ef4444;font-size:10px;display:block">Add '+Math.abs(diff)+'</span>';
+        else             diffHtml = '<span style="color:#f59e0b;font-size:10px;display:block">Cut '+diff+'</span>';
+      }
+      cell.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:8px;"><div style="font-weight:700;font-size:16px;color:#1e293b;">'+ideal+'</div>'+diffHtml+'</div>';
+      cell.style.background = ideal > 0 ? '#fff' : '#f8fafc';
+      row.appendChild(cell);
+    });
+    tbody.appendChild(row);
+  });
+  panel.scrollIntoView({ behavior:'smooth' });
+}
+
+// ── CSV Export ────────────────────────────────────────────────
+
+function downloadResults() {
+  var hasSalesData = Object.keys(salesData).length > 0;
+  var goal = getProductivityGoal();
+  var allHours = ['5 AM','6 AM','7 AM','8 AM','9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM','9 PM','10 PM','11 PM'];
+  var csv = hasSalesData ? 'Day,Hour,Staff Count,Sales,SPLH,vs Goal ($'+goal+'),Efficiency\n' : 'Day,Hour,Staff Count\n';
+  Object.keys(scheduleData).forEach(function(day) {
+    allHours.forEach(function(hour) {
+      var staff = scheduleData[day][hour] || 0;
+      if (hasSalesData) {
+        var sales = salesData[day] && salesData[day][hour] ? salesData[day][hour] : 0;
+        var splh  = staff > 0 ? sales/staff : 0, vsGoal = splh - goal;
+        var eff   = splh >= goal ? 'Meeting Goal' : splh >= goal*0.9 ? 'Near Goal' : 'Below Goal';
+        csv += day+','+hour+','+staff+','+sales.toFixed(2)+','+splh.toFixed(2)+','+vsGoal.toFixed(2)+','+eff+'\n';
+      } else { csv += day+','+hour+','+staff+'\n'; }
+    });
+  });
+  var blob = new Blob([csv], { type:'text/csv' });
+  var url  = window.URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href   = url;
+  a.download = 'schedule_analysis_' + (currentDepartmentView === 'foh' ? 'FOH' : currentDepartmentView === 'boh' ? 'BOH' : 'Overall') + '.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); window.URL.revokeObjectURL(url);
+}
+
+function showFormatHelp() {
+  alert('CSV FORMAT GUIDE\n\n=== SCHEDULE FILES ===\nFormat: Date,Time,Employee\n\nExample:\n11/10/2025,5:00 AM,JOHN SMITH\n11/10/2025,6:00 AM,JANE DOE\n\nFOH = Front of House\nBOH = Back of House\n\n=== SALES INPUTS ===\nEnter total daily sales. Distributed using per-day sales curve.\n\n=== SETTINGS ===\nConfigure SPLH Goals and Labor Shares in the Settings tab.');
+}
+
+// ── Manager Grid ──────────────────────────────────────────────
+
+function getDefaultShiftsForDay() { return [{label:'Open',name:''},{label:'Close',name:''}]; }
+function ensureManagerData(dept, day) { if (!managerShifts[dept]) managerShifts[dept]={}; if (!managerShifts[dept][day]) managerShifts[dept][day]=getDefaultShiftsForDay(); }
+function toggleManagerPanel() {
+  managerGridVisible = !managerGridVisible;
+  var grid = document.getElementById('managerGrid');
+  if (grid) grid.style.display = managerGridVisible ? 'flex' : 'none';
+  if (managerGridVisible) renderManagerGrid();
+}
+function renderManagerGrid() {
+  var grid = document.getElementById('managerGrid');
+  if (!grid || !managerGridVisible) return;
+  var daysWithData = Object.keys(scheduleData);
+  if (daysWithData.length === 0) { grid.innerHTML = ''; return; }
+  var dept = currentDepartmentView, html = '<div class="manager-day-col">Mgrs</div>';
+  daysWithData.forEach(function(day) {
+    ensureManagerData(dept, day);
+    var shifts = managerShifts[dept][day], shiftsHtml = '';
+    shifts.forEach(function(shift, i) {
+      var esc = (shift.name||'').replace(/"/g,'&quot;');
+      shiftsHtml += '<div class="manager-shift-row"><span class="manager-shift-label">'+shift.label+'</span><input type="text" class="manager-shift-input" value="'+esc+'" placeholder="Name" onchange="updateManagerShift(\''+dept+'\',\''+day+'\','+i+',\'name\',this.value)">' +
+        (i>=2 ? '<button class="manager-remove-btn" onclick="removeManagerShift(\''+dept+'\',\''+day+'\','+i+')" title="Remove">&times;</button>' : '') + '</div>';
+    });
+    shiftsHtml += '<button class="manager-add-btn" onclick="addManagerShift(\''+dept+'\',\''+day+'\')">+ Mid</button>';
+    html += '<div class="manager-day-col">'+shiftsHtml+'</div>';
+  });
+  grid.innerHTML = html;
+}
+function updateManagerShift(dept,day,index,field,value) { ensureManagerData(dept,day); if(managerShifts[dept][day][index]) { managerShifts[dept][day][index][field]=value; saveManagerShifts(); } }
+function addManagerShift(dept,day) { ensureManagerData(dept,day); managerShifts[dept][day].push({label:'Mid',name:''}); saveManagerShifts(); renderManagerGrid(); }
+function removeManagerShift(dept,day,index) { ensureManagerData(dept,day); if(index<2)return; managerShifts[dept][day].splice(index,1); saveManagerShifts(); renderManagerGrid(); }
+
+// ── Staff Modal ───────────────────────────────────────────────
+
+function openStaffModal(day, hour, event) {
+  if (event) event.stopPropagation();
+  var panel  = document.getElementById('staffSidePanel');
+  var listEl = document.getElementById('staffList');
+  var titleEl = document.getElementById('staffSidePanelTitle');
+  titleEl.textContent = day + ' @ ' + hour;
+  listEl.innerHTML = '';
+  var allStaff = [];
+  var addStaff = function(nameList, type) {
+    if (!nameList) return;
+    nameList.forEach(function(name) { allStaff.push({ name:name, type:type }); });
+  };
+  if (currentDepartmentView === 'foh' || currentDepartmentView === 'overall') {
+    if (fohStaffNames[day] && fohStaffNames[day][hour]) addStaff(fohStaffNames[day][hour],'foh');
+  }
+  if (currentDepartmentView === 'boh' || currentDepartmentView === 'overall') {
+    if (bohStaffNames[day] && bohStaffNames[day][hour]) addStaff(bohStaffNames[day][hour],'boh');
+  }
+  if (allStaff.length === 0) {
+    listEl.innerHTML = '<li class="staff-list-item" style="justify-content:center;color:#94a3b8;">No staff scheduled.</li>';
+  } else {
+    allStaff.sort(function(a,b) { return a.name.localeCompare(b.name); });
+    allStaff.forEach(function(staff) {
+      var initials = staff.name.split(' ').map(function(n) { return n[0]; }).join('').substring(0,2).toUpperCase();
+      var li = document.createElement('li'); li.className = 'staff-list-item';
+      li.innerHTML = '<div class="staff-avatar">'+initials+'</div><span style="font-weight:500;">'+staff.name+'</span><span class="staff-dept-badge badge-'+staff.type+'">'+staff.type.toUpperCase()+'</span>';
+      listEl.appendChild(li);
+    });
+  }
+  panel.classList.add('open');
+}
+
+function closeStaffModal() { document.getElementById('staffSidePanel').classList.remove('open'); }
+
+window.addEventListener('click', function(event) {
+  var panel = document.getElementById('staffSidePanel');
+  if (panel && panel.classList.contains('open')) {
+    if (!panel.contains(event.target) && !event.target.closest('.staff-cell')) closeStaffModal();
+  }
+  var wm = document.getElementById('walkthroughModal');
+  if (wm && event.target === wm) wm.style.display = 'none';
+});
+
+// ── Metric Tooltips ───────────────────────────────────────────
+
+function initMetricTooltips() {
+  try {
+    var avgLabel  = document.querySelector('#avgStaff')?.parentElement?.querySelector('.metric-label');
+    var prodLabel = document.querySelector('#peakEfficiency')?.parentElement?.querySelector('.metric-label');
+    var splhLabel = document.querySelector('#splh')?.parentElement?.querySelector('.metric-label');
+    var laborLabel = document.querySelector('#laborCost')?.parentElement?.querySelector('.metric-label');
+    if (avgLabel)   avgLabel.setAttribute('data-tooltip','Total staff hours divided by total open hours in this view.');
+    if (prodLabel)  prodLabel.setAttribute('data-tooltip','Productivity = Total sales divided by total labor hours ($/LH).');
+    if (splhLabel)  splhLabel.setAttribute('data-tooltip','Same productivity metric, compared against your configured goal.');
+    if (laborLabel) laborLabel.setAttribute('data-tooltip','Sum of all scheduled staff hours in this view.');
+  } catch(e) {}
+}
+
+// ── Demo Data ─────────────────────────────────────────────────
+
+function loadDemoData() {
+  if (!confirm('This will overwrite any current schedule and sales data. Continue?')) return;
+  var demoSales = { Monday:3500, Tuesday:3200, Wednesday:3800, Thursday:4200, Friday:5800, Saturday:6200 };
+  Object.keys(demoSales).forEach(function(day) { var el = document.getElementById('sales-'+day); if(el) el.value = demoSales[day]; });
+  saveSalesInputs();
+  var days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var fohEmp = ['Sarah Johnson','Mike Chen','Emily Davis','Chris Wilson','Amanda Brown','David Martinez','Jessica Lee','Tyler Scott','Rachel Kim','Brandon Taylor'];
+  var bohEmp = ['Carlos Garcia','Maria Santos','Kevin O\'Brien','Lisa Wang','James Miller','Ana Rodriguez','Derek Thompson','Priya Patel'];
+  fohScheduleData = {}; bohScheduleData = {}; fohStaffNames = {}; bohStaffNames = {};
+  days.forEach(function(d) { fohScheduleData[d]={}; bohScheduleData[d]={}; fohStaffNames[d]={}; bohStaffNames[d]={}; });
+  var fillHours = function(so, no, employees, day, startIdx, endIdx, count) {
+    for (var i = startIdx; i < endIdx; i++) {
+      so[day][HOURS[i]] = count;
+      var assigned = [];
+      for (var j = 0; j < count; j++) assigned.push(employees[j % employees.length]);
+      no[day][HOURS[i]] = assigned;
+    }
+  };
+  days.forEach(function(day) {
+    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 0,5,2);
+    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 5,9,6);
+    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 9,12,3);
+    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 12,16,8);
+    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 16,19,4);
+    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 0,4,2);
+    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 4,9,5);
+    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 9,12,3);
+    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 12,16,6);
+    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 16,19,2);
+  });
+  showToast('Demo data loaded! Try switching views (FOH/BOH) or editing the sales curve in Settings.', 'success');
+  combineScheduleData();
+  generateReport();
+}
+
+// ── Drag & Drop ───────────────────────────────────────────────
+
+function setupDragAndDrop() {
+  var dropzones = [
+    { id:'fileInput',       labelClass:'dropzone',       type:'converter' },
+    { id:'fohScheduleFile', labelClass:'control-group',  type:'foh' },
+    { id:'bohScheduleFile', labelClass:'control-group',  type:'boh' }
+  ];
+  dropzones.forEach(function(zone) {
+    var input = document.getElementById(zone.id);
+    if (!input) return;
+    var container = input.closest('.' + zone.labelClass);
+    if (!container && zone.labelClass === 'control-group') container = input.parentElement;
+    if (!container) return;
+    ['dragenter','dragover'].forEach(function(ev) {
+      container.addEventListener(ev, function(e) { e.preventDefault(); e.stopPropagation(); container.classList.add('drag-active'); }, false);
+    });
+    ['dragleave','drop'].forEach(function(ev) {
+      container.addEventListener(ev, function(e) { e.preventDefault(); e.stopPropagation(); container.classList.remove('drag-active'); }, false);
+    });
+    container.addEventListener('drop', function(e) {
+      var files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        input.files = files;
+        input.dispatchEvent(new Event('change', { bubbles:true }));
+      }
+    }, false);
+  });
+}
+
+// ── Walkthrough Modal ─────────────────────────────────────────
+
+function showWalkthrough() {
+  if (!document.getElementById('walkthroughModal')) {
+    var html = '<div id="walkthroughModal" class="modal" style="display:none;align-items:center;justify-content:center;">' +
+      '<div class="modal-content" style="max-width:600px;position:relative;">' +
+      '<span class="close" onclick="document.getElementById(\'walkthroughModal\').style.display=\'none\'">&times;</span>' +
+      '<div class="step-slide" id="step1">' +
+      '<h2>\uD83D\uDE80 Welcome! How to use this tool</h2>' +
+      '<p style="margin:16px 0;line-height:1.6;">Combine your <strong>HotSchedules export</strong> with your <strong>Sales Forecast</strong> to optimize staffing.</p>' +
+      '<div style="background:#f8fafc;padding:16px;border-radius:8px;margin-bottom:20px;border:1px solid #e2e8f0;"><strong>The 2-Step Process:</strong><ol style="margin-left:20px;margin-top:8px;display:flex;flex-direction:column;gap:8px;"><li><strong>Convert:</strong> Turn your raw HotSchedules file into a CSV.</li><li><strong>Analyze:</strong> See where you are over/understaffed.</li></ol></div>' +
+      '<div style="text-align:right;"><button class="btn-primary" onclick="showStep(2)">Next: Step 1 &rarr;</button></div></div>' +
+      '<div class="step-slide" id="step2" style="display:none;"><h2>Step 1: File Converter</h2><p>Go to <strong>File Converter</strong> tab, upload your export, and click Convert &amp; Download.</p><div style="display:flex;justify-content:space-between;margin-top:20px;"><button class="btn-secondary" onclick="showStep(1)">Back</button><button class="btn-primary" onclick="showStep(3)">Next: Step 2 &rarr;</button></div></div>' +
+      '<div class="step-slide" id="step3" style="display:none;"><h2>Step 2: Schedule Analysis</h2><p>Upload your CSVs, enter daily sales, and generate your analysis. Configure goals in <strong>Settings</strong>.</p><div style="display:flex;justify-content:space-between;margin-top:20px;"><button class="btn-secondary" onclick="showStep(2)">Back</button><button class="btn-primary" onclick="showStep(4)">Next &rarr;</button></div></div>' +
+      '<div class="step-slide" id="step4" style="display:none;"><h2>\u2728 See the Magic</h2><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px;">' +
+      '<div style="background:#eff6ff;padding:12px;border-radius:8px;font-size:12px;text-align:center;"><div style="font-size:20px;margin-bottom:4px;">\uD83D\uDCCA</div><strong>Visual Grid</strong><br>Red/Green heatmaps</div>' +
+      '<div style="background:#fef2f2;padding:12px;border-radius:8px;font-size:12px;text-align:center;"><div style="font-size:20px;margin-bottom:4px;">\uD83D\uDEA8</div><strong>Action Plan</strong><br>Cut/Add staff cues</div>' +
+      '<div style="background:#fffbeb;padding:12px;border-radius:8px;font-size:12px;text-align:center;"><div style="font-size:20px;margin-bottom:4px;">\u2728</div><strong>Ideal Model</strong><br>Target vs Actual</div></div>' +
+      '<div style="text-align:center;"><button class="btn-primary" style="width:100%;" onclick="document.getElementById(\'walkthroughModal\').style.display=\'none\'">Let\'s Go!</button></div></div>' +
+      '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+  document.getElementById('walkthroughModal').style.display = 'flex';
+  showStep(1);
+}
+function showStep(n) { [1,2,3,4].forEach(function(i) { document.getElementById('step'+i).style.display = (i===n)?'block':'none'; }); }
+function showInstructions() { var m = document.getElementById('instructionsModal'); if(m) m.style.display='flex'; }
+function hideInstructions() { var m = document.getElementById('instructionsModal'); if(m) m.style.display='none'; }
+
+// ── HotSchedules Converter ────────────────────────────────────
+
+function setError(message) {
+  var el = document.getElementById('error');
+  if (!el) return;
+  if (!message) { el.textContent=''; el.classList.remove('visible'); return; }
+  el.textContent = message; el.classList.add('visible');
+}
+function setStatus(message) { var el = document.getElementById('status'); if(el) el.textContent = message||''; }
+function normalizeWhitespace(text) { return text.replace(/\s+/g,' ').trim(); }
+function parseMmddyyToDate(mmddyy) {
+  var value = mmddyy.trim(); if(!value) return null;
+  var parts = value.split('/'); if(parts.length!==3) return null;
+  var m = parseInt(parts[0],10), d = parseInt(parts[1],10), y2 = parseInt(parts[2],10);
+  if(!Number.isFinite(m)||!Number.isFinite(d)||!Number.isFinite(y2)) return null;
+  return new Date(2000+y2, m-1, d);
+}
+function parseTime12hToDate(timeStr, baseDate) {
+  var value = timeStr.trim(); if(!value) return null;
+  var hour, minute=0, ampm;
+  var parts = value.split(' ');
+  if (parts.length===2) { ampm=parts[1].toUpperCase(); var hm=parts[0].split(':'); if(hm.length===2){hour=parseInt(hm[0],10);minute=parseInt(hm[1],10);}else if(hm.length===1){hour=parseInt(hm[0],10);}else return null; }
+  else if (parts.length===1) { var m=/(\d+)(?::(\d+))?\s*(AM|PM)/i.exec(value); if(!m)return null; hour=parseInt(m[1],10); minute=m[2]?parseInt(m[2],10):0; ampm=m[3].toUpperCase(); }
+  else return null;
+  if(!Number.isFinite(hour)||!Number.isFinite(minute)) return null;
+  if(ampm==='PM'&&hour!==12) hour+=12; if(ampm==='AM'&&hour===12) hour=0;
+  return new Date(baseDate.getFullYear(),baseDate.getMonth(),baseDate.getDate(),hour,minute,0,0);
+}
+function timeRangesOverlap(slotStart,slotEnd,rangeStart,rangeEnd) { return slotStart<rangeEnd&&slotEnd>rangeStart; }
+function parseShiftSegments(cellText) {
+  var cleaned = (cellText||'').replace(/\u00a0/g,' '); cleaned=normalizeWhitespace(cleaned);
+  if(!cleaned||cleaned==='-'||cleaned==='\u00a0') return [];
+  var segsRaw = cleaned.split(',').map(function(s){return s.trim();}).filter(Boolean), segments=[];
+  for(var i=0;i<segsRaw.length;i++) { var seg=segsRaw[i], p=seg.split('-').map(function(x){return x.trim();}); segments.push([seg,p.length>=2?p[0]:'',p.length>=2?p[1]:'']); }
+  return segments;
+}
+function extractDayHeaders(headerCells) {
+  var headers=[];
+  for(var ci=0;ci<headerCells.length;ci++) {
+    var cell=headerCells[ci], html=cell.innerHTML||'', parts=[];
+    if(/<br\s*\/?>/i.test(html)) { parts=html.split(/<br\s*\/?>/i).map(function(f){var t=document.createElement('div');t.innerHTML=f;return normalizeWhitespace(t.textContent||'');}).filter(Boolean); }
+    else { var text=normalizeWhitespace(cell.textContent||''); var match=/^([A-Za-z]{3,})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/.exec(text); if(match) parts=[match[1],match[2]]; else parts=[text]; }
+    if(parts.length>=2) headers.push([parts[0],parts[1]]); else headers.push([parts[0]||'','']);
+  }
+  return headers;
+}
+function extractFlattenedAndHeaderDates(doc) {
+  var tables=Array.from(doc.getElementsByTagName('table')); if(tables.length===0) throw new Error('No tables found in input file.');
+  var mainTable=tables[0], maxRows=0;
+  for(var t=0;t<tables.length;t++) { var rc=tables[t].getElementsByTagName('tr').length; if(rc>maxRows){maxRows=rc;mainTable=tables[t];} }
+  var rows=Array.from(mainTable.getElementsByTagName('tr')), currentSection='', dayHeaders=[], headerDates=new Set(), flattenedRows=[];
+  for(var ri=0;ri<rows.length;ri++) {
+    var tds=Array.from(rows[ri].getElementsByTagName('td')); if(tds.length===0) continue;
+    var first=tds[0], firstClass=first.className||'';
+    if(firstClass.split(/\s+/).includes('highlight')) {
+      var sectionText=normalizeWhitespace(first.textContent||'').replace(/^\W+|\W+$/g,''); currentSection=sectionText||currentSection;
+      var headerCells=tds.slice(1); if(headerCells.length>0&&normalizeWhitespace(headerCells[0].textContent||'').toLowerCase()==='total day') headerCells=headerCells.slice(1);
+      dayHeaders=extractDayHeaders(headerCells);
+      dayHeaders.forEach(function(h){ var p=h[1]?parseMmddyyToDate(h[1]):null; if(p) headerDates.add(p.getTime()); });
+      continue;
+    }
+    if(firstClass.split(/\s+/).includes('bold')) {
+      var empName=normalizeWhitespace(first.textContent||''); var dayCells=tds.slice(1);
+      if(dayCells.length>0&&normalizeWhitespace(dayCells[0].textContent||'').toLowerCase()==='total day') dayCells=dayCells.slice(1);
+      if(dayHeaders.length===0) { var inf=[]; for(var di=0;di<dayCells.length;di++) inf.push(['Day'+(di+1),'']); dayHeaders=inf; }
+      for(var di=0;di<dayCells.length;di++) {
+        if(di>=dayHeaders.length) break;
+        var cellText=(dayCells[di].textContent||'').trim(), segs=parseShiftSegments(cellText);
+        if(!segs.length) continue;
+        for(var si=0;si<segs.length;si++) flattenedRows.push([currentSection,empName,dayHeaders[di][0],dayHeaders[di][1],String(si+1),segs[si][1],segs[si][2],segs[si][0]]);
+      }
+    }
+  }
+  return { flattenedRows:flattenedRows, headerDates:Array.from(headerDates).map(function(ts){return new Date(ts);}) };
+}
+function buildHourlyFromFlattened(flattenedRows) {
+  var hourly=new Map();
+  for(var i=0;i<flattenedRows.length;i++) {
+    var row=flattenedRows[i]; if(row.length<7) continue;
+    var empName=row[1],dateStr=row[3],startStr=row[5],endStr=row[6];
+    var parsedDate=dateStr?parseMmddyyToDate(dateStr):null; if(!parsedDate) continue;
+    var startDt=parseTime12hToDate(startStr,parsedDate), endDtInit=parseTime12hToDate(endStr,parsedDate);
+    if(!startDt||!endDtInit) continue;
+    var endDt=endDtInit; if(endDt.getTime()<=startDt.getTime()) endDt=new Date(endDt.getTime()+86400000);
+    var dayStart=new Date(parsedDate.getFullYear(),parsedDate.getMonth(),parsedDate.getDate(),0,0,0,0);
+    for(var h=0;h<24;h++) {
+      var slotStart=new Date(dayStart.getTime()+h*3600000), slotEnd=new Date(slotStart.getTime()+3600000);
+      if(timeRangesOverlap(slotStart,slotEnd,startDt,endDt)) {
+        var dk=dayStart.getTime(); if(!hourly.has(dk)) hourly.set(dk,new Map()); var hm=hourly.get(dk);
+        if(!hm.has(h)) hm.set(h,[]); hm.get(h).push(empName);
+      }
+    }
+  }
+  var outputRows=[], sortedKeys=Array.from(hourly.keys()).sort(function(a,b){return a-b;});
+  for(var ki=0;ki<sortedKeys.length;ki++) {
+    var dateObj=new Date(sortedKeys[ki]), hm2=hourly.get(sortedKeys[ki]);
+    for(var h2=0;h2<24;h2++) {
+      var emps=hm2.get(h2)||[]; if(!emps.length) continue;
+      var slot=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate(),h2,0,0,0);
+      var mo=slot.getMonth()+1, dy=slot.getDate(), yr=slot.getFullYear();
+      var hr=slot.getHours(), ap=hr>=12?'PM':'AM'; if(hr===0)hr=12; else if(hr>12)hr-=12;
+      emps.forEach(function(emp){ outputRows.push([mo+'/'+dy+'/'+yr, hr+':00 '+ap, emp]); });
+    }
+  }
+  return outputRows;
+}
+function formatHoursWeekFilename(startDate,endDate) { return 'schedule hours for '+(startDate.getMonth()+1)+'-'+startDate.getDate()+'-'+(endDate.getMonth()+1)+'-'+endDate.getDate()+'.csv'; }
+function toCsv(headers,rows) {
+  var esc=function(v){var s=v==null?'':String(v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  var lines=[headers.map(esc).join(',')];
+  rows.forEach(function(row){lines.push(row.map(esc).join(','));});
+  return lines.join('\n');
+}
+function downloadCsv(filename,csvContent) {
+  var blob=new Blob([csvContent],{type:'text/csv;charset=utf-8;'}), url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+async function handleProcess() {
+  setError(''); setStatus('');
+  var input=document.getElementById('fileInput'), file=input&&input.files&&input.files[0];
+  if(!file){setError('Please choose a schedule file first.');return;}
+  setStatus('Reading file and parsing schedule\u2026');
+  try {
+    var text=await file.text(), parser=new DOMParser(), doc=parser.parseFromString(text,'text/html');
+    var result=extractFlattenedAndHeaderDates(doc), flattenedRows=result.flattenedRows, headerDates=result.headerDates;
+    if(!flattenedRows.length){setError('No schedule data found in this file.');setStatus('');return;}
+    var derivedDatesSet=new Set(headerDates.map(function(d){return d.getTime();}));
+    if(derivedDatesSet.size===0) { flattenedRows.forEach(function(row){if(row.length>=4&&row[3]){var p=parseMmddyyToDate(row[3]);if(p)derivedDatesSet.add(p.getTime());}}); }
+    var filename='schedule hours.csv', startDate=null, endDate=null;
+    if(derivedDatesSet.size>0){var dateObjs=Array.from(derivedDatesSet).map(function(ts){return new Date(ts);});dateObjs.sort(function(a,b){return a-b;});startDate=dateObjs[0];endDate=dateObjs[dateObjs.length-1];filename=formatHoursWeekFilename(startDate,endDate);}
+    var hourlyRows=buildHourlyFromFlattened(flattenedRows);
+    var csv=toCsv(['Date','Time','Employee'],hourlyRows);
+    setStatus('Generating download\u2026 ('+hourlyRows.length+' rows)');
+    downloadCsv(filename,csv);
+    setStatus('Done. Your CSV is downloading. Go to Schedule Analysis tab and upload it as FOH or BOH.');
+  } catch(err) { console.error(err); setError('Error parsing file: '+err.message); setStatus(''); }
+}
+
+// ── Week Detection & Snapshot Payload ────────────────────────
+
+/**
+ * Finds the Monday of the week from dates pushed by parseFOHScheduleCSV().
+ * Returns 'YYYY-MM-DD' string, or null if no dates were tracked.
+ */
+function detectWeekStart() {
+  if (!scheduleWeekDates.length) return null;
+  var d   = new Date(scheduleWeekDates[0].getTime());
+  var dow = d.getDay(); // 0 = Sunday
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  var mm = String(d.getMonth() + 1).length < 2 ? '0' + (d.getMonth() + 1) : String(d.getMonth() + 1);
+  var dd = String(d.getDate()).length < 2 ? '0' + d.getDate() : String(d.getDate());
+  return d.getFullYear() + '-' + mm + '-' + dd;
+}
+
+/**
+ * Builds the payload for saveWeekSnapshot().
+ * Always uses combined FOH+BOH data regardless of current department view.
+ */
+function buildSnapshotPayload() {
+  var combined = {};
+  var allDays  = {};
+  Object.keys(fohScheduleData).forEach(function(d) { allDays[d] = true; });
+  Object.keys(bohScheduleData).forEach(function(d) { allDays[d] = true; });
+  Object.keys(allDays).forEach(function(day) {
+    combined[day] = {};
+    HOURS.forEach(function(hour) {
+      var foh = (fohScheduleData[day] && fohScheduleData[day][hour]) || 0;
+      var boh = (bohScheduleData[day] && bohScheduleData[day][hour]) || 0;
+      combined[day][hour] = foh + boh;
+    });
+  });
+  return {
+    weekStart:       detectWeekStart(),
+    scheduleData:    combined,
+    fohScheduleData: fohScheduleData,
+    bohScheduleData: bohScheduleData,
+    salesData:       salesData,
+    salesSource:     currentSalesSource,
+    biasFlags:       (_lastLoadedConfig && _lastLoadedConfig.biasFlags) || {}
+  };
+}
+
+// ── Trends Tab ────────────────────────────────────────────────
+
+function showTrendsSpinner() {
+  var sp = document.getElementById('trendsSpinner');
+  if (sp) sp.style.display = 'flex';
+  ['trendsContent','trendsEmpty','trendsError'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+function hideTrendsSpinner() {
+  var sp = document.getElementById('trendsSpinner');
+  if (sp) sp.style.display = 'none';
+}
+
+function showTrendsError(msg) {
+  var el = document.getElementById('trendsError');
+  if (el) { el.textContent = 'Failed to load trends: ' + msg; el.style.display = 'block'; }
+}
+
+var _trendsSalesHistoryChart = null;
+var _trendsDailyBreakdownChart = null;
+
+function loadTrendsData() {
+  showTrendsSpinner();
+
+  // Load SPLH summary and raw sales history in sequence
+  google.script.run
+    .withSuccessHandler(function(summaryData) {
+      // Now load the raw sales history regardless of whether summary has rows
+      google.script.run
+        .withSuccessHandler(function(salesData) {
+          hideTrendsSpinner();
+          renderTrendsSalesHistory(salesData);
+          if (summaryData && !summaryData.error && summaryData.rows && summaryData.rows.length > 0) {
+            renderTrends(summaryData);
+          } else if (!salesData || !salesData.rows || salesData.rows.length === 0) {
+            var emptyEl = document.getElementById('trendsEmpty');
+            if (emptyEl) emptyEl.style.display = 'block';
+          }
+          trendsLoaded = true;
+        })
+        .withFailureHandler(function() {
+          hideTrendsSpinner();
+          if (summaryData && !summaryData.error && summaryData.rows && summaryData.rows.length > 0) {
+            renderTrends(summaryData);
+          } else {
+            var emptyEl = document.getElementById('trendsEmpty');
+            if (emptyEl) emptyEl.style.display = 'block';
+          }
+          trendsLoaded = true;
+        })
+        .getWeeklySalesHistory();
+    })
+    .withFailureHandler(function(err) {
+      showTrendsError(err.message);
+      hideTrendsSpinner();
+    })
+    .getWeeklySummary({ n: 12 });
+}
+
+function renderTrendsSalesHistory(data) {
+  var rows = (data && data.rows) || [];
+  var container = document.getElementById('trendsSalesHistoryContainer');
+  if (!container || rows.length === 0) return;
+
+  container.style.display = 'block';
+
+  var M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var labels = rows.map(function(r) {
+    var d = new Date(r.weekStart + 'T12:00:00Z');
+    return M[d.getUTCMonth()] + ' ' + d.getUTCDate();
+  });
+  var totals = rows.map(function(r) { return r.totalSales; });
+
+  var canvas = document.getElementById('trendsSalesHistoryChart');
+  if (!canvas) return;
+  if (_trendsSalesHistoryChart) { _trendsSalesHistoryChart.destroy(); _trendsSalesHistoryChart = null; }
+
+  _trendsSalesHistoryChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Total Weekly Sales ($)',
+        data: totals,
+        backgroundColor: 'rgba(99,102,241,0.7)',
+        borderColor: 'rgba(99,102,241,1)',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) { return ' $' + ctx.parsed.y.toLocaleString(); }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: false,
+          ticks: { callback: function(v) { return '$' + (v/1000).toFixed(0) + 'k'; } }
+        }
+      }
+    }
+  });
+
+  // Day-of-week breakdown table for the most recent week
+  var latest = rows[rows.length - 1];
+  var dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var breakdownEl = document.getElementById('trendsSalesHistoryDayBreakdown');
+  if (breakdownEl && latest && latest.salesByDay) {
+    var html = '<div style="font-size:12px; font-weight:600; color:#64748b; margin-bottom:8px; text-transform:uppercase; letter-spacing:.05em;">Most Recent Week — Daily Breakdown (' + labels[labels.length-1] + ')</div>';
+    html += '<div style="display:flex; gap:8px; flex-wrap:wrap;">';
+    dayOrder.forEach(function(day) {
+      var v = latest.salesByDay[day];
+      if (!v) return;
+      html += '<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; text-align:center; min-width:80px;">' +
+        '<div style="font-size:11px; font-weight:700; color:#64748b;">' + day.substring(0,3).toUpperCase() + '</div>' +
+        '<div style="font-size:16px; font-weight:800; color:#1e293b;">$' + Math.round(v).toLocaleString() + '</div>' +
+        '</div>';
+    });
+    html += '</div>';
+    breakdownEl.innerHTML = html;
+  }
+
+  // Daily breakdown bar chart for most recent week
+  var dailyContainer = document.getElementById('trendsDailyBreakdownContainer');
+  var dailyCanvas    = document.getElementById('trendsDailyBreakdownChart');
+  var dailyLabel     = document.getElementById('trendsDailyWeekLabel');
+  if (dailyCanvas && latest && latest.salesByDay) {
+    if (dailyContainer) dailyContainer.style.display = 'block';
+    if (dailyLabel) dailyLabel.textContent = '(' + labels[labels.length - 1] + ')';
+
+    var dayLabels  = [];
+    var dayValues  = [];
+    var dayColors  = [];
+    var palette = ['#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e'];
+    dayOrder.forEach(function(day, idx) {
+      var v = latest.salesByDay[day];
+      if (!v) return;
+      dayLabels.push(day.substring(0, 3));
+      dayValues.push(Math.round(v));
+      dayColors.push(palette[idx % palette.length]);
+    });
+
+    if (_trendsDailyBreakdownChart) { _trendsDailyBreakdownChart.destroy(); _trendsDailyBreakdownChart = null; }
+    _trendsDailyBreakdownChart = new Chart(dailyCanvas, {
+      type: 'bar',
+      data: {
+        labels: dayLabels,
+        datasets: [{
+          label: 'Daily Sales ($)',
+          data: dayValues,
+          backgroundColor: dayColors,
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) { return ' $' + ctx.parsed.y.toLocaleString(); }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { callback: function(v) { return '$' + (v/1000).toFixed(0) + 'k'; } }
+          }
+        }
+      }
+    });
+  }
+}
+
+function formatWeekLabel(weekStart) {
+  if (!weekStart) return '\u2014';
+  var d = new Date(weekStart + 'T12:00:00Z');
+  var M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return M[d.getUTCMonth()] + ' ' + d.getUTCDate() + ', ' + d.getUTCFullYear();
+}
+
+function renderTrends(data) {
+  var rows = (data && data.rows) || [];
+
+  if (rows.length === 0) {
+    var emptyEl = document.getElementById('trendsEmpty');
+    if (emptyEl) emptyEl.style.display = 'block';
+    return;
+  }
+
+  var contentEl = document.getElementById('trendsContent');
+  if (contentEl) contentEl.style.display = 'block';
+
+  // Oldest first for chart X axis
+  var chartRows = rows.slice().reverse();
+  var M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var labels = chartRows.map(function(r) {
+    var d = new Date(r.weekStart + 'T12:00:00Z');
+    return M[d.getUTCMonth()] + ' ' + d.getUTCDate();
+  });
+  var splhVals = chartRows.map(function(r) { return r.avgSplh; });
+  var goal = (_lastLoadedConfig && _lastLoadedConfig.splhGoals)
+               ? _lastLoadedConfig.splhGoals.overall
+               : (salesConfig && salesConfig.goals ? salesConfig.goals.overall : 90);
+
+  // Primary line chart — SPLH week-over-week
+  var splhCtx = document.getElementById('trendsSplhChart');
+  if (splhCtx) {
+    if (trendsSplhChart) trendsSplhChart.destroy();
+    trendsSplhChart = new Chart(splhCtx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Avg SPLH',
+            data:  splhVals,
+            borderColor: '#DD0031',
+            backgroundColor: 'rgba(221,0,49,0.07)',
+            tension: 0.3,
+            fill: true,
+            pointBackgroundColor: splhVals.map(function(v) { return v >= goal ? '#10b981' : '#ef4444'; }),
+            pointRadius: 6,
+            pointHoverRadius: 8
+          },
+          {
+            label: 'Goal ($' + goal + ')',
+            data:  labels.map(function() { return goal; }),
+            borderColor: '#94a3b8',
+            borderDash: [6, 4],
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+        scales: { y: { beginAtZero: false, title: { display: true, text: '$/LH' } } }
+      }
+    });
+  }
+
+  // Stacked bar — goal distribution
+  var stackCtx = document.getElementById('trendsStackedChart');
+  if (stackCtx) {
+    if (trendsStackedChart) trendsStackedChart.destroy();
+    trendsStackedChart = new Chart(stackCtx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Meeting Goal',
+            data: chartRows.map(function(r) { return parseFloat((r.pctMeetingGoal * 100).toFixed(1)); }),
+            backgroundColor: '#10b981'
+          },
+          {
+            label: 'Near Goal',
+            data: chartRows.map(function(r) { return parseFloat((r.pctNearGoal * 100).toFixed(1)); }),
+            backgroundColor: '#f59e0b'
+          },
+          {
+            label: 'Below Goal',
+            data: chartRows.map(function(r) { return parseFloat((r.pctBelowGoal * 100).toFixed(1)); }),
+            backgroundColor: '#ef4444'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true, max: 100, title: { display: true, text: '%' } }
+        }
+      }
+    });
+  }
+
+  // Summary table — most recent first (rows array is already sorted desc)
+  var tbody = document.getElementById('trendsSummaryBody');
+  if (tbody) {
+    tbody.innerHTML = '';
+    rows.forEach(function(r) {
+      var vsGoal    = r.avgSplh - goal;
+      var vsStr     = (vsGoal >= 0 ? '+' : '') + '$' + Math.abs(vsGoal).toFixed(2);
+      var vsClass   = vsGoal >= 0 ? 'metric-change positive' : 'metric-change negative';
+      var tr        = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      tr.title = 'Click to view hourly detail';
+      tr.onclick = (function(ws) { return function() { openHistoryDrillDown(ws); }; })(r.weekStart);
+      tr.innerHTML =
+        '<td>' + formatWeekLabel(r.weekStart) + '</td>' +
+        '<td>$' + r.avgSplh.toFixed(2) + '</td>' +
+        '<td class="' + vsClass + '">' + vsStr + '</td>' +
+        '<td>' + (r.peakHour || '\u2014') + '</td>' +
+        '<td>' + (r.pctBelowGoal * 100).toFixed(1) + '%</td>' +
+        '<td>' + Math.round(r.totalHoursScheduled) + ' hrs</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Render bias section from current config
+  renderBiasSection((_lastLoadedConfig && _lastLoadedConfig.biasFlags) || {});
+}
+
+// ── Drill-Down ────────────────────────────────────────────────
+
+function showDrillDownSpinner() {
+  var sp = document.getElementById('drillDownSpinner');
+  var co = document.getElementById('drillDownContent');
+  var er = document.getElementById('drillDownError');
+  if (sp) sp.style.display = 'block';
+  if (co) co.style.display = 'none';
+  if (er) er.style.display = 'none';
+}
+
+function hideDrillDownSpinner() {
+  var sp = document.getElementById('drillDownSpinner');
+  var co = document.getElementById('drillDownContent');
+  if (sp) sp.style.display = 'none';
+  if (co) co.style.display = 'block';
+}
+
+function showDrillDownError(msg) {
+  var sp = document.getElementById('drillDownSpinner');
+  var er = document.getElementById('drillDownError');
+  if (sp) sp.style.display = 'none';
+  if (er) { er.textContent = 'Failed to load detail: ' + msg; er.style.display = 'block'; }
+}
+
+function closeDrillDown() {
+  var modal = document.getElementById('drillDownModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function openHistoryDrillDown(weekStart) {
+  var title = document.getElementById('drillDownTitle');
+  if (title) title.textContent = 'Week of ' + formatWeekLabel(weekStart);
+  var modal = document.getElementById('drillDownModal');
+  if (modal) modal.style.display = 'flex';
+  showDrillDownSpinner();
+  google.script.run
+    .withSuccessHandler(function(data) {
+      if (data && data.error) { showDrillDownError(data.error); return; }
+      renderDrillDown(data, weekStart);
+    })
+    .withFailureHandler(function(err) { showDrillDownError(err.message); })
+    .getHistoryForWeek({ weekStart: weekStart });
+}
+
+/**
+ * Reshapes history rows into scheduleData/salesData format,
+ * renders via generateScheduleTable() (the existing renderer),
+ * then clones the output into the drill-down modal.
+ * Saves and restores global state — the main view is unaffected.
+ */
+function renderDrillDown(data, weekStart) {
+  var drillSched = {}, drillSales = {};
+
+  (data.scheduleRows || []).forEach(function(row) {
+    var day = String(row[1]), hour = String(row[2]), combined = row[5] || 0;
+    if (!drillSched[day]) drillSched[day] = {};
+    drillSched[day][hour] = combined;
+  });
+  (data.salesRows || []).forEach(function(row) {
+    var day = String(row[1]), hour = String(row[2]), sales = row[3] || 0;
+    if (!drillSales[day]) drillSales[day] = {};
+    drillSales[day][hour] = sales;
+  });
+
+  // Swap globals → render → restore
+  var savedSched = scheduleData, savedSales = salesData, savedView = currentDepartmentView;
+  currentDepartmentView = 'overall';
+  scheduleData = drillSched;
+  salesData    = drillSales;
+  generateScheduleTable();
+
+  // Clone the rendered table into the modal
+  var tableEl = document.getElementById('scheduleTable');
+  var content = document.getElementById('drillDownContent');
+  if (content && tableEl) {
+    content.innerHTML = '';
+    var wrapper = document.createElement('div');
+    wrapper.style.overflowX = 'auto';
+    wrapper.appendChild(tableEl.cloneNode(true));
+    content.appendChild(wrapper);
+  }
+
+  // Restore globals and re-render main view
+  scheduleData          = savedSched;
+  salesData             = savedSales;
+  currentDepartmentView = savedView;
+  if (Object.keys(savedSched).length > 0) generateScheduleTable();
+
+  hideDrillDownSpinner();
+}
+
+// ── Chunk 3: Intelligence Layer Frontend ──────────────────────
+
+/**
+ * Shows or hides the amber bias banner at the top of the Schedule Analysis tab.
+ * Checks sessionStorage so the user's dismiss survives tab switches but resets on reload.
+ */
+function applyBiasBanner(biasFlags, threshold) {
+  var banner = document.getElementById('biasBanner');
+  var body   = document.getElementById('biasBannerBody');
+  if (!banner || !body) return;
+
+  var dismissed = sessionStorage.getItem('biasBannerDismissed');
+  var activeFlags = Object.keys(biasFlags).filter(function(d) { return biasFlags[d] !== null; });
+
+  if (activeFlags.length === 0 || dismissed === 'true') {
+    banner.style.display = 'none';
+    return;
+  }
+
+  var lines = ['<div class="bias-banner-title">\u26a0\ufe0f Forecast Accuracy Alert</div>'];
+  activeFlags.forEach(function(day) {
+    var f   = biasFlags[day];
+    var dir = f.direction === 'over' ? 'over-estimating' : 'under-estimating';
+    var pct = Math.abs(f.avgErrorPct);
+    var tip = f.direction === 'over'
+      ? 'staffing targets may be too high'
+      : 'staffing targets may be too low';
+    lines.push(
+      '<div class="bias-banner-item"><strong>' + day + ':</strong> ' +
+      dir + ' by ~' + pct + '% over ' + f.sampleCount + ' weeks \u2014 ' + tip + '.</div>'
+    );
+  });
+  body.innerHTML = lines.join('');
+  banner.style.display = 'flex';
+}
+
+function dismissBiasBanner() {
+  sessionStorage.setItem('biasBannerDismissed', 'true');
+  var banner = document.getElementById('biasBanner');
+  if (banner) banner.style.display = 'none';
+}
+
+/**
+ * Renders the Forecast Accuracy table in the Trends tab bias section.
+ */
+function renderBiasSection(biasFlags) {
+  var section = document.getElementById('trendsBiasSection');
+  if (!section) return;
+
+  var activeFlags = Object.keys(biasFlags).filter(function(d) { return biasFlags[d] !== null; });
+
+  if (activeFlags.length === 0) {
+    section.innerHTML =
+      '<div style="font-size:13px; color:#64748b; font-style:italic;">' +
+      '\u2705 No significant forecast bias detected \u2014 curves are tracking well.' +
+      '</div>';
+    return;
+  }
+
+  var rows = activeFlags.map(function(day) {
+    var f       = biasFlags[day];
+    var pct     = Math.abs(f.avgErrorPct);
+    var dirLabel = f.direction === 'over' ? 'Over-estimating' : 'Under-estimating';
+    var dirColor = f.direction === 'over' ? '#d97706' : '#dc2626';
+    var action   = f.direction === 'over'
+      ? 'Consider trimming staffing on ' + day + ' by ~' + pct + '%.'
+      : 'Consider adding coverage on ' + day + ' by ~' + pct + '%.';
+    return (
+      '<tr>' +
+        '<td style="padding:10px 12px; font-weight:600; color:#1e293b;">' + day + '</td>' +
+        '<td style="padding:10px 12px; text-align:center; color:' + dirColor + '; font-weight:700;">' +
+          (f.direction === 'over' ? '+' : '') + f.avgErrorPct + '%' +
+        '</td>' +
+        '<td style="padding:10px 12px; color:' + dirColor + ';">' + dirLabel + '</td>' +
+        '<td style="padding:10px 12px; font-size:12px; color:#64748b;">' + action + '</td>' +
+      '</tr>'
+    );
+  }).join('');
+
+  section.innerHTML =
+    '<div style="font-size:15px; font-weight:700; color:#1e293b; margin-bottom:12px;">' +
+    '\u26a0\ufe0f Forecast Accuracy Flags</div>' +
+    '<div style="overflow-x:auto;">' +
+    '<table style="width:100%; border-collapse:collapse; font-size:13px;">' +
+      '<thead><tr style="background:#f8fafc; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:#64748b;">' +
+        '<th style="padding:8px 12px; text-align:left; border-bottom:2px solid #e2e8f0;">Day</th>' +
+        '<th style="padding:8px 12px; text-align:center; border-bottom:2px solid #e2e8f0;">Avg Error %</th>' +
+        '<th style="padding:8px 12px; text-align:left; border-bottom:2px solid #e2e8f0;">Direction</th>' +
+        '<th style="padding:8px 12px; text-align:left; border-bottom:2px solid #e2e8f0;">Suggested Action</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table></div>' +
+    '<p style="font-size:11px; color:#94a3b8; margin-top:10px; margin-bottom:0;">' +
+    'Based on comparing your estimated sales entries vs. actual CFA data over ' +
+    activeFlags[0] && biasFlags[activeFlags[0]] ? biasFlags[activeFlags[0]].sampleCount + ' weeks.' : 'multiple weeks.' +
+    '</p>';
+}
+
+/**
+ * Shows CFA pre-fill suggestion hints below each daily sales input
+ * when the app_cache contains currentWeekSales from the Monday pipeline.
+ */
+function applyCFASuggestions(currentWeekSales) {
+  DAYS.forEach(function(day) {
+    var total = currentWeekSales[day];
+    if (!total || total <= 0) return;
+    var inputId  = 'sales-' + day;
+    var hintId   = 'cfa-hint-' + day;
+    var inputEl  = document.getElementById(inputId);
+    var hintEl   = document.getElementById(hintId);
+    if (!inputEl) return;
+
+    // Create hint element lazily if it doesn't exist yet
+    if (!hintEl) {
+      hintEl    = document.createElement('div');
+      hintEl.id = hintId;
+      hintEl.className = 'cfa-hint';
+      inputEl.parentNode.insertBefore(hintEl, inputEl.nextSibling);
+    }
+
+    var formatted = '$' + Math.round(total).toLocaleString();
+    hintEl.textContent = 'CFA: ' + formatted + ' \u2014 use this?';
+    hintEl.style.display = 'block';
+    // Wire click: fill input, set source to api, hide hint
+    hintEl.onclick = (function(inp, val, hnt, dayName) {
+      return function() {
+        inp.value = Math.round(val);
+        currentSalesSource = 'api';
+        hnt.style.display = 'none';
+        saveSalesInputs();
+        if (Object.keys(scheduleData).length > 0) generateReport();
+      };
+    })(inputEl, total, hintEl, day);
+
+    // If operator manually edits the input, revert source to 'estimated' and hide hint
+    inputEl.addEventListener('input', function() {
+      currentSalesSource = 'estimated';
+      hintEl.style.display = 'none';
+    }, { once: true });
+  });
+}
+
+// ── Settings: Automation ──────────────────────────────────────
+
+/**
+ * Reads trigger installation status from the backend and updates the status badges.
+ * Called when the Settings tab opens.
+ */
+function loadTriggersStatus() {
+  var sundayBadge   = document.getElementById('status-sunday');
+  var mondayBadge   = document.getElementById('status-monday');
+  var thursdayBadge = document.getElementById('status-thursday');
+  var installBtn    = document.getElementById('btn-install-triggers');
+  if (sundayBadge)   { sundayBadge.textContent = 'Checking\u2026';   sundayBadge.className = 'automation-status-badge'; }
+  if (mondayBadge)   { mondayBadge.textContent = 'Checking\u2026';   mondayBadge.className = 'automation-status-badge'; }
+  if (thursdayBadge) { thursdayBadge.textContent = 'Checking\u2026'; thursdayBadge.className = 'automation-status-badge'; }
+
+  google.script.run
+    .withSuccessHandler(function(status) {
+      if (!status) return;
+      if (sundayBadge) {
+        sundayBadge.textContent = status.sunday.installed ? 'Active' : 'Not Installed';
+        sundayBadge.className   = 'automation-status-badge ' + (status.sunday.installed ? 'active' : 'inactive');
+      }
+      if (mondayBadge) {
+        mondayBadge.textContent = status.monday.installed ? 'Active' : 'Not Installed';
+        mondayBadge.className   = 'automation-status-badge ' + (status.monday.installed ? 'active' : 'inactive');
+      }
+      if (thursdayBadge && status.thursday) {
+        thursdayBadge.textContent = status.thursday.installed ? 'Active' : 'Not Installed';
+        thursdayBadge.className   = 'automation-status-badge ' + (status.thursday.installed ? 'active' : 'inactive');
+      }
+      if (installBtn) {
+        var allInstalled = status.sunday.installed && status.monday.installed &&
+                           (!status.thursday || status.thursday.installed);
+        installBtn.disabled = allInstalled;
+      }
+    })
+    .withFailureHandler(function(err) {
+      if (sundayBadge)   sundayBadge.textContent   = 'Error';
+      if (mondayBadge)   mondayBadge.textContent   = 'Error';
+      if (thursdayBadge) thursdayBadge.textContent = 'Error';
+      console.error('[loadTriggersStatus]', err.message);
+    })
+    .getTriggersStatus();
+}
+
+function installTriggersFromSettings() {
+  var btn    = document.getElementById('btn-install-triggers');
+  var result = document.getElementById('automation-result');
+  if (btn) { btn.disabled = true; btn.textContent = 'Installing\u2026'; }
+  if (result) result.style.display = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (btn) { btn.disabled = false; btn.textContent = '\u25b6 Install Triggers'; }
+      if (result) {
+        result.style.background = '#f0fdf4';
+        result.style.border     = '1px solid #86efac';
+        result.style.color      = '#15803d';
+        result.textContent      = '\u2705 Triggers installed successfully. Sunday 22:00, Monday 06:00, and Thursday 19:00 are now active.';
+        result.style.display    = 'block';
+      }
+      loadTriggersStatus();
+    })
+    .withFailureHandler(function(err) {
+      if (btn) { btn.disabled = false; btn.textContent = '\u25b6 Install Triggers'; }
+      if (result) {
+        result.style.background = '#fef2f2';
+        result.style.border     = '1px solid #fecaca';
+        result.style.color      = '#dc2626';
+        result.textContent      = 'Error: ' + err.message;
+        result.style.display    = 'block';
+      }
+    })
+    .installTriggers();
+}
+
+function runRebuildCurves() {
+  var btn    = document.getElementById('btn-rebuild-curves');
+  var result = document.getElementById('automation-result');
+  if (btn) { btn.disabled = true; btn.textContent = 'Rebuilding\u2026'; }
+  if (result) {
+    result.style.background = '#eff6ff';
+    result.style.border     = '1px solid #93c5fd';
+    result.style.color      = '#1d4ed8';
+    result.textContent      = '\u23f3 Replaying all weeks through smoothing algorithm\u2026 This may take 20\u201340 seconds.';
+    result.style.display    = 'block';
+  }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (btn) { btn.disabled = false; btn.textContent = '\u{1F4C8} Rebuild Curves'; }
+      if (result) {
+        result.style.background = '#f0fdf4';
+        result.style.border     = '1px solid #86efac';
+        result.style.color      = '#15803d';
+        result.textContent      = '\u2705 Curves rebuilt from ' + res.weeksProcessed + ' weeks of history. Open Settings \u2192 Sales Curves to see per-day weights.';
+        result.style.display    = 'block';
+      }
+    })
+    .withFailureHandler(function(err) {
+      if (btn) { btn.disabled = false; btn.textContent = '\u{1F4C8} Rebuild Curves'; }
+      if (result) {
+        result.style.background = '#fef2f2';
+        result.style.border     = '1px solid #fecaca';
+        result.style.color      = '#dc2626';
+        result.textContent      = 'Rebuild error: ' + err.message;
+        result.style.display    = 'block';
+      }
+    })
+    .rebuildSalesCurvesFromHistory();
+}
+
+function runBackfill() {
+  var btn    = document.getElementById('btn-backfill');
+  var result = document.getElementById('automation-result');
+  if (btn) { btn.disabled = true; btn.textContent = 'Backfilling\u2026'; }
+  if (result) {
+    result.style.background = '#eff6ff';
+    result.style.border     = '1px solid #93c5fd';
+    result.style.color      = '#1d4ed8';
+    result.textContent      = '\u23f3 Reading Sheet1 and writing to sales_history\u2026 This may take 15\u201330 seconds.';
+    result.style.display    = 'block';
+  }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (btn) { btn.disabled = false; btn.textContent = '\u2B06 Backfill History'; }
+      if (result) {
+        result.style.background = '#f0fdf4';
+        result.style.border     = '1px solid #86efac';
+        result.style.color      = '#15803d';
+        result.textContent      = '\u2705 Backfill complete. Added ' + res.added + ' rows, skipped ' + res.skipped + ' duplicates. Open the Forecast tab to see predictions.';
+        result.style.display    = 'block';
+      }
+    })
+    .withFailureHandler(function(err) {
+      if (btn) { btn.disabled = false; btn.textContent = '\u2B06 Backfill History'; }
+      if (result) {
+        result.style.background = '#fef2f2';
+        result.style.border     = '1px solid #fecaca';
+        result.style.color      = '#dc2626';
+        result.textContent      = 'Backfill error: ' + err.message;
+        result.style.display    = 'block';
+      }
+    })
+    .backfillSalesHistoryFromSheet1();
+}
+
+function runTestPipeline() {
+  var btn    = document.getElementById('btn-test-pipeline');
+  var result = document.getElementById('automation-result');
+  if (btn) { btn.disabled = true; btn.textContent = 'Running pipeline\u2026'; }
+  if (result) {
+    result.style.background = '#eff6ff';
+    result.style.border     = '1px solid #93c5fd';
+    result.style.color      = '#1d4ed8';
+    result.textContent      = '\u23f3 Monday pipeline running\u2026 This may take up to 30 seconds.';
+    result.style.display    = 'block';
+  }
+
+  google.script.run
+    .withSuccessHandler(function() {
+      if (btn) { btn.disabled = false; btn.textContent = '\u25b6 Test Pipeline Now'; }
+      if (result) {
+        result.style.background = '#f0fdf4';
+        result.style.border     = '1px solid #86efac';
+        result.style.color      = '#15803d';
+        result.textContent      = '\u2705 Pipeline completed. Check Apps Script logs for details. Reload the app to see updated cache.';
+        result.style.display    = 'block';
+      }
+      trendsLoaded = false;
+    })
+    .withFailureHandler(function(err) {
+      if (btn) { btn.disabled = false; btn.textContent = '\u25b6 Test Pipeline Now'; }
+      if (result) {
+        result.style.background = '#fef2f2';
+        result.style.border     = '1px solid #fecaca';
+        result.style.color      = '#dc2626';
+        result.textContent      = '\u26a0 Pipeline error: ' + err.message + '. Check Sheet1 has data and initSheets() has been run.';
+        result.style.display    = 'block';
+      }
+    })
+    .mondayPipeline();
+}
+
+function testThursdayReminderFromUI() {
+  var btn    = document.getElementById('btn-test-reminder');
+  var result = document.getElementById('automation-result');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending\u2026'; }
+  if (result) {
+    result.style.background = '#eff6ff';
+    result.style.border     = '1px solid #93c5fd';
+    result.style.color      = '#1d4ed8';
+    result.textContent      = '\u23f3 Sending test reminder email\u2026';
+    result.style.display    = 'block';
+  }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (btn) { btn.disabled = false; btn.textContent = '\ud83d\udce7 Test Reminder'; }
+      if (result) {
+        if (res && res.success) {
+          result.style.background = '#f0fdf4';
+          result.style.border     = '1px solid #86efac';
+          result.style.color      = '#15803d';
+          result.textContent      = '\u2705 Test reminder sent to ' + res.email + '. Check your inbox (and spam).';
+        } else {
+          result.style.background = '#fef2f2';
+          result.style.border     = '1px solid #fecaca';
+          result.style.color      = '#dc2626';
+          result.textContent      = '\u26a0 Failed: ' + (res ? res.reason : 'Unknown error');
+        }
+        result.style.display = 'block';
+      }
+    })
+    .withFailureHandler(function(err) {
+      if (btn) { btn.disabled = false; btn.textContent = '\ud83d\udce7 Test Reminder'; }
+      if (result) {
+        result.style.background = '#fef2f2';
+        result.style.border     = '1px solid #fecaca';
+        result.style.color      = '#dc2626';
+        result.textContent      = '\u26a0 Error: ' + err.message;
+        result.style.display    = 'block';
+      }
+    })
+    .testThursdayReminder();
+}
+
+// ── Onboarding Step 4: Install Triggers ───────────────────────
+
+function onboardInstallTriggers() {
+  var btn    = document.getElementById('onboard-trigger-btn');
+  var status = document.getElementById('onboard-trigger-status');
+  btn.disabled    = true;
+  btn.textContent = 'Installing\u2026';
+  status.style.display = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled    = false;
+      btn.textContent = '\u25b6 Install Triggers \u2192';
+      status.className   = 'onboarding-status success';
+      status.innerHTML   =
+        '\u2705 Triggers installed! ' +
+        '<strong>Sunday 22:00</strong> sync check and <strong>Monday 06:00</strong> pipeline are now active.';
+      status.style.display = 'block';
+      setTimeout(function() { onboardGoTo(5); }, 1400);
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled    = false;
+      btn.textContent = 'Retry Install';
+      status.className   = 'onboarding-status error';
+      status.textContent = 'Error: ' + err.message;
+      status.style.display = 'block';
+    })
+    .installTriggers();
+}
+
+// ── Forecast Tab ─────────────────────────────────────────────
+
+var _forecastChartInstance = null;
+
+function loadForecastData() {
+  var spinner = document.getElementById('forecastSpinner');
+  var error   = document.getElementById('forecastError');
+  var content = document.getElementById('forecastContent');
+  if (spinner) spinner.style.display = 'flex';
+  if (error)   error.style.display   = 'none';
+  if (content) content.style.display = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (spinner) spinner.style.display = 'none';
+      if (!result || !result.predictions) {
+        if (error) {
+          error.textContent    = 'Not enough sales history to generate a forecast. Run the Monday pipeline at least once.';
+          error.style.display  = 'block';
+        }
+        return;
+      }
+      renderForecast(result);
+      if (content) content.style.display = 'block';
+    })
+    .withFailureHandler(function(err) {
+      if (spinner) spinner.style.display = 'none';
+      if (error) {
+        error.textContent   = 'Error loading forecast: ' + err.message;
+        error.style.display = 'block';
+      }
+    })
+    .getSalesForecast();
+}
+
+function renderForecast(result) {
+  var predictions = result.predictions;
+  var weekStart   = result.weekStart;
+  var orderedDays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var labels      = [];
+  var values      = [];
+  var counts      = [];
+
+  orderedDays.forEach(function(day) {
+    if (predictions[day]) {
+      labels.push(day.substring(0,3));
+      values.push(predictions[day].total);
+      counts.push(predictions[day].weekCount);
+    }
+  });
+
+  // Update week label
+  var weekLabel = document.getElementById('forecastWeekLabel');
+  if (weekLabel && weekStart) {
+    var d = new Date(weekStart + 'T00:00:00');
+    weekLabel.textContent = 'Predicted week starting ' +
+      d.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+  }
+
+  // Render summary cards
+  var cardsEl = document.getElementById('forecastCards');
+  if (cardsEl) {
+    cardsEl.innerHTML = orderedDays.map(function(day) {
+      var p = predictions[day];
+      if (!p) return '';
+      var trendHtml = '';
+      if (p.trend && p.trend !== 0) {
+        var trendSign  = p.trend > 0 ? '+' : '';
+        var trendColor = p.trend > 0 ? '#16a34a' : '#dc2626';
+        var trendArrow = p.trend > 0 ? '\u2197' : '\u2198';
+        trendHtml = '<div class="forecast-card-trend" style="color:' + trendColor + ';font-size:11px;margin-top:2px;">' +
+          trendArrow + ' ' + trendSign + '$' + Math.abs(p.trend).toLocaleString() + ' trend adj</div>';
+      }
+      return '<div class="forecast-card">' +
+        '<div class="forecast-card-day">' + day + '</div>' +
+        '<div class="forecast-card-total">$' + p.total.toLocaleString() + '</div>' +
+        trendHtml +
+        '<div class="forecast-card-weeks">Avg of last ' + p.windowSize + ' week' + (p.windowSize !== 1 ? 's' : '') + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  // Render chart
+  var canvas = document.getElementById('forecastChart');
+  if (!canvas) return;
+  if (_forecastChartInstance) { _forecastChartInstance.destroy(); _forecastChartInstance = null; }
+  _forecastChartInstance = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Predicted Sales ($)',
+        data:  values,
+        backgroundColor: 'rgba(99,102,241,0.7)',
+        borderColor:     'rgba(99,102,241,1)',
+        borderWidth: 1,
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              return ' $' + ctx.parsed.y.toLocaleString();
+            },
+            afterLabel: function(ctx) {
+              return ' (' + counts[ctx.dataIndex] + ' weeks of data)';
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: false,
+          ticks: {
+            callback: function(val) { return '$' + val.toLocaleString(); }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── Initialization ────────────────────────────────────────────
+
+// Wire up file upload listeners (guard against Onboarding page where these don't exist)
+var _fohEl = document.getElementById('fohScheduleFile');
+if (_fohEl) _fohEl.addEventListener('change', handleFOHScheduleUpload);
+var _bohEl = document.getElementById('bohScheduleFile');
+if (_bohEl) _bohEl.addEventListener('change', handleBOHScheduleUpload);
+
+// Wire up processBtn
+if (document.getElementById('processBtn')) {
+  document.getElementById('processBtn').addEventListener('click', handleProcess);
+}
+
+// Load persisted operational data immediately
+loadSalesInputs();
+loadManagerShifts();
+setupDragAndDrop();
+updateViewBadge();
+initMetricTooltips();
+
+// Hide loading overlay until GAS config returns — but make panels usable with defaults in the meantime
+applyConfig(getDefaultConfig());
+
+// ── GAS Config Load (DOMContentLoaded) ───────────────────────
+// Only runs in the main app (Index.html). Onboarding.html does not have
+// converterTabPanel, so we skip the config load entirely on that page.
+(function() {
+  if (!document.getElementById('converterTabPanel')) return;
+
+  function initWithGAS() {
+    showLoadingState('Loading configuration\u2026');
+    google.script.run
+      .withSuccessHandler(function(config) {
+        applyConfig(config, true);
+        hideLoadingState();
+      })
+      .withFailureHandler(function(err) {
+        console.warn('[Schedule Counter] loadAppCache() failed:', err);
+        applyConfig(getDefaultConfig(), false);
+        showWarningBanner('Could not load configuration from Sheets. Using defaults. Verify initSheets() has been run.');
+        hideLoadingState();
+      })
+      .loadAppCache();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWithGAS);
+  } else {
+    initWithGAS();
+  }
+})();
+
+</script>

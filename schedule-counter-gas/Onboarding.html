@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Setup &mdash; Schedule Counter</title>
+  <?!= include('Stylesheet') ?>
+</head>
+<body>
+
+  <div class="header" style="text-align:center;">
+    <h1>&#128202; Schedule Counter Setup</h1>
+    <p>Let&rsquo;s get your location configured in 5 quick steps.</p>
+  </div>
+
+  <div class="container" style="max-width:640px;">
+
+    <!-- Progress dots -->
+    <div class="onboarding-progress">
+      <div class="onboarding-step-dot active" id="dot-1"></div>
+      <div class="onboarding-step-line"></div>
+      <div class="onboarding-step-dot" id="dot-2"></div>
+      <div class="onboarding-step-line"></div>
+      <div class="onboarding-step-dot" id="dot-3"></div>
+      <div class="onboarding-step-line"></div>
+      <div class="onboarding-step-dot" id="dot-4"></div>
+      <div class="onboarding-step-line"></div>
+      <div class="onboarding-step-dot" id="dot-5"></div>
+    </div>
+
+    <!-- ── Step 1: Welcome ──────────────────────────────────── -->
+    <div id="onboard-step-1" class="onboarding-card">
+      <div class="onboarding-step-label">Step 1 of 5</div>
+      <h2>Welcome to Schedule Counter</h2>
+      <p>Combine your HotSchedules export with your daily sales to see staffing vs. productivity in real time.</p>
+      <div class="onboarding-feature-grid">
+        <div class="onboarding-feature">
+          <div class="onboarding-feature-icon">&#128202;</div>
+          <strong>Visual Grid</strong>
+          <span>Staffing heatmaps by day &amp; hour</span>
+        </div>
+        <div class="onboarding-feature">
+          <div class="onboarding-feature-icon">&#128176;</div>
+          <strong>SPLH Tracking</strong>
+          <span>Sales per labor hour vs. your goal</span>
+        </div>
+        <div class="onboarding-feature">
+          <div class="onboarding-feature-icon">&#128200;</div>
+          <strong>Trend History</strong>
+          <span>Week-over-week performance charts</span>
+        </div>
+        <div class="onboarding-feature">
+          <div class="onboarding-feature-icon">&#9993;&#65039;</div>
+          <strong>Weekly Email</strong>
+          <span>Auto summary after every report</span>
+        </div>
+      </div>
+      <div class="onboarding-actions">
+        <button class="btn-primary" onclick="onboardGoTo(2)">Get Started &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ── Step 2: Initialize Spreadsheet ──────────────────── -->
+    <div id="onboard-step-2" class="onboarding-card" style="display:none;">
+      <div class="onboarding-step-label">Step 2 of 5</div>
+      <h2>Initialize Spreadsheet</h2>
+      <p>
+        This creates all required tabs in your spreadsheet:
+        <code>schedule_history</code>, <code>sales_history</code>,
+        <code>sales_curves</code>, <code>config</code>,
+        <code>weekly_summary</code>, and <code>app_cache</code>.
+        It&rsquo;s safe to run multiple times &mdash; existing tabs are never overwritten.
+      </p>
+      <div id="onboard-init-status" class="onboarding-status" style="display:none;"></div>
+      <div class="onboarding-actions">
+        <button class="btn-secondary" onclick="onboardGoTo(1)">Back</button>
+        <button class="btn-primary" id="onboard-init-btn" onclick="onboardInitSheets()">
+          Initialize Spreadsheet
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Step 3: Location & Notifications ────────────────── -->
+    <div id="onboard-step-3" class="onboarding-card" style="display:none;">
+      <div class="onboarding-step-label">Step 3 of 5</div>
+      <h2>Location &amp; Notifications</h2>
+      <p>Set your location name and the email address that will receive weekly labor summaries.</p>
+      <div class="settings-grid-2" style="margin-top:20px;">
+        <div class="settings-field">
+          <label for="onboard-location-name">Location Name</label>
+          <input type="text" id="onboard-location-name" placeholder="Cockrell Hill" value="Cockrell Hill">
+        </div>
+        <div class="settings-field">
+          <label for="onboard-operator-email">Operator Email</label>
+          <input type="email" id="onboard-operator-email" placeholder="you@example.com">
+        </div>
+      </div>
+      <div id="onboard-location-status" class="onboarding-status" style="display:none;"></div>
+      <div class="onboarding-actions">
+        <button class="btn-secondary" onclick="onboardGoTo(2)">Back</button>
+        <button class="btn-primary" id="onboard-location-btn" onclick="onboardSaveLocation()">
+          Save &amp; Continue &rarr;
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Step 4: Trigger Setup ────────────────────────────── -->
+    <div id="onboard-step-4" class="onboarding-card" style="display:none;">
+      <div class="onboarding-step-label">Step 4 of 5</div>
+      <h2>Automated Triggers</h2>
+      <p style="font-size:14px; color:#64748b; line-height:1.6; margin-bottom:16px;">
+        Two time-based triggers run automatically each week so you never have to touch the spreadsheet manually.
+      </p>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+        <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:14px; display:flex; gap:12px; align-items:flex-start;">
+          <span style="font-size:22px; line-height:1;">&#128315;</span>
+          <div>
+            <strong style="font-size:13px; color:#15803d; display:block; margin-bottom:3px;">Sunday 22:00 &mdash; Sync Check</strong>
+            <span style="font-size:12px; color:#64748b; line-height:1.5;">Validates that CFA sales data arrived in Sheet1. Sends an alert email if the sync looks like it failed.</span>
+          </div>
+        </div>
+        <div style="background:#eff6ff; border:1px solid #93c5fd; border-radius:10px; padding:14px; display:flex; gap:12px; align-items:flex-start;">
+          <span style="font-size:22px; line-height:1;">&#9654;&#65039;</span>
+          <div>
+            <strong style="font-size:13px; color:#1d4ed8; display:block; margin-bottom:3px;">Monday 06:00 &mdash; Weekly Pipeline</strong>
+            <span style="font-size:12px; color:#64748b; line-height:1.5;">Reads Sheet1, archives sales to history, updates your sales curves, runs bias detection, cleans up old data, and writes the app cache &mdash; all before you sit down.</span>
+          </div>
+        </div>
+      </div>
+      <div id="onboard-trigger-status" class="onboarding-status" style="display:none;"></div>
+      <div class="onboarding-actions">
+        <button class="btn-secondary" onclick="onboardGoTo(3)">Back</button>
+        <button class="btn-secondary" onclick="onboardGoTo(5)">Install Later from Settings</button>
+        <button class="btn-primary" id="onboard-trigger-btn" onclick="onboardInstallTriggers()">
+          &#9654; Install Triggers &rarr;
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Step 5: Initial Curve Review ────────────────────── -->
+    <div id="onboard-step-5" class="onboarding-card" style="display:none;">
+      <div class="onboarding-step-label">Step 5 of 5</div>
+      <h2>Sales Curves</h2>
+      <p>
+        All 7 days start with the same default curve that distributes your daily sales
+        estimate across the 19 tracked hours. The app refines each day&rsquo;s curve
+        automatically once CFA data starts flowing in Chunk 3.
+      </p>
+      <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:16px; margin:16px 0;">
+        <strong style="color:#15803d; font-size:13px; display:block; margin-bottom:10px;">
+          Default Curve &mdash; Top Hours by Weight
+        </strong>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <div style="background:white; border:1px solid #e2e8f0; border-radius:6px; padding:6px 10px; text-align:center; font-size:12px;">
+            <div style="font-weight:700; color:#1e293b;">12 PM</div><div style="color:#16a34a;">9.8%</div>
+          </div>
+          <div style="background:white; border:1px solid #e2e8f0; border-radius:6px; padding:6px 10px; text-align:center; font-size:12px;">
+            <div style="font-weight:700; color:#1e293b;">11 AM</div><div style="color:#16a34a;">9.8%</div>
+          </div>
+          <div style="background:white; border:1px solid #e2e8f0; border-radius:6px; padding:6px 10px; text-align:center; font-size:12px;">
+            <div style="font-weight:700; color:#1e293b;">10 AM</div><div style="color:#16a34a;">9.8%</div>
+          </div>
+          <div style="background:white; border:1px solid #e2e8f0; border-radius:6px; padding:6px 10px; text-align:center; font-size:12px;">
+            <div style="font-weight:700; color:#1e293b;">1 PM</div><div style="color:#16a34a;">8.8%</div>
+          </div>
+          <div style="background:white; border:1px solid #e2e8f0; border-radius:6px; padding:6px 10px; text-align:center; font-size:12px;">
+            <div style="font-weight:700; color:#1e293b;">9 AM</div><div style="color:#16a34a;">9.8%</div>
+          </div>
+        </div>
+        <p style="font-size:11px; color:#94a3b8; margin-top:10px; margin-bottom:0;">
+          You can edit any day&rsquo;s curve in <strong>Settings &rarr; Sales Curves</strong> at any time.
+        </p>
+      </div>
+      <div id="onboard-complete-status" class="onboarding-status" style="display:none;"></div>
+      <div class="onboarding-actions">
+        <button class="btn-secondary" onclick="onboardGoTo(4)">Back</button>
+        <button class="btn-primary" id="onboard-launch-btn" onclick="onboardComplete()">
+          Accept Defaults &amp; Launch &rarr;
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /container -->
+
+  <script>
+  // ── Onboarding Logic ──────────────────────────────────────────
+  var _currentStep = 1;
+
+  function onboardGoTo(step) {
+    document.getElementById('onboard-step-' + _currentStep).style.display = 'none';
+    document.getElementById('dot-' + _currentStep).classList.remove('active');
+    _currentStep = step;
+    document.getElementById('onboard-step-' + step).style.display = 'block';
+    document.getElementById('dot-' + step).classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function onboardInitSheets() {
+    var btn    = document.getElementById('onboard-init-btn');
+    var status = document.getElementById('onboard-init-status');
+    btn.disabled    = true;
+    btn.textContent = 'Initializing\u2026';
+    status.style.display = 'none';
+
+    google.script.run
+      .withSuccessHandler(function() {
+        status.className   = 'onboarding-status success';
+        status.textContent = 'Spreadsheet initialized successfully!';
+        status.style.display = 'block';
+        setTimeout(function() { onboardGoTo(3); }, 800);
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled    = false;
+        btn.textContent = 'Retry Initialize';
+        status.className   = 'onboarding-status error';
+        status.textContent = 'Error: ' + err.message;
+        status.style.display = 'block';
+      })
+      .initSheets();
+  }
+
+  function onboardSaveLocation() {
+    var name   = (document.getElementById('onboard-location-name').value  || '').trim() || 'Cockrell Hill';
+    var email  = (document.getElementById('onboard-operator-email').value || '').trim();
+    var btn    = document.getElementById('onboard-location-btn');
+    var status = document.getElementById('onboard-location-status');
+    btn.disabled    = true;
+    btn.textContent = 'Saving\u2026';
+    status.style.display = 'none';
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        btn.disabled    = false;
+        btn.textContent = 'Save & Continue \u2192';
+        if (res && res.error) {
+          status.className   = 'onboarding-status error';
+          status.textContent = 'Error: ' + res.error;
+          status.style.display = 'block';
+          return;
+        }
+        onboardGoTo(4);
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled    = false;
+        btn.textContent = 'Save & Continue \u2192';
+        status.className   = 'onboarding-status error';
+        status.textContent = 'Error: ' + err.message;
+        status.style.display = 'block';
+      })
+      .saveConfig({ locationName: name, operatorEmail: email });
+  }
+
+  function onboardInstallTriggers() {
+    var btn    = document.getElementById('onboard-trigger-btn');
+    var status = document.getElementById('onboard-trigger-status');
+    btn.disabled    = true;
+    btn.textContent = 'Installing\u2026';
+    status.style.display = 'none';
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        btn.disabled    = false;
+        btn.textContent = '\u25b6 Install Triggers \u2192';
+        status.className   = 'onboarding-status success';
+        status.innerHTML   =
+          '\u2705 Triggers installed! ' +
+          '<strong>Sunday 22:00</strong> sync check and <strong>Monday 06:00</strong> pipeline are now active.';
+        status.style.display = 'block';
+        setTimeout(function() { onboardGoTo(5); }, 1400);
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled    = false;
+        btn.textContent = 'Retry Install';
+        status.className   = 'onboarding-status error';
+        status.textContent = 'Error: ' + err.message;
+        status.style.display = 'block';
+      })
+      .installTriggers();
+  }
+
+  function onboardComplete() {
+    var btn    = document.getElementById('onboard-launch-btn');
+    var status = document.getElementById('onboard-complete-status');
+    btn.disabled    = true;
+    btn.textContent = 'Launching\u2026';
+    status.style.display = 'none';
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.error) {
+          btn.disabled    = false;
+          btn.textContent = 'Accept Defaults & Launch \u2192';
+          status.className   = 'onboarding-status error';
+          status.textContent = 'Error: ' + res.error;
+          status.style.display = 'block';
+          return;
+        }
+        window.location.reload();
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled    = false;
+        btn.textContent = 'Accept Defaults & Launch \u2192';
+        status.className   = 'onboarding-status error';
+        status.textContent = 'Error: ' + err.message;
+        status.style.display = 'block';
+      })
+      .saveConfig({ setupComplete: true });
+  }
+  </script>
+
+</body>
+</html>
