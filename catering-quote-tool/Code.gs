@@ -6,6 +6,12 @@
 // server-side PDF generation, and email sending.
 // ============================================================
 
+// Run this once from the dropdown to force Calendar permission, then delete it
+function testCalendarAccess() {
+  var cal = CalendarApp.getDefaultCalendar();
+  Logger.log('Calendar access OK: ' + cal.getName());
+}
+
 function getSpreadsheet() {
   return SpreadsheetApp.getActiveSpreadsheet();
 }
@@ -114,7 +120,7 @@ function getQuotes() {
   var sheet = getSpreadsheet().getSheetByName(TAB_QUOTES);
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
-  var data = sheet.getRange(2, 1, lastRow - 1, 16).getValues();
+  var data = sheet.getRange(2, 1, lastRow - 1, 19).getValues();
   var quotes = [];
   data.forEach(function(row, index) {
     if (row[0] && row[0].toString().trim() !== '') {
@@ -126,6 +132,9 @@ function getQuotes() {
         taxExempt: row[11], locationName: row[12], customerEmail: row[13] || '',
         poNumber: row[14] ? row[14].toString().trim() : '',
         eventDate: row[15] ? row[15].toString().trim() : '',
+        calendarEventId: row[16] ? row[16].toString().trim() : '',
+        lastModified: row[17] ? new Date(row[17]).toISOString() : '',
+        eventTime: row[18] ? row[18].toString().trim() : '',
         sheetRow: index + 2
       });
     }
@@ -144,7 +153,52 @@ function getNextQuoteId() {
 
 function saveQuote(quoteData) {
   var sheet = getSpreadsheet().getSheetByName(TAB_QUOTES);
+  var existingQuoteId = (quoteData.quoteId || '').toString().trim();
+  var existingRow = 0;
+
+  // Check if this is an edit of an existing quote
+  if (existingQuoteId) {
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (var i = 0; i < ids.length; i++) {
+        if (ids[i][0].toString().trim() === existingQuoteId) {
+          existingRow = i + 2;
+          break;
+        }
+      }
+    }
+  }
+
+  if (existingRow > 0) {
+    // Edit: overwrite existing row, preserve original created date
+    var existing = sheet.getRange(existingRow, 1, 1, 19).getValues()[0];
+    var eventId = existing[16] ? existing[16].toString().trim() : '';
+
+    // Update existing calendar event, or create one if it doesn't exist yet
+    if (eventId) {
+      try { eventId = updateCalendarEvent(quoteData, existingQuoteId, eventId) || eventId; } catch(e) {}
+    } else if (quoteData.date && quoteData.time) {
+      try { eventId = createCalendarEvent(quoteData, existingQuoteId) || ''; } catch(e) { eventId = ''; }
+    }
+
+    sheet.getRange(existingRow, 1, 1, 19).setValues([[
+      existingQuoteId, existing[1], quoteData.customerName, quoteData.contactName,
+      quoteData.orderType, quoteData.deliveryAddress || '',
+      JSON.stringify(quoteData.lineItems),
+      parseFloat(quoteData.subtotal) || 0, parseFloat(quoteData.taxRate) || 0,
+      parseFloat(quoteData.taxAmount) || 0, parseFloat(quoteData.total) || 0,
+      quoteData.taxExempt ? 'TRUE' : 'FALSE', quoteData.locationName || '',
+      quoteData.customerEmail || '', quoteData.poNumber || '', quoteData.date || '',
+      eventId, new Date(), quoteData.time || ''
+    ]]);
+    return existingQuoteId;
+  }
+
+  // New quote
   var quoteId = getNextQuoteId();
+  var eventId = '';
+  try { eventId = createCalendarEvent(quoteData, quoteId) || ''; } catch(e) { eventId = ''; }
   sheet.appendRow([
     quoteId, new Date(), quoteData.customerName, quoteData.contactName,
     quoteData.orderType, quoteData.deliveryAddress || '',
@@ -152,7 +206,8 @@ function saveQuote(quoteData) {
     parseFloat(quoteData.subtotal) || 0, parseFloat(quoteData.taxRate) || 0,
     parseFloat(quoteData.taxAmount) || 0, parseFloat(quoteData.total) || 0,
     quoteData.taxExempt ? 'TRUE' : 'FALSE', quoteData.locationName || '',
-    quoteData.customerEmail || '', quoteData.poNumber || '', quoteData.date || ''
+    quoteData.customerEmail || '', quoteData.poNumber || '', quoteData.date || '',
+    eventId, '', quoteData.time || ''
   ]);
   return quoteId;
 }
@@ -165,8 +220,11 @@ function deleteQuote(sheetRow) {
   return true;
 }
 
-function updateQuotePO(sheetRow, poNumber) {
+function updateQuotePO(sheetRow, poNumber, calendarEventId) {
   getSpreadsheet().getSheetByName(TAB_QUOTES).getRange(sheetRow, 15).setValue(poNumber || '');
+  if (calendarEventId) {
+    try { updateCalendarEventPO(sheetRow, poNumber, calendarEventId); } catch(e) {}
+  }
   return true;
 }
 
@@ -228,10 +286,19 @@ function initializeSheet() {
   var qSheet = ss.getSheetByName(TAB_QUOTES);
   if (!qSheet) qSheet = ss.insertSheet(TAB_QUOTES);
   if (!qSheet.getRange('A1').getValue()) {
-    var h = ['Quote ID','Created Date','Customer Name','Contact Name','Order Type','Delivery Address','Line Items (JSON)','Subtotal','Tax Rate Used','Tax Amount','Total','Tax Exempt','Location Name','Customer Email','PO Number','Event Date'];
+    var h = ['Quote ID','Created Date','Customer Name','Contact Name','Order Type','Delivery Address','Line Items (JSON)','Subtotal','Tax Rate Used','Tax Amount','Total','Tax Exempt','Location Name','Customer Email','PO Number','Event Date','Calendar Event ID','Last Modified','Event Time'];
     qSheet.getRange(1, 1, 1, h.length).setValues([h]);
     qSheet.getRange(1, 1, 1, h.length).setFontWeight('bold');
     qSheet.setFrozenRows(1);
+  } else {
+    // Migrate: add new column headers if missing
+    var lastCol = qSheet.getLastColumn();
+    var newHeaders = {'Calendar Event ID': 17, 'Last Modified': 18, 'Event Time': 19};
+    for (var label in newHeaders) {
+      if (lastCol < newHeaders[label]) {
+        qSheet.getRange(1, newHeaders[label]).setValue(label).setFontWeight('bold');
+      }
+    }
   }
 
   // Sequence
@@ -273,7 +340,7 @@ function getPrintData(quoteData) {
     taxRate: quoteData.taxRate || 0, taxAmount: quoteData.taxAmount || 0,
     total: quoteData.total || 0, taxExempt: quoteData.taxExempt || false,
     quoteId: quoteData.quoteId || '',
-    poNumber: quoteData.poNumber || ''
+    poNumber: quoteData.poNumber === 'NO_PO_NEEDED' ? '' : (quoteData.poNumber || '')
   };
 }
 
@@ -342,6 +409,146 @@ function getEmailQuota() { return MailApp.getRemainingDailyQuota(); }
 function esc(s) { return s ? s.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') : ''; }
 
 
+// ── CALENDAR EVENTS ──────────────────────────────────────────
+
+function buildCalendarTitle(customerName, dateStr, poNumber) {
+  var prefix = '\uD83D\uDD34 NEEDS PO';
+  if (poNumber === 'NO_PO_NEEDED') prefix = '\uD83D\uDFE2 NO PO NEEDED';
+  else if (poNumber && poNumber.toString().trim() !== '') prefix = '\uD83D\uDFE2 HAVE PO';
+  return prefix + ' \u2014 ' + customerName + ' \u2014 ' + dateStr;
+}
+
+function createCalendarEvent(quoteData, quoteId) {
+  if (!quoteData.date) return '';
+  if (!quoteData.time) return ''; // Need a time to create a timed event
+
+  var settings = getSettings();
+  var calId = (settings['Calendar ID'] || '').toString().trim();
+  var cal = calId ? CalendarApp.getCalendarById(calId) : CalendarApp.getDefaultCalendar();
+  if (!cal) return '';
+
+  var storeName = quoteData.locationName || settings['Store Name (Active)'] || '';
+  var customerName = quoteData.customerName || 'Unknown';
+
+  // Parse order time (HH:MM from input[type=time]) and create event 30 min before
+  var orderTime = new Date(quoteData.date + 'T' + quoteData.time + ':00');
+  var startTime = new Date(orderTime.getTime() - 30 * 60 * 1000);
+
+  var dateStr = orderTime.toLocaleDateString('en-US');
+  var title = buildCalendarTitle(customerName, dateStr, quoteData.poNumber);
+
+  // Build description with full quote details
+  var items = quoteData.lineItems || [];
+  if (typeof items === 'string') { try { items = JSON.parse(items); } catch(e) { items = []; } }
+  var itemLines = items.map(function(i) {
+    return '  ' + i.quantity + 'x ' + i.description + ' — $' + (i.amount || 0).toFixed(2);
+  }).join('\n');
+
+  var desc = 'Quote: ' + quoteId + '\n'
+    + 'Customer: ' + customerName + '\n'
+    + 'Contact: ' + (quoteData.contactName || '') + '\n'
+    + (quoteData.customerEmail ? 'Email: ' + quoteData.customerEmail + '\n' : '')
+    + 'Order Type: ' + (quoteData.orderType || 'Pickup') + '\n'
+    + (quoteData.orderType === 'Delivery' && quoteData.deliveryAddress ? 'Delivery Address: ' + quoteData.deliveryAddress + '\n' : '')
+    + 'Location: ' + storeName + '\n'
+    + 'PO: ' + (quoteData.poNumber === 'NO_PO_NEEDED' ? 'Not Required' : (quoteData.poNumber || 'PENDING')) + '\n'
+    + '\n--- Order Details ---\n' + (itemLines || '(no items)') + '\n'
+    + '\nSubtotal: $' + (parseFloat(quoteData.subtotal) || 0).toFixed(2)
+    + '\nTax: $' + (parseFloat(quoteData.taxAmount) || 0).toFixed(2)
+    + (quoteData.taxExempt ? ' (Tax Exempt)' : ' (' + (quoteData.taxRate || 0) + '%)')
+    + '\nTotal: $' + (parseFloat(quoteData.total) || 0).toFixed(2)
+    + '\n\nQuote submitted: ' + new Date().toLocaleString();
+
+  var event = cal.createEvent(title, startTime, orderTime, { description: desc });
+  return event.getId();
+}
+
+// Full update of calendar event (date, time, title, description) on quote edit
+function updateCalendarEvent(quoteData, quoteId, calendarEventId) {
+  if (!calendarEventId) return '';
+
+  var settings = getSettings();
+  var calId = (settings['Calendar ID'] || '').toString().trim();
+  var cal = calId ? CalendarApp.getCalendarById(calId) : CalendarApp.getDefaultCalendar();
+  if (!cal) return calendarEventId;
+
+  try {
+    var event = cal.getEventById(calendarEventId);
+    if (!event) {
+      // Event was deleted from calendar — create a fresh one
+      return createCalendarEvent(quoteData, quoteId) || '';
+    }
+
+    var storeName = quoteData.locationName || settings['Store Name (Active)'] || '';
+    var customerName = quoteData.customerName || 'Unknown';
+
+    // Update time if date and time are present
+    if (quoteData.date && quoteData.time) {
+      var orderTime = new Date(quoteData.date + 'T' + quoteData.time + ':00');
+      var startTime = new Date(orderTime.getTime() - 30 * 60 * 1000);
+      event.setTime(startTime, orderTime);
+      var dateStr = orderTime.toLocaleDateString('en-US');
+      event.setTitle(buildCalendarTitle(customerName, dateStr, quoteData.poNumber));
+    } else if (quoteData.date) {
+      var dateStr = new Date(quoteData.date + 'T00:00:00').toLocaleDateString('en-US');
+      event.setTitle(buildCalendarTitle(customerName, dateStr, quoteData.poNumber));
+    }
+
+    // Rebuild description with updated quote details
+    var items = quoteData.lineItems || [];
+    if (typeof items === 'string') { try { items = JSON.parse(items); } catch(e) { items = []; } }
+    var itemLines = items.map(function(i) {
+      return '  ' + i.quantity + 'x ' + i.description + ' — $' + (i.amount || 0).toFixed(2);
+    }).join('\n');
+
+    var desc = 'Quote: ' + quoteId + '\n'
+      + 'Customer: ' + customerName + '\n'
+      + 'Contact: ' + (quoteData.contactName || '') + '\n'
+      + (quoteData.customerEmail ? 'Email: ' + quoteData.customerEmail + '\n' : '')
+      + 'Order Type: ' + (quoteData.orderType || 'Pickup') + '\n'
+      + (quoteData.orderType === 'Delivery' && quoteData.deliveryAddress ? 'Delivery Address: ' + quoteData.deliveryAddress + '\n' : '')
+      + 'Location: ' + storeName + '\n'
+      + 'PO: ' + (quoteData.poNumber === 'NO_PO_NEEDED' ? 'Not Required' : (quoteData.poNumber || 'PENDING')) + '\n'
+      + '\n--- Order Details ---\n' + (itemLines || '(no items)') + '\n'
+      + '\nSubtotal: $' + (parseFloat(quoteData.subtotal) || 0).toFixed(2)
+      + '\nTax: $' + (parseFloat(quoteData.taxAmount) || 0).toFixed(2)
+      + (quoteData.taxExempt ? ' (Tax Exempt)' : ' (' + (quoteData.taxRate || 0) + '%)')
+      + '\nTotal: $' + (parseFloat(quoteData.total) || 0).toFixed(2)
+      + '\n\nLast updated: ' + new Date().toLocaleString();
+
+    event.setDescription(desc);
+    return calendarEventId;
+  } catch(e) {
+    return calendarEventId;
+  }
+}
+
+// Update calendar event title when PO changes
+function updateCalendarEventPO(sheetRow, poNumber, calendarEventId) {
+  if (!calendarEventId) return false;
+
+  var settings = getSettings();
+  var calId = (settings['Calendar ID'] || '').toString().trim();
+  var cal = calId ? CalendarApp.getCalendarById(calId) : CalendarApp.getDefaultCalendar();
+  if (!cal) return false;
+
+  try {
+    var event = cal.getEventById(calendarEventId);
+    if (!event) return false;
+
+    var oldTitle = event.getTitle();
+    var parts = oldTitle.split(' \u2014 ');
+    var customerName = parts.length >= 2 ? parts[1] : '';
+    var dateStr = parts.length >= 3 ? parts[2] : '';
+
+    event.setTitle(buildCalendarTitle(customerName, dateStr, poNumber));
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+
 // ── REMINDERS ────────────────────────────────────────────────
 
 const TAB_REMINDERS = 'Reminders_Sent';
@@ -371,6 +578,18 @@ function markReminderSent(quoteId) {
 }
 
 function processReminders() {
+  try {
+    return _processReminders();
+  } catch (e) {
+    var alertEmail = getSettings()['Reminder Internal Email'] || Session.getEffectiveUser().getEmail();
+    if (alertEmail) {
+      MailApp.sendEmail(alertEmail, 'Catering Reminder Trigger Error', 'processReminders failed:\n\n' + e.message + '\n\n' + e.stack);
+    }
+    throw e;
+  }
+}
+
+function _processReminders() {
   var settings = getSettings();
   if (settings['Reminder Enabled'] !== 'TRUE') return 'Reminders are disabled.';
 
@@ -408,15 +627,20 @@ function processReminders() {
     var subj = subject, bdy = body;
     for (var k in reps) { subj = subj.split(k).join(reps[k]); bdy = bdy.split(k).join(reps[k]); }
 
+    var sent = false;
     if (toCustomer && q.customerEmail) {
       MailApp.sendEmail(q.customerEmail, subj, bdy, { name: 'Chick-fil-A ' + storeName });
+      sent = true;
     }
     if (toInternal && internalEmail) {
       var intBody = 'Customer: ' + (q.customerName || '') + '\nEmail: ' + (q.customerEmail || 'N/A') + '\n\n' + bdy;
       MailApp.sendEmail(internalEmail, '[Follow-Up] ' + subj, intBody, { name: 'Chick-fil-A ' + storeName });
+      sent = true;
     }
-    markReminderSent(q.quoteId);
-    count++;
+    if (sent) {
+      markReminderSent(q.quoteId);
+      count++;
+    }
   });
 
   return 'Sent ' + count + ' reminder(s).';

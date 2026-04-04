@@ -1,0 +1,1889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFA Performance Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+  <script crossorigin src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --bg: #F8F9FB;
+      --surface: #FFFFFF;
+      --surface-2: #F2F4F7;
+      --border: #E2E5EA;
+      --text: #1F2937;
+      --muted: #6B7280;
+      --muted-light: #9CA3AF;
+      --splh: #3B7DDD;
+      --food: #D97706;
+      --paper: #059669;
+      --speed: #0891B2;
+      --mile: #7C3AED;
+      --red: #E51636;
+      --red-dim: rgba(229,22,54,0.08);
+      --green: #059669;
+      --amber: #D97706;
+      --radius: 10px;
+      --radius-lg: 16px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg) repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 27px,
+        rgba(229,22,54,0.18) 27px,
+        rgba(229,22,54,0.18) 28px
+      );
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .dash-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .cfa-badge {
+      width: 44px;
+      height: 44px;
+      background: var(--red);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      color: white;
+      letter-spacing: 1.5px;
+      flex-shrink: 0;
+    }
+    .header-text h1 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 22px;
+      color: var(--text);
+    }
+    .header-text p {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    /* ── Tab Nav ── */
+    .tab-nav {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active {
+      color: var(--text);
+      border-bottom-color: var(--red);
+      font-weight: 600;
+    }
+    .tab-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Main ── */
+    .dash-main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 32px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .card-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: 16px;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+
+    /* ── Overview Card ── */
+    .overview-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--red);
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .overview-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .overview-goal {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .overview-text {
+      font-size: 14px;
+      line-height: 1.7;
+      color: #4B5563;
+    }
+
+    /* ── Intro Page ── */
+    .intro-hero {
+      text-align: center;
+      padding: 48px 20px 36px;
+    }
+    .intro-hero h1 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 36px;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .intro-hero p {
+      font-size: 16px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .intro-hero .edit-btn {
+      margin-top: 12px;
+    }
+    .intro-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--red);
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .intro-section-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--text);
+    }
+    .intro-divider {
+      border: none;
+      border-top: 2px solid var(--border);
+      margin: 36px 0;
+    }
+
+    /* ── Stat Cards ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 768px) {
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 24px 22px;
+      transition: box-shadow 0.2s, border-color 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .stat-card:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 12px;
+    }
+    .stat-value {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: 32px;
+      line-height: 1.1;
+      letter-spacing: -0.5px;
+    }
+    .stat-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    .color-good { color: var(--green); }
+    .color-warn { color: var(--amber); }
+    .color-neutral { color: var(--muted-light); }
+
+    /* ── SPLH stat cards ── */
+    .splh-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 768px) {
+      .splh-stat-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .splh-stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 24px 22px;
+      border-left: 3px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .splh-stat-card .stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 12px;
+    }
+    .splh-stat-card .stat-value {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: 32px;
+      line-height: 1.1;
+      letter-spacing: -0.5px;
+    }
+    .splh-stat-card .stat-sub {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    /* ── Goal achievement bars (SPLH) ── */
+    .goal-section {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .goal-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    .goal-bars {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .goal-bar-label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .goal-bar-track {
+      width: 100%;
+      height: 10px;
+      background: var(--surface-2);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .goal-bar-fill {
+      height: 100%;
+      border-radius: 5px;
+      transition: width 0.4s ease;
+    }
+
+    /* ── Form Inputs ── */
+    .form-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+      min-width: 120px;
+    }
+    .form-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .form-input {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-input:focus {
+      border-color: var(--red);
+      box-shadow: 0 0 0 3px rgba(229,22,54,0.08);
+    }
+    .form-input::placeholder {
+      color: var(--muted-light);
+    }
+    textarea.form-input {
+      resize: vertical;
+      min-height: 60px;
+      line-height: 1.5;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--red);
+      color: white;
+    }
+    .btn-primary:hover { background: #c4002b; }
+    .btn-secondary {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: var(--border); }
+    .btn-danger {
+      background: rgba(229,22,54,0.06);
+      color: #c4002b;
+      border: 1px solid rgba(229,22,54,0.15);
+    }
+    .btn-danger:hover { background: rgba(229,22,54,0.12); }
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ── Action bar ── */
+    .action-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .file-input-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .file-input-label:hover { background: var(--border); }
+
+    /* ── CSV hint ── */
+    .csv-hint {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .csv-hint code {
+      font-family: monospace;
+      color: var(--text);
+      background: var(--border);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    /* ── Tables ── */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .data-table thead {
+      background: var(--surface-2);
+    }
+    .data-table th {
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+    .data-table th.text-right { text-align: right; }
+    .data-table th.text-center { text-align: center; }
+    .data-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .data-table td.text-right { text-align: right; }
+    .data-table td.text-center { text-align: center; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .table-value {
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+    }
+
+    /* ── Note sub-rows ── */
+    .note-row td {
+      padding: 0 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .note-content {
+      background: var(--surface-2);
+      border-left: 3px solid var(--red);
+      border-radius: 0 6px 6px 0;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    .note-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-good {
+      background: rgba(5,150,105,0.08);
+      color: var(--green);
+    }
+    .badge-warn {
+      background: rgba(217,119,6,0.08);
+      color: var(--amber);
+    }
+
+    /* ── Table action buttons ── */
+    .delete-btn {
+      background: rgba(229,22,54,0.06);
+      border: none;
+      color: #c4002b;
+      padding: 5px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .delete-btn:hover { background: rgba(229,22,54,0.14); }
+    .edit-btn {
+      background: rgba(59,125,221,0.06);
+      border: none;
+      color: var(--splh);
+      padding: 5px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .edit-btn:hover { background: rgba(59,125,221,0.14); }
+    .save-btn {
+      background: rgba(5,150,105,0.06);
+      border: none;
+      color: var(--green);
+      padding: 5px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .save-btn:hover { background: rgba(5,150,105,0.14); }
+    .cancel-btn {
+      background: rgba(107,114,128,0.06);
+      border: none;
+      color: var(--muted);
+      padding: 5px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .cancel-btn:hover { background: rgba(107,114,128,0.14); }
+
+    /* ── Edit input in table ── */
+    .table-edit-input {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 10px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      width: 100%;
+      outline: none;
+    }
+    .table-edit-input:focus { border-color: var(--splh); }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--muted);
+    }
+    .empty-state p:first-child {
+      font-size: 16px;
+      color: var(--text);
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    .empty-state p:last-child {
+      font-size: 13px;
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      backdrop-filter: blur(4px);
+    }
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      max-width: 420px;
+      width: 90%;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+    .modal-box h3 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      margin-bottom: 12px;
+    }
+    .modal-box p {
+      color: var(--muted);
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    /* ── SPLH highlighted row ── */
+    .splh-takeover-row {
+      background: rgba(5,150,105,0.05);
+    }
+
+    /* ── Recharts overrides ── */
+    .recharts-cartesian-grid line { stroke: rgba(0,0,0,0.06); }
+    .recharts-text { fill: var(--muted) !important; font-family: 'DM Sans', sans-serif !important; font-size: 12px !important; }
+    .recharts-tooltip-wrapper .recharts-default-tooltip {
+      background: var(--surface) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 8px !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+    }
+    .recharts-default-tooltip .recharts-tooltip-label { color: var(--text) !important; font-family: 'Syne', sans-serif !important; }
+    .recharts-default-tooltip .recharts-tooltip-item { color: var(--muted) !important; }
+
+    /* ── Utilities ── */
+    .flex { display: flex; }
+    .gap-2 { gap: 8px; }
+    .gap-3 { gap: 12px; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .justify-center { justify-content: center; }
+    .hidden { display: none; }
+    .mt-2 { margin-top: 8px; }
+    .mt-3 { margin-top: 12px; }
+    .mb-2 { margin-bottom: 8px; }
+    .mb-4 { margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#6B7280;font-family:DM Sans,sans-serif;flex-direction:column;gap:8px">
+      <div style="font-size:16px">Loading dashboard...</div>
+      <div id="load-error" style="color:#c4002b;font-size:13px;display:none"></div>
+    </div>
+  </div>
+
+  <script>
+    // Verify dependencies loaded before Babel compiles
+    window.addEventListener('DOMContentLoaded', function() {
+      var missing = [];
+      if (!window.React) missing.push('React');
+      if (!window.ReactDOM) missing.push('ReactDOM');
+      if (!window.Recharts) missing.push('Recharts');
+      if (missing.length > 0) {
+        var el = document.getElementById('load-error');
+        if (el) { el.textContent = 'Failed to load: ' + missing.join(', ') + '. Check internet connection.'; el.style.display = 'block'; }
+      }
+    });
+  </script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+    const {
+      LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+      Legend, ResponsiveContainer, ReferenceLine, Area, AreaChart
+    } = Recharts;
+
+    /* ═══════════════════════════════════════════════════════════
+       METRICS CONFIG
+    ═══════════════════════════════════════════════════════════ */
+    const METRICS = {
+      splh: {
+        label: 'Productivity',
+        goal: 90.00,
+        goalLabel: '\u2265 90.00 SPLH',
+        unit: '',
+        higherIsBetter: true,
+        color: '#3B7DDD',
+        colorDim: 'rgba(59,125,221,0.10)',
+        decimals: 2,
+        dotColor: '#3B7DDD',
+      },
+      food: {
+        label: 'Food Cost Gap',
+        goal: 0.75,
+        goalLabel: '\u2264 0.75%',
+        unit: '%',
+        higherIsBetter: false,
+        color: '#D97706',
+        colorDim: 'rgba(217,119,6,0.10)',
+        decimals: 2,
+        dotColor: '#D97706',
+      },
+      paper: {
+        label: 'Paper Cost',
+        goal: 3.00,
+        goalLabel: '\u2264 3.00%',
+        unit: '%',
+        higherIsBetter: false,
+        color: '#059669',
+        colorDim: 'rgba(5,150,105,0.10)',
+        decimals: 2,
+        dotColor: '#059669',
+      },
+      speed: {
+        label: 'Speed of Service',
+        goal: 4.00,
+        goalLabel: '\u2264 4:00 Total',
+        unit: ' min',
+        higherIsBetter: false,
+        color: '#0891B2',
+        colorDim: 'rgba(8,145,178,0.10)',
+        decimals: 2,
+        dotColor: '#0891B2',
+      },
+      mile: {
+        label: '2nd Mile Service',
+        goal: 72,
+        goalLabel: '\u2265 72',
+        unit: '',
+        higherIsBetter: true,
+        color: '#7C3AED',
+        colorDim: 'rgba(124,58,237,0.10)',
+        decimals: 0,
+        dotColor: '#7C3AED',
+      },
+    };
+
+    const TAB_ORDER = ['splh', 'food', 'paper', 'speed', 'mile'];
+
+    const METRIC_STORIES = {
+      splh: `When I took over supervision of productivity, the goal Jeff set was clear: $90 SPLH, consistently. It's a number that reflects everything \u2014 are we scheduling the right people at the right times, are we executing on the floor, and are we driving the sales to match? But this wasn't just about hitting a number for LDP. I wanted to take a holistic approach to Jeff's business \u2014 productivity, cost control, speed, and guest experience all move together when you get the fundamentals right. Each metric I'm tracking here is a piece of that bigger picture, and the month-by-month notes tell the story of how we got there.`,
+      food: `A food cost gap under 0.75% is ambitious, but it's the kind of goal that forces the right habits. Every fraction of a percent here is real money, and getting it right means the team is disciplined about waste, portioning, and inventory without cutting corners that impact quality. Tough but doable \u2014 and the kind of target that makes a real difference in how the business runs.`,
+      paper: `Paper cost is one of those areas that's easy to overlook until you actually dig into the numbers. Keeping it under 3% means the team is being intentional with supplies \u2014 not over-packing, not wasting, but not skimping to the point that it affects the guest experience either. It's a discipline metric that reflects how buttoned-up the operation really is.`,
+      speed: `Our guests expect fast and smooth \u2014 that's the Chick-fil-A standard. A total time under 4 minutes keeps us in that sweet spot where we're moving efficiently without rushing or sacrificing accuracy. This goal pushes the team to stay sharp on execution, communication, and line flow, and it's a direct reflection of how well the operation is running in real time.`,
+      mile: `Second Mile Service is the heart of what makes Chick-fil-A different. A score of 72 or above means the team isn't just going through the motions \u2014 they're creating the kind of moments that guests actually remember and come back for. This is where culture shows up in the numbers, and it's one of the things I'm most intentional about developing in the team.`,
+    };
+
+    const INTRO_DEFAULTS = {
+      foundation: `I started mowing lawns when I was 13. Not for allowance money, not because my dad told me to \u2014 I went out, knocked on doors, got clients, hired people, managed schedules, handled the money. I ran Sharp Edge Mowing for eight years. I didn't know what I was building at the time, I just knew I liked the work and I liked the problem solving. Looking back, that's where all of this started. Every system I've built since, every spreadsheet, every process, every hard conversation with a team member \u2014 the foundation was a kid in Fort Worth with a mower and a weird obsession with making things run better than they were running before.\n\nI went to Texas A&M Texarkana and got a Bachelor's in Business with a concentration in Leadership. And honestly the degree matters, it checks a box, but the real education happened outside the classroom. I was on the Campus Activities Board running large-scale events, I was in student government circles pushing for change, and I was the guy who would sit in a room full of administrators and tell them exactly what was broken and exactly how to fix it. I didn't always say it the right way. I definitely didn't always have the political savvy to land the message perfectly. But I said it, and I meant it, and I came with data and I came with solutions. That's never changed.`,
+      cfa_path: `I started at Chick-fil-A in Texarkana as a team member. Cross-trained front and back of house, got promoted to team lead pretty quickly because I showed up, I worked hard, and I didn't wait to be told what needed to happen. From there I moved into Assistant Director of Facilities and Maintenance where I managed over 100 team members and saved the store north of $35,000 a year by doing repair and maintenance work in-house instead of contracting it out. That role taught me something I still carry \u2014 you don't have to be the smartest person in the room, you just have to be the one willing to get under the building and figure out why the pipe is leaking while everyone else is still filling out the work order.\n\nAfter that I moved into a Talent Director role where I was responsible for recruiting, onboarding, and developing team members across two locations. I built advancement tracks, I focused on retention, and I learned that the difference between a team that shows up and a team that cares is almost always whether or not someone invested in them before they were asked to invest in the business. That's not a soft skill. That's a business strategy. If your people don't grow, your operation doesn't grow. Period.`,
+      today: `Today I serve as Chief of Staff under Operator Jeff Mulkey at two Chick-fil-A locations in Dallas \u2014 Cockrell Hill Drive-Thru Only and the Dallas Baptist University Off-Campus Venue. I'm the bridge between departments, between the operator and the directors, between what the plan says and what actually happens on the floor. I own scheduling, payroll, director coaching, systems building, and operational analytics across both stores. When I took over scheduling at Cockrell Hill, our Sales Per Labor Hour was sitting around 84. I built the systems, adjusted the labor models, and we pushed it above 90 against a goal of 90. That didn't happen because I'm some kind of genius, it happened because I was willing to sit in a spreadsheet for hours, look at the data honestly, and make changes that weren't always popular but were always right.`,
+      builder: `I build things. That's probably the most honest way to describe what I do. I've built a scheduling web app using Google Apps Script that pulls CFA sales data and generates labor curves using exponential smoothing. I built a cross-location overtime reconciliation system because our payroll wasn't aggregating hours properly across stores. I built a catering quote tool, a complaint tracking system, a facilities repair tracker, waste tracking automation, and a 42-phase employee accountability system with bilingual interfaces. I built a quarterly bonus program with a two-gate structure and a sliding pool for our leadership tiers. I redesigned our Monday Morning Huddle from the ground up across five operational tabs. I'm not a software engineer \u2014 I'm an operator who learned to code because the tools I needed didn't exist and I wasn't going to wait for someone else to build them.\n\nBut here's the thing about everything I build \u2014 it's designed to outlast me. Every system has documentation. Every tool is built so that someone who isn't technical can maintain it after I leave. Every process has a handoff plan. Because I think the worst thing a leader can do is build something that only works when they're in the room. If it dies when you walk out the door, you didn't build a system, you built a dependency. And dependencies don't scale.`,
+      personal: `I live in Dallas with my wife Lori and our two Australian Shepherds. I run half marathons, I play way too much Satisfactory, I cook, and I do woodworking when I can find the time. I'm the kind of person who will absolutely beat my head into a wall until the problem gives up or I do, and to be honest with you, I don't give up very often. That stubbornness has gotten me into trouble more than a few times, but it's also the reason I've been able to take broken things and make them work \u2014 whether that's a labor model, a team culture, or a leaky pipe under a restaurant.`,
+      why_ldp: `I'm pursuing the Chick-fil-A Leadership Development Program because I believe this is where my story is supposed to go next. I've spent years learning how to run operations, how to build teams, how to create systems that actually work, and how to have the hard conversations that most people avoid. I want to own and operate my own Chick-fil-A. Not because it's a good business opportunity \u2014 it is, but that's not why. It's because I genuinely believe that a well-run restaurant can change a community. It can give a 16-year-old their first real job and teach them what it means to show up. It can give a single mom a schedule that actually respects her life. It can give a young leader a place to fail safely and grow into someone they didn't know they could be. I've seen it happen. I've been part of making it happen. And I want to do it on my own, from the ground up, the same way I've done everything else.`,
+      why_dashboard: `I didn't pick five separate goals and track them independently \u2014 I picked one approach and measured it five ways. When I started looking at what I could actually impact at Cockrell Hill, I kept coming back to the same realization: productivity, cost control, speed, and guest experience aren't separate problems. They're all connected to the same thing \u2014 how well the operation is running and how invested the team is in running it well.\n\nSo I built this dashboard to tell that story. Each tab tracks a different metric, but the through-line is the same: what did I focus on, what did I change, and what happened as a result? The month-by-month notes aren't just data points \u2014 they're the narrative of how we got from where we were to where we are. This isn't a highlight reel. It's the actual work, documented as it happened.`,
+    };
+
+    /* ═══════════════════════════════════════════════════════════
+       OVERVIEW CARD (editable)
+    ═══════════════════════════════════════════════════════════ */
+    const OverviewCard = ({ metricId, title, goalText }) => {
+      const storageKey = `cfa_dash_story_${metricId}`;
+      const [isEditing, setIsEditing] = useState(false);
+      const [text, setText] = useState('');
+
+      useEffect(() => {
+        var stored = localStorage.getItem(storageKey);
+        setText(stored !== null ? stored : (METRIC_STORIES[metricId] || ''));
+      }, [metricId, storageKey]);
+
+      var handleSave = function() {
+        localStorage.setItem(storageKey, text);
+        setIsEditing(false);
+      };
+
+      var handleCancel = function() {
+        var stored = localStorage.getItem(storageKey);
+        setText(stored !== null ? stored : (METRIC_STORIES[metricId] || ''));
+        setIsEditing(false);
+      };
+
+      var handleReset = function() {
+        var defaultText = METRIC_STORIES[metricId] || '';
+        setText(defaultText);
+        localStorage.removeItem(storageKey);
+        setIsEditing(false);
+      };
+
+      return (
+        <div className="overview-card">
+          <div className="flex justify-between items-center" style={{ marginBottom: isEditing ? 12 : 0 }}>
+            <div>
+              <div className="overview-title">{title}</div>
+              <div className="overview-goal">{goalText}</div>
+            </div>
+            {!isEditing && (
+              <button className="edit-btn" onClick={() => setIsEditing(true)} title="Edit overview">
+                <Icon name="edit" size={16} />
+              </button>
+            )}
+          </div>
+          {isEditing ? (
+            <div>
+              <textarea className="form-input" rows={6} value={text}
+                onChange={(e) => setText(e.target.value)}
+                style={{ width: '100%', marginBottom: 10 }} />
+              <div className="flex gap-2">
+                <button className="btn btn-primary btn-small" onClick={handleSave}>Save</button>
+                <button className="btn btn-secondary btn-small" onClick={handleCancel}>Cancel</button>
+                <button className="btn btn-danger btn-small" onClick={handleReset}>Reset to Default</button>
+              </div>
+            </div>
+          ) : (
+            <p className="overview-text" style={{ whiteSpace: 'pre-wrap' }}>{text}</p>
+          )}
+        </div>
+      );
+    };
+
+    /* ═══════════════════════════════════════════════════════════
+       INTRO SECTION (editable text block)
+    ═══════════════════════════════════════════════════════════ */
+    const IntroSection = ({ sectionKey, title, defaultText, accentColor }) => {
+      const storageKey = `cfa_dash_intro_${sectionKey}`;
+      const [isEditing, setIsEditing] = useState(false);
+      const [text, setText] = useState('');
+
+      useEffect(() => {
+        var stored = localStorage.getItem(storageKey);
+        setText(stored !== null ? stored : defaultText);
+      }, [sectionKey, storageKey]);
+
+      var handleSave = function() {
+        localStorage.setItem(storageKey, text);
+        setIsEditing(false);
+      };
+
+      var handleCancel = function() {
+        var stored = localStorage.getItem(storageKey);
+        setText(stored !== null ? stored : defaultText);
+        setIsEditing(false);
+      };
+
+      var handleReset = function() {
+        setText(defaultText);
+        localStorage.removeItem(storageKey);
+        setIsEditing(false);
+      };
+
+      return (
+        <div className="intro-section" style={accentColor ? { borderLeftColor: accentColor } : {}}>
+          <div className="flex justify-between items-center" style={{ marginBottom: 12 }}>
+            <div className="intro-section-title">{title}</div>
+            {!isEditing && (
+              <button className="edit-btn" onClick={() => setIsEditing(true)} title="Edit section">
+                <Icon name="edit" size={16} />
+              </button>
+            )}
+          </div>
+          {isEditing ? (
+            <div>
+              <textarea className="form-input" rows={10} value={text}
+                onChange={(e) => setText(e.target.value)}
+                style={{ width: '100%', marginBottom: 10 }} />
+              <div className="flex gap-2">
+                <button className="btn btn-primary btn-small" onClick={handleSave}>Save</button>
+                <button className="btn btn-secondary btn-small" onClick={handleCancel}>Cancel</button>
+                <button className="btn btn-danger btn-small" onClick={handleReset}>Reset to Default</button>
+              </div>
+            </div>
+          ) : (
+            <p className="overview-text" style={{ whiteSpace: 'pre-wrap' }}>{text}</p>
+          )}
+        </div>
+      );
+    };
+
+    /* ═══════════════════════════════════════════════════════════
+       INTRO TAB
+    ═══════════════════════════════════════════════════════════ */
+    const IntroTab = () => {
+      const [isEditingHero, setIsEditingHero] = useState(false);
+      const [heroName, setHeroName] = useState('');
+      const [heroSub, setHeroSub] = useState('');
+
+      useEffect(() => {
+        setHeroName(localStorage.getItem('cfa_dash_intro_name') || 'Brent Baldwin');
+        setHeroSub(localStorage.getItem('cfa_dash_intro_subtitle') || 'Chief of Staff \u2014 Chick-fil-A Cockrell Hill & Dallas Baptist University');
+      }, []);
+
+      var saveHero = function() {
+        localStorage.setItem('cfa_dash_intro_name', heroName);
+        localStorage.setItem('cfa_dash_intro_subtitle', heroSub);
+        setIsEditingHero(false);
+      };
+
+      var cancelHero = function() {
+        setHeroName(localStorage.getItem('cfa_dash_intro_name') || 'Brent Baldwin');
+        setHeroSub(localStorage.getItem('cfa_dash_intro_subtitle') || 'Chief of Staff \u2014 Chick-fil-A Cockrell Hill & Dallas Baptist University');
+        setIsEditingHero(false);
+      };
+
+      return (
+        <div>
+          {/* Hero */}
+          <div className="intro-hero">
+            {isEditingHero ? (
+              <div style={{ maxWidth: 500, margin: '0 auto' }}>
+                <div className="form-group mb-2">
+                  <label className="form-label">Name</label>
+                  <input className="form-input" value={heroName} onChange={(e) => setHeroName(e.target.value)}
+                    style={{ textAlign: 'center', fontSize: 20, fontWeight: 700 }} />
+                </div>
+                <div className="form-group mb-4">
+                  <label className="form-label">Subtitle</label>
+                  <input className="form-input" value={heroSub} onChange={(e) => setHeroSub(e.target.value)}
+                    style={{ textAlign: 'center' }} />
+                </div>
+                <div className="flex gap-2 justify-center">
+                  <button className="btn btn-primary btn-small" onClick={saveHero}>Save</button>
+                  <button className="btn btn-secondary btn-small" onClick={cancelHero}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <h1>{heroName}</h1>
+                <p>{heroSub}</p>
+                <button className="edit-btn" onClick={() => setIsEditingHero(true)} title="Edit header"
+                  style={{ marginTop: 12 }}>
+                  <Icon name="edit" size={16} />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* My Story */}
+          <IntroSection sectionKey="foundation" title="Where It Started" defaultText={INTRO_DEFAULTS.foundation} />
+          <IntroSection sectionKey="cfa_path" title="The Chick-fil-A Path" defaultText={INTRO_DEFAULTS.cfa_path} />
+          <IntroSection sectionKey="today" title="Today" defaultText={INTRO_DEFAULTS.today} />
+          <IntroSection sectionKey="builder" title="What I Build" defaultText={INTRO_DEFAULTS.builder} />
+          <IntroSection sectionKey="personal" title="Beyond the Restaurant" defaultText={INTRO_DEFAULTS.personal} />
+          <IntroSection sectionKey="why_ldp" title="Why LDP" defaultText={INTRO_DEFAULTS.why_ldp} />
+
+          <hr className="intro-divider" />
+
+          {/* Why This Dashboard */}
+          <IntroSection sectionKey="why_dashboard" title="Why I Built This Dashboard"
+            defaultText={INTRO_DEFAULTS.why_dashboard} accentColor="#3B7DDD" />
+        </div>
+      );
+    };
+
+    /* ═══════════════════════════════════════════════════════════
+       SVG ICONS
+    ═══════════════════════════════════════════════════════════ */
+    const Icon = ({ name, size = 18 }) => {
+      const icons = {
+        plus: <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
+        trash: <><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>,
+        download: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>,
+        upload: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>,
+        edit: <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>,
+        check: <polyline points="20 6 9 17 4 12"/>,
+        x: <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
+        trending: <><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>,
+        note: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>,
+      };
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {icons[name]}
+        </svg>
+      );
+    };
+
+    /* ═══════════════════════════════════════════════════════════
+       HELPER: is a value "on goal"?
+    ═══════════════════════════════════════════════════════════ */
+    function isOnGoal(metricId, value) {
+      const m = METRICS[metricId];
+      if (m.higherIsBetter) return value >= m.goal;
+      return value <= m.goal;
+    }
+
+    function formatVal(metricId, value) {
+      const m = METRICS[metricId];
+      return value.toFixed(m.decimals) + m.unit;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       CHART TOOLTIP
+    ═══════════════════════════════════════════════════════════ */
+    const ChartTooltip = ({ active, payload, label, metricId }) => {
+      if (!active || !payload || !payload.length) return null;
+      const val = payload[0]?.value;
+      const entry = payload[0]?.payload;
+      return (
+        <div style={{
+          background: '#fff', border: '1px solid var(--border)',
+          borderRadius: 8, padding: '10px 14px', fontSize: 13,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxWidth: 260
+        }}>
+          <div style={{ fontFamily: 'Syne', fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>{label}</div>
+          <div style={{ color: METRICS[metricId]?.color || '#333', fontWeight: 600 }}>
+            {val !== undefined ? formatVal(metricId, val) : '\u2014'}
+          </div>
+          {entry?.note && (
+            <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6, lineHeight: 1.5, borderTop: '1px solid var(--border)', paddingTop: 6, whiteSpace: 'pre-wrap' }}>
+              {entry.note}
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    /* ═══════════════════════════════════════════════════════════
+       GENERIC METRIC TAB (Food, Paper, Speed, Mile)
+    ═══════════════════════════════════════════════════════════ */
+    const GenericMetricTab = ({ metricId }) => {
+      const m = METRICS[metricId];
+      const storageKey = `cfa_dash_${metricId}`;
+
+      const [data, setData] = useState([]);
+      const [form, setForm] = useState({ month: '', value: '', note: '' });
+      const [deleteConfirm, setDeleteConfirm] = useState(null);
+      const [clearConfirm, setClearConfirm] = useState(false);
+
+      // Load from localStorage
+      useEffect(() => {
+        try {
+          const stored = localStorage.getItem(storageKey);
+          if (stored) setData(JSON.parse(stored));
+        } catch (e) { console.error('Load error:', e); }
+      }, [storageKey]);
+
+      // Save
+      const save = useCallback((d) => {
+        localStorage.setItem(storageKey, JSON.stringify(d));
+      }, [storageKey]);
+
+      const addEntry = () => {
+        if (!form.month || form.value === '') return;
+        const next = [...data, { month: form.month, value: parseFloat(form.value), note: form.note || '' }];
+        setData(next);
+        save(next);
+        setForm({ month: '', value: '', note: '' });
+      };
+
+      const deleteEntry = (idx) => {
+        const next = [...data];
+        next.splice(idx, 1);
+        setData(next);
+        save(next);
+        setDeleteConfirm(null);
+      };
+
+      const clearAll = () => {
+        setData([]);
+        save([]);
+        setClearConfirm(false);
+      };
+
+      const handleKeyDown = (e) => { if (e.key === 'Enter') addEntry(); };
+
+      const importCSV = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const lines = ev.target.result.split('\n').map(l => l.trim()).filter(Boolean);
+          const startIdx = lines[0]?.toLowerCase().startsWith('month') ? 1 : 0;
+          const imported = [];
+          for (let i = startIdx; i < lines.length; i++) {
+            const parts = lines[i].split(',').map(s => s.replace(/^"|"$/g, '').trim());
+            if (parts.length >= 2 && !isNaN(parseFloat(parts[1]))) {
+              imported.push({ month: parts[0], value: parseFloat(parts[1]), note: parts[2] || '' });
+            }
+          }
+          if (imported.length > 0) {
+            const next = [...data, ...imported];
+            setData(next);
+            save(next);
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      };
+
+      const exportCSV = () => {
+        const rows = ['Month,Value,Notes', ...data.map(d => `${d.month},${d.value},"${(d.note || '').replace(/"/g, '""')}"`)];
+        const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cfa_${metricId}_data.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      // Stats
+      const latest = data.length > 0 ? data[data.length - 1] : null;
+      const bestEntry = data.length > 0
+        ? data.reduce((best, d) => m.higherIsBetter
+            ? (d.value > best.value ? d : best)
+            : (d.value < best.value ? d : best), data[0])
+        : null;
+      const avg = data.length > 0 ? data.reduce((s, d) => s + d.value, 0) / data.length : 0;
+      const onGoalCount = data.filter(d => isOnGoal(metricId, d.value)).length;
+
+      // Chart Y range
+      const allVals = data.map(d => d.value).concat([m.goal]);
+      const yMin = Math.min(...allVals);
+      const yMax = Math.max(...allVals);
+      const spread = yMax - yMin || 1;
+      const chartMin = Math.floor((yMin - spread * 0.3) * 100) / 100;
+      const chartMax = Math.ceil((yMax + spread * 0.3) * 100) / 100;
+
+      return (
+        <div>
+          {/* Overview */}
+          <OverviewCard metricId={metricId} title={m.label} goalText={`Goal: ${m.goalLabel}`} />
+
+          {/* Stat Cards */}
+          <div className="stat-grid">
+            <div className="stat-card" style={{ borderLeftColor: m.color }}>
+              <div className="stat-label">Latest</div>
+              <div className={`stat-value ${latest ? (isOnGoal(metricId, latest.value) ? 'color-good' : 'color-warn') : 'color-neutral'}`}>
+                {latest ? formatVal(metricId, latest.value) : '\u2014'}
+              </div>
+              <div className="stat-sub">{latest ? latest.month : 'No data yet'}</div>
+            </div>
+            <div className="stat-card" style={{ borderLeftColor: m.color }}>
+              <div className="stat-label">Best Month</div>
+              <div className="stat-value color-good">
+                {bestEntry ? formatVal(metricId, bestEntry.value) : '\u2014'}
+              </div>
+              <div className="stat-sub">{bestEntry ? bestEntry.month : 'No data yet'}</div>
+            </div>
+            <div className="stat-card" style={{ borderLeftColor: m.color }}>
+              <div className="stat-label">Avg (All Time)</div>
+              <div className={`stat-value ${data.length > 0 ? (isOnGoal(metricId, avg) ? 'color-good' : 'color-warn') : 'color-neutral'}`}>
+                {data.length > 0 ? formatVal(metricId, avg) : '\u2014'}
+              </div>
+              <div className="stat-sub">{data.length > 0 ? `${data.length} entries` : 'No data yet'}</div>
+            </div>
+            <div className="stat-card" style={{ borderLeftColor: m.color }}>
+              <div className="stat-label">Months on Goal</div>
+              <div className={`stat-value ${data.length > 0 && onGoalCount === data.length ? 'color-good' : 'color-neutral'}`}>
+                {data.length > 0 ? `${onGoalCount}/${data.length}` : '\u2014'}
+              </div>
+              <div className="stat-sub">{data.length > 0 ? m.goalLabel : 'No data yet'}</div>
+            </div>
+          </div>
+
+          {/* Chart */}
+          <div className="card">
+            <div className="card-title">{m.label} Trend</div>
+            {data.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={data}>
+                  <defs>
+                    <linearGradient id={`fill-${metricId}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={m.color} stopOpacity={0.15}/>
+                      <stop offset="100%" stopColor={m.color} stopOpacity={0.02}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+                  <XAxis dataKey="month" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[chartMin, chartMax]} tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<ChartTooltip metricId={metricId} />} />
+                  <ReferenceLine y={m.goal} stroke="rgba(229,22,54,0.4)" strokeDasharray="5 5" label={{ value: m.goalLabel, position: 'right', fill: 'rgba(229,22,54,0.7)', fontSize: 11 }} />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke={m.color}
+                    strokeWidth={2.5}
+                    fill={`url(#fill-${metricId})`}
+                    dot={(props) => {
+                      const onG = isOnGoal(metricId, props.payload.value);
+                      return (
+                        <circle
+                          key={props.index}
+                          cx={props.cx} cy={props.cy} r={4}
+                          fill={onG ? m.color : '#D97706'}
+                          stroke={onG ? m.color : '#D97706'}
+                          strokeWidth={2}
+                        />
+                      );
+                    }}
+                    activeDot={{ r: 6, stroke: m.color, strokeWidth: 2, fill: '#fff' }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="empty-state">
+                <p>No chart data</p>
+                <p>Add entries below to see your trend</p>
+              </div>
+            )}
+          </div>
+
+          {/* Add / Import Form */}
+          <div className="card">
+            <div className="flex justify-between items-center mb-4">
+              <div className="card-title" style={{ marginBottom: 0 }}>Add Data</div>
+              <div className="flex gap-2">
+                {data.length > 0 && (
+                  <button className="btn btn-danger btn-small" onClick={() => setClearConfirm(true)}>
+                    Clear All
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Month</label>
+                <input className="form-input" placeholder="Jan 2026" value={form.month}
+                  onChange={(e) => setForm({...form, month: e.target.value})} onKeyDown={handleKeyDown} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Value</label>
+                <input className="form-input" type="number" step="0.01" placeholder={m.goal.toString()}
+                  value={form.value}
+                  onChange={(e) => setForm({...form, value: e.target.value})} onKeyDown={handleKeyDown} />
+              </div>
+            </div>
+            <div className="form-row mt-3">
+              <div className="form-group" style={{ minWidth: '100%' }}>
+                <label className="form-label">Story / Notes</label>
+                <textarea className="form-input" rows={3}
+                  placeholder="What happened this month? What did you change, coach, or implement?"
+                  value={form.note}
+                  onChange={(e) => setForm({...form, note: e.target.value})} />
+              </div>
+            </div>
+            <div className="action-bar mt-3">
+              <button className="btn btn-primary" onClick={addEntry}>
+                <Icon name="plus" size={16} /> Add Entry
+              </button>
+              <label className="file-input-label">
+                <Icon name="upload" size={16} /> Import CSV
+                <input type="file" accept=".csv" onChange={importCSV} style={{ display: 'none' }} />
+              </label>
+              <button className="btn btn-secondary" onClick={exportCSV} disabled={data.length === 0}>
+                <Icon name="download" size={16} /> Export CSV
+              </button>
+            </div>
+            <div className="csv-hint">
+              <strong>CSV format:</strong> <code>Month,Value,Notes</code><br/>
+              Example: <code>Jan 2026,{m.goal},{m.label} note here</code>
+            </div>
+          </div>
+
+          {/* Data Table */}
+          <div className="card">
+            <div className="card-title">Entry History</div>
+            {data.length === 0 ? (
+              <div className="empty-state">
+                <p>No entries yet</p>
+                <p>Add your first entry above to start tracking</p>
+              </div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th className="text-right">Value</th>
+                    <th className="text-center">Status</th>
+                    <th className="text-center" style={{ width: 60 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.slice().reverse().map((entry, ridx) => {
+                    const actualIdx = data.length - 1 - ridx;
+                    const onG = isOnGoal(metricId, entry.value);
+                    return (
+                      <React.Fragment key={actualIdx}>
+                        <tr>
+                          <td style={{ fontWeight: 500 }}>{entry.month}</td>
+                          <td className="text-right">
+                            <span className="table-value" style={{ color: m.color }}>
+                              {formatVal(metricId, entry.value)}
+                            </span>
+                          </td>
+                          <td className="text-center">
+                            <span className={`badge ${onG ? 'badge-good' : 'badge-warn'}`}>
+                              {onG ? '\u2713 On Goal' : '\u2717 Off Goal'}
+                            </span>
+                          </td>
+                          <td className="text-center">
+                            <button className="delete-btn" onClick={() => setDeleteConfirm({ idx: actualIdx, month: entry.month })}>
+                              <Icon name="trash" size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                        {entry.note && (
+                          <tr className="note-row">
+                            <td colSpan={4} style={{ borderBottom: '1px solid var(--border)' }}>
+                              <div className="note-content">
+                                <div className="note-label">Notes</div>
+                                {entry.note}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Delete Confirm Modal */}
+          {deleteConfirm && (
+            <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
+              <div className="modal-box" onClick={e => e.stopPropagation()}>
+                <h3>Confirm Delete</h3>
+                <p>Delete the entry for <strong>{deleteConfirm.month}</strong>?</p>
+                <div className="modal-actions">
+                  <button className="btn btn-secondary" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+                  <button className="btn btn-danger" onClick={() => deleteEntry(deleteConfirm.idx)}>Delete</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Clear All Modal */}
+          {clearConfirm && (
+            <div className="modal-overlay" onClick={() => setClearConfirm(false)}>
+              <div className="modal-box" onClick={e => e.stopPropagation()}>
+                <h3>Clear All Data</h3>
+                <p>This will remove all {m.label} entries. This cannot be undone.</p>
+                <div className="modal-actions">
+                  <button className="btn btn-secondary" onClick={() => setClearConfirm(false)}>Cancel</button>
+                  <button className="btn btn-danger" onClick={clearAll}>Clear All</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+
+    /* ═══════════════════════════════════════════════════════════
+       SPLH TAB
+    ═══════════════════════════════════════════════════════════ */
+    const SPLHTab = () => {
+      const [data, setData] = useState([]);
+      const [newMonth, setNewMonth] = useState({ month: '', productivity: '', sales: '', hours: '', note: '' });
+      const [showAddForm, setShowAddForm] = useState(false);
+      const [editingIndex, setEditingIndex] = useState(null);
+      const [editForm, setEditForm] = useState({ month: '', productivity: '', sales: '', hours: '', note: '' });
+      const [deleteConfirm, setDeleteConfirm] = useState(null);
+      const [showResetConfirm, setShowResetConfirm] = useState(false);
+      const [isLoaded, setIsLoaded] = useState(false);
+
+      const takeoverMonth = "Feb 2025";
+      const storageKey = 'cfa_dash_splh';
+
+      // Load from localStorage
+      useEffect(() => {
+        try {
+          const stored = localStorage.getItem(storageKey);
+          if (stored) setData(JSON.parse(stored));
+        } catch (e) { console.log('No stored SPLH data'); }
+        setIsLoaded(true);
+      }, []);
+
+      // Save on change
+      useEffect(() => {
+        if (!isLoaded) return;
+        localStorage.setItem(storageKey, JSON.stringify(data));
+      }, [data, isLoaded]);
+
+      const getStats = () => {
+        if (data.length === 0) {
+          return {
+            beforeAvg: "0.00", afterAvg: "0.00", improvement: "0.00",
+            percentImprovement: "0.0", beforeGoalPercent: "0.0", afterGoalPercent: "0.0",
+            beforeCount: 0, afterCount: 0, latestMonth: { productivity: 0, month: "N/A" }
+          };
+        }
+        const takeoverIndex = data.findIndex(d => d.month === takeoverMonth);
+        const beforeData = takeoverIndex > 0 ? data.slice(0, takeoverIndex) : [];
+        const afterData = takeoverIndex >= 0 ? data.slice(takeoverIndex) : data;
+        const avg = arr => arr.length > 0 ? arr.reduce((sum, val) => sum + val, 0) / arr.length : 0;
+        const beforeAvg = beforeData.length > 0 ? avg(beforeData.map(d => d.productivity)) : 0;
+        const afterAvg = afterData.length > 0 ? avg(afterData.map(d => d.productivity)) : 0;
+        const improvement = afterAvg - beforeAvg;
+        const percentImprovement = beforeAvg > 0 ? (improvement / beforeAvg) * 100 : 0;
+        const beforeGoalMet = beforeData.filter(d => d.productivity >= 90).length;
+        const afterGoalMet = afterData.filter(d => d.productivity >= 90).length;
+        return {
+          beforeAvg: beforeAvg.toFixed(2), afterAvg: afterAvg.toFixed(2),
+          improvement: improvement.toFixed(2), percentImprovement: percentImprovement.toFixed(1),
+          beforeGoalPercent: beforeData.length > 0 ? ((beforeGoalMet / beforeData.length) * 100).toFixed(1) : "0.0",
+          afterGoalPercent: afterData.length > 0 ? ((afterGoalMet / afterData.length) * 100).toFixed(1) : "0.0",
+          beforeCount: beforeData.length, afterCount: afterData.length,
+          latestMonth: data.length > 0 ? data[data.length - 1] : { productivity: 0, month: "N/A" }
+        };
+      };
+
+      const stats = getStats();
+
+      const handleAddMonth = () => {
+        if (newMonth.month && newMonth.productivity && newMonth.sales && newMonth.hours) {
+          setData(prev => [...prev, {
+            month: newMonth.month, productivity: parseFloat(newMonth.productivity),
+            sales: parseFloat(newMonth.sales), hours: parseFloat(newMonth.hours),
+            note: newMonth.note || ''
+          }]);
+          setNewMonth({ month: '', productivity: '', sales: '', hours: '', note: '' });
+          setShowAddForm(false);
+        }
+      };
+
+      const handleDeleteMonth = (index) => setDeleteConfirm({ index, month: data[index].month });
+      const confirmDelete = () => {
+        if (deleteConfirm) {
+          const next = [...data]; next.splice(deleteConfirm.index, 1); setData(next); setDeleteConfirm(null);
+        }
+      };
+
+      const handleEditMonth = (index) => {
+        setEditingIndex(index);
+        setEditForm({
+          month: data[index].month, productivity: data[index].productivity.toString(),
+          sales: data[index].sales.toString(), hours: data[index].hours.toString(),
+          note: data[index].note || ''
+        });
+      };
+      const handleSaveEdit = () => {
+        if (editForm.month && editForm.productivity && editForm.sales && editForm.hours) {
+          const next = [...data];
+          next[editingIndex] = {
+            month: editForm.month, productivity: parseFloat(editForm.productivity),
+            sales: parseFloat(editForm.sales), hours: parseFloat(editForm.hours),
+            note: editForm.note || ''
+          };
+          setData(next);
+          setEditingIndex(null);
+        }
+      };
+      const handleCancelEdit = () => { setEditingIndex(null); };
+
+      const exportData = () => {
+        const rows = ['Month,Productivity,Total Sales,Total Hours,Notes',
+          ...data.map(r => `${r.month},${r.productivity},${r.sales},${r.hours},"${(r.note || '').replace(/"/g, '""')}"`)];
+        const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url;
+        a.download = `cfa_splh_data.csv`; a.click(); URL.revokeObjectURL(url);
+      };
+
+      const importData = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const lines = e.target.result.split('\n').map(l => l.trim()).filter(Boolean);
+            const startIdx = lines[0]?.toLowerCase().startsWith('month') ? 1 : 0;
+            const imported = [];
+            for (let i = startIdx; i < lines.length; i++) {
+              const parts = lines[i].split(',').map(s => s.replace(/^"|"$/g, '').trim());
+              if (parts.length >= 4 && !isNaN(parseFloat(parts[1]))) {
+                imported.push({
+                  month: parts[0], productivity: parseFloat(parts[1]),
+                  sales: parseFloat(parts[2]), hours: parseFloat(parts[3]),
+                  note: parts[4] || ''
+                });
+              }
+            }
+            if (imported.length > 0) setData(imported);
+          } catch (err) { console.error('Import error:', err); }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+      };
+
+      const confirmReset = () => { setData([]); setShowResetConfirm(false); };
+
+      const handleKeyDown = (e) => { if (e.key === 'Enter') handleAddMonth(); };
+
+      // Dynamic Y-axis range
+      const allProductivities = data.length > 0 ? data.map(d => d.productivity).concat([90]) : [90];
+      const pMin = Math.min(...allProductivities);
+      const pMax = Math.max(...allProductivities);
+      const pSpread = pMax - pMin || 1;
+      const chartYMin = Math.floor((pMin - pSpread * 0.4) * 10) / 10;
+      const chartYMax = Math.ceil((pMax + pSpread * 0.4) * 10) / 10;
+
+      return (
+        <div>
+          {/* Overview */}
+          <OverviewCard metricId="splh" title="Productivity (SPLH)" goalText={`Goal: ${'\u2265'} 90.00 SPLH`} />
+
+          {/* Stat cards */}
+          <div className="splh-stat-grid">
+            <div className="splh-stat-card" style={{ borderLeftColor: '#3B7DDD' }}>
+              <div className="stat-label">Before Supervision</div>
+              <div className="stat-value" style={{ color: '#3B7DDD' }}>{stats.beforeAvg}</div>
+              <div className="stat-sub">{stats.beforeCount} months</div>
+            </div>
+            <div className="splh-stat-card" style={{ borderLeftColor: '#059669' }}>
+              <div className="stat-label">Under Your Supervision</div>
+              <div className="stat-value" style={{ color: '#059669' }}>{stats.afterAvg}</div>
+              <div className="stat-sub">{stats.afterCount} months</div>
+            </div>
+            <div className="splh-stat-card" style={{ borderLeftColor: '#7C3AED' }}>
+              <div className="stat-label">Improvement</div>
+              <div className="stat-value" style={{ color: '#7C3AED' }}>+{stats.improvement}</div>
+              <div className="stat-sub">{stats.percentImprovement}% increase</div>
+            </div>
+            <div className="splh-stat-card" style={{ borderLeftColor: '#D97706' }}>
+              <div className="stat-label">Latest Month</div>
+              <div className="stat-value" style={{ color: '#D97706' }}>
+                {typeof stats.latestMonth.productivity === 'number' && stats.latestMonth.month !== 'N/A'
+                  ? stats.latestMonth.productivity.toFixed(2) : 'N/A'}
+              </div>
+              <div className="stat-sub">{stats.latestMonth.month}</div>
+            </div>
+          </div>
+
+          {/* Goal achievement */}
+          <div className="goal-section">
+            <div className="goal-title">Goal Achievement (\u2265 90.00 Target)</div>
+            <div className="goal-bars">
+              <div>
+                <div className="goal-bar-label">Before: {stats.beforeGoalPercent}% of months</div>
+                <div className="goal-bar-track">
+                  <div className="goal-bar-fill" style={{ width: `${stats.beforeGoalPercent}%`, background: '#3B7DDD' }} />
+                </div>
+              </div>
+              <div>
+                <div className="goal-bar-label">After: {stats.afterGoalPercent}% of months</div>
+                <div className="goal-bar-track">
+                  <div className="goal-bar-fill" style={{ width: `${stats.afterGoalPercent}%`, background: '#059669' }} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Chart */}
+          <div className="card">
+            <div className="card-title">Productivity Trend</div>
+            {data.length > 0 ? (
+              <ResponsiveContainer width="100%" height={320}>
+                <AreaChart data={data}>
+                  <defs>
+                    <linearGradient id="fill-splh" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3B7DDD" stopOpacity={0.15}/>
+                      <stop offset="100%" stopColor="#3B7DDD" stopOpacity={0.02}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+                  <XAxis dataKey="month" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false}
+                    angle={data.length > 10 ? -45 : 0} textAnchor={data.length > 10 ? 'end' : 'middle'}
+                    height={data.length > 10 ? 80 : 40} interval={Math.max(0, Math.floor(data.length / 15))} />
+                  <YAxis domain={[chartYMin, chartYMax]} tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<ChartTooltip metricId="splh" />} />
+                  <ReferenceLine y={90} stroke="rgba(229,22,54,0.4)" strokeDasharray="5 5"
+                    label={{ value: 'Goal: 90', position: 'right', fill: 'rgba(229,22,54,0.7)', fontSize: 11 }} />
+                  <ReferenceLine x={takeoverMonth} stroke="#059669" strokeWidth={2}
+                    label={{ value: 'Supervision Started', position: 'top', fill: '#059669', fontSize: 11 }} />
+                  <Area type="monotone" dataKey="productivity" stroke="#3B7DDD" strokeWidth={2.5}
+                    fill="url(#fill-splh)"
+                    dot={(props) => {
+                      const onG = props.payload.productivity >= 90;
+                      return <circle key={props.index} cx={props.cx} cy={props.cy} r={4}
+                        fill={onG ? '#3B7DDD' : '#D97706'} stroke={onG ? '#3B7DDD' : '#D97706'} strokeWidth={2} />;
+                    }}
+                    activeDot={{ r: 6, stroke: '#3B7DDD', strokeWidth: 2, fill: '#fff' }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="empty-state">
+                <p>No chart data</p>
+                <p>Add entries below to see your trend</p>
+              </div>
+            )}
+          </div>
+
+          {/* Add / Import */}
+          <div className="card">
+            <div className="flex justify-between items-center mb-4">
+              <div className="card-title" style={{ marginBottom: 0 }}>Add Data</div>
+              <div className="flex gap-2">
+                <button className="btn btn-primary btn-small" onClick={() => setShowAddForm(!showAddForm)}>
+                  <Icon name="plus" size={14} /> {showAddForm ? 'Close' : 'Add Month'}
+                </button>
+                {data.length > 0 && (
+                  <button className="btn btn-danger btn-small" onClick={() => setShowResetConfirm(true)}>
+                    Clear All
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {showAddForm && (
+              <div style={{ background: 'var(--surface-2)', borderRadius: 'var(--radius)', padding: 20, marginBottom: 16, border: '1px solid var(--border)' }}>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Month</label>
+                    <input className="form-input" placeholder="Oct 2025" value={newMonth.month}
+                      onChange={(e) => setNewMonth({...newMonth, month: e.target.value})} onKeyDown={handleKeyDown} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Productivity</label>
+                    <input className="form-input" type="number" step="0.01" placeholder="90.00" value={newMonth.productivity}
+                      onChange={(e) => setNewMonth({...newMonth, productivity: e.target.value})} onKeyDown={handleKeyDown} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Total Sales</label>
+                    <input className="form-input" type="number" placeholder="250000" value={newMonth.sales}
+                      onChange={(e) => setNewMonth({...newMonth, sales: e.target.value})} onKeyDown={handleKeyDown} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Total Hours</label>
+                    <input className="form-input" type="number" step="0.01" placeholder="2800" value={newMonth.hours}
+                      onChange={(e) => setNewMonth({...newMonth, hours: e.target.value})} onKeyDown={handleKeyDown} />
+                  </div>
+                </div>
+                <div className="form-row mt-3">
+                  <div className="form-group" style={{ minWidth: '100%' }}>
+                    <label className="form-label">Story / Notes</label>
+                    <textarea className="form-input" rows={3}
+                      placeholder="What did you do this month? How did you coach the team? What changes drove results?"
+                      value={newMonth.note}
+                      onChange={(e) => setNewMonth({...newMonth, note: e.target.value})} />
+                  </div>
+                </div>
+                <button className="btn btn-primary mt-3" onClick={handleAddMonth}>Add to Database</button>
+              </div>
+            )}
+
+            <div className="action-bar">
+              <label className="file-input-label">
+                <Icon name="upload" size={16} /> Import CSV
+                <input type="file" accept=".csv" onChange={importData} style={{ display: 'none' }} />
+              </label>
+              <button className="btn btn-secondary" onClick={exportData} disabled={data.length === 0}>
+                <Icon name="download" size={16} /> Export CSV
+              </button>
+            </div>
+            <div className="csv-hint">
+              <strong>CSV format:</strong> <code>Month,Productivity,Total Sales,Total Hours,Notes</code><br/>
+              Example: <code>Jan 2026,90.24,248500,2760,Focused on drive-thru efficiency</code>
+            </div>
+          </div>
+
+          {/* Data Table */}
+          <div className="card">
+            <div className="card-title">Monthly Details</div>
+            {data.length === 0 ? (
+              <div className="empty-state">
+                <p>No data yet</p>
+                <p>Click "Add Month" to start tracking your productivity</p>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th className="text-right">Productivity</th>
+                      <th className="text-right">Total Sales</th>
+                      <th className="text-right">Total Hours</th>
+                      <th className="text-center">Goal</th>
+                      <th className="text-center" style={{ width: 80 }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.slice().reverse().map((row, idx) => {
+                      const actualIndex = data.length - 1 - idx;
+                      const isEditing = editingIndex === actualIndex;
+                      const isTakeover = row.month === takeoverMonth;
+                      return (
+                        <React.Fragment key={actualIndex}>
+                          <tr className={isTakeover ? 'splh-takeover-row' : ''}>
+                            {isEditing ? (
+                              <>
+                                <td><input className="table-edit-input" value={editForm.month} onChange={e => setEditForm({...editForm, month: e.target.value})} /></td>
+                                <td><input className="table-edit-input" type="number" step="0.01" value={editForm.productivity} onChange={e => setEditForm({...editForm, productivity: e.target.value})} style={{ textAlign: 'right' }} /></td>
+                                <td><input className="table-edit-input" type="number" value={editForm.sales} onChange={e => setEditForm({...editForm, sales: e.target.value})} style={{ textAlign: 'right' }} /></td>
+                                <td><input className="table-edit-input" type="number" step="0.01" value={editForm.hours} onChange={e => setEditForm({...editForm, hours: e.target.value})} style={{ textAlign: 'right' }} /></td>
+                                <td className="text-center">
+                                  {parseFloat(editForm.productivity) >= 90
+                                    ? <span className="badge badge-good">{'\u2713'}</span>
+                                    : <span style={{ color: 'var(--muted)' }}>{'\u2014'}</span>}
+                                </td>
+                                <td className="text-center">
+                                  <div className="flex gap-2 justify-center">
+                                    <button className="save-btn" onClick={handleSaveEdit} title="Save"><Icon name="check" size={14} /></button>
+                                    <button className="cancel-btn" onClick={handleCancelEdit} title="Cancel"><Icon name="x" size={14} /></button>
+                                  </div>
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td style={{ fontWeight: 500 }}>{row.month}</td>
+                                <td className="text-right">
+                                  <span className="table-value" style={{ color: '#3B7DDD' }}>{row.productivity.toFixed(2)}</span>
+                                </td>
+                                <td className="text-right">${row.sales.toLocaleString()}</td>
+                                <td className="text-right">{row.hours.toLocaleString()}</td>
+                                <td className="text-center">
+                                  {row.productivity >= 90
+                                    ? <span className="badge badge-good">{'\u2713'} On Goal</span>
+                                    : <span className="badge badge-warn">{'\u2717'} Below</span>}
+                                </td>
+                                <td className="text-center">
+                                  <div className="flex gap-2 justify-center">
+                                    <button className="edit-btn" onClick={() => handleEditMonth(actualIndex)} title="Edit">
+                                      <Icon name="edit" size={14} />
+                                    </button>
+                                    <button className="delete-btn" onClick={() => handleDeleteMonth(actualIndex)} title="Delete">
+                                      <Icon name="trash" size={14} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </>
+                            )}
+                          </tr>
+                          {/* Note sub-row: edit mode shows textarea, view mode shows note */}
+                          {isEditing ? (
+                            <tr className="note-row">
+                              <td colSpan={6} style={{ borderBottom: '1px solid var(--border)' }}>
+                                <div style={{ padding: '0 0 4px' }}>
+                                  <div className="note-label" style={{ marginBottom: 6 }}>Story / Notes</div>
+                                  <textarea className="form-input" rows={3} style={{ width: '100%' }}
+                                    placeholder="What did you do this month? How did you coach the team?"
+                                    value={editForm.note}
+                                    onChange={e => setEditForm({...editForm, note: e.target.value})} />
+                                </div>
+                              </td>
+                            </tr>
+                          ) : row.note ? (
+                            <tr className="note-row">
+                              <td colSpan={6} style={{ borderBottom: '1px solid var(--border)' }}>
+                                <div className="note-content">
+                                  <div className="note-label">Notes</div>
+                                  {row.note}
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Delete Modal */}
+          {deleteConfirm && (
+            <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
+              <div className="modal-box" onClick={e => e.stopPropagation()}>
+                <h3>Confirm Delete</h3>
+                <p>Delete the entry for <strong>{deleteConfirm.month}</strong>?</p>
+                <div className="modal-actions">
+                  <button className="btn btn-secondary" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+                  <button className="btn btn-danger" onClick={confirmDelete}>Delete</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Reset Modal */}
+          {showResetConfirm && (
+            <div className="modal-overlay" onClick={() => setShowResetConfirm(false)}>
+              <div className="modal-box" onClick={e => e.stopPropagation()}>
+                <h3>Clear All Data</h3>
+                <p>This will remove all productivity entries. This cannot be undone.</p>
+                <div className="modal-actions">
+                  <button className="btn btn-secondary" onClick={() => setShowResetConfirm(false)}>Cancel</button>
+                  <button className="btn btn-danger" onClick={confirmReset}>Clear All</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+
+    /* ═══════════════════════════════════════════════════════════
+       APP SHELL
+    ═══════════════════════════════════════════════════════════ */
+    const App = () => {
+      const [activeTab, setActiveTab] = useState('intro');
+
+      return (
+        <div>
+          {/* Header */}
+          <div className="dash-header">
+            <div className="header-top">
+              <div className="cfa-badge">CFA</div>
+              <div className="header-text">
+                <h1>Performance Dashboard</h1>
+                <p>Cockrell Hill DTO & DBU OCV &mdash; Chief of Staff</p>
+              </div>
+            </div>
+            <nav className="tab-nav">
+              <button
+                className={`tab-btn ${activeTab === 'intro' ? 'active' : ''}`}
+                onClick={() => setActiveTab('intro')}
+              >
+                <span className="tab-dot" style={{ background: 'var(--red)' }} />
+                Introduction
+              </button>
+              {TAB_ORDER.map(id => (
+                <button
+                  key={id}
+                  className={`tab-btn ${activeTab === id ? 'active' : ''}`}
+                  onClick={() => setActiveTab(id)}
+                >
+                  <span className="tab-dot" style={{ background: METRICS[id].color }} />
+                  {METRICS[id].label}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Content */}
+          <div className="dash-main">
+            {activeTab === 'intro' && <IntroTab />}
+            {activeTab === 'splh' && <SPLHTab />}
+            {activeTab !== 'splh' && activeTab !== 'intro' && <GenericMetricTab key={activeTab} metricId={activeTab} />}
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

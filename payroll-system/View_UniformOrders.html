@@ -192,6 +192,10 @@
           <span>Replacement</span>
         </label>
       </div>
+      <div class="form-group" style="flex: 0 0 90px;">
+        <label>Discount $</label>
+        <input type="number" id="uniformDiscount" class="form-control" value="" min="0" step="0.01" placeholder="0.00">
+      </div>
       <div class="form-group" style="flex: 0 0 auto; align-self: flex-end;">
         <button type="button" class="btn btn-primary" onclick="addItemToOrder()">
           <span class="material-icons-round">add</span> Add
@@ -345,6 +349,32 @@
   </div>
 </div>
 
+<!-- Discount Edit Modal -->
+<div id="discountModal" class="modal-overlay" style="display: none;">
+  <div class="modal" style="max-width: 380px;">
+    <div class="modal-header">
+      <h3 id="discountModalTitle">Edit Discount</h3>
+      <button class="btn btn-outline btn-sm" onclick="closeDiscountModal()" style="padding: 4px 8px;">
+        <span class="material-icons-round" style="font-size: 18px;">close</span>
+      </button>
+    </div>
+    <div class="modal-body" style="padding: 20px;">
+      <div id="discountModalInfo" style="margin-bottom: 16px; font-size: 0.85rem; color: var(--gray-600);"></div>
+      <label style="font-size: 0.8rem; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; display: block;">Discount Amount ($)</label>
+      <input type="number" id="discountModalInput" class="form-control" min="0" step="0.01" placeholder="0.00"
+             style="font-size: 1.1rem; padding: 10px 14px; text-align: center;"
+             onkeypress="if(event.key==='Enter') submitDiscountModal()">
+      <div id="discountModalError" style="color: var(--danger); font-size: 0.8rem; margin-top: 6px; display: none;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeDiscountModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitDiscountModal()">
+        <span class="material-icons-round" style="font-size: 16px;">sell</span> Apply Discount
+      </button>
+    </div>
+  </div>
+</div>
+
 <style>
 /* Deduction Preview Styles */
 .deduction-preview {
@@ -374,6 +404,17 @@
 .badge-replacement {
   background: var(--info-light);
   color: var(--info);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+/* Discount badge */
+.badge-discount {
+  background: #fef3c7;
+  color: #92400e;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.7rem;

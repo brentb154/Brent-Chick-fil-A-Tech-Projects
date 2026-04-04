@@ -3470,16 +3470,21 @@ function addItemToOrder() {
   const replacementCheckbox = document.getElementById('uniformReplacement');
   const isReplacement = replacementCheckbox ? replacementCheckbox.checked : false;
   const effectivePrice = isReplacement ? 0 : (parseFloat(selectedOption.dataset.price) || 0);
-  
+
+  // Check for custom discount (admin feature)
+  const discountInput = document.getElementById('uniformDiscount');
+  const discount = (!isReplacement && discountInput) ? (parseFloat(discountInput.value) || 0) : 0;
+
   const item = {
     itemId: itemSelect.value,
     itemName: displayName,
     size: sizeDisplay,
     quantity: parseInt(qtyInput.value) || 1,
     unitPrice: effectivePrice,
-    isReplacement: isReplacement
+    isReplacement: isReplacement,
+    discount: discount
   };
-  item.lineTotal = item.quantity * item.unitPrice;
+  item.lineTotal = Math.max(0, item.quantity * item.unitPrice - item.discount);
   
   UniformState.orderItems.push(item);
   renderOrderItems();
@@ -3494,12 +3499,14 @@ function addItemToOrder() {
   if (genderGroup) genderGroup.style.display = 'none';
   qtyInput.value = '1';
   if (replacementCheckbox) replacementCheckbox.checked = false;
-  
+  if (discountInput) discountInput.value = '';
+
   // Reset size label
   const sizeLabel = document.getElementById('sizeLabel');
   if (sizeLabel) sizeLabel.textContent = 'Size';
   
-  showToast(isReplacement ? 'Replacement item added (free)' : 'Item added to order', 'success');
+  var toastMsg = isReplacement ? 'Replacement item added (free)' : discount > 0 ? 'Item added with $' + discount.toFixed(2) + ' discount' : 'Item added to order';
+  showToast(toastMsg, 'success');
 }
 
 /**
@@ -3531,7 +3538,7 @@ function renderOrderItems() {
   
   tbody.innerHTML = UniformState.orderItems.map((item, index) => `
     <tr>
-      <td>${item.itemName}${item.isReplacement ? '<span class="badge-replacement">REPLACEMENT</span>' : ''}</td>
+      <td>${item.itemName}${item.isReplacement ? '<span class="badge-replacement">REPLACEMENT</span>' : ''}${item.discount > 0 ? '<span class="badge-discount">-$' + item.discount.toFixed(2) + '</span>' : ''}</td>
       <td>${item.size}</td>
       <td class="numeric">${item.quantity}</td>
       <td class="numeric">${item.isReplacement ? '<span style="color: var(--success);">FREE</span>' : '$' + item.unitPrice.toFixed(2)}</td>
@@ -3701,7 +3708,8 @@ function submitUniformOrder() {
       size: item.size,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
-      isReplacement: item.isReplacement || false
+      isReplacement: item.isReplacement || false,
+      discount: item.discount || 0
     })),
     paymentPlan: UniformState.paymentPlan,
     // No firstDeductionDate - will be set when marked as received
@@ -3810,6 +3818,7 @@ function renderUniformOrders() {
     const showMarkPayment = order.status === 'Active';
     const showCancel = order.status === 'Store Paid';
     const showChangePlan = order.status === 'Pending' || order.status === 'Pending - Cash' || order.status === 'Active';
+    const showDiscount = order.status === 'Pending' || order.status === 'Pending - Cash' || order.status === 'Active';
     
     return `
       <tr data-employee-name="${order.employeeName}" data-location="${order.location || ''}" data-order-id="${order.orderId}">
@@ -3843,6 +3852,11 @@ function renderUniformOrders() {
             ${showChangePlan ? `
               <button class="btn btn-outline btn-sm" onclick="changeOrderPaymentPlan('${order.orderId}')" title="Change Payment Plan">
                 <span class="material-icons-round" style="font-size: 14px;">sync_alt</span>
+              </button>
+            ` : ''}
+            ${showDiscount ? `
+              <button class="btn btn-outline btn-sm" onclick="editOrderDiscount('${order.orderId}', ${order.totalAmount}, ${order.orderDiscount || 0})" title="Order Discount">
+                <span class="material-icons-round" style="font-size: 14px;">sell</span>
               </button>
             ` : ''}
             ${showCancel ? `
@@ -4147,7 +4161,8 @@ function renderOrderDetailsModal(order) {
   const isPendingCash = order.status === 'Pending - Cash';
   const showPendingActions = isPending || isPendingCash;
   const defaultReceivedDate = order.receivedDate || getLocalISODate();
-  
+  const canEditDiscount = ['Pending', 'Pending - Cash', 'Active'].includes(order.status);
+
   // Build items table with receiving status (and checkboxes for pending orders)
   const itemsHtml = (order.items || []).map(item => {
     const isCancelled = item.itemStatus === 'Cancelled';
@@ -4183,11 +4198,20 @@ function renderOrderDetailsModal(order) {
         <td>
           ${item.itemName}
           ${item.isReplacement ? '<span class="badge-replacement">REPL</span>' : ''}
+          ${(item.discount || 0) > 0 ? '<span class="badge-discount">-$' + item.discount.toFixed(2) + '</span>' : ''}
         </td>
         <td>${item.size}</td>
         <td class="numeric">${item.quantity}</td>
         <td class="numeric">${item.isReplacement ? 'FREE' : '$' + (item.unitPrice || 0).toFixed(2)}</td>
-        <td class="numeric">$${(item.lineTotal || 0).toFixed(2)}</td>
+        <td class="numeric">
+          $${(item.lineTotal || 0).toFixed(2)}
+          ${!isCancelled && !item.isReplacement && canEditDiscount
+            ? `<a href="#" onclick="editItemDiscount('${item.lineId}', '${order.orderId}', ${item.discount || 0}, ${item.unitPrice || 0}, ${item.quantity}); return false;"
+                 style="margin-left: 4px; color: var(--gray-400);" title="${(item.discount || 0) > 0 ? 'Edit discount' : 'Add discount'}">
+                 <span class="material-icons-round" style="font-size: 14px; vertical-align: middle;">sell</span>
+               </a>`
+            : ''}
+        </td>
         ${statusColumn}
       </tr>
     `;
@@ -4287,6 +4311,10 @@ function renderOrderDetailsModal(order) {
         </thead>
         <tbody>${itemsHtml}</tbody>
         <tfoot>
+          ${(order.orderDiscount || 0) > 0 ? `
+            <tr><td colspan="${order.status === 'Pending' ? '6' : '5'}" class="text-right" style="color: var(--gray-500);">Subtotal:</td><td class="numeric" style="color: var(--gray-500);">$${(order.totalAmount + order.orderDiscount).toFixed(2)}</td></tr>
+            <tr><td colspan="${order.status === 'Pending' ? '6' : '5'}" class="text-right" style="color: var(--success);">Order Discount:</td><td class="numeric" style="color: var(--success);">-$${order.orderDiscount.toFixed(2)}</td></tr>
+          ` : ''}
           <tr><td colspan="${order.status === 'Pending' ? '6' : '5'}" class="text-right"><strong>Order Total:</strong></td><td class="numeric"><strong>$${order.totalAmount.toFixed(2)}</strong></td></tr>
         </tfoot>
       </table>
@@ -4473,6 +4501,119 @@ function cancelItemFromModal(lineId, itemName) {
       showToast('Error: ' + error.message, 'error');
     })
     .cancelUniformItem(lineId);
+}
+
+// Discount modal state
+var _discountModal = { type: null, lineId: null, orderId: null, maxAmount: 0 };
+
+function openDiscountModal(opts) {
+  _discountModal = opts;
+  document.getElementById('discountModalTitle').textContent = opts.title;
+  document.getElementById('discountModalInfo').innerHTML = opts.info;
+  document.getElementById('discountModalInput').value = opts.currentValue.toFixed(2);
+  document.getElementById('discountModalError').style.display = 'none';
+  document.getElementById('discountModal').style.display = 'flex';
+  document.getElementById('discountModalInput').focus();
+  document.getElementById('discountModalInput').select();
+}
+
+function closeDiscountModal() {
+  document.getElementById('discountModal').style.display = 'none';
+  _discountModal = { type: null, lineId: null, orderId: null, maxAmount: 0 };
+}
+
+function submitDiscountModal() {
+  var val = parseFloat(document.getElementById('discountModalInput').value) || 0;
+  var errEl = document.getElementById('discountModalError');
+  if (val < 0) val = 0;
+  if (val > _discountModal.maxAmount) {
+    errEl.textContent = 'Cannot exceed $' + _discountModal.maxAmount.toFixed(2);
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+  closeDiscountModal();
+
+  if (_discountModal.type === 'item') {
+    submitItemDiscount(_discountModal.lineId, _discountModal.orderId, val);
+  } else if (_discountModal.type === 'order') {
+    submitOrderDiscount(_discountModal.orderId, val);
+  }
+}
+
+/**
+ * Edit discount for an item in the order details modal
+ */
+function editItemDiscount(lineId, orderId, currentDiscount, unitPrice, quantity) {
+  var maxAmount = unitPrice * quantity;
+  openDiscountModal({
+    type: 'item',
+    lineId: lineId,
+    orderId: orderId,
+    maxAmount: maxAmount,
+    currentValue: currentDiscount,
+    title: 'Item Discount',
+    info: '<strong>Item total:</strong> $' + maxAmount.toFixed(2) + '<br><span style="color: var(--gray-400); font-size: 0.8rem;">Discount will be subtracted from this item\'s total</span>'
+  });
+}
+
+function submitItemDiscount(lineId, orderId, newDiscount) {
+  showLoading(true);
+  google.script.run
+    .withSuccessHandler(function(result) {
+      showLoading(false);
+      if (result.success) {
+        showToast('Discount updated', 'success');
+        currentModalOrder = result.order;
+        renderOrderDetailsModal(result.order);
+        loadUniformOrders();
+      } else {
+        showToast(result.error || 'Failed to update discount', 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      showLoading(false);
+      showToast('Error: ' + error.message, 'error');
+    })
+    .updateItemDiscount(lineId, orderId, newDiscount);
+}
+
+/**
+ * Edit discount for the whole order (action button)
+ */
+function editOrderDiscount(orderId, currentTotal, currentDiscount) {
+  var subtotal = currentTotal + currentDiscount;
+  openDiscountModal({
+    type: 'order',
+    orderId: orderId,
+    maxAmount: subtotal,
+    currentValue: currentDiscount,
+    title: 'Order Discount',
+    info: '<strong>Subtotal:</strong> $' + subtotal.toFixed(2) + '<br><span style="color: var(--gray-400); font-size: 0.8rem;">Discount applies to the entire order and adjusts payment amounts</span>'
+  });
+}
+
+function submitOrderDiscount(orderId, newDiscount) {
+  showLoading(true);
+  google.script.run
+    .withSuccessHandler(function(result) {
+      showLoading(false);
+      if (result.success) {
+        var msg = newDiscount > 0 ? 'Order discount set to $' + newDiscount.toFixed(2) : 'Order discount removed';
+        showToast(msg, 'success');
+        loadUniformOrders();
+        if (currentModalOrder && currentModalOrder.orderId === orderId) {
+          viewOrderDetails(orderId);
+        }
+      } else {
+        showToast(result.error || 'Failed to update discount', 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      showLoading(false);
+      showToast('Error: ' + error.message, 'error');
+    })
+    .updateOrderDiscount(orderId, newDiscount);
 }
 
 /**

@@ -586,11 +586,11 @@ function initializeUniformSheets() {
   let itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
   if (!itemsSheet) {
     itemsSheet = ss.insertSheet(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
-    const headers = ['Line_ID', 'Order_ID', 'Item_ID', 'Item_Name', 'Size', 'Quantity', 'Unit_Price', 'Line_Total', 'Is_Replacement'];
+    const headers = ['Line_ID', 'Order_ID', 'Item_ID', 'Item_Name', 'Size', 'Quantity', 'Unit_Price', 'Line_Total', 'Is_Replacement', 'Discount'];
     itemsSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     itemsSheet.setFrozenRows(1);
     itemsSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-    
+
     // Set column widths
     itemsSheet.setColumnWidth(1, 100);  // Line_ID
     itemsSheet.setColumnWidth(2, 130);  // Order_ID
@@ -601,6 +601,7 @@ function initializeUniformSheets() {
     itemsSheet.setColumnWidth(7, 90);   // Unit_Price
     itemsSheet.setColumnWidth(8, 90);   // Line_Total
     itemsSheet.setColumnWidth(9, 100);  // Is_Replacement
+    itemsSheet.setColumnWidth(10, 90);  // Discount
   }
 }
 
@@ -910,6 +911,99 @@ function migrateUniformItemsForReceiving() {
   }
   
   Logger.log('Migration complete! Processed ' + itemsData.length + ' items');
+}
+
+/**
+ * Adds Discount column to Uniform_Order_Items if it doesn't exist
+ * Safe to re-run — skips if column already present
+ */
+function migrateUniformItemsForDiscount() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  Logger.log('Spreadsheet: ' + ss.getName());
+
+  // List all sheet names for diagnosis
+  var allSheets = ss.getSheets();
+  for (var i = 0; i < allSheets.length; i++) {
+    Logger.log('  Sheet ' + i + ': "' + allSheets[i].getName() + '"');
+  }
+
+  // Use getSheets() loop instead of getSheetByName() — works around GAS bug
+  // where getSheetByName throws "Sheet <GID> not found" on stale internal refs
+  var itemsSheet = null;
+  for (var i = 0; i < allSheets.length; i++) {
+    if (allSheets[i].getName() === 'Uniform_Order_Items') {
+      itemsSheet = allSheets[i];
+      break;
+    }
+  }
+
+  if (!itemsSheet) {
+    Logger.log('Uniform_Order_Items sheet not found — run initializeUniformSheets() first');
+    return;
+  }
+
+  var lastCol = itemsSheet.getLastColumn();
+  Logger.log('Last column: ' + lastCol);
+
+  // Empty sheet — no headers at all. Add the expected headers fresh.
+  if (lastCol === 0) {
+    Logger.log('Sheet is empty — adding all headers including Discount');
+    var allHeaders = ['Order_ID', 'Item_Name', 'Size', 'Quantity', 'Unit_Price', 'Line_Total', 'Date_Added', 'Is_Replacement', 'Discount'];
+    itemsSheet.getRange(1, 1, 1, allHeaders.length).setValues([allHeaders]);
+    itemsSheet.getRange(1, 1, 1, allHeaders.length).setFontWeight('bold');
+    SpreadsheetApp.flush();
+    Logger.log('Wrote full header row with Discount');
+    return;
+  }
+
+  var headers = itemsSheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  Logger.log('Current headers: ' + headers.join(', '));
+
+  if (headers.indexOf('Discount') >= 0) {
+    Logger.log('Discount column already exists — nothing to do');
+    return;
+  }
+
+  var newCol = lastCol + 1;
+  itemsSheet.getRange(1, newCol).setValue('Discount');
+  itemsSheet.getRange(1, newCol).setFontWeight('bold');
+  itemsSheet.setColumnWidth(newCol, 90);
+
+  // Set existing items to 0 discount
+  if (itemsSheet.getLastRow() >= 2) {
+    var numRows = itemsSheet.getLastRow() - 1;
+    var zeros = [];
+    for (var i = 0; i < numRows; i++) zeros.push([0]);
+    itemsSheet.getRange(2, newCol, numRows, 1).setValues(zeros);
+  }
+
+  SpreadsheetApp.flush();
+  Logger.log('Added Discount column at position ' + newCol);
+}
+
+/**
+ * Adds Order_Discount column to Uniform_Orders sheet if missing
+ */
+function migrateOrdersForDiscount() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
+  if (!sheet || sheet.getLastColumn() === 0) return;
+
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (headers.indexOf('Order_Discount') >= 0) return;
+
+  var newCol = sheet.getLastColumn() + 1;
+  sheet.getRange(1, newCol).setValue('Order_Discount');
+  sheet.getRange(1, newCol).setFontWeight('bold');
+  sheet.setColumnWidth(newCol, 110);
+
+  if (sheet.getLastRow() >= 2) {
+    var numRows = sheet.getLastRow() - 1;
+    var zeros = [];
+    for (var i = 0; i < numRows; i++) zeros.push([0]);
+    sheet.getRange(2, newCol, numRows, 1).setValues(zeros);
+  }
+  SpreadsheetApp.flush();
 }
 
 /**
@@ -3497,12 +3591,13 @@ function createUniformOrder(orderData) {
       return { success: false, error: 'At least one item is required' };
     }
     
-    // Calculate totals (replacement items are $0)
+    // Calculate totals (replacement items are $0, discounts reduce line total)
     let totalAmount = 0;
     for (const item of orderData.items) {
       const isReplacement = item.isReplacement || false;
       const effectivePrice = isReplacement ? 0 : (item.unitPrice || 0);
-      totalAmount += effectivePrice * (item.quantity || 1);
+      const discount = isReplacement ? 0 : (parseFloat(item.discount) || 0);
+      totalAmount += Math.max(0, effectivePrice * (item.quantity || 1) - discount);
     }
     totalAmount = parseFloat(totalAmount.toFixed(2));
     
@@ -3548,13 +3643,17 @@ function createUniformOrder(orderData) {
     
     ordersSheet.appendRow(orderRow);
     
-    // Create line item rows (9 columns with Is_Replacement)
+    // Create line item rows (9 base columns + discount written separately)
+    var itemHeaders = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
+    var discountCol = itemHeaders.indexOf('Discount') + 1; // 1-based, 0 if not found
+
     const lineRows = orderData.items.map(item => {
       const lineId = generateLineId();
       const isReplacement = item.isReplacement || false;
+      const discount = isReplacement ? 0 : (parseFloat(item.discount) || 0);
       const effectivePrice = isReplacement ? 0 : (item.unitPrice || 0);
-      const lineTotal = parseFloat((effectivePrice * (item.quantity || 1)).toFixed(2));
-      
+      const lineTotal = parseFloat(Math.max(0, effectivePrice * (item.quantity || 1) - discount).toFixed(2));
+
       return [
         lineId,
         orderId,
@@ -3564,12 +3663,22 @@ function createUniformOrder(orderData) {
         item.quantity || 1,
         effectivePrice,
         lineTotal,
-        isReplacement   // NEW: Is_Replacement column
+        isReplacement
       ];
     });
-    
+
     if (lineRows.length > 0) {
-      itemsSheet.getRange(itemsSheet.getLastRow() + 1, 1, lineRows.length, 9).setValues(lineRows);
+      var startRow = itemsSheet.getLastRow() + 1;
+      itemsSheet.getRange(startRow, 1, lineRows.length, 9).setValues(lineRows);
+
+      // Write discount values to Discount column if it exists
+      if (discountCol > 0) {
+        var discountValues = orderData.items.map(function(item) {
+          var isRepl = item.isReplacement || false;
+          return [isRepl ? 0 : (parseFloat(item.discount) || 0)];
+        });
+        itemsSheet.getRange(startRow, discountCol, lineRows.length, 1).setValues(discountValues);
+      }
     }
     
     // Log the activity
@@ -3616,8 +3725,17 @@ function getUniformOrders(filters = {}) {
       return [];
     }
     
-    // Read all 17 columns
-    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 17).getValues();
+    // Read all columns dynamically (supports Order_Discount column if present)
+    var oHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var orderDiscountCol = oHeaders.indexOf('Order_Discount');
+    // Auto-migrate if Order_Discount column missing
+    if (orderDiscountCol < 0) {
+      migrateOrdersForDiscount();
+      oHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      orderDiscountCol = oHeaders.indexOf('Order_Discount');
+    }
+    const numCols = sheet.getLastColumn();
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, numCols).getValues();
     
     // Also get line items to calculate correct totals
     const itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
@@ -3638,18 +3756,21 @@ function getUniformOrders(filters = {}) {
     let orders = data.map((row, index) => {
       const orderId = row[0] || '';
       const storedTotal = parseFloat(row[5]) || 0;
-      
+      const oDiscount = orderDiscountCol >= 0 ? (parseFloat(row[orderDiscountCol]) || 0) : 0;
+
       // Use calculated total from line items if available, otherwise use stored value
       const calculatedTotal = lineItemTotals[orderId];
-      const actualTotal = calculatedTotal !== undefined ? calculatedTotal : storedTotal;
-      
+      const subtotal = calculatedTotal !== undefined ? calculatedTotal : storedTotal;
+      // Apply order-level discount
+      const actualTotal = parseFloat(Math.max(0, subtotal - oDiscount).toFixed(2));
+
       // Recalculate amount per paycheck and remaining based on correct total
       const paymentPlan = parseInt(row[6]) || 1;
       const paymentsMade = parseInt(row[9]) || 0;
       const amountPaid = parseFloat(row[10]) || 0;
       const amountPerPaycheck = actualTotal > 0 ? parseFloat((actualTotal / paymentPlan).toFixed(2)) : 0;
       const amountRemaining = parseFloat((actualTotal - amountPaid).toFixed(2));
-      
+
       return {
         orderId: orderId,
         employeeId: row[1] || '',
@@ -3657,6 +3778,7 @@ function getUniformOrders(filters = {}) {
         location: row[3] || '',
         orderDate: row[4] ? new Date(row[4]).toISOString() : null,
         totalAmount: actualTotal,
+        orderDiscount: oDiscount,
         paymentPlan: paymentPlan,
         amountPerPaycheck: amountPerPaycheck,
         firstDeductionDate: row[8] ? new Date(row[8]).toISOString().split('T')[0] : null,
@@ -4506,13 +4628,21 @@ function getOrderDetails(orderId, preloadedOrders, preloadedItemsByOrder) {
           migrateUniformItemsForReceiving();
           addManagerReceivingPasscode();
         }
+
+        // Auto-migrate Discount column if missing
+        if (!headers.includes('Discount')) {
+          migrateUniformItemsForDiscount();
+        }
         
+        // Re-read headers after migration may have added columns
+        const updatedHeaders = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
         const numCols = itemsSheet.getLastColumn();
-        const receivedColIdx = headers.indexOf('Item_Received');
-        const receivedDateColIdx = headers.indexOf('Item_Received_Date');
-        const receivedByColIdx = headers.indexOf('Item_Received_By');
-        const statusColIdx = headers.indexOf('Item_Status');
-        
+        const receivedColIdx = updatedHeaders.indexOf('Item_Received');
+        const receivedDateColIdx = updatedHeaders.indexOf('Item_Received_Date');
+        const receivedByColIdx = updatedHeaders.indexOf('Item_Received_By');
+        const statusColIdx = updatedHeaders.indexOf('Item_Status');
+        const discountColIdx = updatedHeaders.indexOf('Discount');
+
         const data = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, numCols).getValues();
         order.items = data
           .filter(row => row[1] === orderId)
@@ -4526,6 +4656,7 @@ function getOrderDetails(orderId, preloadedOrders, preloadedItemsByOrder) {
             unitPrice: parseFloat(row[6]) || 0,
             lineTotal: parseFloat(row[7]) || 0,
             isReplacement: row[8] === true || row[8] === 'TRUE',
+            discount: discountColIdx >= 0 ? (parseFloat(row[discountColIdx]) || 0) : 0,
             itemReceived: receivedColIdx >= 0 ? (row[receivedColIdx] === true || row[receivedColIdx] === 'TRUE') : false,
             itemReceivedDate: receivedDateColIdx >= 0 ? row[receivedDateColIdx] : null,
             itemReceivedBy: receivedByColIdx >= 0 ? row[receivedByColIdx] : '',
@@ -4778,6 +4909,201 @@ function updateItemsReceivedStatus(updates, receivedBy) {
   } catch (error) {
     console.error('Error updating items received status:', error);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Updates the discount on an existing order item and recalculates order totals
+ */
+function updateItemDiscount(lineId, orderId, newDiscount) {
+  var lock = LockService.getDocumentLock();
+  try {
+    lock.waitLock(10000);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
+    var ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
+
+    if (!itemsSheet || !ordersSheet) {
+      return { success: false, error: 'Required sheets not found' };
+    }
+
+    // Find columns dynamically
+    var iHeaders = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
+    var iLineId = iHeaders.indexOf('Line_ID');
+    var iOrderId = iHeaders.indexOf('Order_ID');
+    var iQty = iHeaders.indexOf('Quantity');
+    var iPrice = iHeaders.indexOf('Unit_Price');
+    var iTotal = iHeaders.indexOf('Line_Total');
+    var iDiscount = iHeaders.indexOf('Discount');
+    var iRepl = iHeaders.indexOf('Is_Replacement');
+
+    if (iDiscount < 0) {
+      return { success: false, error: 'Discount column not found — run migration first' };
+    }
+
+    // Read all item rows
+    var itemData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, iHeaders.length).getValues();
+    var targetRow = -1;
+    for (var i = 0; i < itemData.length; i++) {
+      if (String(itemData[i][iLineId]) === String(lineId)) {
+        targetRow = i;
+        break;
+      }
+    }
+
+    if (targetRow < 0) {
+      return { success: false, error: 'Item not found' };
+    }
+
+    var row = itemData[targetRow];
+    var isReplacement = row[iRepl] === true || row[iRepl] === 'TRUE';
+    if (isReplacement) {
+      return { success: false, error: 'Cannot discount replacement items' };
+    }
+
+    var quantity = parseInt(row[iQty]) || 1;
+    var unitPrice = parseFloat(row[iPrice]) || 0;
+    var discount = Math.max(0, Math.min(parseFloat(newDiscount) || 0, unitPrice * quantity));
+    var lineTotal = parseFloat(Math.max(0, unitPrice * quantity - discount).toFixed(2));
+
+    // Update item row (sheet is 1-based, +2 for header)
+    var sheetRow = targetRow + 2;
+    itemsSheet.getRange(sheetRow, iDiscount + 1).setValue(discount);
+    itemsSheet.getRange(sheetRow, iTotal + 1).setValue(lineTotal);
+
+    // Recalculate order total from all items for this order
+    var orderTotal = 0;
+    for (var i = 0; i < itemData.length; i++) {
+      if (String(itemData[i][iOrderId]) === String(orderId)) {
+        orderTotal += (i === targetRow) ? lineTotal : (parseFloat(itemData[i][iTotal]) || 0);
+      }
+    }
+    orderTotal = parseFloat(orderTotal.toFixed(2));
+
+    // Update order totals
+    var oHeaders = ordersSheet.getRange(1, 1, 1, ordersSheet.getLastColumn()).getValues()[0];
+    var oId = oHeaders.indexOf('Order_ID');
+    var oTotal = oHeaders.indexOf('Total_Amount');
+    var oRemaining = oHeaders.indexOf('Amount_Remaining');
+    var oPerCheck = oHeaders.indexOf('Amount_Per_Paycheck');
+    var oPlan = oHeaders.indexOf('Payment_Plan');
+    var oPaid = oHeaders.indexOf('Amount_Paid');
+    var oPaymentsMade = oHeaders.indexOf('Payments_Made');
+
+    var orderData = ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, oHeaders.length).getValues();
+    var orderRow = -1;
+    for (var i = 0; i < orderData.length; i++) {
+      if (String(orderData[i][oId]) === String(orderId)) {
+        orderRow = i;
+        break;
+      }
+    }
+
+    if (orderRow < 0) {
+      return { success: false, error: 'Order not found' };
+    }
+
+    var oData = orderData[orderRow];
+    var oSheetRow = orderRow + 2;
+    var amountPaid = parseFloat(oData[oPaid]) || 0;
+    var paymentPlan = parseInt(oData[oPlan]) || 1;
+    var paymentsMade = parseInt(oData[oPaymentsMade]) || 0;
+    var newRemaining = parseFloat(Math.max(0, orderTotal - amountPaid).toFixed(2));
+    var remainingPayments = Math.max(1, paymentPlan - paymentsMade);
+    var newPerCheck = parseFloat((newRemaining / remainingPayments).toFixed(2));
+
+    ordersSheet.getRange(oSheetRow, oTotal + 1).setValue(orderTotal);
+    ordersSheet.getRange(oSheetRow, oRemaining + 1).setValue(newRemaining);
+    ordersSheet.getRange(oSheetRow, oPerCheck + 1).setValue(newPerCheck);
+    SpreadsheetApp.flush();
+
+    return getOrderDetails(orderId);
+
+  } catch (error) {
+    console.error('Error updating item discount:', error);
+    return { success: false, error: error.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Updates the order-level discount and recalculates totals
+ */
+function updateOrderDiscount(orderId, newDiscount) {
+  var lock = LockService.getDocumentLock();
+  try {
+    lock.waitLock(10000);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
+    var itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
+    if (!ordersSheet) return { success: false, error: 'Orders sheet not found' };
+
+    var oHeaders = ordersSheet.getRange(1, 1, 1, ordersSheet.getLastColumn()).getValues()[0];
+    var oDiscountCol = oHeaders.indexOf('Order_Discount');
+    if (oDiscountCol < 0) {
+      migrateOrdersForDiscount();
+      oHeaders = ordersSheet.getRange(1, 1, 1, ordersSheet.getLastColumn()).getValues()[0];
+      oDiscountCol = oHeaders.indexOf('Order_Discount');
+    }
+    if (oDiscountCol < 0) return { success: false, error: 'Order_Discount column not found' };
+
+    var oId = oHeaders.indexOf('Order_ID');
+    var oTotal = oHeaders.indexOf('Total_Amount');
+    var oRemaining = oHeaders.indexOf('Amount_Remaining');
+    var oPerCheck = oHeaders.indexOf('Amount_Per_Paycheck');
+    var oPlan = oHeaders.indexOf('Payment_Plan');
+    var oPaid = oHeaders.indexOf('Amount_Paid');
+    var oPaymentsMade = oHeaders.indexOf('Payments_Made');
+
+    var orderData = ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, oHeaders.length).getValues();
+    var orderRow = -1;
+    for (var i = 0; i < orderData.length; i++) {
+      if (String(orderData[i][oId]) === String(orderId)) { orderRow = i; break; }
+    }
+    if (orderRow < 0) return { success: false, error: 'Order not found' };
+
+    // Calculate subtotal from line items
+    var subtotal = 0;
+    if (itemsSheet && itemsSheet.getLastRow() >= 2) {
+      var iHeaders = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
+      var iOrderId = iHeaders.indexOf('Order_ID');
+      var iLineTotal = iHeaders.indexOf('Line_Total');
+      var itemData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, iHeaders.length).getValues();
+      for (var i = 0; i < itemData.length; i++) {
+        if (String(itemData[i][iOrderId]) === String(orderId)) {
+          subtotal += parseFloat(itemData[i][iLineTotal]) || 0;
+        }
+      }
+    } else {
+      subtotal = parseFloat(orderData[orderRow][oTotal]) || 0;
+    }
+
+    var discount = Math.max(0, Math.min(parseFloat(newDiscount) || 0, subtotal));
+    var effectiveTotal = parseFloat(Math.max(0, subtotal - discount).toFixed(2));
+
+    var oData = orderData[orderRow];
+    var oSheetRow = orderRow + 2;
+    var amountPaid = parseFloat(oData[oPaid]) || 0;
+    var paymentPlan = parseInt(oData[oPlan]) || 1;
+    var paymentsMade = parseInt(oData[oPaymentsMade]) || 0;
+    var newRemaining = parseFloat(Math.max(0, effectiveTotal - amountPaid).toFixed(2));
+    var remainingPayments = Math.max(1, paymentPlan - paymentsMade);
+    var newPerCheck = parseFloat((newRemaining / remainingPayments).toFixed(2));
+
+    ordersSheet.getRange(oSheetRow, oDiscountCol + 1).setValue(discount);
+    ordersSheet.getRange(oSheetRow, oTotal + 1).setValue(effectiveTotal);
+    ordersSheet.getRange(oSheetRow, oRemaining + 1).setValue(newRemaining);
+    ordersSheet.getRange(oSheetRow, oPerCheck + 1).setValue(newPerCheck);
+    SpreadsheetApp.flush();
+
+    return { success: true, orderId: orderId };
+
+  } catch (error) {
+    console.error('Error updating order discount:', error);
+    return { success: false, error: error.message };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -8643,6 +8969,7 @@ function getRecentUniformOrders(sinceDate) {
     const nameIdx = headers.indexOf('Employee_Name');
     const paymentsIdx = headers.indexOf('Payment_Plan');
     const notesIdx = headers.indexOf('Notes');
+    const statusIdx = headers.indexOf('Status');
     
     // Get all items for reference - including lineTotal for correct totals
     let allItems = [];
@@ -8677,7 +9004,8 @@ function getRecentUniformOrders(sinceDate) {
       const orderDate = new Date(row[dateIdx]);
       const orderId = row[orderIdIdx];
       
-      if (orderDate >= sinceDate && orderId) {
+      var status = statusIdx >= 0 ? (row[statusIdx] || '') : '';
+      if (orderDate >= sinceDate && orderId && status !== 'Cancelled') {
         // Get items for this order
         const orderItems = allItems.filter(item => item.orderId === orderId);
         
@@ -11073,7 +11401,10 @@ function runPayrollValidation() {
         const firstDeductionDate = row[8];
         
         if (status === 'Active' && (amountPerPaycheck <= 0 || !firstDeductionDate)) {
-          missingSchedule.push({ orderId, employeeName });
+          const missing = [];
+          if (amountPerPaycheck <= 0) missing.push('payment amount');
+          if (!firstDeductionDate) missing.push('first deduction date');
+          missingSchedule.push({ orderId, employeeName, missingFields: missing.join(' and ') });
         }
       }
       
@@ -11083,9 +11414,10 @@ function runPayrollValidation() {
           id: 'missing_schedule',
           status: 'error',
           title: 'Orders Missing Payment Schedule',
-          message: `${missingSchedule.length} active order(s) have no payment schedule set.`,
-          details: missingSchedule.map(o => `${o.orderId} - ${o.employeeName}`),
-          action: 'uniforms-orders'
+          message: `${missingSchedule.length} active order(s) have no payment amount or first deduction date.`,
+          details: missingSchedule.map(o => `${o.orderId} - ${o.employeeName}: missing ${o.missingFields}`),
+          action: 'uniforms-orders',
+          howToFix: 'Open each order and set the Amount Per Paycheck and First Deduction Date. These are required before deductions can be processed.'
         });
       } else {
         checks.push({
@@ -11133,9 +11465,10 @@ function runPayrollValidation() {
           id: 'inactive_deductions',
           status: 'warning',
           title: 'Inactive Employees with Deductions',
-          message: `${inactiveWithDeductions.length} inactive employee(s) have active deductions.`,
+          message: `${inactiveWithDeductions.length} inactive employee(s) still have active uniform deductions that will be processed.`,
           details: inactiveWithDeductions.map(o => `${o.orderId} - ${o.employeeName}`),
-          action: 'uniforms-orders'
+          action: 'uniforms-orders',
+          howToFix: 'Either cancel the deduction orders for employees who have left, or reactivate the employee if they are still working. Leaving these active means deductions will be attempted on employees no longer on payroll.'
         });
       } else {
         checks.push({
@@ -11194,7 +11527,8 @@ function runPayrollValidation() {
               title: 'OT Data May Be Stale',
               message: `OT data is ${daysSinceUpload} days old. Consider uploading fresh data.`,
               details: [`Last upload: ${uploadDateStr}`],
-              action: 'ot-upload'
+              action: 'ot-upload',
+              howToFix: 'Go to Overtime → Upload Data and upload the latest export from HotSchedules to ensure overtime calculations are accurate.'
             });
           } else {
             errorCount++;
@@ -11202,9 +11536,10 @@ function runPayrollValidation() {
               id: 'ot_freshness',
               status: 'error',
               title: 'OT Data Outdated',
-              message: `OT data is ${daysSinceUpload} days old! Upload current data before processing.`,
+              message: `OT data is ${daysSinceUpload} days old! Upload current data before processing payroll.`,
               details: [`Last upload: ${uploadDateStr}`],
-              action: 'ot-upload'
+              action: 'ot-upload',
+              howToFix: 'Upload current OT data from HotSchedules immediately. Payroll should not be processed with data this old — overtime amounts may be wrong.'
             });
           }
         }
@@ -11217,7 +11552,8 @@ function runPayrollValidation() {
         title: 'No OT Data',
         message: 'No overtime data found. Upload OT data if needed.',
         details: null,
-        action: 'ot-upload'
+        action: 'ot-upload',
+        howToFix: 'Go to Overtime → Upload Data and upload a HotSchedules export. If this location does not track overtime, you can dismiss this warning.'
       });
     }
     
@@ -11243,9 +11579,10 @@ function runPayrollValidation() {
           id: 'zero_orders',
           status: 'error',
           title: 'Zero-Value Active Orders',
-          message: `${zeroOrders.length} active order(s) have $0.00 total.`,
+          message: `${zeroOrders.length} active order(s) have $0.00 total — no deduction amount can be calculated.`,
           details: zeroOrders.map(o => `${o.orderId} - ${o.employeeName}`),
-          action: 'uniforms-orders'
+          action: 'uniforms-orders',
+          howToFix: 'Set the correct Total Amount on each order, or cancel the order if it is no longer needed. Orders with $0 total cannot generate payroll deductions.'
         });
       } else {
         checks.push({
@@ -11284,7 +11621,8 @@ function runPayrollValidation() {
       let activeCount = 0;
       let dueThisPeriodCount = 0;
       let dueThisPeriodAmount = 0;
-      
+      const mismatchedOrders = [];
+
       for (const row of ordersData) {
         const status = row[12];
         const amountRemaining = parseFloat(row[11]) || 0;
@@ -11293,14 +11631,29 @@ function runPayrollValidation() {
         const firstDeductionDate = row[8]; // Column I = First_Deduction_Date
         const paymentPlan = parseInt(row[6]) || 1;
         const paymentsMade = parseInt(row[9]) || 0;
-        
+
         if (status === 'Active') {
           activeCount++;
           totalRemaining += amountRemaining;
-          totalExpected += (totalAmount - amountPaid);
-          
+          const expectedRemaining = totalAmount - amountPaid;
+          totalExpected += expectedRemaining;
+
+          // Track per-order mismatches
+          const orderDiscrepancy = Math.abs(amountRemaining - expectedRemaining);
+          if (orderDiscrepancy > 0.01) {
+            const orderId = row[0];
+            const employeeName = row[2];
+            mismatchedOrders.push({
+              orderId,
+              employeeName,
+              recorded: amountRemaining,
+              expected: expectedRemaining,
+              diff: orderDiscrepancy
+            });
+          }
+
           if (!firstDeductionDate || !nextPayrollDateStr) continue;
-          
+
           // Get first deduction date as consistent ISO string (UTC components for sheet dates)
           let firstDeductionStr;
           if (firstDeductionDate instanceof Date && !isNaN(firstDeductionDate.getTime())) {
@@ -11318,22 +11671,22 @@ function runPayrollValidation() {
           } else {
             continue;
           }
-          
+
           // Calculate all scheduled deduction dates and check for match
           const amountPerCheck = totalAmount > 0 ? Math.round((totalAmount / paymentPlan) * 100) / 100 : 0;
           const baseDate = new Date(firstDeductionStr + 'T12:00:00');
-          
+
           for (let i = 0; i < paymentPlan; i++) {
             const checkNumber = i + 1;
             if (checkNumber <= paymentsMade) continue; // Already paid
-            
+
             const deductionDate = new Date(baseDate);
             deductionDate.setDate(deductionDate.getDate() + (i * 14));
             const dy = deductionDate.getFullYear();
             const dm = String(deductionDate.getMonth() + 1).padStart(2, '0');
             const dd = String(deductionDate.getDate()).padStart(2, '0');
             const deductionDateStr = `${dy}-${dm}-${dd}`;
-            
+
             if (deductionDateStr === nextPayrollDateStr) {
               dueThisPeriodCount++;
               const isFinal = checkNumber === paymentPlan;
@@ -11348,20 +11701,24 @@ function runPayrollValidation() {
           }
         }
       }
-      
+
       const discrepancy = Math.abs(totalRemaining - totalExpected);
       if (discrepancy > 0.01) {
         warningCount++;
+        const details = mismatchedOrders.map(o =>
+          `${o.orderId} - ${o.employeeName}: remaining shows $${o.recorded.toFixed(2)} but should be $${o.expected.toFixed(2)} (off by $${o.diff.toFixed(2)})`
+        );
+        // Add summary line at the end
+        details.push(`Total: recorded $${totalRemaining.toFixed(2)} vs expected $${totalExpected.toFixed(2)}`);
+
         checks.push({
           id: 'deduction_reconcile',
           status: 'warning',
           title: 'Deduction Discrepancy',
-          message: `$${discrepancy.toFixed(2)} discrepancy in deduction totals.`,
-          details: [
-            `Expected remaining: $${totalExpected.toFixed(2)}`,
-            `Recorded remaining: $${totalRemaining.toFixed(2)}`
-          ],
-          action: 'uniforms-orders'
+          message: `$${discrepancy.toFixed(2)} mismatch between recorded balances and calculated balances across ${mismatchedOrders.length} order(s).`,
+          details: details,
+          action: 'uniforms-orders',
+          howToFix: 'The Amount Remaining on these orders does not match (Total Amount - Amount Paid). This usually happens when a payment was recorded but the remaining balance was not updated. Open each affected order and correct the Amount Remaining field.'
         });
       } else if (dueThisPeriodCount > 0) {
         checks.push({

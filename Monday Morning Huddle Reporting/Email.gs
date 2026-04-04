@@ -135,8 +135,8 @@ function buildDirectorEmail_(allRows, crossLocOT, chronicFlags, locNames, weekLa
     h += '<td style="padding:4px 12px;font-size:13px">Actual: ' + d.actualHours + ' hrs</td></tr>';
   });
   h += '<tr style="border-top:2px solid #e5e7eb"><td style="padding:6px 12px;font-weight:bold;font-size:13px;color:#7C3AED">Reconciled OT Total</td>';
-  h += '<td style="padding:6px 12px;font-size:13px;font-weight:bold">' + crossLocOT.totalOTHours + ' hrs actual</td>';
-  h += '<td style="padding:6px 12px;font-size:13px">' + crossLocOT.totalScheduledOTHours + ' hrs scheduled</td></tr>';
+  h += '<td style="padding:6px 12px;font-size:13px;font-weight:bold">Sched: ' + crossLocOT.totalScheduledOTHours + ' hrs</td>';
+  h += '<td style="padding:6px 12px;font-size:13px">Actual: ' + crossLocOT.totalOTHours + ' hrs</td></tr>';
   h += '</table>';
 
   // Top OT offenders
