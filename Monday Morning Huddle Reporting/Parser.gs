@@ -6,6 +6,78 @@
  * since data is pasted directly into sheets.
  */
 
+/* ── Name Normalization ──
+ *
+ * HotSchedules exports the same person slightly differently across
+ * schedule vs punch files (e.g. "Johnson, Tyler" vs "Tyler Johnson",
+ * or inconsistent capitalization). The tool matches by exact string,
+ * so mismatches create duplicate rows in the report.
+ *
+ * normalizeName() runs on every name at parse time and produces a
+ * canonical form. Order of operations:
+ *   1. Trim + collapse internal whitespace
+ *   2. If it looks like "Last, First", flip it
+ *   3. Title case
+ *   4. If an alias map is loaded, apply it LAST so aliases always win
+ *
+ * Alias map (optional): a tab called "Name Aliases" with two columns:
+ *   Raw Name           | Canonical Name
+ *   Tyler J.           | Tyler Johnson
+ *   Michael Rodriguez  | Mike Rodriguez
+ */
+
+var _nameAliasCache = null;
+
+function loadNameAliases_() {
+  if (_nameAliasCache !== null) return _nameAliasCache;
+
+  _nameAliasCache = {};
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Name Aliases');
+    if (!sheet || sheet.getLastRow() < 2) return _nameAliasCache;
+
+    var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
+    data.forEach(function(row) {
+      var raw = String(row[0] || '').trim();
+      var canonical = String(row[1] || '').trim();
+      if (raw && canonical) {
+        _nameAliasCache[raw.toLowerCase()] = canonical;
+      }
+    });
+  } catch (e) {
+    // Alias tab not available (e.g. running outside spreadsheet context) — ignore
+  }
+  return _nameAliasCache;
+}
+
+function clearNameAliasCache_() {
+  _nameAliasCache = null;
+}
+
+function normalizeName(raw) {
+  if (!raw) return '';
+  var s = String(raw).replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+
+  // "Last, First" → "First Last" (tolerate middle initial: "Smith, John A")
+  var comma = s.indexOf(',');
+  if (comma > 0 && comma < s.length - 1) {
+    var last = s.substring(0, comma).trim();
+    var rest = s.substring(comma + 1).trim();
+    if (last && rest) s = rest + ' ' + last;
+  }
+
+  // Title case each word
+  s = s.toLowerCase().replace(/\b([a-z])/g, function(_, c) { return c.toUpperCase(); });
+
+  // Alias map overrides everything
+  var aliases = loadNameAliases_();
+  var key = s.toLowerCase();
+  if (aliases[key]) return aliases[key];
+
+  return s;
+}
+
 /* ── Schedule Parser ── */
 
 function parseScheduleFromSheet(data) {
@@ -21,7 +93,7 @@ function parseScheduleFromSheet(data) {
   var result = [];
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    var name = String(row[iN] || '').trim();
+    var name = normalizeName(row[iN]);
     if (!name) continue;
 
     var st = parseTimestamp(row[iSS]);
@@ -61,7 +133,7 @@ function parsePunchesFromSheet(data, cfg) {
   var result = [];
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    var name = String(row[iE] || '').trim();
+    var name = normalizeName(row[iE]);
     if (!name) continue;
 
     if (iPT >= 0 && row[iPT] && String(row[iPT]).toLowerCase() !== 'regular') continue;

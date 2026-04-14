@@ -4257,7 +4257,22 @@ function renderOrderDetailsModal(order) {
                       order.status === 'Completed' ? 'normal' : 
                       order.status === 'Store Paid' ? 'normal' : 'high';
   
+  const reviewBanner = order.needsReview ? `
+    <div style="background: #fff8e1; border: 1px solid #f9a825; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; gap: 12px; align-items: flex-start;">
+      <span class="material-icons-round" style="color: #f9a825;">warning</span>
+      <div style="flex: 1;">
+        <div style="font-weight: 700; margin-bottom: 4px;">This order needs manual review</div>
+        <div style="font-size: 0.9rem; color: var(--gray-700); margin-bottom: 8px;">${order.reviewReason || 'An item was cancelled after payments started.'}</div>
+        <button class="btn btn-primary btn-sm" onclick="openResolveReviewDialog('${order.orderId}')">
+          <span class="material-icons-round" style="font-size: 16px;">gavel</span>
+          Resolve Review
+        </button>
+      </div>
+    </div>
+  ` : '';
+
   const html = `
+    ${reviewBanner}
     <div class="order-info-grid">
       <div class="order-info-item">
         <label>Employee</label>
@@ -4482,15 +4497,18 @@ function cancelItemFromModal(lineId, itemName) {
   if (!confirm(`Cancel "${itemName}"?\n\nThis cannot be undone.`)) {
     return;
   }
-  
+
   showLoading(true);
-  
+
   google.script.run
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
-        showToast('Item cancelled', 'success');
-        // Refresh the modal
+        if (result.flagged) {
+          showToast('Item cancelled — order flagged for manual review ($' + (result.overcharge || 0).toFixed(2) + ' overcharge)', 'warning');
+        } else {
+          showToast('Item cancelled and order total adjusted', 'success');
+        }
         viewOrderDetails(currentModalOrder.orderId);
       } else {
         showToast('Error: ' + result.error, 'error');
@@ -4501,6 +4519,70 @@ function cancelItemFromModal(lineId, itemName) {
       showToast('Error: ' + error.message, 'error');
     })
     .cancelUniformItem(lineId);
+}
+
+/**
+ * Opens resolve-review dialog (credit forward or shrink payments)
+ */
+function openResolveReviewDialog(orderId) {
+  var existing = document.getElementById('resolveReviewModal');
+  if (existing) existing.remove();
+
+  var html = ''
+    + '<div id="resolveReviewModal" class="modal-overlay" style="display:flex; z-index:10050;">'
+    + '  <div class="modal" style="max-width:480px;">'
+    + '    <div class="modal-header">'
+    + '      <h3>Resolve Cancelled-Item Overcharge</h3>'
+    + '      <button class="modal-close" onclick="closeResolveReviewDialog()">&times;</button>'
+    + '    </div>'
+    + '    <div class="modal-body">'
+    + '      <p style="margin-bottom:12px;">Choose how to adjust the employee\'s remaining payments:</p>'
+    + '      <label style="display:block; padding:12px; border:1px solid var(--gray-300); border-radius:6px; margin-bottom:8px; cursor:pointer;">'
+    + '        <input type="radio" name="resolveMethod" value="credit_forward" checked style="margin-right:8px;">'
+    + '        <strong>Credit Forward</strong>'
+    + '        <div style="font-size:0.85rem; color:var(--gray-600); margin-top:4px; margin-left:22px;">Keep per-paycheck amount the same. Fewer payments total — order finishes earlier.</div>'
+    + '      </label>'
+    + '      <label style="display:block; padding:12px; border:1px solid var(--gray-300); border-radius:6px; cursor:pointer;">'
+    + '        <input type="radio" name="resolveMethod" value="shrink_payments" style="margin-right:8px;">'
+    + '        <strong>Shrink Payments</strong>'
+    + '        <div style="font-size:0.85rem; color:var(--gray-600); margin-top:4px; margin-left:22px;">Keep same number of remaining payments. Smaller amount deducted each paycheck.</div>'
+    + '      </label>'
+    + '    </div>'
+    + '    <div class="modal-footer">'
+    + '      <button class="btn btn-outline" onclick="closeResolveReviewDialog()">Cancel</button>'
+    + '      <button class="btn btn-primary" onclick="submitResolveReview(\'' + orderId + '\')">Apply</button>'
+    + '    </div>'
+    + '  </div>'
+    + '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closeResolveReviewDialog() {
+  var el = document.getElementById('resolveReviewModal');
+  if (el) el.remove();
+}
+
+function submitResolveReview(orderId) {
+  var selected = document.querySelector('input[name="resolveMethod"]:checked');
+  if (!selected) { showToast('Select a method', 'error'); return; }
+  var method = selected.value;
+  closeResolveReviewDialog();
+  showLoading(true);
+  google.script.run
+    .withSuccessHandler(function(result) {
+      showLoading(false);
+      if (result && result.success) {
+        showToast('Review resolved — total $' + result.newTotal.toFixed(2) + ', ' + result.newPaymentPlan + ' payment(s) of $' + result.newPerCheck.toFixed(2), 'success');
+        viewOrderDetails(orderId);
+      } else {
+        showToast('Error: ' + ((result && result.error) || 'unknown'), 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      showLoading(false);
+      showToast('Error: ' + err.message, 'error');
+    })
+    .resolveUniformItemCancellation(orderId, method);
 }
 
 // Discount modal state
@@ -4532,12 +4614,18 @@ function submitDiscountModal() {
     return;
   }
   errEl.style.display = 'none';
+
+  // Capture state BEFORE closing — closeDiscountModal() resets _discountModal
+  var type = _discountModal.type;
+  var lineId = _discountModal.lineId;
+  var orderId = _discountModal.orderId;
+
   closeDiscountModal();
 
-  if (_discountModal.type === 'item') {
-    submitItemDiscount(_discountModal.lineId, _discountModal.orderId, val);
-  } else if (_discountModal.type === 'order') {
-    submitOrderDiscount(_discountModal.orderId, val);
+  if (type === 'item') {
+    submitItemDiscount(lineId, orderId, val);
+  } else if (type === 'order') {
+    submitOrderDiscount(orderId, val);
   }
 }
 
@@ -9589,6 +9677,12 @@ function renderUniformSection(data) {
             <div>Payment: Check ${order.checkNumber} of ${order.paymentSchedule} • <strong>Deduct: $${isOrderRecorded ? '0.00 (already paid)' : order.deductionAmount.toFixed(2)}</strong></div>
             <div>Remaining after this: $${order.amountRemaining.toFixed(2)}</div>
             <div class="items-summary">Items: ${order.items.map(i => escapeHtml(i.description) + (i.size ? ' ('+escapeHtml(i.size)+')' : '')).join(', ')}</div>
+            ${order.needsReview ? `
+              <div style="margin-top: 8px; padding: 8px 10px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px; font-size: 0.85rem;">
+                <strong style="color: #92400e;">⚠ Needs Review —</strong>
+                <span style="color: #78350f;">${escapeHtml(order.reviewReason || 'Item cancelled after payments began. Resolve via Credit Forward or Shrink Payments in Uniform Orders.')}</span>
+              </div>
+            ` : ''}
           </div>
         </div>
       `;

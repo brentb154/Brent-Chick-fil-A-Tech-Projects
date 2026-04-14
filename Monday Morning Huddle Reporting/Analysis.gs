@@ -63,7 +63,7 @@ function consolidate(schedule, punches, cfg) {
       rec.status = 'unscheduled';
     }
 
-    rec.midnightFlag = rec.actualEnd ? isMidnight(rec.actualEnd, cfg) : false;
+    rec.midnightFlag = isMissedClockOut(rec, cfg);
     result.push(rec);
   });
 
@@ -73,13 +73,29 @@ function consolidate(schedule, punches, cfg) {
   return result;
 }
 
-/* ── Midnight Detection ── */
+/* ── Missed Clock-Out Detection ──
+ *
+ * Primary signal: matched shift where actualEnd is far past schedEnd
+ *   (default 90 min — see MISSED_CLOCKOUT_THRESHOLD in Settings).
+ * Fallback: unscheduled shifts (no schedEnd) use the legacy midnight
+ *   window check so we still catch auto-punchouts.
+ */
 
-function isMidnight(dt, cfg) {
-  if (!dt || isNaN(dt.getTime())) return false;
-  var h = dt.getHours(), m = dt.getMinutes();
-  var window = (cfg && cfg.MIDNIGHT_WINDOW) || 5;
-  return (h === 0 && m <= window) || (h === 23 && m >= (60 - window));
+function isMissedClockOut(rec, cfg) {
+  if (!rec || !rec.actualEnd || isNaN(rec.actualEnd.getTime())) return false;
+
+  if (rec.status === 'matched' && rec.schedEnd) {
+    var threshold = (cfg && cfg.MISSED_CLOCKOUT_THRESHOLD) || 90;
+    if (rec.endVar !== null && rec.endVar >= threshold) return true;
+  }
+
+  if (rec.status === 'unscheduled') {
+    var h = rec.actualEnd.getHours(), m = rec.actualEnd.getMinutes();
+    var window = (cfg && cfg.MIDNIGHT_WINDOW) || 5;
+    return (h === 0 && m <= window) || (h === 23 && m >= (60 - window));
+  }
+
+  return false;
 }
 
 /* ── Week Detection ── */

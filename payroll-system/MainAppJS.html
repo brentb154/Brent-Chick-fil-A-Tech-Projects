@@ -66,7 +66,18 @@ function verifyAuthSession(onSuccess) {
   if (typeof showLoading === 'function') {
     showLoading(true);
   }
-  
+
+  const token = window.PAYROLL_SESSION_TOKEN;
+  const bounceToLogin = function() {
+    const baseUrl = (window.PAYROLL_BASE_URL || window.location.href.split('?')[0].split('#')[0]);
+    window.top.location.href = baseUrl;
+  };
+
+  if (!token) {
+    bounceToLogin();
+    return;
+  }
+
   google.script.run
     .withSuccessHandler(function(isValid) {
       if (isValid) {
@@ -75,17 +86,13 @@ function verifyAuthSession(onSuccess) {
         }
         onSuccess();
       } else {
-        localStorage.removeItem('payroll_auth');
-        const baseUrl = window.location.href.split('#')[0];
-        window.location.href = baseUrl + '?view=auth&mode=login&returnUrl=' + encodeURIComponent(baseUrl);
+        bounceToLogin();
       }
     })
     .withFailureHandler(function() {
-      localStorage.removeItem('payroll_auth');
-      const baseUrl = window.location.href.split('#')[0];
-      window.location.href = baseUrl + '?view=auth&mode=login&returnUrl=' + encodeURIComponent(baseUrl);
+      bounceToLogin();
     })
-    .checkAuthSession();
+    .checkTokenSession(token);
 }
 
 /**
@@ -532,8 +539,9 @@ function logoutUser() {
   if (!confirm('Sign out of Payroll Review?')) return;
 
   localStorage.removeItem('payroll_auth');
-  const baseUrl = window.location.href.split('#')[0];
-  window.location.href = `${baseUrl}?view=auth&mode=logout`;
+  const baseUrl = (window.PAYROLL_BASE_URL || window.location.href.split('?')[0].split('#')[0]);
+  const token = window.PAYROLL_SESSION_TOKEN || '';
+  window.top.location.href = baseUrl + '?view=auth&mode=logout&token=' + encodeURIComponent(token);
 }
 
 // ==================== QUICK SEARCH ====================

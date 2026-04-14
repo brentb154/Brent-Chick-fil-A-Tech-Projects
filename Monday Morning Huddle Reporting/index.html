@@ -137,7 +137,7 @@
         <div class="header">
             <div class="project-icon">&#128203;</div>
             <h1>Monday Morning Huddle Reporting</h1>
-            <p class="subtitle">Automated Monday morning reporting pipeline. Parses schedule data, generates analysis reports, archives history, and emails formatted huddle summaries to leadership each week.</p>
+            <p class="subtitle">Powers the Monday Morning Huddle with a dual-view report: last week's schedule-vs-actual review (variance, OT, absences, missed clock-outs, behavior patterns) and this week's projected hours and scheduled OT. Detects cross-location overtime that Analytics Hub misses. Emails two-tier summaries to directors and managers, and automatically archives every huddle presentation.</p>
             <div>
                 <span class="tag">Google Apps Script</span>
                 <span class="tag">Google Sheets</span>
@@ -152,12 +152,14 @@
         <div class="section">
             <h2>Features</h2>
             <ul class="feature-list">
-                <li>Parses uploaded schedule files for weekly staffing data</li>
-                <li>Generates analysis reports with key metrics</li>
-                <li>Archives historical data for trend tracking</li>
-                <li>Automated email reports to configurable recipients</li>
-                <li>Monday sheet population with weekly summaries</li>
-                <li>Multiple report formats for different audiences</li>
+                <li>Last Week Review: schedule vs actual hours, variance, OT, attendance flags</li>
+                <li>This Week Plan: projected scheduled hours and OT to catch problems before they happen</li>
+                <li>Cross-location OT detection (combines CH + DBU hours per employee)</li>
+                <li>Missed clock-out detection (90+ min past scheduled end)</li>
+                <li>Name normalization + alias map for consistent matching across exports</li>
+                <li>Two-tier email reports: full detail for directors, summary for managers</li>
+                <li>Automatic Monday 5 PM archive of all huddle presentation tabs</li>
+                <li>Historical reports: worst offenders, OT trends, chronic lateness, individual timelines</li>
             </ul>
         </div>
 
@@ -167,9 +169,10 @@
                 <li>Create a new Google Sheet for the Monday Huddle system.</li>
                 <li>Open <strong>Extensions &rarr; Apps Script</strong> and paste each .gs file.</li>
                 <li>Create an HTML file named <strong>Upload</strong> and paste <strong>Upload.html</strong>.</li>
-                <li>Run the initial setup function to create required sheet tabs.</li>
-                <li>Configure email recipients and report settings in the <strong>Config</strong> tab.</li>
-                <li>Set up a weekly time-driven trigger to run the Monday pipeline.</li>
+                <li>Reload the sheet, then click <strong>Schedule Variance &rarr; Initialize Sheet</strong> to create all required tabs and populate Settings defaults.</li>
+                <li>Open the <strong>Settings</strong> tab: fill in Director Email Recipients, Manager Email Recipients, and Trigger Alert Email.</li>
+                <li>Click <strong>Schedule Variance &rarr; Setup Weekly Archive (Monday 5 PM)</strong> to enable automatic huddle archiving.</li>
+                <li>Test with a known week: upload last week's schedule + punches and this week's schedules via <strong>Upload &amp; Analyze</strong>.</li>
             </ol>
         </div>
 

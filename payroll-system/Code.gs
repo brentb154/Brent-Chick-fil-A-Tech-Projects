@@ -98,23 +98,36 @@ function fetchEmployeesForReview() {
 
 function doGet(e) {
   try {
+    // One-time cleanup: the old auth flow stored a shared 'auth_session' in
+    // UserProperties (which is owner-scoped under "execute as owner"). Purge
+    // any leftover copy on every doGet so stale state can't keep anyone
+    // logged in as Brent.
+    try {
+      PropertiesService.getUserProperties().deleteProperty('auth_session');
+    } catch (cleanupError) {
+      // Non-fatal
+    }
+
     // Initialize sheets if they don't exist
     initializeSheets();
-    
+
     // Check for URL parameters for routing
     const view = e && e.parameter && e.parameter.view ? e.parameter.view : 'default';
-    
-    // Auth gateway route
+
+    // Auth gateway route (logout only — login is now handled by LoginPrompt)
     if (view === 'auth') {
       const template = HtmlService.createTemplateFromFile('AuthGateway');
-      template.mode = e.parameter.mode || 'login';
+      template.mode = e.parameter.mode || 'logout';
       template.baseUrl = ScriptApp.getService().getUrl();
       template.returnUrl = e.parameter.returnUrl || template.baseUrl;
       if (template.mode === 'logout') {
-        const email = getSessionEmail();
-        clearAuthSession();
-        if (email) {
-          logActivity('LOGOUT', 'AUTH', `User logged out: ${email}`, '');
+        const logoutToken = e.parameter.token || null;
+        const session = logoutToken ? getTokenSession(logoutToken) : null;
+        if (logoutToken) {
+          clearAuthSession(logoutToken);
+        }
+        if (session && session.name) {
+          try { logActivity('LOGOUT', 'AUTH', 'User logged out: ' + session.name, ''); } catch (_) {}
         }
       }
       return template.evaluate()
@@ -142,12 +155,12 @@ function doGet(e) {
         .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
     }
     
-    // Admin routes - require Google authentication
-    // Require a valid session created after OAuth via google.script.run
-    const hasSession = checkAuthSession();
-    
-    if (!hasSession) {
-      // User is not signed in - show login prompt
+    // Admin routes - require a valid self-identification token in the URL.
+    const token = e && e.parameter && e.parameter.token ? e.parameter.token : null;
+    const session = token ? getTokenSession(token) : null;
+
+    if (!session) {
+      // No valid token - show login prompt (asks for name)
       const loginTemplate = HtmlService.createTemplateFromFile('LoginPrompt');
       loginTemplate.baseUrl = ScriptApp.getService().getUrl();
       return loginTemplate.evaluate()
@@ -155,10 +168,13 @@ function doGet(e) {
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
         .addMetaTag('viewport', 'width=device-width, initial-scale=1');
     }
-    
-    // User is authenticated (either via session or direct auth) - serve admin dashboard
-    return HtmlService.createTemplateFromFile('MainApp')
-      .evaluate()
+
+    // Valid token - serve admin dashboard with token and name exposed.
+    const mainTemplate = HtmlService.createTemplateFromFile('MainApp');
+    mainTemplate.token = token;
+    mainTemplate.currentUser = session.name || 'User';
+    mainTemplate.baseUrl = ScriptApp.getService().getUrl();
+    return mainTemplate.evaluate()
       .setTitle('Payroll Review')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -220,78 +236,151 @@ function authenticateUser() {
   }
 }
 
+// ============================================================================
+// TOKEN-BASED SELF-IDENTIFICATION SESSIONS
+// ----------------------------------------------------------------------------
+// The web app runs as "Execute as: Me (owner)" so the script can read/write
+// the spreadsheet. That means PropertiesService.getUserProperties() is scoped
+// to the OWNER for every visitor — unusable for per-visitor sessions. Admins
+// also use mixed/personal gmail accounts, so Session.getActiveUser().getEmail()
+// returns '' for most of them. So we let the user tell us who they are via
+// a name prompt, and key the session on a random UUID stored in
+// ScriptProperties (which is script-wide and not owner-scoped).
+// ============================================================================
+
+var SESSION_KEY_PREFIX = 'session_';
+var SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
 /**
- * Creates an authentication session for the user
- * Uses UserProperties which are unique per user (based on their temporary session key)
- * @param {string} email - The authenticated user's email
+ * Creates a self-identified session for the given name.
+ * @param {string} name - Name the user typed at the login prompt
+ * @returns {Object} { token, name } or { error }
  */
-function createAuthSession(email) {
+function createSelfSession(name) {
   try {
-    const userProps = PropertiesService.getUserProperties();
-    const sessionData = {
-      email: email,
+    var clean = (name || '').toString().trim();
+    if (!clean) {
+      return { error: 'Name is required' };
+    }
+    if (clean.length > 80) {
+      clean = clean.substring(0, 80);
+    }
+    pruneExpiredSessions_();
+    var token = Utilities.getUuid();
+    var sessionData = {
+      name: clean,
       created: Date.now(),
-      expires: Date.now() + (8 * 60 * 60 * 1000) // 8 hours
+      expires: Date.now() + SESSION_TTL_MS
     };
-    userProps.setProperty('auth_session', JSON.stringify(sessionData));
+    PropertiesService.getScriptProperties()
+      .setProperty(SESSION_KEY_PREFIX + token, JSON.stringify(sessionData));
+    return { token: token, name: clean };
+  } catch (error) {
+    console.error('Error creating self session:', error);
+    return { error: 'Could not create session' };
+  }
+}
+
+/**
+ * Returns true if the token maps to a live session. Deletes expired sessions.
+ * @param {string} token
+ * @returns {boolean}
+ */
+function checkTokenSession(token) {
+  try {
+    if (!token) return false;
+    var props = PropertiesService.getScriptProperties();
+    var str = props.getProperty(SESSION_KEY_PREFIX + token);
+    if (!str) return false;
+    var session = JSON.parse(str);
+    if (!session || Date.now() > session.expires) {
+      props.deleteProperty(SESSION_KEY_PREFIX + token);
+      return false;
+    }
     return true;
   } catch (error) {
-    console.error('Error creating auth session:', error);
+    console.error('Error checking token session:', error);
     return false;
   }
 }
 
 /**
- * Checks if the user has a valid authentication session
- * @returns {boolean} True if session is valid
+ * Returns the session data for a token or null.
+ * @param {string} token
+ * @returns {Object|null} { name, created, expires }
  */
-function checkAuthSession() {
+function getTokenSession(token) {
   try {
-    const userProps = PropertiesService.getUserProperties();
-    const sessionStr = userProps.getProperty('auth_session');
-    
-    if (!sessionStr) {
-      return false;
+    if (!token) return null;
+    var props = PropertiesService.getScriptProperties();
+    var str = props.getProperty(SESSION_KEY_PREFIX + token);
+    if (!str) return null;
+    var session = JSON.parse(str);
+    if (!session || Date.now() > session.expires) {
+      props.deleteProperty(SESSION_KEY_PREFIX + token);
+      return null;
     }
-    
-    const session = JSON.parse(sessionStr);
-    
-    // Check if session is expired
-    if (Date.now() > session.expires) {
-      userProps.deleteProperty('auth_session');
-      return false;
-    }
-    
-    return true;
+    return session;
   } catch (error) {
-    console.error('Error checking auth session:', error);
-    return false;
+    return null;
   }
 }
 
 /**
- * Gets the current session email (for activity logging)
- * @returns {string|null} The session email or null
+ * Internal helper: deletes any expired session_* keys from ScriptProperties.
  */
-function getSessionEmail() {
+function pruneExpiredSessions_() {
   try {
-    // First try active user
-    const activeEmail = Session.getActiveUser().getEmail();
-    if (activeEmail && activeEmail !== '') {
-      return activeEmail;
-    }
-    
-    // Fall back to session storage
-    const userProps = PropertiesService.getUserProperties();
-    const sessionStr = userProps.getProperty('auth_session');
-    
-    if (sessionStr) {
-      const session = JSON.parse(sessionStr);
-      if (Date.now() <= session.expires) {
-        return session.email;
+    var props = PropertiesService.getScriptProperties();
+    var all = props.getProperties();
+    var now = Date.now();
+    for (var key in all) {
+      if (key.indexOf(SESSION_KEY_PREFIX) !== 0) continue;
+      try {
+        var session = JSON.parse(all[key]);
+        if (!session || now > session.expires) {
+          props.deleteProperty(key);
+        }
+      } catch (e) {
+        props.deleteProperty(key);
       }
     }
-    
+  } catch (e) {
+    // Non-fatal
+  }
+}
+
+/**
+ * Legacy: no-op kept so AuthGateway.html's old flow doesn't throw during
+ * the transition. Returns true so existing client chains continue.
+ */
+function createAuthSession(email) {
+  return true;
+}
+
+/**
+ * Legacy: returns false so any caller still using this (e.g. old MainAppJS
+ * verifyAuthSession) is kicked to the login prompt and picks up the new flow.
+ */
+function checkAuthSession() {
+  return false;
+}
+
+/**
+ * Returns the current actor name for a given token, or null.
+ * Activity-log call sites that don't have a token continue to use
+ * Session.getActiveUser().getEmail() directly (unchanged).
+ * @param {string} [token]
+ * @returns {string|null}
+ */
+function getSessionEmail(token) {
+  try {
+    if (token) {
+      var session = getTokenSession(token);
+      if (session && session.name) {
+        return session.name;
+      }
+    }
     return null;
   } catch (error) {
     return null;
@@ -299,12 +388,14 @@ function getSessionEmail() {
 }
 
 /**
- * Clears the authentication session (logout)
+ * Clears a token session (logout).
+ * @param {string} token
  */
-function clearAuthSession() {
+function clearAuthSession(token) {
   try {
-    const userProps = PropertiesService.getUserProperties();
-    userProps.deleteProperty('auth_session');
+    if (!token) return false;
+    PropertiesService.getScriptProperties()
+      .deleteProperty(SESSION_KEY_PREFIX + token);
     return true;
   } catch (error) {
     console.error('Error clearing auth session:', error);
@@ -1004,6 +1095,42 @@ function migrateOrdersForDiscount() {
     sheet.getRange(2, newCol, numRows, 1).setValues(zeros);
   }
   SpreadsheetApp.flush();
+}
+
+/**
+ * Adds Needs_Review and Review_Reason columns to Uniform Orders sheet.
+ * Set when an item is cancelled after payments have begun, requiring manual resolution.
+ */
+function migrateOrdersForReview() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
+  if (!sheet || sheet.getLastColumn() === 0) return;
+
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var addedNeeds = false, addedReason = false;
+
+  if (headers.indexOf('Needs_Review') < 0) {
+    var col = sheet.getLastColumn() + 1;
+    sheet.getRange(1, col).setValue('Needs_Review');
+    sheet.getRange(1, col).setFontWeight('bold');
+    sheet.setColumnWidth(col, 110);
+    if (sheet.getLastRow() >= 2) {
+      var n = sheet.getLastRow() - 1;
+      var vals = [];
+      for (var i = 0; i < n; i++) vals.push([false]);
+      sheet.getRange(2, col, n, 1).setValues(vals);
+    }
+    addedNeeds = true;
+  }
+  if (addedNeeds) headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (headers.indexOf('Review_Reason') < 0) {
+    var col2 = sheet.getLastColumn() + 1;
+    sheet.getRange(1, col2).setValue('Review_Reason');
+    sheet.getRange(1, col2).setFontWeight('bold');
+    sheet.setColumnWidth(col2, 280);
+    addedReason = true;
+  }
+  if (addedNeeds || addedReason) SpreadsheetApp.flush();
 }
 
 /**
@@ -3734,20 +3861,31 @@ function getUniformOrders(filters = {}) {
       oHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
       orderDiscountCol = oHeaders.indexOf('Order_Discount');
     }
+    var needsReviewCol = oHeaders.indexOf('Needs_Review');
+    var reviewReasonCol = oHeaders.indexOf('Review_Reason');
+    if (needsReviewCol < 0 || reviewReasonCol < 0) {
+      migrateOrdersForReview();
+      oHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      needsReviewCol = oHeaders.indexOf('Needs_Review');
+      reviewReasonCol = oHeaders.indexOf('Review_Reason');
+    }
     const numCols = sheet.getLastColumn();
     const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, numCols).getValues();
-    
-    // Also get line items to calculate correct totals
+
+    // Also get line items to calculate correct totals (excluding cancelled items)
     const itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
     let lineItemTotals = {};
-    
+
     if (itemsSheet && itemsSheet.getLastRow() >= 2) {
-      const itemsData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, 9).getValues();
-      // Sum up line totals by order ID
+      var itemHeaders = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
+      var itemStatusIdx = itemHeaders.indexOf('Item_Status');
+      var itemsReadCols = Math.max(9, (itemStatusIdx >= 0 ? itemStatusIdx + 1 : 9));
+      const itemsData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, itemsReadCols).getValues();
       for (const row of itemsData) {
         const orderId = row[1];
         const lineTotal = parseFloat(row[7]) || 0;
-        if (orderId) {
+        const itemStatus = itemStatusIdx >= 0 ? row[itemStatusIdx] : '';
+        if (orderId && itemStatus !== 'Cancelled') {
           lineItemTotals[orderId] = (lineItemTotals[orderId] || 0) + lineTotal;
         }
       }
@@ -3757,12 +3895,19 @@ function getUniformOrders(filters = {}) {
       const orderId = row[0] || '';
       const storedTotal = parseFloat(row[5]) || 0;
       const oDiscount = orderDiscountCol >= 0 ? (parseFloat(row[orderDiscountCol]) || 0) : 0;
+      const needsReview = needsReviewCol >= 0 ? (row[needsReviewCol] === true || row[needsReviewCol] === 'TRUE') : false;
+      const reviewReason = reviewReasonCol >= 0 ? (row[reviewReasonCol] || '') : '';
 
-      // Use calculated total from line items if available, otherwise use stored value
+      // When flagged for review, honor stored total (preserves payment schedule until resolved).
+      // Otherwise use live-calculated total from non-cancelled items.
       const calculatedTotal = lineItemTotals[orderId];
-      const subtotal = calculatedTotal !== undefined ? calculatedTotal : storedTotal;
-      // Apply order-level discount
-      const actualTotal = parseFloat(Math.max(0, subtotal - oDiscount).toFixed(2));
+      let actualTotal;
+      if (needsReview) {
+        actualTotal = parseFloat(Math.max(0, storedTotal).toFixed(2));
+      } else {
+        const subtotal = calculatedTotal !== undefined ? calculatedTotal : storedTotal;
+        actualTotal = parseFloat(Math.max(0, subtotal - oDiscount).toFixed(2));
+      }
 
       // Recalculate amount per paycheck and remaining based on correct total
       const paymentPlan = parseInt(row[6]) || 1;
@@ -3790,6 +3935,8 @@ function getUniformOrders(filters = {}) {
         createdBy: row[14] || '',
         createdDate: row[15] ? new Date(row[15]).toISOString() : null,
         receivedDate: row[16] ? new Date(row[16]).toISOString().split('T')[0] : null,
+        needsReview: needsReview,
+        reviewReason: reviewReason,
         rowIndex: index + 2
       };
     }).filter(o => o.orderId);
@@ -5113,54 +5260,242 @@ function updateOrderDiscount(orderId, newDiscount) {
  * @returns {Object} Result
  */
 function cancelUniformItem(lineId) {
+  var lock = LockService.getDocumentLock();
   try {
+    lock.waitLock(10000);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
-    
+    const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
+
     if (!itemsSheet || itemsSheet.getLastRow() < 2) {
       return { success: false, error: 'No items found' };
     }
-    
-    // Get header row
-    const headers = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
-    const statusCol = headers.indexOf('Item_Status') + 1;
-    
-    if (statusCol === 0) {
+
+    const iHeaders = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
+    const iStatusCol = iHeaders.indexOf('Item_Status');
+    const iOrderIdCol = iHeaders.indexOf('Order_ID');
+    const iLineTotalCol = iHeaders.indexOf('Line_Total');
+    const iLineIdCol = iHeaders.indexOf('Line_ID');
+    if (iStatusCol < 0) {
       return { success: false, error: 'Item_Status column not found. Please run migration first.' };
     }
-    
-    // Find the item
-    const itemsData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, 2).getValues();
-    let rowNum = -1;
+
+    const itemsData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, itemsSheet.getLastColumn()).getValues();
+    let targetIdx = -1;
     let orderId = null;
-    
+    let cancelledValue = 0;
     for (let i = 0; i < itemsData.length; i++) {
-      if (itemsData[i][0] === lineId) {
-        rowNum = i + 2;
-        orderId = itemsData[i][1];
+      if (itemsData[i][iLineIdCol] === lineId) {
+        targetIdx = i;
+        orderId = itemsData[i][iOrderIdCol];
+        cancelledValue = parseFloat(itemsData[i][iLineTotalCol]) || 0;
         break;
       }
     }
-    
-    if (rowNum === -1) {
+    if (targetIdx === -1) {
       return { success: false, error: 'Item not found' };
     }
-    
-    // Mark as cancelled
-    itemsSheet.getRange(rowNum, statusCol).setValue('Cancelled');
-    
-    // Log the activity
-    logActivity('CANCEL', 'UNIFORM_ITEM', `Cancelled item ${lineId} from order ${orderId}`);
-    
+
+    // Sum non-cancelled line totals for this order (treating this one as cancelled)
+    let newSubtotal = 0;
+    for (let i = 0; i < itemsData.length; i++) {
+      if (String(itemsData[i][iOrderIdCol]) !== String(orderId)) continue;
+      if (i === targetIdx) continue;
+      if (itemsData[i][iStatusCol] === 'Cancelled') continue;
+      newSubtotal += parseFloat(itemsData[i][iLineTotalCol]) || 0;
+    }
+
+    // Mark the item cancelled
+    itemsSheet.getRange(targetIdx + 2, iStatusCol + 1).setValue('Cancelled');
+
+    // Look up order state
+    migrateOrdersForReview();
+    const oHeaders = ordersSheet.getRange(1, 1, 1, ordersSheet.getLastColumn()).getValues()[0];
+    const oId = oHeaders.indexOf('Order_ID');
+    const oTotal = oHeaders.indexOf('Total_Amount');
+    const oPlan = oHeaders.indexOf('Payment_Plan');
+    const oPaymentsMade = oHeaders.indexOf('Payments_Made');
+    const oPaid = oHeaders.indexOf('Amount_Paid');
+    const oPerCheck = oHeaders.indexOf('Amount_Per_Paycheck');
+    const oRemaining = oHeaders.indexOf('Amount_Remaining');
+    const oDiscount = oHeaders.indexOf('Order_Discount');
+    const oNeeds = oHeaders.indexOf('Needs_Review');
+    const oReason = oHeaders.indexOf('Review_Reason');
+
+    const orderData = ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, oHeaders.length).getValues();
+    let orderRow = -1;
+    for (let i = 0; i < orderData.length; i++) {
+      if (String(orderData[i][oId]) === String(orderId)) { orderRow = i; break; }
+    }
+    if (orderRow < 0) {
+      return { success: false, error: 'Order not found' };
+    }
+
+    const oData = orderData[orderRow];
+    const oSheetRow = orderRow + 2;
+    const paymentsMade = parseInt(oData[oPaymentsMade]) || 0;
+    const amountPaid = parseFloat(oData[oPaid]) || 0;
+    const paymentPlan = parseInt(oData[oPlan]) || 1;
+    const orderDiscount = oDiscount >= 0 ? (parseFloat(oData[oDiscount]) || 0) : 0;
+    const newTotal = parseFloat(Math.max(0, newSubtotal - orderDiscount).toFixed(2));
+
+    if (paymentsMade === 0 && amountPaid === 0) {
+      // Safe to auto-adjust
+      const newPerCheck = newTotal > 0 ? parseFloat((newTotal / paymentPlan).toFixed(2)) : 0;
+      const newRemaining = parseFloat(Math.max(0, newTotal - amountPaid).toFixed(2));
+      ordersSheet.getRange(oSheetRow, oTotal + 1).setValue(newTotal);
+      ordersSheet.getRange(oSheetRow, oPerCheck + 1).setValue(newPerCheck);
+      ordersSheet.getRange(oSheetRow, oRemaining + 1).setValue(newRemaining);
+      if (oNeeds >= 0) ordersSheet.getRange(oSheetRow, oNeeds + 1).setValue(false);
+      if (oReason >= 0) ordersSheet.getRange(oSheetRow, oReason + 1).setValue('');
+      SpreadsheetApp.flush();
+      logActivity('CANCEL', 'UNIFORM_ITEM', `Cancelled item ${lineId} from order ${orderId} (auto-adjusted, no payments made)`);
+      return { success: true, orderId: orderId, flagged: false, message: 'Item cancelled and order total adjusted' };
+    }
+
+    // Payments already made — flag for manual review, DO NOT change total/schedule
+    const storedTotal = parseFloat(oData[oTotal]) || 0;
+    const overcharge = parseFloat(Math.max(0, storedTotal - newTotal).toFixed(2));
+    const reason = 'Item cancelled after payments began. Stored total $' + storedTotal.toFixed(2)
+      + ' vs post-cancel total $' + newTotal.toFixed(2) + ' (overcharge $' + overcharge.toFixed(2) + '). Resolve via Credit Forward or Shrink Payments.';
+    if (oNeeds >= 0) ordersSheet.getRange(oSheetRow, oNeeds + 1).setValue(true);
+    if (oReason >= 0) ordersSheet.getRange(oSheetRow, oReason + 1).setValue(reason);
+    SpreadsheetApp.flush();
+
+    logActivity('CANCEL', 'UNIFORM_ITEM', `Cancelled item ${lineId} from order ${orderId} - flagged for review ($${overcharge.toFixed(2)} overcharge)`);
+
     return {
       success: true,
-      message: `Item ${lineId} cancelled`,
-      orderId: orderId
+      orderId: orderId,
+      flagged: true,
+      overcharge: overcharge,
+      message: 'Item cancelled. Order flagged for manual review — payment schedule unchanged until resolved.'
     };
-    
+
   } catch (error) {
     console.error('Error cancelling uniform item:', error);
     return { success: false, error: error.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Resolves a cancelled-item overcharge using one of two methods:
+ *   'credit_forward'   — keep per-paycheck amount the same, end payments early (fewer payments total).
+ *   'shrink_payments'  — keep same number of remaining payments, reduce each per-paycheck amount.
+ * @param {string} orderId
+ * @param {string} method
+ * @returns {Object} result
+ */
+function resolveUniformItemCancellation(orderId, method) {
+  var lock = LockService.getDocumentLock();
+  try {
+    lock.waitLock(10000);
+    if (method !== 'credit_forward' && method !== 'shrink_payments') {
+      return { success: false, error: 'Invalid method. Must be credit_forward or shrink_payments.' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
+    const itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
+    if (!ordersSheet) return { success: false, error: 'Orders sheet not found' };
+
+    migrateOrdersForReview();
+    const oHeaders = ordersSheet.getRange(1, 1, 1, ordersSheet.getLastColumn()).getValues()[0];
+    const oId = oHeaders.indexOf('Order_ID');
+    const oTotal = oHeaders.indexOf('Total_Amount');
+    const oPlan = oHeaders.indexOf('Payment_Plan');
+    const oPaymentsMade = oHeaders.indexOf('Payments_Made');
+    const oPaid = oHeaders.indexOf('Amount_Paid');
+    const oPerCheck = oHeaders.indexOf('Amount_Per_Paycheck');
+    const oRemaining = oHeaders.indexOf('Amount_Remaining');
+    const oDiscount = oHeaders.indexOf('Order_Discount');
+    const oNeeds = oHeaders.indexOf('Needs_Review');
+    const oReason = oHeaders.indexOf('Review_Reason');
+
+    const orderData = ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, oHeaders.length).getValues();
+    let orderRow = -1;
+    for (let i = 0; i < orderData.length; i++) {
+      if (String(orderData[i][oId]) === String(orderId)) { orderRow = i; break; }
+    }
+    if (orderRow < 0) return { success: false, error: 'Order not found' };
+
+    const oData = orderData[orderRow];
+    const oSheetRow = orderRow + 2;
+    if (oNeeds < 0 || oData[oNeeds] !== true) {
+      return { success: false, error: 'Order is not flagged for review.' };
+    }
+
+    // Compute live subtotal (non-cancelled items)
+    let subtotal = 0;
+    if (itemsSheet && itemsSheet.getLastRow() >= 2) {
+      const iHeaders = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
+      const iOrderId = iHeaders.indexOf('Order_ID');
+      const iLineTotal = iHeaders.indexOf('Line_Total');
+      const iStatus = iHeaders.indexOf('Item_Status');
+      const itemData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, iHeaders.length).getValues();
+      for (let i = 0; i < itemData.length; i++) {
+        if (String(itemData[i][iOrderId]) !== String(orderId)) continue;
+        if (iStatus >= 0 && itemData[i][iStatus] === 'Cancelled') continue;
+        subtotal += parseFloat(itemData[i][iLineTotal]) || 0;
+      }
+    }
+
+    const orderDiscount = oDiscount >= 0 ? (parseFloat(oData[oDiscount]) || 0) : 0;
+    const newTotal = parseFloat(Math.max(0, subtotal - orderDiscount).toFixed(2));
+    const paymentPlan = parseInt(oData[oPlan]) || 1;
+    const paymentsMade = parseInt(oData[oPaymentsMade]) || 0;
+    const amountPaid = parseFloat(oData[oPaid]) || 0;
+    const currentPerCheck = parseFloat(oData[oPerCheck]) || 0;
+    const newRemaining = parseFloat(Math.max(0, newTotal - amountPaid).toFixed(2));
+
+    let newPerCheck = 0;
+    let newPlan = paymentPlan;
+
+    if (method === 'credit_forward') {
+      // Keep per-check, reduce number of payments
+      newPerCheck = currentPerCheck;
+      if (newPerCheck <= 0) {
+        newPlan = paymentsMade;
+      } else {
+        var additional = Math.ceil(newRemaining / newPerCheck);
+        newPlan = paymentsMade + additional;
+      }
+    } else {
+      // Shrink payments: keep same number of remaining slots, reduce per-check
+      const remainingSlots = Math.max(1, paymentPlan - paymentsMade);
+      newPerCheck = parseFloat((newRemaining / remainingSlots).toFixed(2));
+      newPlan = paymentPlan;
+    }
+
+    ordersSheet.getRange(oSheetRow, oTotal + 1).setValue(newTotal);
+    ordersSheet.getRange(oSheetRow, oRemaining + 1).setValue(newRemaining);
+    ordersSheet.getRange(oSheetRow, oPerCheck + 1).setValue(newPerCheck);
+    ordersSheet.getRange(oSheetRow, oPlan + 1).setValue(newPlan);
+    ordersSheet.getRange(oSheetRow, oNeeds + 1).setValue(false);
+    if (oReason >= 0) ordersSheet.getRange(oSheetRow, oReason + 1).setValue('');
+    SpreadsheetApp.flush();
+
+    logActivity('RESOLVE', 'UNIFORM_ORDER',
+      'Resolved cancelled-item review on ' + orderId + ' via ' + method +
+      '. New total $' + newTotal.toFixed(2) + ', plan ' + newPlan + ', per-check $' + newPerCheck.toFixed(2));
+
+    return {
+      success: true,
+      orderId: orderId,
+      method: method,
+      newTotal: newTotal,
+      newPaymentPlan: newPlan,
+      newPerCheck: newPerCheck,
+      newRemaining: newRemaining
+    };
+
+  } catch (error) {
+    console.error('Error resolving item cancellation:', error);
+    return { success: false, error: error.message };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -6663,12 +6998,19 @@ function getPeriodData(periodEnd) {
       return { success: false, error: 'No data found for this period' };
     }
     
-    // Calculate period stats
-    const totalOT = employees.reduce((sum, e) => sum + (e.totalOT || 0), 0);
-    const totalCost = employees.reduce((sum, e) => sum + (e.otCost || 0), 0);
-    const highOTCount = employees.filter(e => e.flag === 'Really High').length;
-    const moderateOTCount = employees.filter(e => e.flag === 'Moderate').length;
-    const multiCount = employees.filter(e => e.isMultiLocation).length;
+    // Calculate period stats in a single pass instead of 5 separate array walks
+    let totalOT = 0;
+    let totalCost = 0;
+    let highOTCount = 0;
+    let moderateOTCount = 0;
+    let multiCount = 0;
+    for (const e of employees) {
+      totalOT += e.totalOT || 0;
+      totalCost += e.otCost || 0;
+      if (e.flag === 'Really High') highOTCount++;
+      else if (e.flag === 'Moderate') moderateOTCount++;
+      if (e.isMultiLocation) multiCount++;
+    }
     
     return {
       success: true,
@@ -7131,16 +7473,32 @@ function getAlerts() {
     const currentPeriodTime = new Date(periods[0]).getTime();
     const previousPeriodTime = new Date(periods[1]).getTime();
     
-    // Filter records by period (handle both string and Date periodEnd)
-    const currentData = allRecords.filter(r => {
+    // Single pass over allRecords: split into current/previous and pre-compute
+    // all summary stats so the alert checks below don't re-walk these arrays.
+    const currentData = [];
+    const previousData = [];
+    let currentTotal = 0;
+    let previousTotal = 0;
+    let currentHighCount = 0;
+    let currentMulti = 0;
+    let previousMulti = 0;
+    const previousHighNames = new Set();
+
+    for (const r of allRecords) {
       const recordTime = new Date(r.periodEnd).getTime();
-      return recordTime === currentPeriodTime;
-    });
-    const previousData = allRecords.filter(r => {
-      const recordTime = new Date(r.periodEnd).getTime();
-      return recordTime === previousPeriodTime;
-    });
-    
+      if (recordTime === currentPeriodTime) {
+        currentData.push(r);
+        currentTotal += r.totalOT || 0;
+        if (r.flag === 'Really High') currentHighCount++;
+        if (r.isMultiLocation) currentMulti++;
+      } else if (recordTime === previousPeriodTime) {
+        previousData.push(r);
+        previousTotal += r.totalOT || 0;
+        if (r.isMultiLocation) previousMulti++;
+        if (r.flag === 'Really High') previousHighNames.add(r.employeeName);
+      }
+    }
+
     console.log('Alert check - Current period records:', currentData.length);
     console.log('Alert check - Previous period records:', previousData.length);
     
@@ -7184,11 +7542,8 @@ function getAlerts() {
     const increaseThreshold = settings.monthlyIncreaseAlertPercent || 25;
     
     if (currentData.length > 0 && previousData.length > 0) {
-      const currentTotal = currentData.reduce((s, r) => s + (r.totalOT || 0), 0);
-      const previousTotal = previousData.reduce((s, r) => s + (r.totalOT || 0), 0);
-      
       console.log('Alert check - Current OT total:', currentTotal, 'Previous OT total:', previousTotal);
-      
+
       if (previousTotal > 0) {
         const percentChange = ((currentTotal - previousTotal) / previousTotal) * 100;
         
@@ -7206,14 +7561,10 @@ function getAlerts() {
     
     // Alert 3: New high OT employees (someone went from Normal/Moderate to Really High)
     if (currentData.length > 0 && previousData.length > 0) {
-      const previousHighNames = new Set(
-        previousData.filter(r => r.flag === 'Really High').map(r => r.employeeName)
-      );
-      
-      const newHighOT = currentData.filter(r => 
+      const newHighOT = currentData.filter(r =>
         r.flag === 'Really High' && !previousHighNames.has(r.employeeName)
       );
-      
+
       if (newHighOT.length > 0) {
         alerts.push({
           type: 'new_high_ot',
@@ -7228,9 +7579,6 @@ function getAlerts() {
     
     // Alert 4: Multi-location increase (50% more employees working both locations)
     if (currentData.length > 0 && previousData.length > 0) {
-      const currentMulti = currentData.filter(r => r.isMultiLocation).length;
-      const previousMulti = previousData.filter(r => r.isMultiLocation).length;
-      
       if (previousMulti > 0 && currentMulti > previousMulti * 1.5) {
         alerts.push({
           type: 'multi_increase',
@@ -7243,7 +7591,6 @@ function getAlerts() {
     }
     
     // Alert 5: High OT count in current period (if more than 5 employees have Really High OT)
-    const currentHighCount = currentData.filter(r => r.flag === 'Really High').length;
     if (currentHighCount >= 5) {
       alerts.push({
         type: 'high_ot_count',
@@ -8971,23 +9318,26 @@ function getRecentUniformOrders(sinceDate) {
     const notesIdx = headers.indexOf('Notes');
     const statusIdx = headers.indexOf('Status');
     
-    // Get all items for reference - including lineTotal for correct totals
-    let allItems = [];
-    let orderTotals = {}; // Calculate totals from line items
-    
+    // Get all items for reference - including lineTotal for correct totals.
+    // Index items by orderId so the per-order lookup in the loop below is O(1)
+    // instead of a full scan of allItems for every order row.
+    const itemsByOrderId = {};
+    const orderTotals = {}; // Calculate totals from line items
+
     if (itemsSheet && itemsSheet.getLastRow() >= 2) {
       const itemsData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, 9).getValues();
-      
+
       for (const row of itemsData) {
         const orderId = row[1];
         const lineTotal = parseFloat(row[7]) || 0; // Line_Total is column 8 (index 7)
-        
+
         if (orderId) {
           // Accumulate totals by order
           orderTotals[orderId] = (orderTotals[orderId] || 0) + lineTotal;
-          
-          // Store item details
-          allItems.push({
+
+          // Store item details grouped by orderId
+          if (!itemsByOrderId[orderId]) itemsByOrderId[orderId] = [];
+          itemsByOrderId[orderId].push({
             orderId: orderId,
             itemName: row[3],
             size: row[4],
@@ -8996,18 +9346,18 @@ function getRecentUniformOrders(sinceDate) {
         }
       }
     }
-    
+
     const orders = [];
-    
+
     for (let i = 1; i < ordersData.length; i++) {
       const row = ordersData[i];
       const orderDate = new Date(row[dateIdx]);
       const orderId = row[orderIdIdx];
-      
+
       var status = statusIdx >= 0 ? (row[statusIdx] || '') : '';
       if (orderDate >= sinceDate && orderId && status !== 'Cancelled') {
-        // Get items for this order
-        const orderItems = allItems.filter(item => item.orderId === orderId);
+        // O(1) lookup instead of allItems.filter()
+        const orderItems = itemsByOrderId[orderId] || [];
         
         // Build item summary
         let itemSummary = 'N/A';

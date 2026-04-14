@@ -167,23 +167,22 @@ function getOTMetrics(ss) {
     let totalCost = 0;
     const employeeNames = new Set();
     const highOTEmployees = []; // Track employees with "Really High" flag
-    
+    const highOTSeen = new Set(); // O(1) dedupe of highOTEmployees by name
+
     latestData.forEach(row => {
       const name = row[1];
       const ot = parseFloat(row[12]) || 0; // Column M = Total OT (index 12)
       const cost = parseFloat(row[13]) || 0; // Column N = OT Cost (index 13)
       const flag = row[14] || ''; // Column O = Flag (index 14)
-      
+
       if (name) employeeNames.add(name);
       totalOT += ot;
       totalCost += cost;
-      
+
       // Track employees with "Really High" flag (not just above threshold)
-      if (flag === 'Really High' && name) {
-        // Check if already added (employee may have multiple location rows)
-        if (!highOTEmployees.find(e => e.name === name)) {
-          highOTEmployees.push({ name: name, hours: ot });
-        }
+      if (flag === 'Really High' && name && !highOTSeen.has(name)) {
+        highOTSeen.add(name);
+        highOTEmployees.push({ name: name, hours: ot });
       }
     });
     

@@ -16,6 +16,15 @@ var CH_SUFFIX   = '.ch';
 /* ── Main snapshot function ── */
 
 function archiveWeeklySnapshot() {
+  try {
+    archiveWeeklySnapshot_();
+  } catch (e) {
+    notifyTriggerFailure_('archiveWeeklySnapshot', e);
+    throw e;
+  }
+}
+
+function archiveWeeklySnapshot_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var archive = ss.getSheetByName(ARCHIVE_TAB);
 

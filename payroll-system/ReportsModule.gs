@@ -724,15 +724,24 @@ function getUniformDeductionsForPayroll(ss, payday) {
     console.log(`getUniformDeductionsForPayroll called with payday: ${payday}, formatted as: ${paydayStr}`);
     
     // Read items sheet once — build both totals map and items-by-order map
+    // Skip cancelled items (Item_Status === 'Cancelled') so they don't inflate totals
     const lineItemTotals = {};
     const itemsByOrderId = {};
+    const cancelledByOrderId = {};
     const itemsSheet = ss.getSheetByName('Uniform_Order_Items');
     if (itemsSheet && itemsSheet.getLastRow() >= 2) {
-      const itemsData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, 9).getValues();
+      const iHeaders = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
+      const iStatusCol = iHeaders.indexOf('Item_Status');
+      const itemsData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, itemsSheet.getLastColumn()).getValues();
       for (const row of itemsData) {
         const orderId = row[1];
         if (!orderId) continue;
+        const isCancelled = iStatusCol >= 0 && row[iStatusCol] === 'Cancelled';
         const lineTotal = parseFloat(row[7]) || 0;
+        if (isCancelled) {
+          cancelledByOrderId[orderId] = (cancelledByOrderId[orderId] || 0) + lineTotal;
+          continue;
+        }
         lineItemTotals[orderId] = (lineItemTotals[orderId] || 0) + lineTotal;
         if (!itemsByOrderId[orderId]) itemsByOrderId[orderId] = [];
         itemsByOrderId[orderId].push({
@@ -745,9 +754,13 @@ function getUniformDeductionsForPayroll(ss, payday) {
         });
       }
     }
-    
-    // Read orders - columns adjusted for current structure
-    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 17).getValues();
+
+    // Read orders using header-based column lookup (Needs_Review/Review_Reason are appended)
+    const oHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const oNeedsCol = oHeaders.indexOf('Needs_Review');
+    const oReasonCol = oHeaders.indexOf('Review_Reason');
+    const oPerCheckCol = oHeaders.indexOf('Amount_Per_Paycheck');
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
     
     console.log(`Total rows in Uniform_Orders: ${data.length}`);
     
@@ -797,12 +810,27 @@ function getUniformDeductionsForPayroll(ss, payday) {
       const paymentSchedule = parseInt(row[6]) || 1;
       const checksCompleted = parseInt(row[9]) || 0;
       
-      // Use calculated total from line items (not stored value which may be wrong)
+      // Flagged orders (Needs_Review) keep their stored schedule until manager resolves —
+      // per-check amount stays as-is so payments continue on the original plan.
+      // Unflagged orders recompute from live (non-cancelled) line items.
+      const needsReview = oNeedsCol >= 0 ? (row[oNeedsCol] === true || row[oNeedsCol] === 'TRUE') : false;
+      const reviewReason = oReasonCol >= 0 ? (row[oReasonCol] || '') : '';
       const storedTotal = parseFloat(row[5]) || 0;
-      const totalAmount = lineItemTotals[orderId] !== undefined ? lineItemTotals[orderId] : storedTotal;
-      
-      // Recalculate amount per check based on correct total
-      const amountPerCheck = totalAmount > 0 ? Math.round((totalAmount / paymentSchedule) * 100) / 100 : 0;
+      const storedPerCheck = oPerCheckCol >= 0 ? (parseFloat(row[oPerCheckCol]) || 0) : 0;
+      const liveTotal = lineItemTotals[orderId] !== undefined ? lineItemTotals[orderId] : storedTotal;
+
+      let totalAmount;
+      let amountPerCheck;
+      if (needsReview) {
+        // Honor stored schedule — manager must resolve via Credit Forward / Shrink Payments
+        totalAmount = storedTotal;
+        amountPerCheck = storedPerCheck > 0
+          ? storedPerCheck
+          : (storedTotal > 0 ? Math.round((storedTotal / paymentSchedule) * 100) / 100 : 0);
+      } else {
+        totalAmount = liveTotal;
+        amountPerCheck = totalAmount > 0 ? Math.round((totalAmount / paymentSchedule) * 100) / 100 : 0;
+      }
       
       // Calculate all deduction date STRINGS for this order (avoids timezone issues)
       const deductionDateStrs = [];
@@ -859,6 +887,9 @@ function getUniformDeductionsForPayroll(ss, payday) {
         amountRemaining: Math.max(0, amountRemaining),
         isFinalPayment: isFinalPayment,
         alreadyRecorded: alreadyRecorded,
+        needsReview: needsReview,
+        reviewReason: reviewReason,
+        cancelledAmount: Math.round((cancelledByOrderId[orderId] || 0) * 100) / 100,
         items: items,
         rowIndex: index + 2
       });

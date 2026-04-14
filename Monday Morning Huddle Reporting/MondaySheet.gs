@@ -2,7 +2,7 @@
  * Schedule Variance Analyzer — Monday Morning Huddle Integration
  *
  * Writes the scheduling/OT block and attendance flags into the
- * "Current Week Schedule" tab of THIS spreadsheet.
+ * "Current Week Schedule.ch" tab of THIS spreadsheet.
  *
  * Layout:
  *   Rows 1–31:  untouched (user content)
@@ -12,13 +12,13 @@
  *   Row  39:    THIS WEEK PLAN banner
  *   Rows 40–42: this week hours table (sched hrs, sched OT)
  *   Row  43:    spacer
- *   Rows 44–51: attendance flags
- *   Rows 52–53: buffer
+ *   Rows 44–63: attendance flags (OT/Late/Absent table, Missed Clock-Outs, Largest Variance)
+ *   Rows 64–65: buffer
  */
 
 var MONDAY_CLEAR_FROM = 32;
 var MONDAY_START_ROW  = 32;
-var MONDAY_END_ROW    = 53;
+var MONDAY_END_ROW    = 65;
 var MONDAY_COLS       = 5;
 
 function fillMondaySheet() {
@@ -30,7 +30,7 @@ function fillMondaySheet() {
     ui.alert('Configuration Error', e.message, ui.ButtonSet.OK); return;
   }
 
-  var tabName = cfg.MONDAY_TAB || 'Current Week Schedule';
+  var tabName = cfg.MONDAY_TAB || 'Current Week Schedule.ch';
   var targetTab = ss.getSheetByName(tabName);
   if (!targetTab) {
     ui.alert('Tab Not Found', 'No tab named "' + tabName + '".', ui.ButtonSet.OK); return;
@@ -84,13 +84,14 @@ function buildRunData_(ss, cfg) {
     weekLabel = String(data[i][1] || '') || weekLabel;
 
     if (!byEmployee[name]) {
-      byEmployee[name] = { otHours: 0, lateCount: 0, midnightCount: 0, absentDays: 0, pattern: '', locs: {} };
+      byEmployee[name] = { otHours: 0, lateCount: 0, midnightCount: 0, absentDays: 0, totalVar: 0, pattern: '', locs: {} };
     }
     var emp = byEmployee[name];
     emp.otHours = Math.max(emp.otHours, data[i][20] || 0);
     emp.lateCount += data[i][21] || 0;
     emp.midnightCount += data[i][17] || 0;
     emp.absentDays += data[i][6] || 0;
+    emp.totalVar += data[i][11] || 0;
     emp.pattern = data[i][18] || emp.pattern;
     emp.locs[loc] = (emp.locs[loc] || 0) + (data[i][23] || 0);
 
@@ -290,14 +291,25 @@ function getThisWeekScheduleData_(ss, cfg) {
   };
 }
 
-/* ── Flip "Last, First" to "First L." for cleaner display ── */
+/* ── Shorten a name to "First L." for compact flag display ── */
 function shortName_(fullName) {
   if (!fullName) return '';
-  var parts = fullName.split(',');
-  if (parts.length < 2) return fullName.trim();
-  var first = parts[1].trim().split(' ')[0];
-  var last = parts[0].trim();
-  return first + ' ' + last.charAt(0) + '.';
+  var s = fullName.trim();
+
+  // Legacy "Last, First" format (pre-normalization or alias override)
+  var comma = s.indexOf(',');
+  if (comma > 0 && comma < s.length - 1) {
+    var first = s.substring(comma + 1).trim().split(' ')[0];
+    var last  = s.substring(0, comma).trim();
+    return first + ' ' + last.charAt(0) + '.';
+  }
+
+  // Normalized "First [Middle] Last" format
+  var words = s.split(' ');
+  if (words.length >= 2) {
+    return words[0] + ' ' + words[words.length - 1].charAt(0) + '.';
+  }
+  return s;
 }
 
 /* ── Visual layout writer ── */
@@ -466,7 +478,7 @@ function writeMondayBlock_(sheet, data, cfg) {
   var flagsStartRow = r;
 
   // Collect flag data
-  var otList = [], lateList = [], midList = [], absentList = [];
+  var otList = [], lateList = [], midList = [], absentList = [], varList = [];
   Object.keys(data.byEmployee).forEach(function(name) {
     var e = data.byEmployee[name];
     if (e.otHours > 0) otList.push({ name: name, val: rd(e.otHours) + 'h' });
@@ -474,9 +486,15 @@ function writeMondayBlock_(sheet, data, cfg) {
       lateList.push({ name: name, val: e.lateCount + 'x' });
     if (e.midnightCount > 0) midList.push({ name: name, val: e.midnightCount + 'x' });
     if (e.absentDays > 0) absentList.push({ name: name, val: e.absentDays + 'd' });
+    if (Math.abs(e.totalVar) >= 240) {
+      var hrs = rd(Math.abs(e.totalVar) / 60);
+      varList.push({ name: name, absVar: Math.abs(e.totalVar), val: (e.totalVar >= 0 ? '+' : '-') + hrs + 'h' });
+    }
   });
   otList.sort(function(a, b) { return parseFloat(b.val) - parseFloat(a.val); });
   lateList.sort(function(a, b) { return parseInt(b.val) - parseInt(a.val); });
+  varList.sort(function(a, b) { return b.absVar - a.absVar; });
+  if (varList.length > 10) varList = varList.slice(0, 10);
 
   // FLAGS banner
   sheet.getRange(r, 1, 1, MONDAY_COLS).merge()
@@ -531,19 +549,67 @@ function writeMondayBlock_(sheet, data, cfg) {
     r++;
   }
 
-  // Missed clock-outs (compact, single row)
-  var missedNames = midList.length
-    ? midList.map(function(m) { return shortName_(m.name); }).join(', ')
-    : 'None';
-  sheet.getRange(r, 1, 1, 2).merge()
-    .setValue('MISSED CLOCK-OUTS').setFontSize(11).setFontWeight('bold')
-    .setFontColor('#6B21A8').setBackground('#F5F3FF');
-  sheet.getRange(r, 3, 1, 3).merge()
-    .setValue(missedNames).setFontSize(11).setBackground('#F5F3FF')
-    .setFontColor(midList.length ? '#7C3AED' : '#059669');
+  // ── Missed Clock-Outs (table layout, 2 columns, up to 10 people) ──
+  midList.sort(function(a, b) { return parseInt(b.val) - parseInt(a.val); });
+  if (midList.length > 10) midList = midList.slice(0, 10);
+
+  sheet.getRange(r, 1, 1, MONDAY_COLS).merge()
+    .setValue('MISSED CLOCK-OUTS').setFontSize(12).setFontWeight('bold')
+    .setFontColor('#FFFFFF').setBackground('#7C3AED').setHorizontalAlignment('center');
+  r++;
+
+  var midRows = midList.length > 0 ? Math.min(5, Math.ceil(midList.length / 2)) : 1;
+  for (var mi = 0; mi < midRows; mi++) {
+    var mL = mi * 2, mR = mi * 2 + 1;
+
+    sheet.getRange(r, 1, 1, 3).merge();
+    if (mL < midList.length) {
+      sheet.getRange(r, 1).setValue(shortName_(midList[mL].name) + '  ' + midList[mL].val)
+        .setFontSize(11).setFontColor('#6B21A8');
+    } else if (mL === 0) {
+      sheet.getRange(r, 1).setValue('None').setFontSize(11).setFontColor('#059669');
+    }
+    sheet.getRange(r, 1, 1, 3).setBackground('#F5F3FF');
+
+    sheet.getRange(r, 4, 1, 2).merge();
+    if (mR < midList.length) {
+      sheet.getRange(r, 4).setValue(shortName_(midList[mR].name) + '  ' + midList[mR].val)
+        .setFontSize(11).setFontColor('#6B21A8');
+    }
+    sheet.getRange(r, 4, 1, 2).setBackground('#F5F3FF');
+    r++;
+  }
+
+  // ── Largest Variance (table layout, 2 columns, up to 10 people, ±4hr threshold) ──
+  sheet.getRange(r, 1, 1, MONDAY_COLS).merge()
+    .setValue('LARGEST VARIANCE').setFontSize(12).setFontWeight('bold')
+    .setFontColor('#FFFFFF').setBackground('#C2410C').setHorizontalAlignment('center');
+  r++;
+
+  var varRows = varList.length > 0 ? Math.min(5, Math.ceil(varList.length / 2)) : 1;
+  for (var vi = 0; vi < varRows; vi++) {
+    var vL = vi * 2, vR = vi * 2 + 1;
+
+    sheet.getRange(r, 1, 1, 3).merge();
+    if (vL < varList.length) {
+      sheet.getRange(r, 1).setValue(shortName_(varList[vL].name) + '  ' + varList[vL].val)
+        .setFontSize(11).setFontColor('#9A3412');
+    } else if (vL === 0) {
+      sheet.getRange(r, 1).setValue('None').setFontSize(11).setFontColor('#059669');
+    }
+    sheet.getRange(r, 1, 1, 3).setBackground('#FFF7ED');
+
+    sheet.getRange(r, 4, 1, 2).merge();
+    if (vR < varList.length) {
+      sheet.getRange(r, 4).setValue(shortName_(varList[vR].name) + '  ' + varList[vR].val)
+        .setFontSize(11).setFontColor('#9A3412');
+    }
+    sheet.getRange(r, 4, 1, 2).setBackground('#FFF7ED');
+    r++;
+  }
 
   // Outer borders around the flags section
-  var flagRows = r - flagsStartRow + 1;
+  var flagRows = r - flagsStartRow;
   sheet.getRange(flagsStartRow, 1, flagRows, MONDAY_COLS)
     .setBorder(true, true, true, true, false, false, '#D1D5DB', BORDER);
 }

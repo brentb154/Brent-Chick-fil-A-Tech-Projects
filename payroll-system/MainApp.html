@@ -10,6 +10,11 @@
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
   <?!= include('Styles'); ?>
   <?!= include('MainAppStyles'); ?>
+  <script>
+    window.PAYROLL_SESSION_TOKEN = '<?= token ?>';
+    window.PAYROLL_CURRENT_USER = '<?= currentUser ?>';
+    window.PAYROLL_BASE_URL = '<?= baseUrl ?>';
+  </script>
 </head>
 <body>
   <!-- Loading Overlay -->
@@ -184,6 +189,10 @@
 
       <!-- Sidebar Footer -->
       <div class="sidebar-footer">
+        <div class="signed-in-as" title="Signed in as">
+          <span class="material-icons-round">person</span>
+          <span id="currentUserLabel"><?= currentUser ?></span>
+        </div>
         <span class="version-text">v2.0</span>
       </div>
     </aside>
