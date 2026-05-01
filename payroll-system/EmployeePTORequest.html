@@ -678,6 +678,19 @@
   </div>
 
   <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
     // Initialize form when page loads
     document.addEventListener('DOMContentLoaded', function() {
       // Clean up any stuck overlays from previous sessions
@@ -734,6 +747,7 @@
       }
       
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(employees) {
           console.log('Employees loaded:', employees ? employees.length : 0);
           
@@ -791,6 +805,7 @@
       }
       
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(dates) {
           select.innerHTML = '<option value="">Select pay period / Selecciona período</option>';
           
@@ -1005,6 +1020,7 @@
       };
       
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           
@@ -1186,6 +1202,7 @@
       showLoading(true);
       
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           console.log('Cancel result:', result);
           showLoading(false);

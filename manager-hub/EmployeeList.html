@@ -1171,6 +1171,19 @@
   </nav>
 
   <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
     // ============================================
     // GLOBAL VARIABLES
     // ============================================
@@ -1280,6 +1293,7 @@
      */
     function setupAddInfractionLink() {
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           document.getElementById('addInfractionLink').href = url + '?page=form&t=' + Date.now();
         })
@@ -1319,6 +1333,7 @@
       // Verify with server using token-based auth
       // IMPORTANT: Only load data AFTER session is confirmed valid
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.authenticated) {
             userRole = result.role;
@@ -1358,6 +1373,7 @@
       const language = select.value;
       sessionStorage.setItem('cfa_language', language);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             applyListTranslations(language);
@@ -1424,6 +1440,7 @@
         'list.offline'
       ];
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           translations = result || {};
           const title = document.getElementById('employeeListTitle');
@@ -1528,6 +1545,7 @@
           userMgmtLink.onclick = function(e) {
             e.preventDefault();
             google.script.run
+              .withFailureHandler(handleServerError)
               .withSuccessHandler(function(url) {
                 redirectTo(url + '?page=users&t=' + Date.now());
               })
@@ -1553,6 +1571,7 @@
         dashboardLink.onclick = function(e) {
           e.preventDefault();
           google.script.run
+            .withFailureHandler(handleServerError)
             .withSuccessHandler(function(url) {
               const target = (role === 'Director' || role === 'Operator') ? 'analytics' : 'dashboard';
               redirectTo(url + '?page=' + target + '&t=' + Date.now());
@@ -1572,6 +1591,7 @@
           settingsLink.onclick = function(e) {
             e.preventDefault();
             google.script.run
+              .withFailureHandler(handleServerError)
               .withSuccessHandler(function(url) {
                 redirectTo(url + '?page=settings&t=' + Date.now());
               })
@@ -1610,6 +1630,7 @@
         }
       }, 1500);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           didNavigate = true;
           clearTimeout(fallbackTimer);
@@ -1674,6 +1695,7 @@
         }
 
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             if (!result.authenticated) {
               clearSessionData();
@@ -1716,6 +1738,7 @@
     function returnToLogin() {
       clearSessionData();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           var loginUrl = url + '?t=' + Date.now();
           var link = document.createElement('a');
@@ -1736,6 +1759,7 @@
       var token = getSessionToken();
       clearSessionData();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function() {
           returnToLogin();
         })
@@ -1810,6 +1834,7 @@
       }
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (isRefresh) {
             document.getElementById('refreshIndicator').style.display = 'none';
@@ -2369,6 +2394,7 @@
       btn.textContent = 'Giving Credit...';
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           btn.disabled = false;
           btn.textContent = 'Give Credit';
@@ -3171,6 +3197,7 @@
      */
     function saveDetailActionTracking(actionType, completed, date, notes) {
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result.success) {
             alert('Error saving action: ' + result.error);
@@ -3188,6 +3215,7 @@
     function saveDetailDirectorNotes() {
       const notes = document.getElementById('detailDirectorNotes').value;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           // Silent save
         })
@@ -3245,6 +3273,7 @@
       showActionModalLoading('Extending probation...');
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           hideActionModal();
           if (result.success) {
@@ -3294,6 +3323,7 @@
       showActionModalLoading('Ending probation...');
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           hideActionModal();
           if (result.success) {
@@ -3354,6 +3384,7 @@
       showActionModalLoading('Saving...');
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           hideActionModal();
           if (result.success) {
@@ -3482,6 +3513,7 @@
       showActionModalLoading('Generating PDF document...');
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.success) {
             // Show success with download options
@@ -3572,6 +3604,7 @@
 
       // Load infraction types for dropdown
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.success) {
             infractionTypes = result.types;
@@ -3664,6 +3697,7 @@
       showActionModalLoading('Saving changes...');
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           hideActionModal();
           if (result.success) {
@@ -3748,6 +3782,7 @@
       showActionModalLoading('Removing points...');
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           hideActionModal();
           if (result.success) {
@@ -3839,6 +3874,7 @@
       showActionModalLoading('Processing termination...');
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           hideActionModal();
           if (result.success) {
@@ -3923,6 +3959,7 @@
       showActionModalLoading('Deleting infraction...');
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           hideActionModal();
           if (result.success) {

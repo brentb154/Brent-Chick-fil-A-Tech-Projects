@@ -223,6 +223,88 @@
       margin: 36px 0;
     }
 
+    /* ── System Card (lead-with-architecture) ── */
+    .system-card {
+      background: #FAFBFC;
+      border: 1px solid var(--border);
+      border-left: 6px solid var(--accent, #3B7DDD);
+      border-radius: var(--radius-lg);
+      padding: 26px 30px 22px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .system-card-eyebrow {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent, #3B7DDD);
+      margin-bottom: 6px;
+    }
+    .system-card-headline {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      color: var(--text);
+      margin-bottom: 14px;
+      line-height: 1.3;
+    }
+    .system-card-section {
+      margin-bottom: 14px;
+    }
+    .system-card-section:last-child {
+      margin-bottom: 0;
+    }
+    .system-card-label {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .system-card-text {
+      font-size: 14px;
+      line-height: 1.7;
+      color: #374151;
+    }
+    .system-card-list {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .system-card-list li {
+      font-size: 14px;
+      line-height: 1.7;
+      color: #374151;
+      margin-bottom: 4px;
+    }
+    .system-card-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .system-card-pill {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+    }
+    .system-card-outcome {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+      font-weight: 600;
+      padding: 10px 14px;
+      background: #fff;
+      border-left: 3px solid var(--accent, #3B7DDD);
+      border-radius: 4px;
+    }
+
     /* ── Stat Cards ── */
     .stat-grid {
       display: grid;
@@ -720,6 +802,17 @@
     } = Recharts;
 
     /* ═══════════════════════════════════════════════════════════
+       PRESENTATION MODE
+       Flip to `true` for the copy you hand to the review committee.
+       When true: hides every edit button, the Add Data form, Import,
+       Export, Clear All, and per-row edit/delete controls. Data still
+       loads from localStorage, so entries you saved in the editable
+       copy will display \u2014 but can\u2019t be changed in the browser.
+       Keep `false` in your working copy so you can keep editing.
+    ═══════════════════════════════════════════════════════════ */
+    const PRESENTATION_MODE = false;
+
+    /* ═══════════════════════════════════════════════════════════
        METRICS CONFIG
     ═══════════════════════════════════════════════════════════ */
     const METRICS = {
@@ -780,7 +873,9 @@
       },
     };
 
-    const TAB_ORDER = ['splh', 'food', 'paper', 'speed', 'mile'];
+    // Paper / Speed / Mile intentionally hidden — data, stories, and configs above
+    // remain intact so tabs can be re-enabled by adding IDs back to this list.
+    const TAB_ORDER = ['splh', 'food'];
 
     const METRIC_STORIES = {
       splh: `When I took over supervision of productivity, the goal Jeff set was clear: $90 SPLH, consistently. It's a number that reflects everything \u2014 are we scheduling the right people at the right times, are we executing on the floor, and are we driving the sales to match? But this wasn't just about hitting a number for LDP. I wanted to take a holistic approach to Jeff's business \u2014 productivity, cost control, speed, and guest experience all move together when you get the fundamentals right. Each metric I'm tracking here is a piece of that bigger picture, and the month-by-month notes tell the story of how we got there.`,
@@ -790,14 +885,39 @@
       mile: `Second Mile Service is the heart of what makes Chick-fil-A different. A score of 72 or above means the team isn't just going through the motions \u2014 they're creating the kind of moments that guests actually remember and come back for. This is where culture shows up in the numbers, and it's one of the things I'm most intentional about developing in the team.`,
     };
 
-    const INTRO_DEFAULTS = {
-      foundation: `I started mowing lawns when I was 13. Not for allowance money, not because my dad told me to \u2014 I went out, knocked on doors, got clients, hired people, managed schedules, handled the money. I ran Sharp Edge Mowing for eight years. I didn't know what I was building at the time, I just knew I liked the work and I liked the problem solving. Looking back, that's where all of this started. Every system I've built since, every spreadsheet, every process, every hard conversation with a team member \u2014 the foundation was a kid in Fort Worth with a mower and a weird obsession with making things run better than they were running before.\n\nI went to Texas A&M Texarkana and got a Bachelor's in Business with a concentration in Leadership. And honestly the degree matters, it checks a box, but the real education happened outside the classroom. I was on the Campus Activities Board running large-scale events, I was in student government circles pushing for change, and I was the guy who would sit in a room full of administrators and tell them exactly what was broken and exactly how to fix it. I didn't always say it the right way. I definitely didn't always have the political savvy to land the message perfectly. But I said it, and I meant it, and I came with data and I came with solutions. That's never changed.`,
-      cfa_path: `I started at Chick-fil-A in Texarkana as a team member. Cross-trained front and back of house, got promoted to team lead pretty quickly because I showed up, I worked hard, and I didn't wait to be told what needed to happen. From there I moved into Assistant Director of Facilities and Maintenance where I managed over 100 team members and saved the store north of $35,000 a year by doing repair and maintenance work in-house instead of contracting it out. That role taught me something I still carry \u2014 you don't have to be the smartest person in the room, you just have to be the one willing to get under the building and figure out why the pipe is leaking while everyone else is still filling out the work order.\n\nAfter that I moved into a Talent Director role where I was responsible for recruiting, onboarding, and developing team members across two locations. I built advancement tracks, I focused on retention, and I learned that the difference between a team that shows up and a team that cares is almost always whether or not someone invested in them before they were asked to invest in the business. That's not a soft skill. That's a business strategy. If your people don't grow, your operation doesn't grow. Period.`,
-      today: `Today I serve as Chief of Staff under Operator Jeff Mulkey at two Chick-fil-A locations in Dallas \u2014 Cockrell Hill Drive-Thru Only and the Dallas Baptist University Off-Campus Venue. I'm the bridge between departments, between the operator and the directors, between what the plan says and what actually happens on the floor. I own scheduling, payroll, director coaching, systems building, and operational analytics across both stores. When I took over scheduling at Cockrell Hill, our Sales Per Labor Hour was sitting around 84. I built the systems, adjusted the labor models, and we pushed it above 90 against a goal of 90. That didn't happen because I'm some kind of genius, it happened because I was willing to sit in a spreadsheet for hours, look at the data honestly, and make changes that weren't always popular but were always right.`,
-      builder: `I build things. That's probably the most honest way to describe what I do. I've built a scheduling web app using Google Apps Script that pulls CFA sales data and generates labor curves using exponential smoothing. I built a cross-location overtime reconciliation system because our payroll wasn't aggregating hours properly across stores. I built a catering quote tool, a complaint tracking system, a facilities repair tracker, waste tracking automation, and a 42-phase employee accountability system with bilingual interfaces. I built a quarterly bonus program with a two-gate structure and a sliding pool for our leadership tiers. I redesigned our Monday Morning Huddle from the ground up across five operational tabs. I'm not a software engineer \u2014 I'm an operator who learned to code because the tools I needed didn't exist and I wasn't going to wait for someone else to build them.\n\nBut here's the thing about everything I build \u2014 it's designed to outlast me. Every system has documentation. Every tool is built so that someone who isn't technical can maintain it after I leave. Every process has a handoff plan. Because I think the worst thing a leader can do is build something that only works when they're in the room. If it dies when you walk out the door, you didn't build a system, you built a dependency. And dependencies don't scale.`,
-      personal: `I live in Dallas with my wife Lori and our two Australian Shepherds. I run half marathons, I play way too much Satisfactory, I cook, and I do woodworking when I can find the time. I'm the kind of person who will absolutely beat my head into a wall until the problem gives up or I do, and to be honest with you, I don't give up very often. That stubbornness has gotten me into trouble more than a few times, but it's also the reason I've been able to take broken things and make them work \u2014 whether that's a labor model, a team culture, or a leaky pipe under a restaurant.`,
-      why_ldp: `I'm pursuing the Chick-fil-A Leadership Development Program because I believe this is where my story is supposed to go next. I've spent years learning how to run operations, how to build teams, how to create systems that actually work, and how to have the hard conversations that most people avoid. I want to own and operate my own Chick-fil-A. Not because it's a good business opportunity \u2014 it is, but that's not why. It's because I genuinely believe that a well-run restaurant can change a community. It can give a 16-year-old their first real job and teach them what it means to show up. It can give a single mom a schedule that actually respects her life. It can give a young leader a place to fail safely and grow into someone they didn't know they could be. I've seen it happen. I've been part of making it happen. And I want to do it on my own, from the ground up, the same way I've done everything else.`,
-      why_dashboard: `I didn't pick five separate goals and track them independently \u2014 I picked one approach and measured it five ways. When I started looking at what I could actually impact at Cockrell Hill, I kept coming back to the same realization: productivity, cost control, speed, and guest experience aren't separate problems. They're all connected to the same thing \u2014 how well the operation is running and how invested the team is in running it well.\n\nSo I built this dashboard to tell that story. Each tab tracks a different metric, but the through-line is the same: what did I focus on, what did I change, and what happened as a result? The month-by-month notes aren't just data points \u2014 they're the narrative of how we got from where we were to where we are. This isn't a highlight reel. It's the actual work, documented as it happened.`,
+    /* ═══════════════════════════════════════════════════════════
+       METRIC SYSTEMS — the architecture I built behind each number.
+       Drafts are a first pass; edit freely. [CONFIRM] marks specifics
+       to verify (exact tool names, dates, vendor names, etc.).
+    ═══════════════════════════════════════════════════════════ */
+    const METRIC_SYSTEMS = {
+      splh: {
+        headline: 'A scheduling system that treats labor as a forecast problem, not a guessing game.',
+        problem: `When I took over scheduling at Cockrell Hill, SPLH was sitting around 84 against a 90 goal. The old process was a manager eyeballing last week's schedule, copying it forward, and hoping. There was no labor curve tied to actual sales behavior, no way to catch drift, and no feedback loop when we missed. I wasn't going to fix that with a better spreadsheet \u2014 I needed a pipeline.`,
+        architecture: [
+          'Time-driven trigger pulls weekly sales and hours from the POS export sheet every Monday morning.',
+          'Monday pipeline runs sequentially: validate \u2192 read \u2192 archive \u2192 smooth \u2192 detect bias \u2192 cleanup \u2192 cache \u2192 alert on failure.',
+          'Exponential smoothing (\u03B1 = 0.3) plus LWMA with outlier exclusion and trend adjustment generates the forecast curve.',
+          'Results pre-computed into an app_cache JSON tab \u2014 the dashboard reads one cell instead of hundreds of ranges (2\u20133 sec \u2192 ~200ms).',
+          'Schedule Counter reads the cache, builds the labor model, and surfaces the gap between scheduled hours and the forecasted curve.',
+          'Monday Morning Huddle deck auto-populates from the same cache \u2014 leadership sees the same number the system sees.',
+        ],
+        tools: ['Schedule Counter 3.1 [CONFIRM]', 'Monday Pipeline', 'app_cache JSON tab', 'Cross-location Overtime Reconciler'],
+        outcome: 'SPLH moved from ~84 to consistently above 90. More important: the system runs whether I\u2019m in the building or not, and a non-technical manager can maintain it by editing a config tab.',
+      },
+      food: {
+        headline: 'A people-focused system \u2014 food cost gap doesn\u2019t move because you built a better dashboard, it moves because the team changes what they do at the bag.',
+        problem: `Food cost gap isn\u2019t a reporting problem. It\u2019s a behavior problem. Every point of gap traces back to a decision someone made on the floor \u2014 an extra handful of sauces, a nugget count that was off, napkins thrown in by habit instead of by order. You can track that number every way you want, but if the people packing the bags aren\u2019t doing it the same way every time, the number drifts. I didn\u2019t need better data. I needed a system that coached and reminded the team in the moment, on the floor, shift after shift.`,
+        architecture: [
+          'Team leads checking bags at handoff \u2014 confirming sauce and napkin counts match the order before it goes out the window.',
+          'Managers ran nugget-focused RSAs for an entire month \u2014 standing at the station, observing the count, coaching on the spot, building the habit into muscle memory.',
+          'A sauce and napkin chart posted at every bagging station \u2014 exactly how many of each per meal and per item, eye-level, no guessing.',
+          'Coaching moments delivered in the moment, not in a meeting two weeks later \u2014 the correction happens while the behavior is still fresh.',
+          'Monthly review tying the behavior changes on the floor back to the movement in the gap number \u2014 the team sees that what they did actually moved it.',
+        ],
+        tools: ['Bagging station sauce/napkin charts', 'Nugget RSA focus month', 'Team lead bag checks at handoff', 'In-the-moment coaching'],
+        outcome: 'The gap moved because the floor changed. [CONFIRM exact numbers] The win wasn\u2019t a better report \u2014 it was a team that knew the standard, saw it at their station every shift, and got coached on it the moment they drifted.',
+      },
     };
 
     /* ═══════════════════════════════════════════════════════════
@@ -838,7 +958,7 @@
               <div className="overview-title">{title}</div>
               <div className="overview-goal">{goalText}</div>
             </div>
-            {!isEditing && (
+            {!isEditing && !PRESENTATION_MODE && (
               <button className="edit-btn" onClick={() => setIsEditing(true)} title="Edit overview">
                 <Icon name="edit" size={16} />
               </button>
@@ -863,134 +983,156 @@
     };
 
     /* ═══════════════════════════════════════════════════════════
-       INTRO SECTION (editable text block)
+       SYSTEM CARD — leads each metric tab with the architecture story.
+       Fully editable; persists to localStorage per metricId.
     ═══════════════════════════════════════════════════════════ */
-    const IntroSection = ({ sectionKey, title, defaultText, accentColor }) => {
-      const storageKey = `cfa_dash_intro_${sectionKey}`;
+    const SystemCard = ({ metricId }) => {
+      const defaults = METRIC_SYSTEMS[metricId];
+      const storageKey = `cfa_dash_system_${metricId}`;
+      const accent = (METRICS[metricId] && METRICS[metricId].color) || '#3B7DDD';
+
+      const emptyShape = { headline: '', problem: '', architecture: [], tools: [], outcome: '' };
+      const [sys, setSys] = useState(defaults || emptyShape);
       const [isEditing, setIsEditing] = useState(false);
-      const [text, setText] = useState('');
+      const [draft, setDraft] = useState({ headline: '', problem: '', architecture: '', tools: '', outcome: '' });
 
       useEffect(() => {
-        var stored = localStorage.getItem(storageKey);
-        setText(stored !== null ? stored : defaultText);
-      }, [sectionKey, storageKey]);
+        try {
+          const stored = localStorage.getItem(storageKey);
+          if (stored) {
+            setSys(JSON.parse(stored));
+            return;
+          }
+        } catch (e) { console.error('SystemCard load error:', e); }
+        if (defaults) setSys(defaults);
+      }, [metricId, storageKey]);
+
+      var startEdit = function() {
+        setDraft({
+          headline: sys.headline || '',
+          problem: sys.problem || '',
+          architecture: (sys.architecture || []).join('\n'),
+          tools: (sys.tools || []).join('\n'),
+          outcome: sys.outcome || '',
+        });
+        setIsEditing(true);
+      };
 
       var handleSave = function() {
-        localStorage.setItem(storageKey, text);
+        var next = {
+          headline: draft.headline.trim(),
+          problem: draft.problem,
+          architecture: draft.architecture.split('\n').map(function(s) { return s.trim(); }).filter(Boolean),
+          tools: draft.tools.split('\n').map(function(s) { return s.trim(); }).filter(Boolean),
+          outcome: draft.outcome,
+        };
+        setSys(next);
+        localStorage.setItem(storageKey, JSON.stringify(next));
         setIsEditing(false);
       };
 
-      var handleCancel = function() {
-        var stored = localStorage.getItem(storageKey);
-        setText(stored !== null ? stored : defaultText);
-        setIsEditing(false);
-      };
+      var handleCancel = function() { setIsEditing(false); };
 
       var handleReset = function() {
-        setText(defaultText);
         localStorage.removeItem(storageKey);
+        setSys(defaults || emptyShape);
         setIsEditing(false);
       };
 
+      if (!defaults && !isEditing && !sys.headline && !sys.problem) return null;
+
+      if (isEditing && !PRESENTATION_MODE) {
+        return (
+          <div className="system-card" style={{ '--accent': accent, borderLeftColor: accent }}>
+            <div className="system-card-eyebrow">The System I Built — Editing</div>
+
+            <div className="system-card-section">
+              <div className="system-card-label">Headline</div>
+              <input className="form-input" value={draft.headline}
+                onChange={(e) => setDraft({ ...draft, headline: e.target.value })}
+                style={{ width: '100%', fontSize: 16, fontWeight: 600 }} />
+            </div>
+
+            <div className="system-card-section">
+              <div className="system-card-label">The Problem</div>
+              <textarea className="form-input" rows={5} value={draft.problem}
+                onChange={(e) => setDraft({ ...draft, problem: e.target.value })}
+                style={{ width: '100%' }} />
+            </div>
+
+            <div className="system-card-section">
+              <div className="system-card-label">Architecture (one step per line)</div>
+              <textarea className="form-input" rows={7} value={draft.architecture}
+                onChange={(e) => setDraft({ ...draft, architecture: e.target.value })}
+                style={{ width: '100%' }} />
+            </div>
+
+            <div className="system-card-section">
+              <div className="system-card-label">Tools (one per line)</div>
+              <textarea className="form-input" rows={4} value={draft.tools}
+                onChange={(e) => setDraft({ ...draft, tools: e.target.value })}
+                style={{ width: '100%' }} />
+            </div>
+
+            <div className="system-card-section">
+              <div className="system-card-label">Outcome</div>
+              <textarea className="form-input" rows={3} value={draft.outcome}
+                onChange={(e) => setDraft({ ...draft, outcome: e.target.value })}
+                style={{ width: '100%' }} />
+            </div>
+
+            <div className="flex gap-2" style={{ marginTop: 12 }}>
+              <button className="btn btn-primary btn-small" onClick={handleSave}>Save</button>
+              <button className="btn btn-secondary btn-small" onClick={handleCancel}>Cancel</button>
+              <button className="btn btn-danger btn-small" onClick={handleReset}>Reset to Default</button>
+            </div>
+          </div>
+        );
+      }
+
       return (
-        <div className="intro-section" style={accentColor ? { borderLeftColor: accentColor } : {}}>
-          <div className="flex justify-between items-center" style={{ marginBottom: 12 }}>
-            <div className="intro-section-title">{title}</div>
-            {!isEditing && (
-              <button className="edit-btn" onClick={() => setIsEditing(true)} title="Edit section">
+        <div className="system-card" style={{ '--accent': accent, borderLeftColor: accent }}>
+          <div className="flex justify-between items-center" style={{ marginBottom: 2 }}>
+            <div className="system-card-eyebrow" style={{ marginBottom: 0 }}>The System I Built</div>
+            {!PRESENTATION_MODE && (
+              <button className="edit-btn" onClick={startEdit} title="Edit system card">
                 <Icon name="edit" size={16} />
               </button>
             )}
           </div>
-          {isEditing ? (
-            <div>
-              <textarea className="form-input" rows={10} value={text}
-                onChange={(e) => setText(e.target.value)}
-                style={{ width: '100%', marginBottom: 10 }} />
-              <div className="flex gap-2">
-                <button className="btn btn-primary btn-small" onClick={handleSave}>Save</button>
-                <button className="btn btn-secondary btn-small" onClick={handleCancel}>Cancel</button>
-                <button className="btn btn-danger btn-small" onClick={handleReset}>Reset to Default</button>
+          {sys.headline && <div className="system-card-headline">{sys.headline}</div>}
+
+          {sys.problem && (
+            <div className="system-card-section">
+              <div className="system-card-label">The Problem</div>
+              <div className="system-card-text" style={{ whiteSpace: 'pre-wrap' }}>{sys.problem}</div>
+            </div>
+          )}
+
+          {sys.architecture && sys.architecture.length > 0 && (
+            <div className="system-card-section">
+              <div className="system-card-label">Architecture</div>
+              <ul className="system-card-list">
+                {sys.architecture.map((step, i) => <li key={i}>{step}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {sys.tools && sys.tools.length > 0 && (
+            <div className="system-card-section">
+              <div className="system-card-label">Tools</div>
+              <div className="system-card-pills">
+                {sys.tools.map((tool, i) => <span key={i} className="system-card-pill">{tool}</span>)}
               </div>
             </div>
-          ) : (
-            <p className="overview-text" style={{ whiteSpace: 'pre-wrap' }}>{text}</p>
           )}
-        </div>
-      );
-    };
 
-    /* ═══════════════════════════════════════════════════════════
-       INTRO TAB
-    ═══════════════════════════════════════════════════════════ */
-    const IntroTab = () => {
-      const [isEditingHero, setIsEditingHero] = useState(false);
-      const [heroName, setHeroName] = useState('');
-      const [heroSub, setHeroSub] = useState('');
-
-      useEffect(() => {
-        setHeroName(localStorage.getItem('cfa_dash_intro_name') || 'Brent Baldwin');
-        setHeroSub(localStorage.getItem('cfa_dash_intro_subtitle') || 'Chief of Staff \u2014 Chick-fil-A Cockrell Hill & Dallas Baptist University');
-      }, []);
-
-      var saveHero = function() {
-        localStorage.setItem('cfa_dash_intro_name', heroName);
-        localStorage.setItem('cfa_dash_intro_subtitle', heroSub);
-        setIsEditingHero(false);
-      };
-
-      var cancelHero = function() {
-        setHeroName(localStorage.getItem('cfa_dash_intro_name') || 'Brent Baldwin');
-        setHeroSub(localStorage.getItem('cfa_dash_intro_subtitle') || 'Chief of Staff \u2014 Chick-fil-A Cockrell Hill & Dallas Baptist University');
-        setIsEditingHero(false);
-      };
-
-      return (
-        <div>
-          {/* Hero */}
-          <div className="intro-hero">
-            {isEditingHero ? (
-              <div style={{ maxWidth: 500, margin: '0 auto' }}>
-                <div className="form-group mb-2">
-                  <label className="form-label">Name</label>
-                  <input className="form-input" value={heroName} onChange={(e) => setHeroName(e.target.value)}
-                    style={{ textAlign: 'center', fontSize: 20, fontWeight: 700 }} />
-                </div>
-                <div className="form-group mb-4">
-                  <label className="form-label">Subtitle</label>
-                  <input className="form-input" value={heroSub} onChange={(e) => setHeroSub(e.target.value)}
-                    style={{ textAlign: 'center' }} />
-                </div>
-                <div className="flex gap-2 justify-center">
-                  <button className="btn btn-primary btn-small" onClick={saveHero}>Save</button>
-                  <button className="btn btn-secondary btn-small" onClick={cancelHero}>Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <h1>{heroName}</h1>
-                <p>{heroSub}</p>
-                <button className="edit-btn" onClick={() => setIsEditingHero(true)} title="Edit header"
-                  style={{ marginTop: 12 }}>
-                  <Icon name="edit" size={16} />
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* My Story */}
-          <IntroSection sectionKey="foundation" title="Where It Started" defaultText={INTRO_DEFAULTS.foundation} />
-          <IntroSection sectionKey="cfa_path" title="The Chick-fil-A Path" defaultText={INTRO_DEFAULTS.cfa_path} />
-          <IntroSection sectionKey="today" title="Today" defaultText={INTRO_DEFAULTS.today} />
-          <IntroSection sectionKey="builder" title="What I Build" defaultText={INTRO_DEFAULTS.builder} />
-          <IntroSection sectionKey="personal" title="Beyond the Restaurant" defaultText={INTRO_DEFAULTS.personal} />
-          <IntroSection sectionKey="why_ldp" title="Why LDP" defaultText={INTRO_DEFAULTS.why_ldp} />
-
-          <hr className="intro-divider" />
-
-          {/* Why This Dashboard */}
-          <IntroSection sectionKey="why_dashboard" title="Why I Built This Dashboard"
-            defaultText={INTRO_DEFAULTS.why_dashboard} accentColor="#3B7DDD" />
+          {sys.outcome && (
+            <div className="system-card-section">
+              <div className="system-card-label">Outcome</div>
+              <div className="system-card-outcome" style={{ borderLeftColor: accent }}>{sys.outcome}</div>
+            </div>
+          )}
         </div>
       );
     };
@@ -1162,6 +1304,9 @@
 
       return (
         <div>
+          {/* System / Architecture — leads the story */}
+          <SystemCard metricId={metricId} />
+
           {/* Overview */}
           <OverviewCard metricId={metricId} title={m.label} goalText={`Goal: ${m.goalLabel}`} />
 
@@ -1244,57 +1389,59 @@
             )}
           </div>
 
-          {/* Add / Import Form */}
-          <div className="card">
-            <div className="flex justify-between items-center mb-4">
-              <div className="card-title" style={{ marginBottom: 0 }}>Add Data</div>
-              <div className="flex gap-2">
-                {data.length > 0 && (
-                  <button className="btn btn-danger btn-small" onClick={() => setClearConfirm(true)}>
-                    Clear All
-                  </button>
-                )}
+          {/* Add / Import Form (hidden in presentation mode) */}
+          {!PRESENTATION_MODE && (
+            <div className="card">
+              <div className="flex justify-between items-center mb-4">
+                <div className="card-title" style={{ marginBottom: 0 }}>Add Data</div>
+                <div className="flex gap-2">
+                  {data.length > 0 && (
+                    <button className="btn btn-danger btn-small" onClick={() => setClearConfirm(true)}>
+                      Clear All
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Month</label>
+                  <input className="form-input" placeholder="Jan 2026" value={form.month}
+                    onChange={(e) => setForm({...form, month: e.target.value})} onKeyDown={handleKeyDown} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Value</label>
+                  <input className="form-input" type="number" step="0.01" placeholder={m.goal.toString()}
+                    value={form.value}
+                    onChange={(e) => setForm({...form, value: e.target.value})} onKeyDown={handleKeyDown} />
+                </div>
+              </div>
+              <div className="form-row mt-3">
+                <div className="form-group" style={{ minWidth: '100%' }}>
+                  <label className="form-label">Story / Notes</label>
+                  <textarea className="form-input" rows={3}
+                    placeholder="What happened this month? What did you change, coach, or implement?"
+                    value={form.note}
+                    onChange={(e) => setForm({...form, note: e.target.value})} />
+                </div>
+              </div>
+              <div className="action-bar mt-3">
+                <button className="btn btn-primary" onClick={addEntry}>
+                  <Icon name="plus" size={16} /> Add Entry
+                </button>
+                <label className="file-input-label">
+                  <Icon name="upload" size={16} /> Import CSV
+                  <input type="file" accept=".csv" onChange={importCSV} style={{ display: 'none' }} />
+                </label>
+                <button className="btn btn-secondary" onClick={exportCSV} disabled={data.length === 0}>
+                  <Icon name="download" size={16} /> Export CSV
+                </button>
+              </div>
+              <div className="csv-hint">
+                <strong>CSV format:</strong> <code>Month,Value,Notes</code><br/>
+                Example: <code>Jan 2026,{m.goal},{m.label} note here</code>
               </div>
             </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Month</label>
-                <input className="form-input" placeholder="Jan 2026" value={form.month}
-                  onChange={(e) => setForm({...form, month: e.target.value})} onKeyDown={handleKeyDown} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Value</label>
-                <input className="form-input" type="number" step="0.01" placeholder={m.goal.toString()}
-                  value={form.value}
-                  onChange={(e) => setForm({...form, value: e.target.value})} onKeyDown={handleKeyDown} />
-              </div>
-            </div>
-            <div className="form-row mt-3">
-              <div className="form-group" style={{ minWidth: '100%' }}>
-                <label className="form-label">Story / Notes</label>
-                <textarea className="form-input" rows={3}
-                  placeholder="What happened this month? What did you change, coach, or implement?"
-                  value={form.note}
-                  onChange={(e) => setForm({...form, note: e.target.value})} />
-              </div>
-            </div>
-            <div className="action-bar mt-3">
-              <button className="btn btn-primary" onClick={addEntry}>
-                <Icon name="plus" size={16} /> Add Entry
-              </button>
-              <label className="file-input-label">
-                <Icon name="upload" size={16} /> Import CSV
-                <input type="file" accept=".csv" onChange={importCSV} style={{ display: 'none' }} />
-              </label>
-              <button className="btn btn-secondary" onClick={exportCSV} disabled={data.length === 0}>
-                <Icon name="download" size={16} /> Export CSV
-              </button>
-            </div>
-            <div className="csv-hint">
-              <strong>CSV format:</strong> <code>Month,Value,Notes</code><br/>
-              Example: <code>Jan 2026,{m.goal},{m.label} note here</code>
-            </div>
-          </div>
+          )}
 
           {/* Data Table */}
           <div className="card">
@@ -1311,7 +1458,7 @@
                     <th>Month</th>
                     <th className="text-right">Value</th>
                     <th className="text-center">Status</th>
-                    <th className="text-center" style={{ width: 60 }}></th>
+                    {!PRESENTATION_MODE && <th className="text-center" style={{ width: 60 }}></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1332,15 +1479,17 @@
                               {onG ? '\u2713 On Goal' : '\u2717 Off Goal'}
                             </span>
                           </td>
-                          <td className="text-center">
-                            <button className="delete-btn" onClick={() => setDeleteConfirm({ idx: actualIdx, month: entry.month })}>
-                              <Icon name="trash" size={14} />
-                            </button>
-                          </td>
+                          {!PRESENTATION_MODE && (
+                            <td className="text-center">
+                              <button className="delete-btn" onClick={() => setDeleteConfirm({ idx: actualIdx, month: entry.month })}>
+                                <Icon name="trash" size={14} />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                         {entry.note && (
                           <tr className="note-row">
-                            <td colSpan={4} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td colSpan={PRESENTATION_MODE ? 3 : 4} style={{ borderBottom: '1px solid var(--border)' }}>
                               <div className="note-content">
                                 <div className="note-label">Notes</div>
                                 {entry.note}
@@ -1539,6 +1688,9 @@
 
       return (
         <div>
+          {/* System / Architecture — leads the story */}
+          <SystemCard metricId="splh" />
+
           {/* Overview */}
           <OverviewCard metricId="splh" title="Productivity (SPLH)" goalText={`Goal: ${'\u2265'} 90.00 SPLH`} />
 
@@ -1629,7 +1781,8 @@
             )}
           </div>
 
-          {/* Add / Import */}
+          {/* Add / Import (hidden in presentation mode) */}
+          {!PRESENTATION_MODE && (
           <div className="card">
             <div className="flex justify-between items-center mb-4">
               <div className="card-title" style={{ marginBottom: 0 }}>Add Data</div>
@@ -1696,6 +1849,7 @@
               Example: <code>Jan 2026,90.24,248500,2760,Focused on drive-thru efficiency</code>
             </div>
           </div>
+          )}
 
           {/* Data Table */}
           <div className="card">
@@ -1715,7 +1869,7 @@
                       <th className="text-right">Total Sales</th>
                       <th className="text-right">Total Hours</th>
                       <th className="text-center">Goal</th>
-                      <th className="text-center" style={{ width: 80 }}>Actions</th>
+                      {!PRESENTATION_MODE && <th className="text-center" style={{ width: 80 }}>Actions</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1757,23 +1911,25 @@
                                     ? <span className="badge badge-good">{'\u2713'} On Goal</span>
                                     : <span className="badge badge-warn">{'\u2717'} Below</span>}
                                 </td>
-                                <td className="text-center">
-                                  <div className="flex gap-2 justify-center">
-                                    <button className="edit-btn" onClick={() => handleEditMonth(actualIndex)} title="Edit">
-                                      <Icon name="edit" size={14} />
-                                    </button>
-                                    <button className="delete-btn" onClick={() => handleDeleteMonth(actualIndex)} title="Delete">
-                                      <Icon name="trash" size={14} />
-                                    </button>
-                                  </div>
-                                </td>
+                                {!PRESENTATION_MODE && (
+                                  <td className="text-center">
+                                    <div className="flex gap-2 justify-center">
+                                      <button className="edit-btn" onClick={() => handleEditMonth(actualIndex)} title="Edit">
+                                        <Icon name="edit" size={14} />
+                                      </button>
+                                      <button className="delete-btn" onClick={() => handleDeleteMonth(actualIndex)} title="Delete">
+                                        <Icon name="trash" size={14} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                )}
                               </>
                             )}
                           </tr>
                           {/* Note sub-row: edit mode shows textarea, view mode shows note */}
                           {isEditing ? (
                             <tr className="note-row">
-                              <td colSpan={6} style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td colSpan={PRESENTATION_MODE ? 5 : 6} style={{ borderBottom: '1px solid var(--border)' }}>
                                 <div style={{ padding: '0 0 4px' }}>
                                   <div className="note-label" style={{ marginBottom: 6 }}>Story / Notes</div>
                                   <textarea className="form-input" rows={3} style={{ width: '100%' }}
@@ -1785,7 +1941,7 @@
                             </tr>
                           ) : row.note ? (
                             <tr className="note-row">
-                              <td colSpan={6} style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td colSpan={PRESENTATION_MODE ? 5 : 6} style={{ borderBottom: '1px solid var(--border)' }}>
                                 <div className="note-content">
                                   <div className="note-label">Notes</div>
                                   {row.note}
@@ -1837,8 +1993,87 @@
     /* ═══════════════════════════════════════════════════════════
        APP SHELL
     ═══════════════════════════════════════════════════════════ */
+    /* ═══════════════════════════════════════════════════════════
+       DASHBOARD HEADER — editable title + subtitle
+    ═══════════════════════════════════════════════════════════ */
+    const DEFAULT_HEADER_TITLE = 'Performance Dashboard';
+    const DEFAULT_HEADER_SUBTITLE = 'Cockrell Hill DTO & DBU OCV \u2014 Chief of Staff';
+
+    const DashboardHeader = () => {
+      const titleKey = 'cfa_dash_header_title';
+      const subKey = 'cfa_dash_header_subtitle';
+      const [title, setTitle] = useState(DEFAULT_HEADER_TITLE);
+      const [subtitle, setSubtitle] = useState(DEFAULT_HEADER_SUBTITLE);
+      const [isEditing, setIsEditing] = useState(false);
+      const [draftTitle, setDraftTitle] = useState('');
+      const [draftSub, setDraftSub] = useState('');
+
+      useEffect(() => {
+        var t = localStorage.getItem(titleKey);
+        var s = localStorage.getItem(subKey);
+        if (t !== null) setTitle(t);
+        if (s !== null) setSubtitle(s);
+      }, []);
+
+      var startEdit = function() {
+        setDraftTitle(title);
+        setDraftSub(subtitle);
+        setIsEditing(true);
+      };
+      var handleSave = function() {
+        setTitle(draftTitle);
+        setSubtitle(draftSub);
+        localStorage.setItem(titleKey, draftTitle);
+        localStorage.setItem(subKey, draftSub);
+        setIsEditing(false);
+      };
+      var handleCancel = function() { setIsEditing(false); };
+      var handleReset = function() {
+        localStorage.removeItem(titleKey);
+        localStorage.removeItem(subKey);
+        setTitle(DEFAULT_HEADER_TITLE);
+        setSubtitle(DEFAULT_HEADER_SUBTITLE);
+        setIsEditing(false);
+      };
+
+      if (isEditing && !PRESENTATION_MODE) {
+        return (
+          <div className="header-text" style={{ flex: 1 }}>
+            <div className="form-group mb-2">
+              <input className="form-input" value={draftTitle}
+                onChange={(e) => setDraftTitle(e.target.value)}
+                style={{ fontSize: 24, fontWeight: 700 }} />
+            </div>
+            <div className="form-group mb-2">
+              <input className="form-input" value={draftSub}
+                onChange={(e) => setDraftSub(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              <button className="btn btn-primary btn-small" onClick={handleSave}>Save</button>
+              <button className="btn btn-secondary btn-small" onClick={handleCancel}>Cancel</button>
+              <button className="btn btn-danger btn-small" onClick={handleReset}>Reset to Default</button>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="header-text" style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+          <div>
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
+          </div>
+          {!PRESENTATION_MODE && (
+            <button className="edit-btn" onClick={startEdit} title="Edit header">
+              <Icon name="edit" size={16} />
+            </button>
+          )}
+        </div>
+      );
+    };
+
     const App = () => {
-      const [activeTab, setActiveTab] = useState('intro');
+      const [activeTab, setActiveTab] = useState('splh');
 
       return (
         <div>
@@ -1846,19 +2081,9 @@
           <div className="dash-header">
             <div className="header-top">
               <div className="cfa-badge">CFA</div>
-              <div className="header-text">
-                <h1>Performance Dashboard</h1>
-                <p>Cockrell Hill DTO & DBU OCV &mdash; Chief of Staff</p>
-              </div>
+              <DashboardHeader />
             </div>
             <nav className="tab-nav">
-              <button
-                className={`tab-btn ${activeTab === 'intro' ? 'active' : ''}`}
-                onClick={() => setActiveTab('intro')}
-              >
-                <span className="tab-dot" style={{ background: 'var(--red)' }} />
-                Introduction
-              </button>
               {TAB_ORDER.map(id => (
                 <button
                   key={id}
@@ -1874,9 +2099,8 @@
 
           {/* Content */}
           <div className="dash-main">
-            {activeTab === 'intro' && <IntroTab />}
             {activeTab === 'splh' && <SPLHTab />}
-            {activeTab !== 'splh' && activeTab !== 'intro' && <GenericMetricTab key={activeTab} metricId={activeTab} />}
+            {activeTab !== 'splh' && <GenericMetricTab key={activeTab} metricId={activeTab} />}
           </div>
         </div>
       );

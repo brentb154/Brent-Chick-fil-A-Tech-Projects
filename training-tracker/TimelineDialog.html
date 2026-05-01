@@ -88,6 +88,19 @@
 <div id="status"></div>
 
 <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
   var dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   // 3 weeks x 7 days, all false initially
   var selectedDays = [
@@ -225,6 +238,7 @@
     showStatus('Generating timeline and populating training needs...', 'loading');
 
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(msg) {
         showStatus(msg, 'success');
         document.getElementById('generateBtn').disabled = false;

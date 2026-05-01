@@ -7,18 +7,25 @@
  * Layout:
  *   Rows 1–31:  untouched (user content)
  *   Row  32:    LAST WEEK REVIEW banner
- *   Rows 33–37: last week hours table (sched, actual, actual OT, sched OT)
- *   Row  38:    spacer
- *   Row  39:    THIS WEEK PLAN banner
- *   Rows 40–42: this week hours table (sched hrs, sched OT)
- *   Row  43:    spacer
- *   Rows 44–63: attendance flags (OT/Late/Absent table, Missed Clock-Outs, Largest Variance)
- *   Rows 64–65: buffer
+ *   Rows 33–39: last week hours table (sched, actual, actual OT combined/on-site, sched OT combined/on-site)
+ *   Row  40:    spacer
+ *   Row  41:    THIS WEEK PLAN banner
+ *   Rows 42–45: this week hours table (sched hrs, sched OT combined/on-site)
+ *   Row  46:    spacer
+ *   Rows 47–66: attendance flags (OT/Late/Absent table, Missed Clock-Outs, Largest Variance)
+ *   Rows 67–68: buffer
+ *
+ *   OT methodology:
+ *   - "combined" = cross-location. If an employee works 30h at CH + 15h at DBU = 45h total,
+ *     the 5h OT is split proportionally (CH gets 3.3h, DBU gets 1.7h). This reflects true
+ *     labor-cost OT liability.
+ *   - "on-site" = single-location only. Only counts hours above 40 at that one location.
+ *     Matches what a manager sees looking at their own schedule in isolation.
  */
 
 var MONDAY_CLEAR_FROM = 32;
 var MONDAY_START_ROW  = 32;
-var MONDAY_END_ROW    = 65;
+var MONDAY_END_ROW    = 68;
 var MONDAY_COLS       = 5;
 
 function fillMondaySheet() {
@@ -190,10 +197,19 @@ function getLastWeekScheduledOT_(ss, cfg) {
   locOT[loc2] = 0;
   var totalOT = 0;
 
+  // On-site OT: hours above 40 at a single location (ignores cross-loc combining)
+  var locOnSiteOT = {};
+  locOnSiteOT[loc1] = 0;
+  locOnSiteOT[loc2] = 0;
+
   Object.keys(empMap).forEach(function(name) {
     var locs = empMap[name];
     var totalMin = 0;
-    Object.keys(locs).forEach(function(l) { totalMin += locs[l]; });
+    Object.keys(locs).forEach(function(l) {
+      totalMin += locs[l];
+      var onSite = Math.max(0, locs[l] - otThresholdMin);
+      if (onSite > 0) locOnSiteOT[l] += onSite;
+    });
     var otMin = Math.max(0, totalMin - otThresholdMin);
     if (otMin <= 0) return;
     totalOT += otMin;
@@ -208,7 +224,10 @@ function getLastWeekScheduledOT_(ss, cfg) {
   return {
     loc1OT: Math.round(locOT[loc1] / 60 * 10) / 10,
     loc2OT: Math.round(locOT[loc2] / 60 * 10) / 10,
-    totalOT: Math.round(totalOT / 60 * 10) / 10
+    totalOT: Math.round(totalOT / 60 * 10) / 10,
+    loc1OnSiteOT: Math.round(locOnSiteOT[loc1] / 60 * 10) / 10,
+    loc2OnSiteOT: Math.round(locOnSiteOT[loc2] / 60 * 10) / 10,
+    totalOnSiteOT: Math.round((locOnSiteOT[loc1] + locOnSiteOT[loc2]) / 60 * 10) / 10
   };
 }
 
@@ -260,16 +279,24 @@ function getThisWeekScheduleData_(ss, cfg) {
   var loc1Hrs = Math.round(locHrs[loc1] / 60 * 10) / 10;
   var loc2Hrs = Math.round(locHrs[loc2] / 60 * 10) / 10;
 
-  // Compute scheduled OT (cross-location per employee)
+  // Compute scheduled OT (cross-location per employee) + on-site OT (single-location only)
   var locOT = {};
   locOT[loc1] = 0;
   locOT[loc2] = 0;
   var totalOT = 0;
 
+  var locOnSiteOT = {};
+  locOnSiteOT[loc1] = 0;
+  locOnSiteOT[loc2] = 0;
+
   Object.keys(empMap).forEach(function(name) {
     var locs = empMap[name];
     var totalMin = 0;
-    Object.keys(locs).forEach(function(l) { totalMin += locs[l]; });
+    Object.keys(locs).forEach(function(l) {
+      totalMin += locs[l];
+      var onSite = Math.max(0, locs[l] - otThresholdMin);
+      if (onSite > 0) locOnSiteOT[l] += onSite;
+    });
     var otMin = Math.max(0, totalMin - otThresholdMin);
     if (otMin <= 0) return;
     totalOT += otMin;
@@ -287,7 +314,10 @@ function getThisWeekScheduleData_(ss, cfg) {
     totalSchedHrs: Math.round((loc1Hrs + loc2Hrs) * 10) / 10,
     loc1OT: Math.round(locOT[loc1] / 60 * 10) / 10,
     loc2OT: Math.round(locOT[loc2] / 60 * 10) / 10,
-    totalOT: Math.round(totalOT / 60 * 10) / 10
+    totalOT: Math.round(totalOT / 60 * 10) / 10,
+    loc1OnSiteOT: Math.round(locOnSiteOT[loc1] / 60 * 10) / 10,
+    loc2OnSiteOT: Math.round(locOnSiteOT[loc2] / 60 * 10) / 10,
+    totalOnSiteOT: Math.round((locOnSiteOT[loc1] + locOnSiteOT[loc2]) / 60 * 10) / 10
   };
 }
 
@@ -331,10 +361,22 @@ function writeMondayBlock_(sheet, data, cfg) {
   var rd = function(v) { return Math.round(v * 10) / 10; };
   var BORDER = SpreadsheetApp.BorderStyle.SOLID;
 
-  // ── Compute actual OT per location ──
+  // ── Compute actual OT per location (combined = cross-loc allocated, on-site = >40h at that loc alone) ──
   var loc1OT = 0, loc2OT = 0;
+  var loc1OnSiteOT = 0, loc2OnSiteOT = 0;
+  var OT_THRESHOLD = (cfg && cfg.OT_THRESHOLD) || 40;
+
   Object.keys(data.byEmployee).forEach(function(name) {
     var emp = data.byEmployee[name];
+
+    // On-site: sum excess hours above 40 at each location independently
+    Object.keys(emp.locs).forEach(function(l) {
+      var excess = Math.max(0, emp.locs[l] - OT_THRESHOLD);
+      if (excess <= 0) return;
+      if (l === loc1) loc1OnSiteOT += excess; else loc2OnSiteOT += excess;
+    });
+
+    // Combined: distribute cross-location OT proportionally
     if (emp.otHours <= 0) return;
     var locs = Object.keys(emp.locs);
     if (locs.length === 1) {
@@ -386,9 +428,9 @@ function writeMondayBlock_(sheet, data, cfg) {
   styleHoursRow_(sheet, r, '#F9FAFB');
   r++;
 
-  // Row 25: Actual OT (amber highlight)
+  // Actual OT (combined) — cross-location allocated
   var tOT = rd(loc1OT + loc2OT);
-  sheet.getRange(r, 1, 1, 4).setValues([['Actual OT', rd(loc1OT), rd(loc2OT), tOT]]);
+  sheet.getRange(r, 1, 1, 4).setValues([['Actual OT (combined)', rd(loc1OT), rd(loc2OT), tOT]]);
   sheet.getRange(r, 1).setFontWeight('bold').setFontSize(12).setFontColor('#92400E');
   sheet.getRange(r, 2, 1, 3).setFontWeight('bold').setFontSize(12).setFontColor('#92400E')
     .setHorizontalAlignment('center').setNumberFormat('#,##0.0');
@@ -397,12 +439,22 @@ function writeMondayBlock_(sheet, data, cfg) {
     .setBorder(true, true, true, true, true, true, '#F59E0B', BORDER);
   r++;
 
-  // Row 26: Scheduled OT (what was originally on the schedule)
+  // Actual OT (on-site) — hours >40 at a single location only
+  var tOnSiteOT = rd(loc1OnSiteOT + loc2OnSiteOT);
+  sheet.getRange(r, 1, 1, 4).setValues([['Actual OT (on-site)', rd(loc1OnSiteOT), rd(loc2OnSiteOT), tOnSiteOT]]);
+  sheet.getRange(r, 1).setFontSize(11).setFontColor('#92400E');
+  sheet.getRange(r, 2, 1, 3).setFontSize(11).setFontColor('#92400E')
+    .setHorizontalAlignment('center').setNumberFormat('#,##0.0');
+  sheet.getRange(r, 1, 1, MONDAY_COLS).setBackground('#FEF3C7')
+    .setBorder(true, true, true, true, true, true, '#F59E0B', BORDER);
+  r++;
+
+  // Sched OT (combined) — cross-location allocated, with delta vs actual
   var sOT = data.lastWeekSchedOT;
   var sLoc1OT = sOT ? rd(sOT.loc1OT) : 0;
   var sLoc2OT = sOT ? rd(sOT.loc2OT) : 0;
   var sTotalOT = sOT ? rd(sOT.totalOT) : 0;
-  sheet.getRange(r, 1, 1, 4).setValues([['Sched OT', sLoc1OT, sLoc2OT, sTotalOT]]);
+  sheet.getRange(r, 1, 1, 4).setValues([['Sched OT (combined)', sLoc1OT, sLoc2OT, sTotalOT]]);
   sheet.getRange(r, 1).setFontWeight('bold').setFontSize(12).setFontColor('#78350F');
   sheet.getRange(r, 2, 1, 3).setFontSize(12).setFontColor('#78350F')
     .setHorizontalAlignment('center').setNumberFormat('#,##0.0');
@@ -416,10 +468,28 @@ function writeMondayBlock_(sheet, data, cfg) {
     .setBorder(true, true, true, true, true, true, '#F59E0B', BORDER);
   r++;
 
-  // Format last-week hours table numbers
+  // Sched OT (on-site)
+  var sLoc1OnSite = sOT ? rd(sOT.loc1OnSiteOT) : 0;
+  var sLoc2OnSite = sOT ? rd(sOT.loc2OnSiteOT) : 0;
+  var sTotalOnSite = sOT ? rd(sOT.totalOnSiteOT) : 0;
+  sheet.getRange(r, 1, 1, 4).setValues([['Sched OT (on-site)', sLoc1OnSite, sLoc2OnSite, sTotalOnSite]]);
+  sheet.getRange(r, 1).setFontSize(11).setFontColor('#78350F');
+  sheet.getRange(r, 2, 1, 3).setFontSize(11).setFontColor('#78350F')
+    .setHorizontalAlignment('center').setNumberFormat('#,##0.0');
+  var otOnSiteDelta = rd(tOnSiteOT - sTotalOnSite);
+  var otOnSiteDeltaStr = (otOnSiteDelta >= 0 ? '+' : '') + otOnSiteDelta + 'h';
+  sheet.getRange(r, 5).setValue(otOnSiteDeltaStr)
+    .setFontSize(11).setFontWeight('bold')
+    .setFontColor(otOnSiteDelta > 0 ? '#DC2626' : '#059669')
+    .setHorizontalAlignment('center');
+  sheet.getRange(r, 1, 1, MONDAY_COLS).setBackground('#FFF7ED')
+    .setBorder(true, true, true, true, true, true, '#F59E0B', BORDER);
+  r++;
+
+  // Format last-week hours table numbers (Scheduled + Actual rows)
   sheet.getRange(MONDAY_START_ROW + 2, 2, 2, 3).setNumberFormat('#,##0.0').setHorizontalAlignment('center');
 
-  // Row 27: spacer
+  // Spacer
   r++;
 
   // ═════════════════════════════════════════════════
@@ -450,13 +520,23 @@ function writeMondayBlock_(sheet, data, cfg) {
     styleHoursRow_(sheet, r, '#F0FDFA');
     r++;
 
-    // Row 31: Scheduled OT
+    // Sched OT (combined) — cross-location allocated
     sheet.getRange(r, 1, 1, 4)
-      .setValues([['Sched OT', rd(tw.loc1OT), rd(tw.loc2OT), rd(tw.totalOT)]]);
+      .setValues([['Sched OT (combined)', rd(tw.loc1OT), rd(tw.loc2OT), rd(tw.totalOT)]]);
     sheet.getRange(r, 1).setFontWeight('bold').setFontSize(12).setFontColor('#134E4A');
     sheet.getRange(r, 2, 1, 3).setFontWeight('bold').setFontSize(12).setFontColor('#134E4A')
       .setHorizontalAlignment('center').setNumberFormat('#,##0.0');
     sheet.getRange(r, 4).setFontSize(16).setFontColor(tw.totalOT > 0 ? '#DC2626' : '#059669');
+    sheet.getRange(r, 1, 1, MONDAY_COLS).setBackground('#CCFBF1')
+      .setBorder(true, true, true, true, true, true, '#14B8A6', BORDER);
+    r++;
+
+    // Sched OT (on-site) — hours >40 at a single location only
+    sheet.getRange(r, 1, 1, 4)
+      .setValues([['Sched OT (on-site)', rd(tw.loc1OnSiteOT), rd(tw.loc2OnSiteOT), rd(tw.totalOnSiteOT)]]);
+    sheet.getRange(r, 1).setFontSize(11).setFontColor('#134E4A');
+    sheet.getRange(r, 2, 1, 3).setFontSize(11).setFontColor('#134E4A')
+      .setHorizontalAlignment('center').setNumberFormat('#,##0.0');
     sheet.getRange(r, 1, 1, MONDAY_COLS).setBackground('#CCFBF1')
       .setBorder(true, true, true, true, true, true, '#14B8A6', BORDER);
     r++;

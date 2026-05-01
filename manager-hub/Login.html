@@ -253,6 +253,19 @@
   </div>
 
   <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
     /**
      * Toggle password visibility
      */
@@ -327,6 +340,7 @@
 
       // Call server to validate and get dashboard config
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           clearTimeout(timeoutId);
           handleLoginSuccess(result);
@@ -371,6 +385,7 @@
         // Redirect to dashboard (home page)
         setTimeout(function() {
           google.script.run
+            .withFailureHandler(handleServerError)
             .withSuccessHandler(function(url) {
               const targetPage = (roleValue === 'Director' || roleValue === 'Operator')
                 ? 'analytics'
@@ -427,6 +442,7 @@
       var token = sessionStorage.getItem('cfa_session_token') || localStorage.getItem('cfa_session_token');
       if (token) {
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             if (result && result.valid) {
               const role = result.role || sessionStorage.getItem('cfa_user_role');
@@ -440,6 +456,7 @@
               const target = (role === 'Director' || role === 'Operator') ? 'analytics' : 'dashboard';
               // Already logged in, redirect to the correct dashboard
               google.script.run
+                .withFailureHandler(handleServerError)
                 .withSuccessHandler(function(url) {
                   if (url) {
                     sessionStorage.setItem('cfa_base_url', url);

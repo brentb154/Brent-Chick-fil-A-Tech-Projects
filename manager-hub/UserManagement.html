@@ -775,6 +775,19 @@
   </div>
 
   <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
     // Global state
     let allUsers = [];
     let currentUserRole = '';
@@ -853,6 +866,7 @@
         }
       }, 1500);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           didNavigate = true;
           clearTimeout(fallbackTimer);
@@ -885,8 +899,10 @@
       const token = getSessionToken();
       clearSessionData();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function() {
           google.script.run
+            .withFailureHandler(handleServerError)
             .withSuccessHandler(function(url) {
               redirectTo(url + '?page=login');
             })
@@ -909,6 +925,7 @@
     function handleSessionExpired() {
       clearSessionData();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           redirectTo(url + '?page=login');
         })
@@ -941,6 +958,7 @@
 
       // Validate token with server
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result || !result.valid) {
             handleSessionExpired();
@@ -982,6 +1000,7 @@
       const language = select.value;
       sessionStorage.setItem('cfa_language', language);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             applyUserManagementTranslations(language);
@@ -1008,6 +1027,7 @@
         'nav.logout'
       ];
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           const t = result || {};
           document.getElementById('userManagementTitle').textContent = t['users.title'] || 'User Management';
@@ -1035,6 +1055,7 @@
 
       var token = getSessionToken();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           document.getElementById('activeUsersLoading').style.display = 'none';
 
@@ -1228,6 +1249,7 @@
         return;
       }
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           const select = document.getElementById('employeeSelect');
           select.innerHTML = '<option value="">-- Select Employee --</option>';
@@ -1306,6 +1328,7 @@
 
       var token = getSessionToken();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           btn.disabled = false;
           btn.textContent = 'Add User';
@@ -1398,6 +1421,7 @@
       if (roleChanged) {
         pendingCalls++;
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             if (!result.success) {
               if (result.sessionExpired) {
@@ -1419,6 +1443,7 @@
       if (emailChanged) {
         pendingCalls++;
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             if (!result.success) {
               if (result.sessionExpired) {
@@ -1486,6 +1511,7 @@
 
       var token = getSessionToken();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           btn.disabled = false;
           btn.textContent = 'Remove Access';
@@ -1522,6 +1548,7 @@
 
       var token = getSessionToken();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.success) {
             showPageMessage(result.message, 'success');
@@ -1580,6 +1607,7 @@
      */
     function goBack() {
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           redirectTo(url + '?page=employees&t=' + Date.now());
         })

@@ -4,7 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Productivity Performance Tracker</title>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js">
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+</script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/recharts@2.5.0/dist/Recharts.js"></script>
@@ -109,6 +122,7 @@
       // Load data from Google Sheets on mount
       useEffect(() => {
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(rows) {
             if (rows && rows.length > 0) setData(rows);
             setIsLoaded(true);
@@ -173,6 +187,7 @@
       const handleSave = () => {
         setIsSaving(true);
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function() {
             setIsSaving(false);
             setHasUnsaved(false);
@@ -303,6 +318,7 @@
         setData([]);
         setIsSaving(true);
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function() {
             setIsSaving(false);
             setHasUnsaved(false);

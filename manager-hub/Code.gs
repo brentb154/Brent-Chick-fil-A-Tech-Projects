@@ -266,6 +266,41 @@ function setupAccountabilitySystem() {
   return { success: true, message: 'CFA Accountability System setup complete' };
 }
 
+/**
+ * Master setup function — safe to re-run. Creates all sheet tabs AND installs
+ * every time-driven trigger under the account running it. Use this on a new
+ * deployment (e.g. after ownership transfer) to get a fresh install up in one
+ * pass. Every sub-step is idempotent. Replaces the manual post-setup checklist.
+ */
+function runInitialSetup() {
+  const steps = [
+    ['Accountability system (sheets + monthly snapshot trigger)', setupAccountabilitySystem],
+    ['Health check trigger', scheduleHealthChecks],
+    ['Log cleanup trigger', scheduleLogCleanupTrigger],
+    ['Password expiration trigger', createPasswordExpirationTrigger],
+    ['Quarterly backup trigger', scheduleQuarterlyBackup],
+    ['Backup test trigger', scheduleBackupTests]
+  ];
+
+  const results = [];
+  for (let i = 0; i < steps.length; i++) {
+    const label = steps[i][0];
+    const fn = steps[i][1];
+    try {
+      fn();
+      results.push('OK  - ' + label);
+    } catch (err) {
+      results.push('ERR - ' + label + ': ' + err.message);
+      console.error('runInitialSetup failed at step "' + label + '":', err);
+    }
+  }
+
+  SpreadsheetApp.flush();
+  const summary = 'runInitialSetup complete:\n' + results.join('\n');
+  console.log(summary);
+  return summary;
+}
+
 // ============================================
 // TAB CREATION
 // ============================================

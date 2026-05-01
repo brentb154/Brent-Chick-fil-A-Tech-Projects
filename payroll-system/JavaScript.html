@@ -1,5 +1,18 @@
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
 // Load Google Charts
 google.charts.load('current', {'packages':['corechart', 'bar']});
 
@@ -44,6 +57,7 @@ function initApp() {
   
   // Load settings first, then initialize UI
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(settings) {
       // Handle null/undefined settings gracefully
       const s = settings || {};
@@ -164,6 +178,7 @@ function loadDashboardData() {
   
   // Load periods first
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(periods) {
       console.log('Periods loaded:', periods);
       AppState.periods = periods || [];
@@ -171,6 +186,7 @@ function loadDashboardData() {
       
       // Then load alerts
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(alerts) {
           console.log('Alerts loaded:', alerts);
           AppState.alerts = alerts || [];
@@ -314,6 +330,7 @@ function loadDashboardTrend(range) {
   }
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(trends) {
       showLoading(false);
       console.log('Trends loaded for range ' + range + ':', trends);
@@ -659,6 +676,7 @@ function exportTimeTransfer(format) {
     showLoading(true);
     
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(result) {
         showLoading(false);
         if (result.success) {
@@ -1087,12 +1105,14 @@ function saveSinglePeriod(overwrite) {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success) {
         // Also save reconciliation records for multi-location employees
         var reconRecords = buildReconRecords(AppState.processedData);
         if (reconRecords.length > 0) {
           google.script.run
+            .withFailureHandler(handleServerError)
             .withSuccessHandler(function(reconResult) {
               showLoading(false);
               var msg = result.message;
@@ -1161,6 +1181,7 @@ function saveBulkPeriods(overwrite) {
     const period = periods[index];
     
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(result) {
         if (result.success || result.error === 'duplicate') {
           savedCount++;
@@ -1168,6 +1189,7 @@ function saveBulkPeriods(overwrite) {
           var periodRecon = buildReconRecords({ allEmployees: period.employees });
           if (periodRecon.length > 0) {
             google.script.run
+              .withFailureHandler(handleServerError)
               .withSuccessHandler(function() {
                 var progress = Math.round(((index + 1) / totalPeriods) * 100);
                 console.log('Progress: ' + progress + '% (' + (index + 1) + '/' + totalPeriods + ')');
@@ -1266,6 +1288,7 @@ function loadPeriodData() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       console.log('Period data result:', result);
@@ -1313,6 +1336,7 @@ function renderPeriodData(data) {
 // ============================================================================
 function loadEmployeeList() {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(names) {
       AppState.employees = names || [];
       const datalist = document.getElementById('employeeList');
@@ -1340,6 +1364,7 @@ function loadEmployeeData(name) {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       console.log('Employee data result:', result);
@@ -1429,6 +1454,7 @@ function loadTrendData() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       console.log('Trend data result:', result);
@@ -1582,6 +1608,7 @@ function loadMonthlyTransfers() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result && result.success) {
@@ -1671,6 +1698,7 @@ function saveSettings(e) {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -1702,6 +1730,7 @@ function exportPeriodPDF() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -1728,6 +1757,7 @@ function exportEmployeePDF() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -1748,6 +1778,7 @@ function exportTrendsPDF() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -2575,6 +2606,7 @@ function loadUniformsTab() {
   // Load size configuration for pants/shorts (async, doesn't block)
   if (!AppState.sizeConfig) {
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(result) {
         if (result.success && result.config) {
           AppState.sizeConfig = result.config;
@@ -2585,6 +2617,7 @@ function loadUniformsTab() {
   
   // Load catalog items
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(items) {
       UniformState.catalog = items || [];
       UniformState.categories = [...new Set(items.map(i => i.category))].sort();
@@ -2616,6 +2649,7 @@ function loadUniformsTab() {
  */
 function loadUniformEmployees() {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(employees) {
       const select = document.getElementById('uniformEmployee');
       if (!select) return;
@@ -2764,6 +2798,7 @@ let employeeSearchRequestId = 0;
 function performEmployeeSearch(query) {
   const requestId = ++employeeSearchRequestId;
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(results) {
       if (requestId !== employeeSearchRequestId) return;
       renderEmployeeSearchResults(results, query);
@@ -2939,6 +2974,7 @@ function handleNewNameInput() {
  */
 function checkForSimilarNames(normalizedName) {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(results) {
       renderSimilarWarning(results);
       
@@ -3033,6 +3069,7 @@ function verifyNewEmployeePasscode() {
   
   // Validate against backend
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(isValid) {
       if (isValid) {
         NewEmployeeState.passcodeVerified = true;
@@ -3165,6 +3202,7 @@ function getEmployeeDataForOrder() {
  */
 function loadPaydays() {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(paydays) {
       UniformState.paydays = paydays || [];
       
@@ -3606,6 +3644,7 @@ function loadLocationAverage() {
   }
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result && result.hasData) {
         UniformState.locationAverage = result.average;
@@ -3722,6 +3761,7 @@ function submitUniformOrder() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -3778,6 +3818,7 @@ function loadUniformOrders() {
   }
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(orders) {
       UniformState.orders = orders || [];
       renderUniformOrders();
@@ -3940,6 +3981,7 @@ function confirmPaymentPlanChange() {
   closePaymentPlanModal();
   showLoading(true);
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result && result.success) {
@@ -3975,6 +4017,7 @@ function cancelOrder(orderId) {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -4069,6 +4112,7 @@ function markOrderReceived(orderId, receivedDateOverride = null) {
   
   showLoading(true);
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -4099,6 +4143,7 @@ function markOrderPayment(orderId) {
   
   showLoading(true);
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -4126,6 +4171,7 @@ let currentModalOrder = null;
 function viewOrderDetails(orderId) {
   showLoading(true);
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       console.log('getOrderDetails returned:', result);
@@ -4501,6 +4547,7 @@ function cancelItemFromModal(lineId, itemName) {
   showLoading(true);
 
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -4569,6 +4616,7 @@ function submitResolveReview(orderId) {
   closeResolveReviewDialog();
   showLoading(true);
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result && result.success) {
@@ -4648,6 +4696,7 @@ function editItemDiscount(lineId, orderId, currentDiscount, unitPrice, quantity)
 function submitItemDiscount(lineId, orderId, newDiscount) {
   showLoading(true);
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -4684,6 +4733,7 @@ function editOrderDiscount(orderId, currentTotal, currentDiscount) {
 function submitOrderDiscount(orderId, newDiscount) {
   showLoading(true);
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -4760,6 +4810,7 @@ ${unreceivedItems.length} unreceived item(s) will be moved to a new pending orde
     }));
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(saveResult) {
       if (!saveResult.success) {
         showLoading(false);
@@ -4769,6 +4820,7 @@ ${unreceivedItems.length} unreceived item(s) will be moved to a new pending orde
       
       // Now activate the order
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(activateResult) {
           showLoading(false);
           if (activateResult.success) {
@@ -4817,6 +4869,7 @@ function loadPayrollDeductions() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -4936,6 +4989,7 @@ function recordEmployeePayments(orderIds) {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -4975,6 +5029,7 @@ function markAllDeductionsPaid() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -5047,6 +5102,7 @@ function toggleCatalogSection() {
  */
 function loadCatalogTable() {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(items) {
       const tbody = document.getElementById('catalogBody');
       if (!tbody) return;
@@ -5084,12 +5140,14 @@ function loadCatalogTable() {
  */
 function toggleCatalogItemActive(itemId, active) {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success) {
         showToast(active ? 'Item activated' : 'Item deactivated', 'success');
         loadCatalogTable();
         // Refresh catalog in state
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(items) {
             UniformState.catalog = items || [];
             populateItemDropdown();
@@ -5309,6 +5367,7 @@ function submitAddCatalogItem(event) {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -5316,6 +5375,7 @@ function submitAddCatalogItem(event) {
         loadCatalogTable();
         // Refresh catalog
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(items) {
             UniformState.catalog = items || [];
             UniformState.categories = [...new Set(items.map(i => i.category))].sort();
@@ -5354,6 +5414,7 @@ function submitAddCatalogItem(event) {
 function showEditCatalogItemModal(itemId) {
   // Find the item in catalog
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(items) {
       const item = items.find(i => i.itemId === itemId);
       if (!item) {
@@ -5587,6 +5648,7 @@ function submitEditCatalogItem(event) {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -5594,6 +5656,7 @@ function submitEditCatalogItem(event) {
         loadCatalogTable();
         // Refresh catalog in state
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(items) {
             UniformState.catalog = items || [];
             UniformState.categories = [...new Set(items.map(i => i.category))].sort();
@@ -5704,6 +5767,7 @@ function silentDashboardRefresh() {
   }
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result && result.success) {
         DashboardState.data = result;
@@ -5744,6 +5808,7 @@ function openPTOForm() {
  */
 function loadDashboardDataNew() {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result && result.success) {
@@ -5772,6 +5837,7 @@ function refreshDashboard() {
   DashboardState.lastLoaded = null; // Force refresh
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (btn) btn.classList.remove('spinning');
       if (result && result.success) {
@@ -6110,6 +6176,7 @@ function initUploadTab() {
   
   // First, load locations from backend
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       console.log('getActiveLocations returned:', result);
       
@@ -6296,6 +6363,7 @@ function initHistoryTab() {
     
     // Load periods from server
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(periods) {
         AppState.periods = periods || [];
         
@@ -6331,6 +6399,7 @@ function initEmployeeTab() {
   loadSettings(function() {
     // Load employee names for autocomplete
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(names) {
         const datalist = document.getElementById('employeeList');
         if (datalist) {
@@ -6371,6 +6440,7 @@ function initTrendsTab() {
   loadSettings(function() {
     // Load periods first
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(periods) {
         AppState.periods = periods || [];
         
@@ -6438,6 +6508,7 @@ function populateLocationDropdowns(dropdownIds) {
   
   // Fetch locations directly from backend (same as employee forms)
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(locations) {
       console.log('Locations loaded for dropdowns:', locations);
       
@@ -6525,6 +6596,7 @@ function initUniformDeductionsView() {
 function initUniformCatalogView() {
   showLoading(true);
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(items) {
       UniformState.catalog = items || [];
       
@@ -6604,6 +6676,7 @@ function scanForDuplicates() {
   container.innerHTML = '<div class="empty-state-small"><span class="material-icons-round">hourglass_empty</span><p>Scanning...</p></div>';
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(duplicates) {
       renderDuplicatesList(duplicates);
     })
@@ -6656,6 +6729,7 @@ function loadEmployeesNeedingReview() {
   
   // First check code version to verify deployment
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(version) {
       console.log('Backend code version:', version);
     })
@@ -6669,6 +6743,7 @@ function loadEmployeesNeedingReview() {
   
   // Try the new function name first (bypasses caching), fall back to old name
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(employees) {
       console.log('fetchEmployeesForReview returned:', employees);
       console.log('Employee count:', employees ? employees.length : 0);
@@ -6676,6 +6751,7 @@ function loadEmployeesNeedingReview() {
         console.error('WARNING: Function returned null - trying fallback');
         // Try the original function name as fallback
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(emp2) {
             console.log('Fallback getEmployeesNeedingReview returned:', emp2);
             renderEmployeesNeedingReview(emp2);
@@ -6693,6 +6769,7 @@ function loadEmployeesNeedingReview() {
       console.error('Error loading employees for review:', error);
       // Function might not exist in old deployment, try original name
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(employees) {
           console.log('Fallback getEmployeesNeedingReview returned:', employees);
           renderEmployeesNeedingReview(employees);
@@ -6742,6 +6819,7 @@ function renderEmployeesNeedingReview(employees) {
  */
 function markEmployeeReviewed(rowIndex) {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success) {
         showToast('Employee marked as reviewed', 'success');
@@ -6765,6 +6843,7 @@ function loadEmployeeAuditLog() {
   if (!container) return;
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(entries) {
       renderEmployeeAuditLog(entries);
     })
@@ -6813,6 +6892,7 @@ function renderEmployeeAuditLog(entries) {
 function showMergeModal(sourceKey, targetKey) {
   // Get merge preview
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(preview) {
       if (!preview.success) {
         showToast('Error: ' + preview.error, 'error');
@@ -6861,6 +6941,7 @@ function executeMerge() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -7044,6 +7125,7 @@ function saveAllSettings(event) {
   };
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -7072,6 +7154,7 @@ function saveAllSettings(event) {
  */
 function loadSizeConfiguration() {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success && result.config) {
         const c = result.config;
@@ -7136,6 +7219,7 @@ function saveSizeConfig() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -7200,6 +7284,7 @@ function sendTestEmail() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -7251,6 +7336,7 @@ function checkWeeklySummaryStatus() {
   if (!statusEl) return;
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.active) {
         statusEl.textContent = '✓ Active';
@@ -7287,6 +7373,7 @@ function setupWeeklySummary() {
   const minute = parseInt(document.getElementById('weeklySummaryMinute')?.value, 10) || 0;
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -7311,6 +7398,7 @@ function disableWeeklySummary() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -7334,6 +7422,7 @@ function testWeeklySummary() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -7361,6 +7450,7 @@ function loadActivityLog() {
   if (!container) return;
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(activities) {
       renderActivityLog(activities);
     })
@@ -7473,6 +7563,7 @@ function loadManagerPasscode() {
   if (!displayInput) return;
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(passcode) {
       displayInput.value = passcode || '03177';
     })
@@ -7519,6 +7610,7 @@ function updateManagerPasscode() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -7547,6 +7639,7 @@ function createBackup() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -7575,6 +7668,7 @@ function downloadBackupJSON() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -7618,6 +7712,7 @@ function loadBackupStatus() {
   const autoBackupStatus = document.getElementById('autoBackupStatus');
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       // Update badge
       if (badge) {
@@ -7697,6 +7792,7 @@ function runBackupNow() {
   showToast('Starting backup... This may take a minute.', 'info');
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (btn) {
         btn.disabled = false;
@@ -7737,6 +7833,7 @@ function toggleAutoBackup(enable) {
   }
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success) {
         showToast(result.message, 'success');
@@ -7765,6 +7862,7 @@ function exportToPDF(reportType, options = {}) {
   showToast('Generating PDF...', 'info');
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -7795,6 +7893,7 @@ function loadSettings(callback) {
   }
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(settings) {
       // Handle null/undefined settings gracefully
       const s = settings || {};
@@ -7826,6 +7925,7 @@ function loadArchiveStatus() {
   if (!statusEl || !badgeEl) return;
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(status) {
       if (status.annualArchiveActive) {
         badgeEl.textContent = '✓ Auto-Archive Active';
@@ -7858,6 +7958,7 @@ function previewArchive() {
   showLoading(true, 'Previewing archive...');
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       
@@ -7903,6 +8004,7 @@ function runManualArchive() {
   showLoading(true, 'Running archive...');
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       
@@ -7930,10 +8032,12 @@ function toggleArchiveTrigger() {
   
   // First check current status
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(status) {
       if (status.annualArchiveActive) {
         // Remove trigger
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             showLoading(false);
             showToast('Auto-archive disabled', 'success');
@@ -7947,6 +8051,7 @@ function toggleArchiveTrigger() {
       } else {
         // Add trigger
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             showLoading(false);
             showToast('Auto-archive enabled! Will run January 1st.', 'success');
@@ -7996,6 +8101,7 @@ function initPTORecordsView() {
  */
 function loadPTOStats() {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(stats) {
       PTOState.stats = stats;
       renderPTOStats(stats);
@@ -8024,6 +8130,7 @@ function renderPTOStats(stats) {
  */
 function loadPayoutPeriodFilter() {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(dates) {
       const select = document.getElementById('ptoPayoutFilter');
       if (!select) return;
@@ -8079,6 +8186,7 @@ function loadPTORecords() {
   if (payoutPeriod) filters.payoutPeriod = payoutPeriod;
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(records) {
       PTOState.records = records || [];
       PTOState.selectedIds.clear();
@@ -8333,6 +8441,7 @@ function markSinglePTOPaid(ptoId) {
   
   showLoading(true);
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -8377,6 +8486,7 @@ function updateBatchPayPreview() {
   
   // Get pending records for this pay period
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(records) {
       const preview = document.getElementById('batchPayPreview');
       const count = document.getElementById('batchPayCount');
@@ -8414,6 +8524,7 @@ function executeBatchPay() {
   
   // Get all pending PTO IDs for this period
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(records) {
       const ptoIds = records.map(r => r.ptoId);
       if (ptoIds.length === 0) {
@@ -8424,6 +8535,7 @@ function executeBatchPay() {
       
       showLoading(true);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           closeBatchPayModal();
@@ -8486,6 +8598,7 @@ function saveEditPTO() {
   
   showLoading(true);
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       closeEditPTOModal();
@@ -8517,6 +8630,7 @@ function deletePTO(ptoId) {
   
   showLoading(true);
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -8592,6 +8706,7 @@ function initPTOSummaryView() {
  */
 function loadPTOSummaryData() {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(data) {
       if (data && data.success) {
         renderPTOSummary(data);
@@ -8787,6 +8902,7 @@ function initUniformSummaryView() {
  */
 function loadUniformSummaryData() {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(data) {
       if (data && data.success) {
         renderUniformSummary(data);
@@ -9046,6 +9162,7 @@ function runPayrollValidationCheck() {
     if (refreshBtn) refreshBtn.disabled = true;
     
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(result) {
         console.log('Validation result:', result);
         if (refreshBtn) refreshBtn.disabled = false;
@@ -9243,6 +9360,7 @@ function dismissValidationCheck(checkId) {
 
   // Persist to spreadsheet
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function() {
       showToast('Check dismissed and saved', 'success');
     })
@@ -9287,6 +9405,7 @@ function runReconciliation() {
   if (reconcileBtn) reconcileBtn.disabled = true;
 
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (reconcileBtn) reconcileBtn.disabled = false;
       renderReconciliationResult(result);
@@ -9373,6 +9492,7 @@ function applyReconciliation() {
   applyBtn.innerHTML = '<span class="spinner" style="width: 14px; height: 14px;"></span> Applying...';
 
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       applyBtn.disabled = false;
       applyBtn.innerHTML = '<span class="material-icons-round" style="font-size: 16px;">check_circle</span> Apply Fixes';
@@ -9418,6 +9538,7 @@ function escapeHtml(text) {
  */
 function loadPayrollDates() {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(dates) {
       const select = document.getElementById('payrollDateSelect');
       if (!select) return;
@@ -9506,6 +9627,7 @@ function generatePayrollReport() {
   btn.innerHTML = '<span class="spinner" style="width: 16px; height: 16px;"></span> Generating...';
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(report) {
       btn.disabled = false;
       btn.innerHTML = '<span class="material-icons-round" style="font-size: 18px;">assessment</span> Generate Report';
@@ -9583,6 +9705,7 @@ function renderPayrollReport(report) {
     reconContent.innerHTML = '<div style="text-align:center; padding:20px; color:var(--gray-400);"><span class="material-icons-round" style="font-size:24px;">hourglass_top</span><br>Loading reconciliation data...</div>';
     reconSection.style.display = '';
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(reconData) {
         if (reconData && reconData.success !== false) {
           renderOTReconciliationSection(reconData);
@@ -10309,6 +10432,7 @@ function processPTOPaymentCheck(ptoId) {
   if (cb) cb.disabled = true;
 
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success) {
         PayrollState.checkStates.pto[ptoId] = true;
@@ -10375,6 +10499,7 @@ function processUniformPaymentCheck(employeeKey) {
   if (cb) cb.disabled = true;
 
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success || result.recorded > 0) {
         PayrollState.checkStates.uniform[employeeKey] = true;
@@ -10454,6 +10579,7 @@ function batchProcessPTOPayments() {
   var payrollDate = PayrollState.selectedPayrollDate || '';
 
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success || result.updatedCount > 0) {
         ptoIds.forEach(function(id) { PayrollState.checkStates.pto[id] = true; });
@@ -10517,6 +10643,7 @@ function batchProcessUniformPayments() {
   checkboxes.forEach(function(cb) { cb.disabled = true; });
 
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success || result.recorded > 0) {
         employeeKeys.forEach(function(key) { PayrollState.checkStates.uniform[key] = true; });
@@ -10573,6 +10700,7 @@ function executeSkipPayment(orderId) {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -10714,6 +10842,7 @@ function executeMarkComplete() {
   var allSkipIds = getFullSkipList();
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       showLoading(false);
       if (result.success) {
@@ -10761,6 +10890,7 @@ function exportReportHTML() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(html) {
       showLoading(false);
       
@@ -10790,6 +10920,7 @@ function exportReportCSV() {
   showLoading(true);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(csvContent) {
       showLoading(false);
       
@@ -10874,6 +11005,7 @@ function runHealthCheck() {
   }, 15000);
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       console.log('Health check SUCCESS handler called');
       console.log('Result received:', result);
@@ -11348,6 +11480,7 @@ function loadPayrollCalendar() {
   if (!container) return;
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(data) {
       if (data && data.success) {
         renderPayrollCalendarWidget(data, container);
@@ -11479,6 +11612,7 @@ const CalendarState = {
 function initPayrollCalendarView() {
   // Load calendar data
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(data) {
       if (data && data.success) {
         CalendarState.calendarData = data;
@@ -11697,6 +11831,7 @@ function togglePastPaydays() {
     container.innerHTML = '<div class="calendar-loading"><div class="spinner" style="width: 24px; height: 24px;"></div></div>';
     
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(data) {
         CalendarState.pastPaydays = data;
         renderPastPaydays(data);
@@ -11752,6 +11887,7 @@ function showDayDetail(dateStr) {
   
   // Get details for this date
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(data) {
       renderDayDetail(data);
     })
@@ -11835,6 +11971,7 @@ function initYearEndWizardView() {
   
   // Load saved progress
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success && result.status) {
         wizardState = Object.assign(wizardState, result.status);
@@ -11954,6 +12091,7 @@ function refreshReviewIssues() {
   contentEl.innerHTML = '<div class="loading-state"><span class="loading-spinner"></span><span>Loading issues to review...</span></div>';
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       renderReviewIssues(result);
     })
@@ -12104,6 +12242,7 @@ function markSelectedEmployeesInactive() {
   }
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success) {
         showToast(result.count + ' employee' + (result.count > 1 ? 's' : '') + ' marked as inactive', 'success');
@@ -12179,6 +12318,7 @@ function loadAnnualReports() {
   contentEl.innerHTML = '<div class="loading-state"><span class="loading-spinner"></span><span>Generating reports...</span></div>';
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       renderAnnualReports(result);
     })
@@ -12257,6 +12397,7 @@ function exportReportsToDrive() {
   }
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success) {
         // Show success modal
@@ -12333,6 +12474,7 @@ function runArchive() {
   }
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       wizardState.archiveData = result;
       
@@ -12384,6 +12526,7 @@ function runYearEndBackup() {
   }
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       wizardState.backupData = result;
       
@@ -12484,6 +12627,7 @@ function sendSummaryEmail() {
   };
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success) {
         showToast('Summary email sent!', 'success');

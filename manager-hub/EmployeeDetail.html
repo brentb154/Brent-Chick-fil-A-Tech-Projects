@@ -1249,6 +1249,19 @@
   </div>
 
   <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
     // ============================================
     // GLOBAL VARIABLES
     // ============================================
@@ -1313,6 +1326,7 @@
         }
       }, 1500);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           didNavigate = true;
           clearTimeout(fallbackTimer);
@@ -1344,8 +1358,10 @@
     function logout() {
       const token = getSessionToken();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function() {
           google.script.run
+            .withFailureHandler(handleServerError)
             .withSuccessHandler(function(url) {
               redirectTo(url + '?page=login');
             })
@@ -1370,6 +1386,7 @@
       const language = select.value;
       sessionStorage.setItem('cfa_language', language);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             applyDetailTranslations(language);
@@ -1486,6 +1503,7 @@
       const message = 'Your session has expired. Please log in again.';
       alert(message);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           redirectTo(url + '?page=login');
         })
@@ -1530,6 +1548,7 @@
         'detail.notes_placeholder'
       ];
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           const t = result || {};
           document.getElementById('detailDashboardBtn').textContent = t['nav.dashboard'] || 'Dashboard';
@@ -1671,6 +1690,7 @@
      */
     function loadDirectorNames() {
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.success && result.directors) {
             const select = document.getElementById('directorNameSelect');
@@ -1855,6 +1875,7 @@
      */
     function saveActionTracking(actionType, completed, date, notes) {
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.success) {
             // Update display
@@ -1892,6 +1913,7 @@
     function saveDirectorNotes() {
       const notes = document.getElementById('directorNotes').value;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           // Silent save
         })
@@ -2001,6 +2023,7 @@
       if (descVal) editData.description = descVal;
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.success) {
             alert('Infraction updated successfully');
@@ -2058,6 +2081,7 @@
       }
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.success) {
             alert(result.message);
@@ -2134,6 +2158,7 @@
       }
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.success) {
             alert(result.message);
@@ -2212,6 +2237,7 @@
       submitBtn.textContent = 'Giving Credit...';
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           submitBtn.disabled = false;
           submitBtn.textContent = 'Give Credit';
@@ -2279,6 +2305,7 @@
       const reason = reasonType + (notes ? ': ' + notes : '');
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.success) {
             alert(result.message);
@@ -2311,6 +2338,7 @@
       btn.textContent = 'Generating PDF...';
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           btn.disabled = false;
           btn.textContent = '&#128196; Export Write-Up PDF';

@@ -119,14 +119,15 @@
     .line-items-table thead th{background:var(--gray-100);padding:10px 14px;font-size:12px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:1px solid var(--gray-200);}
     .line-items-table thead th:first-child{border-radius:8px 0 0 0;}
     .line-items-table thead th:last-child{border-radius:0 8px 0 0;text-align:right;}
-    .line-items-table thead th:nth-child(3),.line-items-table thead th:nth-child(2){text-align:center;}
+    .line-items-table thead th:nth-child(2),.line-items-table thead th:nth-child(3),.line-items-table thead th:nth-child(4),.line-items-table thead th:nth-child(5){text-align:center;}
     .line-items-table tbody td{padding:6px 8px;border-bottom:1px solid var(--gray-100);vertical-align:top;}
     .line-items-table tbody td:last-child{text-align:right;font-family:var(--mono);font-size:14px;vertical-align:middle;}
-    .line-items-table tbody td:nth-child(2),.line-items-table tbody td:nth-child(3){text-align:center;vertical-align:middle;}
+    .line-items-table tbody td:nth-child(2),.line-items-table tbody td:nth-child(3),.line-items-table tbody td:nth-child(4),.line-items-table tbody td:nth-child(5){text-align:center;vertical-align:middle;}
+    .line-items-table .line-item-discount-type{padding:6px 4px;font-size:13px;}
     .line-items-table .form-input{padding:8px 10px;font-size:14px;}
     .line-items-table .form-input[type="number"]{width:80px;text-align:center;}
     .line-items-table .price-input{width:100px;text-align:right;font-family:var(--mono);}
-    .line-items-table .ext-amount{font-weight:600;color:var(--gray-700);min-width:90px;vertical-align:middle;}
+    .line-items-table .ext-amount{font-weight:600;color:var(--gray-700);min-width:90px;vertical-align:middle;text-align:right;font-family:var(--mono);font-size:13px;}
     .line-items-table .row-delete{width:36px;height:36px;border:none;background:transparent;color:var(--gray-400);cursor:pointer;border-radius:6px;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
     .line-items-table .row-delete:hover{background:var(--danger-light);color:var(--danger);}
     .custom-item-input{width:100%;margin-top:4px;}
@@ -273,11 +274,15 @@
         <div class="card-title"><span class="icon green">📋</span> Line Items</div>
         <div class="table-scroll-wrapper">
           <table class="line-items-table" id="lineItemsTable">
-            <thead><tr><th style="width:40%">Description</th><th style="width:12%">Qty</th><th style="width:18%">Price/Item</th><th style="width:18%">Amount</th><th style="width:12%"></th></tr></thead>
+            <thead><tr><th style="width:32%">Description</th><th style="width:9%">Qty</th><th style="width:14%">Price/Item</th><th style="width:9%">Disc</th><th style="width:8%">Type</th><th style="width:18%">Amount</th><th style="width:10%"></th></tr></thead>
             <tbody id="lineItemsBody"></tbody>
           </table>
         </div>
         <button class="btn btn-secondary btn-sm" style="margin-top:12px;" onclick="addLineItemRow()">＋ Add Row</button>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="icon blue">📝</span> Notes</div>
+        <textarea class="form-input" id="quoteNotes" rows="3" style="resize:vertical;min-height:72px;" placeholder="Internal context, customer requests, delivery instructions…"></textarea>
       </div>
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">
@@ -287,6 +292,8 @@
           </div>
           <div class="totals-table">
             <div class="totals-row subtotal"><span class="totals-label">Subtotal</span><span class="totals-amount" id="subtotalDisplay">$0.00</span></div>
+            <div class="totals-row" id="itemDiscountsRow" style="display:none;"><span class="totals-label">Item Discounts</span><span class="totals-amount" id="itemDiscountsDisplay">−$0.00</span></div>
+            <div class="totals-row"><span class="totals-label">Order Discount <input type="number" class="tax-rate-inline" id="orderDiscountInput" value="0" step="0.01" min="0" oninput="recalcTotals()"><select class="tax-rate-inline" id="orderDiscountTypeInput" style="width:auto;padding:4px 6px;" onchange="recalcTotals()"><option value="percent">%</option><option value="dollar">$</option></select></span><span class="totals-amount" id="orderDiscountDisplay">−$0.00</span></div>
             <div class="totals-row tax"><span class="totals-label">Sales Tax <input type="number" class="tax-rate-inline" id="taxRateInput" value="8.25" step="0.01" min="0" max="99" onchange="recalcTotals()">%</span><span class="totals-amount" id="taxDisplay">$0.00</span></div>
             <div class="totals-row total"><span class="totals-label">Total</span><span class="totals-amount" id="totalDisplay">$0.00</span></div>
           </div>
@@ -303,7 +310,7 @@
     <!-- ═══ VIEW 2: HISTORY ═══ -->
     <section id="view-history" class="view">
       <div class="card">
-        <div class="card-title"><span class="icon red">📁</span> Quote History <span style="font-weight:400;color:var(--gray-400);font-size:13px;margin-left:8px;">(Last 30 days)</span></div>
+        <div class="card-title"><span class="icon red">📁</span> Quote History</div>
         <div class="search-bar"><span class="search-icon">🔍</span><input type="text" placeholder="Search by customer, contact, or quote ID…" id="historySearch" oninput="filterHistory()"></div>
         <div id="historyList"><div class="empty-state"><div class="empty-icon">📭</div><p>No quotes yet.</p></div></div>
       </div>
@@ -435,6 +442,19 @@
 <div class="modal-overlay" id="quoteDetailModal"><div class="modal-box"><div class="modal-header"><h2 id="modalQuoteId">Quote Details</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div id="modalBody"></div><div class="modal-actions" id="modalActions"></div><div class="email-prompt" id="modalEmailPrompt"><div style="font-weight:600;font-size:14px;margin-bottom:10px;color:var(--gray-700);">✉️ Send Quote by Email</div><div class="email-prompt-row"><div class="form-group"><label class="form-label">Recipient Email</label><input type="email" class="form-input" id="modalEmailInput" placeholder="customer@example.com"></div><button class="btn btn-blue" onclick="sendEmailFromModal()">Send</button></div></div></div></div>
 
 <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
 // ══════════════════════════════════════════════════════════════
 // APPLICATION JAVASCRIPT
 // ══════════════════════════════════════════════════════════════
@@ -705,7 +725,9 @@ function addLineItemRow() {
   tr.insertAdjacentHTML('beforeend',
     '<td><input type="number" class="form-input line-item-qty" min="0" step="1" value="" placeholder="0" oninput="calcRowAmount(this.closest(\'.line-item-row\'));recalcTotals();"></td>' +
     '<td><input type="number" class="form-input price-input line-item-price" min="0" step="0.01" value="" placeholder="0.00" oninput="calcRowAmount(this.closest(\'.line-item-row\'));recalcTotals();"></td>' +
-    '<td class="ext-amount" data-amount="0">$0.00</td>' +
+    '<td><input type="number" class="form-input line-item-discount" min="0" step="0.01" value="" placeholder="0" oninput="calcRowAmount(this.closest(\'.line-item-row\'));recalcTotals();"></td>' +
+    '<td><select class="form-input line-item-discount-type" onchange="calcRowAmount(this.closest(\'.line-item-row\'));recalcTotals();"><option value="percent">%</option><option value="dollar">$</option></select></td>' +
+    '<td class="ext-amount" data-amount="0" data-gross="0" data-disc="0">$0.00</td>' +
     '<td><button class="row-delete" onclick="deleteLineRow(this)" title="Remove">✕</button></td>');
   body.appendChild(tr);
 }
@@ -713,16 +735,40 @@ function addLineItemRow() {
 function calcRowAmount(row) {
   var q = parseFloat(row.querySelector('.line-item-qty').value) || 0;
   var p = parseFloat(row.querySelector('.line-item-price').value) || 0;
-  var c = row.querySelector('.ext-amount'); c.dataset.amount = q*p; c.textContent = '$'+(q*p).toFixed(2);
+  var dv = parseFloat(row.querySelector('.line-item-discount').value) || 0;
+  var dt = row.querySelector('.line-item-discount-type').value || 'percent';
+  var gross = q * p;
+  var disc = dt === 'percent' ? gross * (dv/100) : Math.min(dv, gross);
+  if (disc < 0) disc = 0;
+  var net = gross - disc;
+  var c = row.querySelector('.ext-amount');
+  c.dataset.gross = gross;
+  c.dataset.disc = disc;
+  c.dataset.amount = net;
+  c.textContent = disc > 0 ? '$'+net.toFixed(2)+' (−$'+disc.toFixed(2)+')' : '$'+net.toFixed(2);
 }
 function deleteLineRow(btn) { btn.closest('.line-item-row').remove(); recalcTotals(); }
 function recalcTotals() {
-  var sub = 0; document.querySelectorAll('.ext-amount').forEach(function(c) { sub += parseFloat(c.dataset.amount)||0; });
-  var tr = parseFloat(document.getElementById('taxRateInput').value)||0;
-  var ta = isTaxExempt ? 0 : sub*(tr/100);
-  document.getElementById('subtotalDisplay').textContent = '$'+sub.toFixed(2);
+  var subGross = 0, itemDisc = 0;
+  document.querySelectorAll('.ext-amount').forEach(function(c) {
+    subGross += parseFloat(c.dataset.gross) || 0;
+    itemDisc += parseFloat(c.dataset.disc) || 0;
+  });
+  var afterItemDisc = subGross - itemDisc;
+  var odv = parseFloat(document.getElementById('orderDiscountInput').value) || 0;
+  var odt = document.getElementById('orderDiscountTypeInput').value || 'percent';
+  var orderDisc = odt === 'percent' ? afterItemDisc * (odv/100) : Math.min(odv, afterItemDisc);
+  if (orderDisc < 0) orderDisc = 0;
+  var taxable = afterItemDisc - orderDisc;
+  var tr = parseFloat(document.getElementById('taxRateInput').value) || 0;
+  var ta = isTaxExempt ? 0 : taxable * (tr/100);
+  document.getElementById('subtotalDisplay').textContent = '$'+subGross.toFixed(2);
+  var idRow = document.getElementById('itemDiscountsRow');
+  if (itemDisc > 0) { idRow.style.display = ''; document.getElementById('itemDiscountsDisplay').textContent = '−$'+itemDisc.toFixed(2); }
+  else { idRow.style.display = 'none'; }
+  document.getElementById('orderDiscountDisplay').textContent = '−$'+orderDisc.toFixed(2);
   document.getElementById('taxDisplay').textContent = isTaxExempt?'$0.00':'$'+ta.toFixed(2);
-  document.getElementById('totalDisplay').textContent = '$'+(sub+ta).toFixed(2);
+  document.getElementById('totalDisplay').textContent = '$'+(taxable+ta).toFixed(2);
 }
 function toggleTaxExempt() { isTaxExempt = !isTaxExempt; document.getElementById('taxExemptToggle').classList.toggle('active',isTaxExempt); recalcTotals(); }
 function toggleNoPO() {
@@ -760,19 +806,35 @@ function collectFormData() {
     var custom = picker.querySelector('.custom-item-input');
     var qty = parseFloat(row.querySelector('.line-item-qty').value)||0;
     var price = parseFloat(row.querySelector('.line-item-price').value)||0;
+    var dv = parseFloat(row.querySelector('.line-item-discount').value)||0;
+    var dt = row.querySelector('.line-item-discount-type').value || 'percent';
     var desc = val === '__custom__' ? custom.value.trim() : val;
-    if (desc && qty > 0) li.push({description:desc, quantity:qty, price:price, amount:qty*price});
+    if (desc && qty > 0) {
+      var gross = qty * price;
+      var disc = dt === 'percent' ? gross*(dv/100) : Math.min(dv, gross);
+      if (disc < 0) disc = 0;
+      li.push({description:desc, quantity:qty, price:price, amount:gross, discountValue:dv, discountType:dt, discountAmount:disc});
+    }
   });
-  var sub = 0; li.forEach(function(i) { sub += i.amount; });
+  var subGross = 0, itemDisc = 0;
+  li.forEach(function(i) { subGross += i.amount; itemDisc += (i.discountAmount||0); });
+  var afterItemDisc = subGross - itemDisc;
+  var odv = parseFloat(document.getElementById('orderDiscountInput').value)||0;
+  var odt = document.getElementById('orderDiscountTypeInput').value || 'percent';
+  var orderDisc = odt === 'percent' ? afterItemDisc*(odv/100) : Math.min(odv, afterItemDisc);
+  if (orderDisc < 0) orderDisc = 0;
+  var taxable = afterItemDisc - orderDisc;
   var tr = parseFloat(document.getElementById('taxRateInput').value)||0;
-  var ta = isTaxExempt ? 0 : sub*(tr/100);
+  var ta = isTaxExempt ? 0 : taxable*(tr/100);
   var d = {
     customerName:document.getElementById('customerName').value.trim(),
     contactName:document.getElementById('contactPerson').value.trim(),
     customerEmail:document.getElementById('customerEmail').value.trim(),
     orderType:currentOrderType, deliveryAddress:document.getElementById('orderAddress').value.trim(),
     date:document.getElementById('quoteDate').value, time:document.getElementById('quoteTime').value,
-    lineItems:li, subtotal:sub, taxRate:tr, taxAmount:ta, total:sub+ta,
+    lineItems:li, subtotal:subGross, taxRate:tr, taxAmount:ta, total:taxable+ta,
+    itemDiscountTotal:itemDisc, orderDiscountValue:odv, orderDiscountType:odt, orderDiscountAmount:orderDisc,
+    quoteNotes:document.getElementById('quoteNotes').value,
     taxExempt:isTaxExempt, locationName:appSettings['Store Name (Active)']||'',
     poNumber: noPONeeded ? 'NO_PO_NEEDED' : document.getElementById('poNumber').value.trim()
   };
@@ -802,8 +864,17 @@ function previewAndPrint() { if (!validateForm()) return; var d = collectFormDat
 }
 function generatePDFFromQuote(q) { showSpinner();
   var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){}
-  var d={customerName:q.customerName,contactName:q.contactName,orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId,poNumber:q.poNumber||''};
+  var oda=computeOrderDiscount(li, q.orderDiscountValue, q.orderDiscountType);
+  var d={customerName:q.customerName,contactName:q.contactName,orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId,poNumber:q.poNumber||'',orderDiscountValue:parseFloat(q.orderDiscountValue)||0,orderDiscountType:q.orderDiscountType||'percent',orderDiscountAmount:oda,quoteNotes:q.quoteNotes||''};
   google.script.run.withSuccessHandler(function(pd) { hideSpinner(); pd.quoteId=q.quoteId; pd.poNumber=q.poNumber||''; openPrintWindow(pd); }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).getPrintData(d);
+}
+function computeOrderDiscount(lineItems, value, type) {
+  var subGross=0, itemDisc=0;
+  (lineItems||[]).forEach(function(i){ subGross+=parseFloat(i.amount)||0; itemDisc+=parseFloat(i.discountAmount)||0; });
+  var after=subGross-itemDisc;
+  var v=parseFloat(value)||0; var t=type||'percent';
+  var d=t==='percent'?after*(v/100):Math.min(v,after);
+  return d<0?0:d;
 }
 // ── Email Preview Modal ──
 var pendingEmailQuoteData = null;
@@ -841,6 +912,7 @@ function sendEmailPreview() {
   var cb = pendingEmailCallback;
   showSpinner(); closeEmailPreview();
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function() { hideSpinner(); showToast('Email sent to '+email+'!','success'); if (cb) cb(); })
     .withFailureHandler(function(e) { hideSpinner(); showToast('Email failed: '+e.message,'error'); })
     .sendQuoteEmailDirect(q, email, subj, body);
@@ -852,16 +924,31 @@ function sendEmailFromModal() {
   if (!email) { showToast('Enter an email address.','error'); return; }
   var q = currentModalQuote; if (!q) return;
   var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){}
-  var d={customerName:q.customerName,contactName:q.contactName,customerEmail:email,orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId};
+  var oda=computeOrderDiscount(li, q.orderDiscountValue, q.orderDiscountType);
+  var d={customerName:q.customerName,contactName:q.contactName,customerEmail:email,orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId,orderDiscountValue:parseFloat(q.orderDiscountValue)||0,orderDiscountType:q.orderDiscountType||'percent',orderDiscountAmount:oda,quoteNotes:q.quoteNotes||''};
   closeModal();
-  openEmailPreview(d, function() { google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes(); });
+  openEmailPreview(d, function() { google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(q){allQuotes=q;}).getQuotes(); });
 }
 
 // ── Print Window ──
 function openPrintWindow(data) {
   var win = window.open('','_blank','width=850,height=1100');
   if (!win) { showToast('Pop-up blocked! Allow pop-ups for this site.','error'); return; }
-  var liH=''; (data.lineItems||[]).forEach(function(i) { liH+='<tr><td style="text-align:center;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-size:14px;">'+i.quantity+'</td><td style="padding:10px 12px;border-bottom:1px solid #E5E7EB;font-size:14px;">'+escHtml(i.description)+'</td><td style="text-align:right;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-family:monospace;font-size:14px;">$'+(i.price||0).toFixed(2)+'</td><td style="text-align:right;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-family:monospace;font-size:14px;font-weight:600;">$'+(i.amount||0).toFixed(2)+'</td></tr>'; });
+  var liH=''; (data.lineItems||[]).forEach(function(i) {
+    var da=parseFloat(i.discountAmount)||0;
+    var net=(parseFloat(i.amount)||0)-da;
+    var descHtml=escHtml(i.description)+(da>0?'<div style="font-size:12px;color:#6B7280;font-style:italic;margin-top:2px;">Discount: −$'+da.toFixed(2)+'</div>':'');
+    liH+='<tr><td style="text-align:center;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-size:14px;">'+i.quantity+'</td><td style="padding:10px 12px;border-bottom:1px solid #E5E7EB;font-size:14px;">'+descHtml+'</td><td style="text-align:right;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-family:monospace;font-size:14px;">$'+(i.price||0).toFixed(2)+'</td><td style="text-align:right;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-family:monospace;font-size:14px;font-weight:600;">$'+net.toFixed(2)+'</td></tr>';
+  });
+  var itemDiscTotal=0; (data.lineItems||[]).forEach(function(i){itemDiscTotal+=parseFloat(i.discountAmount)||0;});
+  var orderDiscAmt=parseFloat(data.orderDiscountAmount)||0;
+  var discRowsHtml='';
+  if (itemDiscTotal>0) discRowsHtml+='<tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">ITEM DISCOUNTS</td><td style="padding:8px 16px;text-align:right;font-family:monospace;font-size:14px;">−$'+itemDiscTotal.toFixed(2)+'</td></tr>';
+  if (orderDiscAmt>0) {
+    var odLbl='ORDER DISCOUNT'+(data.orderDiscountType==='percent'&&data.orderDiscountValue?' ('+data.orderDiscountValue+'%)':'');
+    discRowsHtml+='<tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">'+odLbl+'</td><td style="padding:8px 16px;text-align:right;font-family:monospace;font-size:14px;">−$'+orderDiscAmt.toFixed(2)+'</td></tr>';
+  }
+  var notesHtml=data.quoteNotes?'<div style="background:#FFFBEB;border-left:3px solid #D97706;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#374151;border-radius:4px;"><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#6B7280;margin-bottom:4px;">Notes</div>'+escHtml(data.quoteNotes).split('\n').join('<br>')+'</div>':'';
   var tl=data.taxExempt?'<tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">TAX EXEMPT</td><td style="padding:8px 16px;text-align:right;font-family:monospace;font-size:14px;">$0.00</td></tr>':'<tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SALES TAX ('+(data.taxRate||0)+'%)</td><td style="padding:8px 16px;text-align:right;font-family:monospace;font-size:14px;">$'+(data.taxAmount||0).toFixed(2)+'</td></tr>';
   var ad=data.orderType==='Delivery'?(data.deliveryAddress||''):(data.storeAddress||'');
   var lo=data.logo?'<img src="'+data.logo+'" style="max-width:140px;max-height:80px;margin-bottom:8px;" alt="Logo">':'<div style="font-size:24px;font-weight:800;color:#E51636;margin-bottom:8px;">Chick-fil-A</div>';
@@ -869,7 +956,8 @@ function openPrintWindow(data) {
     '<div class="no-print" style="text-align:center;margin-bottom:24px;padding:16px;background:#F9FAFB;border-radius:10px;"><button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button><p style="font-size:13px;color:#6B7280;margin-top:8px;">Use "Save as PDF" in the print dialog.</p></div>'+
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+lo+'<div style="font-size:16px;font-weight:700;">'+escHtml(data.storeName||'')+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+escHtml(data.storeAddress||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.storePhone||'')+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:monospace;">'+escHtml(data.quoteId||'')+'</div>'+(data.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+escHtml(data.poNumber)+'</div>':'')+'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Date: '+escHtml(data.date||'')+'</div>'+(data.time?'<div style="font-size:13px;color:#6B7280;">Time: '+escHtml(data.time)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+escHtml(data.customerName||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.orderType||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(ad)+'</div><div style="font-size:13px;font-weight:600;margin-top:4px;">'+escHtml(data.contactPerson||'')+'</div></div></div>'+
     '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><thead><tr style="background:#F3F4F6;"><th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:10%;">QTY</th><th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:50%;">DESCRIPTION</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:18%;">PRICE/ITEM</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:22%;">AMOUNT</th></tr></thead><tbody>'+liH+'</tbody></table>'+
-    '<div style="display:flex;justify-content:space-between;align-items:flex-end;"><div style="font-size:13px;color:#6B7280;max-width:320px;">If you have any questions concerning this Quote, contact:<br><strong style="color:#1F2937;">'+escHtml(data.contactName||'')+' at '+escHtml(data.storePhone||'')+'</strong></div><table style="width:280px;background:#F9FAFB;border-radius:8px;overflow:hidden;"><tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SUBTOTAL</td><td style="padding:8px 16px;text-align:right;font-family:monospace;font-size:14px;">$'+(data.subtotal||0).toFixed(2)+'</td></tr>'+tl+'<tr style="background:#E5E7EB;"><td style="padding:10px 16px;font-size:15px;font-weight:700;">TOTAL</td><td style="padding:10px 16px;text-align:right;font-family:monospace;font-size:16px;font-weight:700;">$'+(data.total||0).toFixed(2)+'</td></tr></table></div></body></html>';
+    notesHtml+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-end;"><div style="font-size:13px;color:#6B7280;max-width:320px;">If you have any questions concerning this Quote, contact:<br><strong style="color:#1F2937;">'+escHtml(data.contactName||'')+' at '+escHtml(data.storePhone||'')+'</strong></div><table style="width:280px;background:#F9FAFB;border-radius:8px;overflow:hidden;"><tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SUBTOTAL</td><td style="padding:8px 16px;text-align:right;font-family:monospace;font-size:14px;">$'+(data.subtotal||0).toFixed(2)+'</td></tr>'+discRowsHtml+tl+'<tr style="background:#E5E7EB;"><td style="padding:10px 16px;font-size:15px;font-weight:700;">TOTAL</td><td style="padding:10px 16px;text-align:right;font-family:monospace;font-size:16px;font-weight:700;">$'+(data.total||0).toFixed(2)+'</td></tr></table></div></body></html>';
   win.document.write(h); win.document.close();
 }
 
@@ -884,6 +972,9 @@ function resetForm() {
   document.getElementById('noPOToggle').classList.remove('active');
   document.querySelectorAll('.order-type-btn').forEach(function(b){b.classList.toggle('active',b.dataset.type==='Pickup');});
   updateAddressField(); document.getElementById('taxRateInput').value=appSettings['Default Tax Rate (%)']||8.25;
+  document.getElementById('orderDiscountInput').value='0';
+  document.getElementById('orderDiscountTypeInput').value='percent';
+  document.getElementById('quoteNotes').value='';
   buildLineItemRows(8); recalcTotals();
   document.querySelectorAll('.error-msg').forEach(function(e){e.classList.remove('show');});
   document.querySelectorAll('.form-input.error').forEach(function(e){e.classList.remove('error');});
@@ -931,8 +1022,31 @@ function openQuoteDetail(idx) {
     calHtml='<div class="detail-field" style="grid-column:1/-1;"><label>Calendar Event</label><p style="margin-top:4px;">'+poStatus+' \u2014 Event synced to calendar</p></div>';
   }
   var h='<div class="detail-grid"><div class="detail-field"><label>Customer</label><p>'+escHtml(q.customerName)+'</p></div><div class="detail-field"><label>Contact</label><p>'+escHtml(q.contactName)+'</p></div><div class="detail-field"><label>Event Date</label><p>'+(eds?(eds+(ets?' at '+ets:'')):'—')+'</p></div><div class="detail-field"><label>Quote Created</label><p>'+ds+'</p></div><div class="detail-field"><label>Order Type</label><p>'+escHtml(q.orderType)+'</p></div><div class="detail-field"><label>Location</label><p>'+escHtml(q.locationName||'')+'</p></div>'+(q.customerEmail?'<div class="detail-field"><label>Email</label><p>'+escHtml(q.customerEmail)+'</p></div>':'')+(q.orderType==='Delivery'?'<div class="detail-field"><label>Delivery Address</label><p>'+escHtml(q.deliveryAddress)+'</p></div>':'')+poHtml+calHtml+'</div>';
-  if (li.length) { h+='<table class="detail-items-table"><thead><tr><th>Qty</th><th>Description</th><th>Price</th><th>Amount</th></tr></thead><tbody>'; li.forEach(function(i){h+='<tr><td>'+i.quantity+'</td><td>'+escHtml(i.description)+'</td><td style="font-family:var(--mono);">$'+(i.price||0).toFixed(2)+'</td><td style="font-family:var(--mono);">$'+(i.amount||0).toFixed(2)+'</td></tr>';}); h+='</tbody></table>'; }
-  h+='<div style="display:flex;justify-content:flex-end;margin-top:12px;"><div class="totals-table"><div class="totals-row subtotal"><span class="totals-label">Subtotal</span><span class="totals-amount">$'+(parseFloat(q.subtotal)||0).toFixed(2)+'</span></div><div class="totals-row tax"><span class="totals-label">'+(te?'Tax Exempt':'Tax ('+q.taxRateUsed+'%)')+'</span><span class="totals-amount">$'+(parseFloat(q.taxAmount)||0).toFixed(2)+'</span></div><div class="totals-row total"><span class="totals-label">Total</span><span class="totals-amount">$'+(parseFloat(q.total)||0).toFixed(2)+'</span></div></div></div>';
+  if (li.length) { h+='<table class="detail-items-table"><thead><tr><th>Qty</th><th>Description</th><th>Price</th><th>Amount</th></tr></thead><tbody>'; li.forEach(function(i){
+    var da=parseFloat(i.discountAmount)||0;
+    var net=(parseFloat(i.amount)||0)-da;
+    var descCell='<td>'+escHtml(i.description)+(da>0?'<div style="font-size:11px;color:#9CA3AF;font-style:italic;margin-top:2px;">Discount: −$'+da.toFixed(2)+'</div>':'')+'</td>';
+    h+='<tr><td>'+i.quantity+'</td>'+descCell+'<td style="font-family:var(--mono);">$'+(i.price||0).toFixed(2)+'</td><td style="font-family:var(--mono);">$'+net.toFixed(2)+'</td></tr>';
+  }); h+='</tbody></table>'; }
+  if (q.quoteNotes) {
+    h+='<div style="background:#FFFBEB;border-left:3px solid #D97706;padding:12px 16px;margin-top:12px;font-size:13px;color:#374151;border-radius:4px;"><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#6B7280;margin-bottom:4px;">Notes</div>'+escHtml(q.quoteNotes).split('\n').join('<br>')+'</div>';
+  }
+  var itemDiscTotal=0; li.forEach(function(i){itemDiscTotal+=parseFloat(i.discountAmount)||0;});
+  var orderDiscAmt=parseFloat(q.orderDiscountAmount);
+  if (isNaN(orderDiscAmt)) {
+    var subForCalc=(parseFloat(q.subtotal)||0)-itemDiscTotal;
+    var odv=parseFloat(q.orderDiscountValue)||0;
+    var odt=q.orderDiscountType||'percent';
+    orderDiscAmt=odt==='percent'?subForCalc*(odv/100):Math.min(odv,subForCalc);
+    if (orderDiscAmt<0) orderDiscAmt=0;
+  }
+  var discRows='';
+  if (itemDiscTotal>0) discRows+='<div class="totals-row"><span class="totals-label">Item Discounts</span><span class="totals-amount">−$'+itemDiscTotal.toFixed(2)+'</span></div>';
+  if (orderDiscAmt>0) {
+    var odLabel='Order Discount'+(q.orderDiscountType==='percent'&&q.orderDiscountValue?' ('+q.orderDiscountValue+'%)':'');
+    discRows+='<div class="totals-row"><span class="totals-label">'+odLabel+'</span><span class="totals-amount">−$'+orderDiscAmt.toFixed(2)+'</span></div>';
+  }
+  h+='<div style="display:flex;justify-content:flex-end;margin-top:12px;"><div class="totals-table"><div class="totals-row subtotal"><span class="totals-label">Subtotal</span><span class="totals-amount">$'+(parseFloat(q.subtotal)||0).toFixed(2)+'</span></div>'+discRows+'<div class="totals-row tax"><span class="totals-label">'+(te?'Tax Exempt':'Tax ('+q.taxRateUsed+'%)')+'</span><span class="totals-amount">$'+(parseFloat(q.taxAmount)||0).toFixed(2)+'</span></div><div class="totals-row total"><span class="totals-label">Total</span><span class="totals-amount">$'+(parseFloat(q.total)||0).toFixed(2)+'</span></div></div></div>';
   document.getElementById('modalBody').innerHTML=h;
   document.getElementById('modalActions').innerHTML='<button class="btn btn-danger btn-sm" onclick="deleteQuoteAction('+q.sheetRow+')">🗑 Delete</button><button class="btn btn-secondary btn-sm" onclick="editAndReuse('+idx+')">✏️ Edit &amp; Reuse</button><button class="btn btn-blue btn-sm" onclick="showModalEmailPrompt(allQuotes['+idx+'])">✉️ Email</button><button class="btn btn-primary btn-sm" onclick="generatePDFFromQuote(allQuotes['+idx+']);closeModal();">📄 PDF</button>';
   document.getElementById('modalEmailPrompt').classList.remove('show');
@@ -982,10 +1096,15 @@ function editAndReuse(idx) {
     else { picker.dataset.value='__custom__'; input.value='Custom Item'; custom.style.display='block'; custom.value=item.description; }
     row.querySelector('.line-item-qty').value=item.quantity;
     row.querySelector('.line-item-price').value=(item.price||0).toFixed(2);
+    row.querySelector('.line-item-discount').value=(item.discountValue!=null?item.discountValue:0)||'';
+    row.querySelector('.line-item-discount-type').value=item.discountType||'percent';
     calcRowAmount(row);
   });
   var cur=body.querySelectorAll('.line-item-row').length;
   for (var i=cur;i<8;i++) addLineItemRow();
+  document.getElementById('orderDiscountInput').value=(parseFloat(q.orderDiscountValue)||0);
+  document.getElementById('orderDiscountTypeInput').value=q.orderDiscountType||'percent';
+  document.getElementById('quoteNotes').value=q.quoteNotes||'';
   recalcTotals();
 }
 
@@ -1003,7 +1122,7 @@ function applyReminderSettings() {
   document.getElementById('settingsReminderInternalEmail').value = appSettings['Reminder Internal Email']    || '';
   document.getElementById('settingsReminderSubject').value       = appSettings['Reminder Subject']           || 'Following up on your Catering Quote \u2014 {{quoteId}}';
   document.getElementById('settingsReminderBody').value          = appSettings['Reminder Body']              || 'Hi {{customer}},\n\nWe wanted to follow up on the catering quote we sent you {{daysSince}} days ago (Quote {{quoteId}}, total: {{total}}).\n\nPlease let us know if you have any questions or would like to move forward!\n\n{{contact}}\nChick-fil-A {{location}}';
-  google.script.run.withSuccessHandler(function(active) {
+  google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(active) {
     var el = document.getElementById('reminderTriggerStatus');
     el.textContent = active ? '\u2705 Active \u2014 runs daily at 9am' : '\u26AA Not installed';
     el.style.color  = active ? 'var(--success)' : 'var(--gray-400)';

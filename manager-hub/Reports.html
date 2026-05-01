@@ -233,6 +233,19 @@
     </div>
 
     <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
       function getSessionToken() {
         const urlToken = getTokenFromUrl();
         if (urlToken) {
@@ -262,6 +275,7 @@
           return;
         }
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             if (!result || !result.valid) {
               navigateTo('login');
@@ -291,6 +305,7 @@
         }, 1500);
         try {
           google.script.run
+            .withFailureHandler(handleServerError)
             .withSuccessHandler(function(url) {
               didNavigate = true;
               clearTimeout(fallbackTimer);
@@ -383,6 +398,7 @@
         };
 
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             if (result && result.success) {
               alert('Report generated: ' + result.file_url);
@@ -405,6 +421,7 @@
           include_charts: true
         };
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             if (result && result.success) {
               alert('Report generated: ' + result.file_url);
@@ -418,6 +435,7 @@
 
       function loadReportHistory() {
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             const body = document.getElementById('reportHistoryBody');
             if (!result || !result.success || !result.history) {
@@ -446,6 +464,7 @@
 
       function loadScheduledReports() {
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             const body = document.getElementById('scheduledReportsBody');
             if (!result || !result.success || !result.schedules) {
@@ -483,6 +502,7 @@
         const format = document.getElementById('dumpFormat').value;
 
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             if (result && result.success) {
               alert('Export ready: ' + result.file_url);
@@ -507,6 +527,7 @@
         };
 
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             alert(result.success ? 'Template saved' : (result.message || 'Save failed'));
           })
@@ -552,6 +573,7 @@
         };
 
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             if (result && result.success) {
               alert('Scheduled!');
@@ -569,6 +591,7 @@
 
       function deleteSchedule(scheduleId) {
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             alert(result.success ? 'Deleted' : (result.message || 'Failed'));
             loadScheduledReports();
@@ -578,6 +601,7 @@
 
       function runScheduleNow(scheduleId) {
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             if (result && result.success) {
               alert('Report generated: ' + result.file_url);

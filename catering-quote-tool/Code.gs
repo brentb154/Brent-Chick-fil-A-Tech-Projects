@@ -120,7 +120,9 @@ function getQuotes() {
   var sheet = getSpreadsheet().getSheetByName(TAB_QUOTES);
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
-  var data = sheet.getRange(2, 1, lastRow - 1, 19).getValues();
+  var lastCol = sheet.getLastColumn();
+  var width = Math.max(19, Math.min(22, lastCol));
+  var data = sheet.getRange(2, 1, lastRow - 1, width).getValues();
   var quotes = [];
   data.forEach(function(row, index) {
     if (row[0] && row[0].toString().trim() !== '') {
@@ -135,6 +137,9 @@ function getQuotes() {
         calendarEventId: row[16] ? row[16].toString().trim() : '',
         lastModified: row[17] ? new Date(row[17]).toISOString() : '',
         eventTime: row[18] ? row[18].toString().trim() : '',
+        orderDiscountValue: row[19] != null ? row[19] : 0,
+        orderDiscountType: row[20] ? row[20].toString().trim() : 'percent',
+        quoteNotes: row[21] ? row[21].toString() : '',
         sheetRow: index + 2
       });
     }
@@ -172,7 +177,7 @@ function saveQuote(quoteData) {
 
   if (existingRow > 0) {
     // Edit: overwrite existing row, preserve original created date
-    var existing = sheet.getRange(existingRow, 1, 1, 19).getValues()[0];
+    var existing = sheet.getRange(existingRow, 1, 1, 22).getValues()[0];
     var eventId = existing[16] ? existing[16].toString().trim() : '';
 
     // Update existing calendar event, or create one if it doesn't exist yet
@@ -182,7 +187,7 @@ function saveQuote(quoteData) {
       try { eventId = createCalendarEvent(quoteData, existingQuoteId) || ''; } catch(e) { eventId = ''; }
     }
 
-    sheet.getRange(existingRow, 1, 1, 19).setValues([[
+    sheet.getRange(existingRow, 1, 1, 22).setValues([[
       existingQuoteId, existing[1], quoteData.customerName, quoteData.contactName,
       quoteData.orderType, quoteData.deliveryAddress || '',
       JSON.stringify(quoteData.lineItems),
@@ -190,7 +195,8 @@ function saveQuote(quoteData) {
       parseFloat(quoteData.taxAmount) || 0, parseFloat(quoteData.total) || 0,
       quoteData.taxExempt ? 'TRUE' : 'FALSE', quoteData.locationName || '',
       quoteData.customerEmail || '', quoteData.poNumber || '', quoteData.date || '',
-      eventId, new Date(), quoteData.time || ''
+      eventId, new Date(), quoteData.time || '',
+      parseFloat(quoteData.orderDiscountValue) || 0, quoteData.orderDiscountType || 'percent', quoteData.quoteNotes || ''
     ]]);
     return existingQuoteId;
   }
@@ -207,7 +213,8 @@ function saveQuote(quoteData) {
     parseFloat(quoteData.taxAmount) || 0, parseFloat(quoteData.total) || 0,
     quoteData.taxExempt ? 'TRUE' : 'FALSE', quoteData.locationName || '',
     quoteData.customerEmail || '', quoteData.poNumber || '', quoteData.date || '',
-    eventId, '', quoteData.time || ''
+    eventId, '', quoteData.time || '',
+    parseFloat(quoteData.orderDiscountValue) || 0, quoteData.orderDiscountType || 'percent', quoteData.quoteNotes || ''
   ]);
   return quoteId;
 }
@@ -233,7 +240,7 @@ function cleanOldQuotes() {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
   var data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
-  var cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+  var cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 120);
   for (var i = data.length - 1; i >= 0; i--) {
     if (new Date(data[i][1]) < cutoff) sheet.deleteRow(i + 2);
   }
@@ -286,14 +293,14 @@ function initializeSheet() {
   var qSheet = ss.getSheetByName(TAB_QUOTES);
   if (!qSheet) qSheet = ss.insertSheet(TAB_QUOTES);
   if (!qSheet.getRange('A1').getValue()) {
-    var h = ['Quote ID','Created Date','Customer Name','Contact Name','Order Type','Delivery Address','Line Items (JSON)','Subtotal','Tax Rate Used','Tax Amount','Total','Tax Exempt','Location Name','Customer Email','PO Number','Event Date','Calendar Event ID','Last Modified','Event Time'];
+    var h = ['Quote ID','Created Date','Customer Name','Contact Name','Order Type','Delivery Address','Line Items (JSON)','Subtotal','Tax Rate Used','Tax Amount','Total','Tax Exempt','Location Name','Customer Email','PO Number','Event Date','Calendar Event ID','Last Modified','Event Time','Order Discount Value','Order Discount Type','Quote Notes'];
     qSheet.getRange(1, 1, 1, h.length).setValues([h]);
     qSheet.getRange(1, 1, 1, h.length).setFontWeight('bold');
     qSheet.setFrozenRows(1);
   } else {
     // Migrate: add new column headers if missing
     var lastCol = qSheet.getLastColumn();
-    var newHeaders = {'Calendar Event ID': 17, 'Last Modified': 18, 'Event Time': 19};
+    var newHeaders = {'Calendar Event ID': 17, 'Last Modified': 18, 'Event Time': 19, 'Order Discount Value': 20, 'Order Discount Type': 21, 'Quote Notes': 22};
     for (var label in newHeaders) {
       if (lastCol < newHeaders[label]) {
         qSheet.getRange(1, newHeaders[label]).setValue(label).setFontWeight('bold');
@@ -340,7 +347,11 @@ function getPrintData(quoteData) {
     taxRate: quoteData.taxRate || 0, taxAmount: quoteData.taxAmount || 0,
     total: quoteData.total || 0, taxExempt: quoteData.taxExempt || false,
     quoteId: quoteData.quoteId || '',
-    poNumber: quoteData.poNumber === 'NO_PO_NEEDED' ? '' : (quoteData.poNumber || '')
+    poNumber: quoteData.poNumber === 'NO_PO_NEEDED' ? '' : (quoteData.poNumber || ''),
+    orderDiscountValue: parseFloat(quoteData.orderDiscountValue) || 0,
+    orderDiscountType: quoteData.orderDiscountType || 'percent',
+    orderDiscountAmount: parseFloat(quoteData.orderDiscountAmount) || 0,
+    quoteNotes: quoteData.quoteNotes || ''
   };
 }
 
@@ -351,17 +362,38 @@ function buildPdfHtml(pd) {
   var items = pd.lineItems || [];
   if (typeof items === 'string') { try { items = JSON.parse(items); } catch(e) { items = []; } }
   var liHtml = '';
+  var itemDiscTotal = 0;
   items.forEach(function(it) {
-    liHtml += '<tr><td style="text-align:center;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-size:14px;">' + it.quantity + '</td><td style="padding:10px 12px;border-bottom:1px solid #E5E7EB;font-size:14px;">' + esc(it.description) + '</td><td style="text-align:right;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-family:Courier New,monospace;font-size:14px;">$' + (it.price||0).toFixed(2) + '</td><td style="text-align:right;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-family:Courier New,monospace;font-size:14px;font-weight:600;">$' + (it.amount||0).toFixed(2) + '</td></tr>';
+    var da = parseFloat(it.discountAmount) || 0;
+    itemDiscTotal += da;
+    var net = (parseFloat(it.amount)||0) - da;
+    var descCell = esc(it.description) + (da > 0 ? '<div style="font-size:12px;color:#6B7280;font-style:italic;margin-top:2px;">Discount: −$' + da.toFixed(2) + '</div>' : '');
+    liHtml += '<tr><td style="text-align:center;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-size:14px;">' + it.quantity + '</td><td style="padding:10px 12px;border-bottom:1px solid #E5E7EB;font-size:14px;">' + descCell + '</td><td style="text-align:right;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-family:Courier New,monospace;font-size:14px;">$' + (it.price||0).toFixed(2) + '</td><td style="text-align:right;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-family:Courier New,monospace;font-size:14px;font-weight:600;">$' + net.toFixed(2) + '</td></tr>';
   });
   var taxEx = pd.taxExempt === true || pd.taxExempt === 'TRUE';
   var taxLine = taxEx ? '<tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">TAX EXEMPT</td><td style="padding:8px 16px;text-align:right;font-family:Courier New,monospace;font-size:14px;">$0.00</td></tr>' : '<tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SALES TAX (' + (pd.taxRate||0) + '%)</td><td style="padding:8px 16px;text-align:right;font-family:Courier New,monospace;font-size:14px;">$' + (pd.taxAmount||0).toFixed(2) + '</td></tr>';
+  var orderDiscAmt = parseFloat(pd.orderDiscountAmount) || 0;
+  if (!orderDiscAmt) {
+    var afterItem = (parseFloat(pd.subtotal) || 0) - itemDiscTotal;
+    var odv = parseFloat(pd.orderDiscountValue) || 0;
+    var odt = pd.orderDiscountType || 'percent';
+    orderDiscAmt = odt === 'percent' ? afterItem * (odv/100) : Math.min(odv, afterItem);
+    if (orderDiscAmt < 0) orderDiscAmt = 0;
+  }
+  var discRows = '';
+  if (itemDiscTotal > 0) discRows += '<tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">ITEM DISCOUNTS</td><td style="padding:8px 16px;text-align:right;font-family:Courier New,monospace;font-size:14px;">−$' + itemDiscTotal.toFixed(2) + '</td></tr>';
+  if (orderDiscAmt > 0) {
+    var odLbl = 'ORDER DISCOUNT' + (pd.orderDiscountType === 'percent' && pd.orderDiscountValue ? ' (' + pd.orderDiscountValue + '%)' : '');
+    discRows += '<tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">' + odLbl + '</td><td style="padding:8px 16px;text-align:right;font-family:Courier New,monospace;font-size:14px;">−$' + orderDiscAmt.toFixed(2) + '</td></tr>';
+  }
+  var notesHtml = pd.quoteNotes ? '<div style="background:#FFFBEB;border-left:3px solid #D97706;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#374151;border-radius:4px;"><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#6B7280;margin-bottom:4px;">Notes</div>' + esc(pd.quoteNotes).split('\n').join('<br>') + '</div>' : '';
   var addr = pd.orderType === 'Delivery' ? (pd.deliveryAddress||'') : (pd.storeAddress||'');
   var logo = pd.logo ? '<img src="'+pd.logo+'" style="max-width:140px;max-height:80px;margin-bottom:8px;">' : '<div style="font-size:24px;font-weight:800;color:#E51636;margin-bottom:8px;">Chick-fil-A</div>';
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>@page{size:letter;margin:0.6in;}body{font-family:Helvetica,Arial,sans-serif;color:#1F2937;margin:0;padding:40px;}</style></head><body>' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+logo+'<div style="font-size:16px;font-weight:700;">'+esc(pd.storeName)+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+esc(pd.storeAddress)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.storePhone)+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:Courier New,monospace;">'+esc(pd.quoteId)+'</div>'+(pd.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+esc(pd.poNumber)+'</div>':'')+'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Date: '+esc(pd.date)+'</div>'+(pd.time?'<div style="font-size:13px;color:#6B7280;">Time: '+esc(pd.time)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+esc(pd.customerName)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.orderType)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(addr)+'</div><div style="font-size:13px;font-weight:600;margin-top:4px;">'+esc(pd.contactPerson)+'</div></div></div>' +
     '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><thead><tr style="background:#F3F4F6;"><th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:10%;">QTY</th><th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:50%;">DESCRIPTION</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:18%;">PRICE/ITEM</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:22%;">AMOUNT</th></tr></thead><tbody>'+liHtml+'</tbody></table>' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-end;"><div style="font-size:13px;color:#6B7280;max-width:320px;">If you have any questions concerning this Quote, contact:<br><strong style="color:#1F2937;">'+esc(pd.contactName)+' at '+esc(pd.storePhone)+'</strong></div><table style="width:280px;background:#F9FAFB;border-radius:8px;overflow:hidden;"><tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SUBTOTAL</td><td style="padding:8px 16px;text-align:right;font-family:Courier New,monospace;font-size:14px;">$'+(pd.subtotal||0).toFixed(2)+'</td></tr>'+taxLine+'<tr style="background:#E5E7EB;"><td style="padding:10px 16px;font-size:15px;font-weight:700;">TOTAL</td><td style="padding:10px 16px;text-align:right;font-family:Courier New,monospace;font-size:16px;font-weight:700;">$'+(pd.total||0).toFixed(2)+'</td></tr></table></div></body></html>';
+    notesHtml +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-end;"><div style="font-size:13px;color:#6B7280;max-width:320px;">If you have any questions concerning this Quote, contact:<br><strong style="color:#1F2937;">'+esc(pd.contactName)+' at '+esc(pd.storePhone)+'</strong></div><table style="width:280px;background:#F9FAFB;border-radius:8px;overflow:hidden;"><tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SUBTOTAL</td><td style="padding:8px 16px;text-align:right;font-family:Courier New,monospace;font-size:14px;">$'+(pd.subtotal||0).toFixed(2)+'</td></tr>'+discRows+taxLine+'<tr style="background:#E5E7EB;"><td style="padding:10px 16px;font-size:15px;font-weight:700;">TOTAL</td><td style="padding:10px 16px;text-align:right;font-family:Courier New,monospace;font-size:16px;font-weight:700;">$'+(pd.total||0).toFixed(2)+'</td></tr></table></div></body></html>';
 }
 
 function generatePdfBlob(quoteData) {
@@ -440,9 +472,24 @@ function createCalendarEvent(quoteData, quoteId) {
   // Build description with full quote details
   var items = quoteData.lineItems || [];
   if (typeof items === 'string') { try { items = JSON.parse(items); } catch(e) { items = []; } }
+  var itemDiscTotal = 0;
   var itemLines = items.map(function(i) {
-    return '  ' + i.quantity + 'x ' + i.description + ' — $' + (i.amount || 0).toFixed(2);
+    var da = parseFloat(i.discountAmount) || 0;
+    itemDiscTotal += da;
+    var net = (parseFloat(i.amount) || 0) - da;
+    var line = '  ' + i.quantity + 'x ' + i.description + ' — $' + net.toFixed(2);
+    if (da > 0) line += ' (−$' + da.toFixed(2) + ' discount)';
+    return line;
   }).join('\n');
+
+  var orderDiscAmt = parseFloat(quoteData.orderDiscountAmount) || 0;
+  if (!orderDiscAmt) {
+    var afterItem = (parseFloat(quoteData.subtotal) || 0) - itemDiscTotal;
+    var odv = parseFloat(quoteData.orderDiscountValue) || 0;
+    var odt = quoteData.orderDiscountType || 'percent';
+    orderDiscAmt = odt === 'percent' ? afterItem * (odv/100) : Math.min(odv, afterItem);
+    if (orderDiscAmt < 0) orderDiscAmt = 0;
+  }
 
   var desc = 'Quote: ' + quoteId + '\n'
     + 'Customer: ' + customerName + '\n'
@@ -454,9 +501,12 @@ function createCalendarEvent(quoteData, quoteId) {
     + 'PO: ' + (quoteData.poNumber === 'NO_PO_NEEDED' ? 'Not Required' : (quoteData.poNumber || 'PENDING')) + '\n'
     + '\n--- Order Details ---\n' + (itemLines || '(no items)') + '\n'
     + '\nSubtotal: $' + (parseFloat(quoteData.subtotal) || 0).toFixed(2)
+    + (itemDiscTotal > 0 ? '\nItem Discounts: −$' + itemDiscTotal.toFixed(2) : '')
+    + (orderDiscAmt > 0 ? '\nOrder Discount: −$' + orderDiscAmt.toFixed(2) : '')
     + '\nTax: $' + (parseFloat(quoteData.taxAmount) || 0).toFixed(2)
     + (quoteData.taxExempt ? ' (Tax Exempt)' : ' (' + (quoteData.taxRate || 0) + '%)')
     + '\nTotal: $' + (parseFloat(quoteData.total) || 0).toFixed(2)
+    + (quoteData.quoteNotes ? '\n\n--- Notes ---\n' + quoteData.quoteNotes : '')
     + '\n\nQuote submitted: ' + new Date().toLocaleString();
 
   var event = cal.createEvent(title, startTime, orderTime, { description: desc });
@@ -497,9 +547,24 @@ function updateCalendarEvent(quoteData, quoteId, calendarEventId) {
     // Rebuild description with updated quote details
     var items = quoteData.lineItems || [];
     if (typeof items === 'string') { try { items = JSON.parse(items); } catch(e) { items = []; } }
+    var itemDiscTotal2 = 0;
     var itemLines = items.map(function(i) {
-      return '  ' + i.quantity + 'x ' + i.description + ' — $' + (i.amount || 0).toFixed(2);
+      var da = parseFloat(i.discountAmount) || 0;
+      itemDiscTotal2 += da;
+      var net = (parseFloat(i.amount) || 0) - da;
+      var line = '  ' + i.quantity + 'x ' + i.description + ' — $' + net.toFixed(2);
+      if (da > 0) line += ' (−$' + da.toFixed(2) + ' discount)';
+      return line;
     }).join('\n');
+
+    var orderDiscAmt2 = parseFloat(quoteData.orderDiscountAmount) || 0;
+    if (!orderDiscAmt2) {
+      var afterItem2 = (parseFloat(quoteData.subtotal) || 0) - itemDiscTotal2;
+      var odv2 = parseFloat(quoteData.orderDiscountValue) || 0;
+      var odt2 = quoteData.orderDiscountType || 'percent';
+      orderDiscAmt2 = odt2 === 'percent' ? afterItem2 * (odv2/100) : Math.min(odv2, afterItem2);
+      if (orderDiscAmt2 < 0) orderDiscAmt2 = 0;
+    }
 
     var desc = 'Quote: ' + quoteId + '\n'
       + 'Customer: ' + customerName + '\n'
@@ -511,9 +576,12 @@ function updateCalendarEvent(quoteData, quoteId, calendarEventId) {
       + 'PO: ' + (quoteData.poNumber === 'NO_PO_NEEDED' ? 'Not Required' : (quoteData.poNumber || 'PENDING')) + '\n'
       + '\n--- Order Details ---\n' + (itemLines || '(no items)') + '\n'
       + '\nSubtotal: $' + (parseFloat(quoteData.subtotal) || 0).toFixed(2)
+      + (itemDiscTotal2 > 0 ? '\nItem Discounts: −$' + itemDiscTotal2.toFixed(2) : '')
+      + (orderDiscAmt2 > 0 ? '\nOrder Discount: −$' + orderDiscAmt2.toFixed(2) : '')
       + '\nTax: $' + (parseFloat(quoteData.taxAmount) || 0).toFixed(2)
       + (quoteData.taxExempt ? ' (Tax Exempt)' : ' (' + (quoteData.taxRate || 0) + '%)')
       + '\nTotal: $' + (parseFloat(quoteData.total) || 0).toFixed(2)
+      + (quoteData.quoteNotes ? '\n\n--- Notes ---\n' + quoteData.quoteNotes : '')
       + '\n\nLast updated: ' + new Date().toLocaleString();
 
     event.setDescription(desc);

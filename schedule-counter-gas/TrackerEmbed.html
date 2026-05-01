@@ -1,4 +1,17 @@
 <script type="text/babel">
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
     const { useState, useEffect, useRef } = React;
 
     // ── SVG icon components ────────────────────────────────────
@@ -106,6 +119,7 @@
       // ── Load from Sheets on mount ────────────────────────────
       useEffect(() => {
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(rows) {
             if (rows && rows.length > 0) {
               setData(rows.map(r => ({ ...r, month: normalizeMonth(r.month) })));
@@ -220,6 +234,7 @@
       const handleSave = () => {
         setIsSaving(true);
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function() {
             setIsSaving(false);
             setHasUnsaved(false);
@@ -289,6 +304,7 @@
         setData([]);
         setIsSaving(true);
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function() { setIsSaving(false); setHasUnsaved(false); })
           .withFailureHandler(function(err) { console.error('Reset error:', err); setIsSaving(false); })
           .saveProductivityData([]);

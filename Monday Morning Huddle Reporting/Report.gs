@@ -14,6 +14,10 @@ function writeReport(ss, allRows, weeks, locationData, crossLocOT, chronicFlags,
   if (!sheet) sheet = ss.insertSheet(TABS.REPORT);
   sheet.clearContents();
   sheet.clearFormats();
+  // Reset every cell to Sheets' default ("General") format. clearFormats() alone
+  // doesn't always strip column-level time/date formats inherited from prior runs,
+  // which is why integer day counts were rendering as "12:00 AM".
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).setNumberFormat('General');
 
   var row = 1;
   var locNames = locationData.map(function(l) { return l.name; }).join(' + ');
@@ -260,6 +264,9 @@ function writeReport(ss, allRows, weeks, locationData, crossLocOT, chronicFlags,
     ];
     var rowRange = sheet.getRange(row, 1, 1, vals.length);
     rowRange.setValues([vals]);
+    // Force integer display on day-count columns — Sheets sometimes inherits
+    // a time format on these cells from prior runs, displaying 5 as "12:00 AM".
+    sheet.getRange(row, 3, 1, 4).setNumberFormat('0');
 
     if (r.absentDays > 0) {
       sheet.getRange(row, 5).setFontColor('#DC2626').setFontWeight('bold');

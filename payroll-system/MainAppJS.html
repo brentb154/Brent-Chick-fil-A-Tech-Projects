@@ -1,4 +1,17 @@
 <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
 /**
  * Main App Navigation Controller
  * Handles sidebar accordion, view loading, and routing
@@ -79,6 +92,7 @@ function verifyAuthSession(onSuccess) {
   }
 
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(isValid) {
       if (isValid) {
         if (typeof showLoading === 'function') {
@@ -278,6 +292,7 @@ function loadView(viewName) {
   }
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(html) {
       // Inject the HTML
       container.innerHTML = html;
@@ -925,6 +940,7 @@ function buildSearchIndex() {
 function loadSearchData() {
   // Load employees (lite)
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(employees) {
       SearchState.searchIndex.employees = (employees || []).map(e => ({
         id: e.employeeId || e.matchKey,
@@ -939,6 +955,7 @@ function loadSearchData() {
   
   // Load orders (limited, lite)
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(orders) {
       SearchState.searchIndex.orders = (orders || []).map(o => ({
         id: o.orderId,
@@ -950,6 +967,7 @@ function loadSearchData() {
   
   // Load PTO (limited, lite)
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(records) {
       SearchState.searchIndex.pto = (records || []).map(p => ({
         id: p.ptoId,
@@ -1128,6 +1146,7 @@ function loadComments(recordType, recordId) {
   `;
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(comments) {
       CommentsState.comments = comments || [];
       renderComments(comments);
@@ -1195,6 +1214,7 @@ function addComment() {
   }
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success) {
         input.value = '';
@@ -1217,6 +1237,7 @@ function deleteComment(commentId) {
   if (!confirm('Delete this comment?')) return;
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success) {
         loadComments(CommentsState.currentRecordType, CommentsState.currentRecordId);
@@ -1274,6 +1295,7 @@ var onboardingState = {
  */
 function checkAndShowOnboarding() {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success) {
         onboardingState.newUserModeEnabled = result.status.newUserModeEnabled;
@@ -1379,6 +1401,7 @@ function updateOnboardingUI() {
  */
 function completeOnboarding() {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success) {
         hideOnboarding();
@@ -1412,6 +1435,7 @@ function toggleNewUserMode(enabled) {
   }
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success) {
         showToast(enabled ? 'New User Mode enabled' : 'New User Mode disabled', 'success');
@@ -1431,6 +1455,7 @@ function loadOnboardingChecklist(containerId) {
   if (!container) return;
   
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result.success) {
         renderOnboardingChecklist(container, result.checklist);

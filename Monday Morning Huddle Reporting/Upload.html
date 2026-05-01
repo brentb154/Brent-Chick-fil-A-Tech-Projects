@@ -158,6 +158,19 @@ input[type="file"]{display:none}
 <input type="file" id="f6" accept=".csv,.tsv,.txt"/>
 
 <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
 (function(){
 "use strict";
 
@@ -247,6 +260,7 @@ function runAnalysis() {
   document.getElementById('status').classList.add('show');
 
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       document.getElementById('status').classList.remove('show');
       toast(result.message, 'ok');
@@ -255,6 +269,7 @@ function runAnalysis() {
         document.getElementById('status').innerHTML = '<span class="spinner"></span>Sending emails…';
         document.getElementById('status').classList.add('show');
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(msg) {
             document.getElementById('status').classList.remove('show');
             toast(msg, 'ok');
@@ -286,6 +301,7 @@ window.submitData = function() {
   if (!checkCSV) { runAnalysis(); return; }
 
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (result && result.exists) {
         var ok = confirm(

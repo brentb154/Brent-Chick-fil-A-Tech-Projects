@@ -444,6 +444,19 @@
   <div class="help-mode-indicator" id="helpModeIndicator">Help Mode: Click any item</div>
 
   <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
     let dashboardConfig = null;
     let translations = {};
     let configAttempts = 0;
@@ -523,6 +536,7 @@
         }
       }, 1500);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           didNavigate = true;
           clearTimeout(fallbackTimer);
@@ -558,8 +572,10 @@
       localStorage.removeItem('cfa_session_token');
       localStorage.removeItem('cfa_user_role');
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function() {
           google.script.run
+            .withFailureHandler(handleServerError)
             .withSuccessHandler(function(url) {
               redirectTo(url + '?page=login');
             })
@@ -580,6 +596,7 @@
       const token = getSessionToken();
       if (!token) return;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           closeHouseModal();
           if (result && result.success) {
@@ -655,6 +672,7 @@
         'help.menu.system_status'
       ];
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           translations = result || {};
           document.getElementById('dashboardTitle').textContent = translations['dashboard.title'] || 'Manager Dashboard';
@@ -761,6 +779,7 @@
       badge.textContent = '...';
       badge.className = 'status-pill warning';
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result || !result.visible) return;
           btn.style.display = 'inline-flex';
@@ -851,6 +870,7 @@
       const language = select.value;
       sessionStorage.setItem('cfa_language', language);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             dashboardConfig.language = language;
@@ -1034,6 +1054,7 @@
       const token = getSessionToken();
       if (!token) return;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result || !result.success) return;
           const today = result.recent && result.recent.infractions_added_today !== undefined
@@ -1050,6 +1071,7 @@
 
       if (dashboardConfig.user_role === 'Manager') {
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(result) {
             if (result && result.success) {
               document.getElementById('statEntries').textContent = result.entries_this_month || '--';
@@ -1067,6 +1089,7 @@
       }
       configAttempts += 1;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.sessionExpired) {
             showError('Session expired. Please log in again.');

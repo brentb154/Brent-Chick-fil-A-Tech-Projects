@@ -456,6 +456,19 @@
 </div>
 
 <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
   // ── Pipeline State ──────────────────────────────────────────
   var _pipelineEntries = [];
   var _pipelineFilter  = 'all';
@@ -466,6 +479,7 @@
     if (btn) btn.classList.add('spinning');
 
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(data) {
         _pipelineEntries = data.entries || [];
         renderPipelineStats(data.stats || {});
@@ -610,6 +624,7 @@
     saveBtn.textContent = 'Saving...';
 
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(result) {
         document.getElementById('pipelineModalBackdrop').classList.remove('open');
         saveBtn.disabled = false;
@@ -627,6 +642,7 @@
   function confirmRemove(quoteId, customerName) {
     if (!confirm('Remove ' + customerName + ' (' + quoteId + ') from the pipeline?\n\nThis only removes it from tracking — the quote record is kept.')) return;
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function() { loadPipeline(); })
       .withFailureHandler(function(err) { alert('Error: ' + err.message); })
       .deletePipelineEntry(quoteId);

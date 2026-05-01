@@ -2772,6 +2772,19 @@
   </nav>
 
   <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
     // Global state
     let currentSettings = null;
     let currentRole = null;
@@ -2841,6 +2854,7 @@
     function handleSessionExpired() {
       clearSessionData();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           redirectTo(url + '?page=login');
         })
@@ -2880,6 +2894,7 @@
       // Validate token with server
       // IMPORTANT: Only load settings AFTER session is confirmed valid
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.valid) {
             currentRole = result.role;
@@ -2922,6 +2937,7 @@
 
             // Cache web app URL for navigation
             google.script.run
+              .withFailureHandler(handleServerError)
               .withSuccessHandler(function(url) {
                 webAppBaseUrl = url;
                 console.log('[settings] webAppBaseUrl:', url);
@@ -2954,6 +2970,7 @@
       showLoading(true);
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
 
@@ -3129,6 +3146,7 @@
       }
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.success) {
             input.value = '';
@@ -3151,6 +3169,7 @@
       if (!confirm('Remove this example?')) return;
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.success) {
             loadSettings(); // Reload to update UI
@@ -3178,6 +3197,7 @@
 
       // Load icons first
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(icons) {
           console.log('Icons loaded:', icons ? icons.length : 0);
           availableIcons = icons || [];
@@ -3191,6 +3211,7 @@
 
       // Load all links (including hidden ones for management)
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result) {
             console.error('Error loading links: Server returned no response');
@@ -3281,6 +3302,7 @@
 
       if (!availableIcons.length) {
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(icons) {
             availableIcons = icons || [];
             populateIconPicker();
@@ -3323,6 +3345,7 @@
 
       showLoading(true);
         google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (!result || !result.success) {
@@ -3520,6 +3543,7 @@
       const token = getSessionToken();
       if (!token || !dqFixState.issueId) return;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result || !result.success) {
             showToast(result && result.error ? result.error : 'Preview failed', 'error');
@@ -3540,6 +3564,7 @@
       if (!token || !dqFixState.issueId) return;
       showLoading(true);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result && result.success) {
@@ -3573,6 +3598,7 @@
       const token = getSessionToken();
       if (!token) return;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             showToast('Issue updated', 'success');
@@ -3592,6 +3618,7 @@
       if (!token) return;
       showLoading(true);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result && result.success) {
@@ -3613,6 +3640,7 @@
       if (!token) return;
       showLoading(true);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result && result.success) {
@@ -3647,6 +3675,7 @@
 
       showLoading(true);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result && result.success) {
@@ -3688,6 +3717,7 @@
         const issue = queue[index];
         const method = getFixMethods(issue)[0].value;
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function() {
             index += 1;
             processNext();
@@ -3924,6 +3954,7 @@
       }
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.sessionExpired) {
             handleSessionExpired();
@@ -3956,6 +3987,7 @@
       }
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.sessionExpired) {
             handleSessionExpired();
@@ -3981,6 +4013,7 @@
         return;
       }
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.sessionExpired) {
             handleSessionExpired();
@@ -4020,12 +4053,14 @@
       const targetOrder = parseInt(String(target.display_order || 0), 10) || 0;
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result || result.success === false) {
             showToast(result.error || 'Failed to reorder link', 'error');
             return;
           }
           google.script.run
+            .withFailureHandler(handleServerError)
             .withSuccessHandler(function(result2) {
               if (result2.sessionExpired) {
                 handleSessionExpired();
@@ -4105,6 +4140,7 @@
 
     function loadTemplateVariables() {
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             templateVariables = result.variables || [];
@@ -4122,6 +4158,7 @@
       }
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.sessionExpired) {
             handleSessionExpired();
@@ -4249,6 +4286,7 @@
 
       const newEnabled = !template.enabled;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             template.enabled = newEnabled;
@@ -4409,6 +4447,7 @@
       const enabled = document.getElementById('templateEnabledToggle').classList.contains('active');
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             showToast('Template saved', 'success');
@@ -4447,6 +4486,7 @@
       if (!confirm('Reset this template to default?')) return;
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             showToast('Template reset', 'success');
@@ -4480,6 +4520,7 @@
       variables.current_points = variables.current_points || '6';
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             showToast('Test email sent', 'success');
@@ -4500,6 +4541,7 @@
 
       document.getElementById('templateHistoryModal').classList.remove('hidden');
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             renderTemplateHistory(result.history || []);
@@ -4550,6 +4592,7 @@
       if (!confirm('Revert to this version?')) return;
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             showToast('Template reverted', 'success');
@@ -4583,6 +4626,7 @@
       showLoading(true);
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result.success) {
@@ -4623,6 +4667,7 @@
       showLoading(true);
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result.success) {
@@ -4673,6 +4718,7 @@
       showLoading(true);
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result.success) {
@@ -4713,6 +4759,7 @@
       showLoading(true);
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result.success) {
@@ -4748,6 +4795,7 @@
       showLoading(true);
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result.success) {
@@ -4913,6 +4961,7 @@
       }
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (!result) {
@@ -4944,6 +4993,7 @@
       showLoading(true);
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result.success) {
@@ -5017,6 +5067,7 @@
       showLoading(true);
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result.success) {
@@ -5069,6 +5120,7 @@
       }
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           webAppBaseUrl = url;
           console.log('[settings] webAppBaseUrl:', url);
@@ -5097,6 +5149,7 @@
         'label.logged_in_as'
       ];
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           const t = result || {};
           document.getElementById('dashboardBtn').textContent = t['nav.dashboard'] || 'Dashboard';
@@ -5117,6 +5170,7 @@
       const language = select.value;
       sessionStorage.setItem('cfa_language', language);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             applySettingsNavTranslations(language);
@@ -5158,6 +5212,7 @@
       var token = getSessionToken();
       clearSessionData();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function() {
           navigateTo('login');
         })
@@ -5224,6 +5279,7 @@
     function loadBackupData() {
       // Load backup settings and status
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             backupSettings = result;
@@ -5237,6 +5293,7 @@
 
       // Load backup history
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             backupsList = result.backups || [];
@@ -5259,6 +5316,7 @@
       const token = getSessionToken();
       if (!token) return;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result || !result.success) return;
           const tests = result.tests || [];
@@ -5312,6 +5370,7 @@
       const token = getSessionToken();
       if (!token) return;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result || !result.success) return;
           const test = (result.tests || []).find(t => String(t.Test_ID) === String(testId));
@@ -5339,6 +5398,7 @@
       if (!token) return;
       showToast('Running backup test...', 'info');
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             showToast('Backup test completed', 'success');
@@ -5379,6 +5439,7 @@
       const token = getSessionToken();
       if (!token) return;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result || !result.success) return;
           renderRestoreHistory(result.restores || []);
@@ -5418,6 +5479,7 @@
       const token = getSessionToken();
       if (!token) return;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             showToast('Rollback complete', 'success');
@@ -5436,6 +5498,7 @@
       const token = getSessionToken();
       if (!token) return;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result || !result.success) return;
           renderSnapshotList(result.snapshots || []);
@@ -5567,6 +5630,7 @@
       if (!token) return;
       const sheets = restoreWizardState.restoreType === 'partial' ? restoreWizardState.sheets : SHEETS_TO_BACKUP_CLIENT;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result || !result.success) {
             showToast(result.error || 'Preview failed', 'error');
@@ -5629,6 +5693,7 @@
         reason: 'Restore wizard'
       };
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             document.getElementById('restoreCompleteSummary').textContent =
@@ -5772,6 +5837,7 @@
       showBackupProgress('Creating backup...', 'Copying all sheets to backup file...');
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.success) {
             showBackupComplete(result);
@@ -5933,6 +5999,7 @@
       showBackupProgress('Restoring Data...', 'Please wait while data is being restored...');
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.success) {
             showRestoreComplete(result);
@@ -6011,6 +6078,7 @@
       showLoading(true);
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result.success) {
@@ -6047,6 +6115,7 @@
       const token = getSessionToken();
       if (!token) return handleSessionExpired();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.sessionExpired) return handleSessionExpired();
           if (!result || !result.success) {
@@ -6099,6 +6168,7 @@
       const token = getSessionToken();
       if (!token) return handleSessionExpired();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.sessionExpired) return handleSessionExpired();
           if (!result || !result.success) {
@@ -6161,6 +6231,7 @@
       const token = getSessionToken();
       if (!token) return handleSessionExpired();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.sessionExpired) return handleSessionExpired();
           if (!result || !result.success) {
@@ -6223,6 +6294,7 @@
       if (!token) return handleSessionExpired();
       const description = document.getElementById('manualSnapshotDescription').value || '';
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.sessionExpired) return handleSessionExpired();
           if (result && result.success) {
@@ -6242,6 +6314,7 @@
       const a = document.getElementById('compareSnapshotA').value;
       const b = document.getElementById('compareSnapshotB').value;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.sessionExpired) return handleSessionExpired();
           if (!result || !result.success) {
@@ -6272,6 +6345,7 @@
       const token = getSessionToken();
       if (!token) return handleSessionExpired();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.sessionExpired) return handleSessionExpired();
           if (!result || !result.success) {
@@ -6287,6 +6361,7 @@
       const token = getSessionToken();
       if (!token) return handleSessionExpired();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.sessionExpired) return handleSessionExpired();
           if (!result || !result.success) {
@@ -6338,6 +6413,7 @@
       const token = getSessionToken();
       if (!token) return handleSessionExpired();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.sessionExpired) return handleSessionExpired();
           if (!result || !result.success) {
@@ -6390,6 +6466,7 @@
       if (!token) return handleSessionExpired();
       const snapshotId = document.getElementById('rollbackSnapshotSelect').value;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.sessionExpired) return handleSessionExpired();
           if (!result || !result.success) {
@@ -6442,6 +6519,7 @@
         return;
       }
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.sessionExpired) return handleSessionExpired();
           if (!result || !result.success) {
@@ -6463,6 +6541,7 @@
       if (!token) return handleSessionExpired();
       const filters = buildHistoryFilterOptions();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.sessionExpired) return handleSessionExpired();
           if (!result || !result.success) {

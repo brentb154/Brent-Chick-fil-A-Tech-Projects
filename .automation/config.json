@@ -1,0 +1,58 @@
+{
+  "repo_root": "/Users/brentjustworking/Desktop/Brent-CFA-Tech-Hub",
+  "memory_dirs": [
+    "/Users/brentjustworking/.claude/projects/-Users-brentjustworking/memory",
+    "/Users/brentjustworking/.claude/projects/-Users-brentjustworking-Desktop-Cockrell-Hill-Tech-Project-Files-Manager-Hub-Project-copy/memory"
+  ],
+  "log_file": "/Users/brentjustworking/Desktop/Brent-CFA-Tech-Hub/.automation/nightly.log",
+  "alert_email": "brentb.lawncare@gmail.com",
+  "web_apps": {
+    "payroll-system": "https://script.google.com/macros/s/AKfycbx0q-TUhgXBm64vfZDtNYtBD2bfrTsU7iXA4hfAqwShNzSfyj4xi4bgh0InfZh-KI04/exec?token=d1e4675c-f0f6-4654-9364-41aa9cbad0ed",
+    "catering-quote-tool": "https://script.google.com/macros/s/AKfycbygIPt07mAdW0zI1suEtdh8VMhBSRlvQeA_0n4tyRquqr91H0fzruaBLcIDeo1U9icX/exec",
+    "schedule-counter-gas": "https://script.google.com/macros/s/AKfycbyTz_uj9fDn2yTmqPsISWQ_1P3BP_g-IW3TZ1QFq0vkABbWL1Del42MZyU8Ormy2_rQ/exec"
+  },
+  "projects": [
+    {
+      "name": "payroll-system",
+      "path": "payroll-system",
+      "type": "gas-webapp",
+      "description": "Complete payroll web app with OT tracking, PTO management, uniform ordering, and year-end processing"
+    },
+    {
+      "name": "manager-hub",
+      "path": "manager-hub",
+      "type": "gas-webapp",
+      "description": "Employee accountability system — infractions, points, probation tracking, director oversight"
+    },
+    {
+      "name": "catering-quote-tool",
+      "path": "catering-quote-tool",
+      "type": "gas-webapp",
+      "description": "Create, manage, email, and print professional catering quotes with PDF generation"
+    },
+    {
+      "name": "training-tracker",
+      "path": "training-tracker",
+      "type": "gas-addon",
+      "description": "Employee training progress tracking with position requirements, certification management, and alerts"
+    },
+    {
+      "name": "schedule-counter-gas",
+      "path": "schedule-counter-gas",
+      "type": "gas-webapp",
+      "description": "Labor scheduling tool — schedule upload, sales curve weighting, weekly snapshots, productivity tracking"
+    },
+    {
+      "name": "shared-table-email-summary",
+      "path": "shared-table-email-summary",
+      "type": "gas-addon",
+      "description": "Automated weekly waste summary emails from Google Form responses"
+    },
+    {
+      "name": "monday-huddle",
+      "path": "Monday Morning Huddle Reporting",
+      "type": "gas-addon",
+      "description": "Schedule variance analysis — two locations, planned vs actual hours, weekly reports"
+    }
+  ]
+}

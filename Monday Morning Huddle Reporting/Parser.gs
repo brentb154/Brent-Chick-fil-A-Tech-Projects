@@ -118,16 +118,30 @@ function parseScheduleFromSheet(data) {
 
 /* ── Punch Parser ── */
 
+/**
+ * Tolerates two CFA export schemas:
+ *   Old: EMPLOYEE / PUNCHTYPE / TIMEIN / TIMEOUT        (PUNCHTYPE value: "Regular")
+ *   New: FULL_NAME / PUNCH_TYPE / START_TIME / END_TIME (PUNCH_TYPE value: "R")
+ */
 function parsePunchesFromSheet(data, cfg) {
   var headers = data[0].map(function(h) { return String(h).toUpperCase().replace(/[^A-Z_]/g, ''); });
-  var iE  = headers.indexOf('EMPLOYEE');
-  var iPT = headers.indexOf('PUNCHTYPE');
-  var iTI = headers.indexOf('TIMEIN');
-  var iTO = headers.indexOf('TIMEOUT');
-  var iRE = headers.indexOf('REMARKS');
+
+  function findCol() {
+    for (var i = 0; i < arguments.length; i++) {
+      var idx = headers.indexOf(arguments[i]);
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  }
+
+  var iE  = findCol('EMPLOYEE', 'FULL_NAME');
+  var iPT = findCol('PUNCHTYPE', 'PUNCH_TYPE');
+  var iTI = findCol('TIMEIN', 'START_TIME');
+  var iTO = findCol('TIMEOUT', 'END_TIME');
+  var iRE = findCol('REMARKS');
 
   if (iE < 0 || iTI < 0 || iTO < 0) {
-    throw new Error('Punch tab missing required columns: EMPLOYEE, TIMEIN, TIMEOUT');
+    throw new Error('Punch tab missing required columns. Expected EMPLOYEE/TIMEIN/TIMEOUT (old export) or FULL_NAME/START_TIME/END_TIME (new export).');
   }
 
   var result = [];
@@ -136,7 +150,11 @@ function parsePunchesFromSheet(data, cfg) {
     var name = normalizeName(row[iE]);
     if (!name) continue;
 
-    if (iPT >= 0 && row[iPT] && String(row[iPT]).toLowerCase() !== 'regular') continue;
+    // Accept both "Regular"/"R" (case-insensitive). Anything else (e.g. "B" break) is skipped.
+    if (iPT >= 0 && row[iPT]) {
+      var pt = String(row[iPT]).trim().toLowerCase();
+      if (pt !== 'regular' && pt !== 'r') continue;
+    }
 
     var tIn  = parseTimestamp(row[iTI]);
     var tOut = parseTimestamp(row[iTO]);
@@ -157,7 +175,7 @@ function parsePunchesFromSheet(data, cfg) {
     });
   }
 
-  if (!result.length) throw new Error('No valid punch rows found. Check that data includes EMPLOYEE, TIMEIN, TIMEOUT columns and that PUNCHTYPE is "Regular".');
+  if (!result.length) throw new Error('No valid punch rows found. Check that data includes EMPLOYEE/FULL_NAME, TIMEIN/START_TIME, TIMEOUT/END_TIME columns and that PUNCH_TYPE is "Regular" or "R".');
   return result;
 }
 

@@ -572,9 +572,46 @@ function initializeSheets() {
   
   // Create PTO sheet if it doesn't exist
   initializePTOTab();
-  
+
   // Create Payroll_Settings sheet if it doesn't exist
   initializePayrollSettings();
+}
+
+/**
+ * Master setup function — safe to re-run. Creates all sheet tabs and installs
+ * all time-driven triggers under the account running it. Use this on a new
+ * deployment (e.g. after ownership transfer) to get a fresh install up in one
+ * pass. Every sub-step is idempotent.
+ */
+function runInitialSetup() {
+  const steps = [
+    ['Core sheets', initializeSheets],
+    ['Activity log', initializeActivityLog],
+    ['Comments sheet', initializeCommentsSheet],
+    ['System counters', initializeSystemCounters],
+    ['Action history', initializeActionHistory],
+    ['Weekly summary trigger', setupWeeklySummaryTrigger],
+    ['Auto-archive triggers', setupAutoArchiveTriggers],
+    ['Monthly backup trigger', setupBackupTrigger]
+  ];
+
+  const results = [];
+  for (let i = 0; i < steps.length; i++) {
+    const label = steps[i][0];
+    const fn = steps[i][1];
+    try {
+      fn();
+      results.push('OK  - ' + label);
+    } catch (err) {
+      results.push('ERR - ' + label + ': ' + err.message);
+      console.error('runInitialSetup failed at step "' + label + '":', err);
+    }
+  }
+
+  SpreadsheetApp.flush();
+  const summary = 'runInitialSetup complete:\n' + results.join('\n');
+  console.log(summary);
+  return summary;
 }
 
 /**
@@ -10826,12 +10863,24 @@ function scanDateIntegrityAllSheets(ss, options = {}) {
     return lower.includes('date');
   };
 
+  // Only fields that should be pure calendar dates (no time component).
+  // Timestamp fields like Submission_Date, Received_Date, Review_Date, Import_Date,
+  // Last_Modified_Date, Updated_Date, etc. are intentionally excluded — those store
+  // a moment in time via new Date() and are expected to have a time component.
+  const dateOnlyHeaders = [
+    'first_deduction_date',
+    'pto_start_date',
+    'pto_end_date',
+    'payday',
+    'payroll_date',
+    'next_payroll_date',
+    'pay_date',
+    'period_start',
+    'period_end_date'
+  ];
   const isDateOnlyHeader = (header) => {
     const lower = header.toLowerCase();
-    if (lower.includes('order_date') || lower.includes('created_date') || lower.includes('request_date')) {
-      return false;
-    }
-    return lower.includes('first_deduction') || lower.includes('payday') || lower.includes('payroll') || lower.endsWith('_date');
+    return dateOnlyHeaders.some(h => lower === h || lower.endsWith('_' + h) || lower.includes(h));
   };
 
   const isPayrollAlignedHeader = (header) => {

@@ -16,6 +16,10 @@ var SCHEDULE_HISTORY_HEADERS = [
   ['week_start','day','hour','foh_count','boh_count','combined_count','recorded_at']
 ];
 
+var TRAINING_SCHEDULE_HISTORY_HEADERS = [
+  ['week_start','day','hour','training_count','recorded_at']
+];
+
 var SALES_HISTORY_HEADERS = [
   ['week_start','day','hour','sales_dollars','sales_source','splh','vs_goal','efficiency_flag','recorded_at']
 ];
@@ -34,6 +38,10 @@ var WEEKLY_SUMMARY_HEADERS = [
 
 var PRODUCTIVITY_TRACKER_HEADERS = [
   ['month','productivity','sales','hours']
+];
+
+var SCHEDULE_PUBLISHED_HEADERS = [
+  ['week_start','payload_json','updated_at']
 ];
 
 var HOURS_LIST = [
@@ -65,12 +73,21 @@ function toDateString_(val) {
   if (val instanceof Date) {
     return Utilities.formatDate(val, Session.getScriptTimeZone(), 'yyyy-MM-dd');
   }
-  return String(val);
+  var s = String(val).trim();
+  // Handle M/D/YYYY or MM/DD/YYYY strings that Sheets auto-formats
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) {
+    var mon = m[1].length < 2 ? '0' + m[1] : m[1];
+    var day = m[2].length < 2 ? '0' + m[2] : m[2];
+    return m[3] + '-' + mon + '-' + day;
+  }
+  return s;
 }
 
 /**
  * Google Sheets auto-converts time-like strings (e.g. "5 AM", "12 PM") to
- * Date objects on read. This converts them back to the canonical "H AM/PM" label.
+ * Date objects on read, or sometimes to strings like "5:00 AM".
+ * This converts them back to the canonical "H AM/PM" label (no :00).
  */
 function hourCellToLabel_(val) {
   if (val instanceof Date) {
@@ -80,7 +97,11 @@ function hourCellToLabel_(val) {
     if (h > 12)   return (h - 12) + ' PM';
     return h + ' AM';
   }
-  return String(val);
+  // Handle Sheets returning "5:00 AM" / "12:00 PM" as strings — strip the :00
+  var s = String(val);
+  var m = s.match(/^(\d{1,2}):00\s*(AM|PM)$/i);
+  if (m) return parseInt(m[1]) + ' ' + m[2].toUpperCase();
+  return s;
 }
 
 // ----- HTMLSERVICE INCLUDE HELPER ----------------------------
@@ -99,6 +120,12 @@ function include(filename) {
  */
 function doGet(e) {
   var page = e && e.parameter && e.parameter.page;
+  if (page === 'schedule') {
+    return HtmlService.createHtmlOutputFromFile('Schedule')
+      .setTitle('Schedule — Cockrell Hill')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1.0')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
   if (page === 'tracker') {
     return HtmlService.createHtmlOutputFromFile('ProductivityTracker')
       .setTitle('Productivity Tracker \u2014 Cockrell Hill')
@@ -184,8 +211,8 @@ function saveProductivityData(rows) {
     }
     return [month, parseFloat(r.productivity) || 0, parseFloat(r.sales) || 0, parseFloat(r.hours) || 0];
   });
-  // '@' = plain text format — prevents Sheets from auto-converting "Feb 2025" to a date value
-  // '@STRING@' was invalid and had no effect, causing the auto-conversion bug
+  // '@' = plain text format — prevents Sheets from auto-converting "Feb 2025" to a date value.
+  // Note: '@STRING@' is not a valid number format token and is silently ignored.
   sheet.getRange(2, 1, values.length, 1).setNumberFormat('@');
   sheet.getRange(2, 1, values.length, 4).setValues(values);
 }
@@ -204,6 +231,7 @@ function doPost(e) {
       loadAppCache:          function() { return loadAppCache(); },
       saveConfig:            function() { return saveConfig(body); },
       saveWeekSnapshot:      function() { return saveWeekSnapshot(body); },
+      getScheduleUrl:        function() { return getScheduleUrl(); },
       getWeeklySummary:      function() { return getWeeklySummary(body); },
       getHistoryForWeek:     function() { return getHistoryForWeek(body); },
       sendWeeklySummaryEmail: function() { return sendWeeklySummaryEmail(body); }
@@ -331,12 +359,14 @@ function readSalesCurves(ss) {
 function initSheets() {
   var ss = getSpreadsheet();
   createTabIfMissing(ss, 'schedule_history', SCHEDULE_HISTORY_HEADERS);
+  createTabIfMissing(ss, 'training_schedule_history', TRAINING_SCHEDULE_HISTORY_HEADERS);
   createTabIfMissing(ss, 'sales_history',    SALES_HISTORY_HEADERS);
   createTabIfMissing(ss, 'sales_curves',     SALES_CURVES_HEADERS);
   createTabIfMissing(ss, 'config',           CONFIG_HEADERS);
   createTabIfMissing(ss, 'weekly_summary',   WEEKLY_SUMMARY_HEADERS);
   createTabIfMissing(ss, 'app_cache',           [['cache_json']]);
   createTabIfMissing(ss, 'productivity_tracker', PRODUCTIVITY_TRACKER_HEADERS);
+  createTabIfMissing(ss, 'schedule_published',  SCHEDULE_PUBLISHED_HEADERS);
   seedDefaultConfig(ss);
   seedDefaultCurves(ss);
   Logger.log('initSheets complete. All tabs verified.');
@@ -367,6 +397,8 @@ function seedDefaultConfig(ss) {
     ['labor_share_foh',    '50'],
     ['labor_share_boh',    '40'],
     ['labor_share_other',  '10'],
+    ['labor_share_training_foh', '3'],
+    ['labor_share_training_boh', '3'],
     ['smoothing_alpha',    '0.3'],
     ['bias_threshold',     '10'],
     ['operator_email',     ''],
@@ -392,9 +424,9 @@ function seedDefaultCurves(ss) {
       rows.push([day, hour, getDefaultCurveWeight(idx), 0, now]);
     });
   });
-  sheet.getRange(2, 1, rows.length, 5).setValues(rows);
-  // Force text format on the hour column so Sheets never auto-converts "5 AM" etc. to time values
+  // Force text format on the hour column BEFORE writing so Sheets doesn't auto-convert "5 AM" to a Date
   sheet.getRange(2, 2, rows.length, 1).setNumberFormat('@');
+  sheet.getRange(2, 1, rows.length, 5).setValues(rows);
   Logger.log('Seeded ' + rows.length + ' curve rows (' + DAYS_LIST.length + ' days \u00d7 ' + HOURS_LIST.length + ' hours).');
 }
 
@@ -467,9 +499,17 @@ function getConfig() {
         boh:     parseFloat(cfgMap['splh_goal_boh'])     || 90
       },
       laborShares: {
-        foh:   parseFloat(cfgMap['labor_share_foh'])   || 50,
-        boh:   parseFloat(cfgMap['labor_share_boh'])   || 40,
-        other: parseFloat(cfgMap['labor_share_other']) || 10
+        foh:      parseFloat(cfgMap['labor_share_foh'])      || 50,
+        boh:      parseFloat(cfgMap['labor_share_boh'])      || 40,
+        other:    parseFloat(cfgMap['labor_share_other'])    || 10,
+        trainingFoh: (function() {
+          var v = parseFloat(cfgMap['labor_share_training_foh']);
+          return isNaN(v) ? 3 : v;
+        })(),
+        trainingBoh: (function() {
+          var v = parseFloat(cfgMap['labor_share_training_boh']);
+          return isNaN(v) ? 3 : v;
+        })()
       },
       smoothingAlpha: parseFloat(cfgMap['smoothing_alpha']) || 0.3,
       biasThreshold:  parseFloat(cfgMap['bias_threshold'])  || 10,
@@ -503,9 +543,11 @@ function saveConfig(body) {
       if (body.splhGoals.boh     !== undefined) updates['splh_goal_boh']     = body.splhGoals.boh;
     }
     if (body.laborShares) {
-      if (body.laborShares.foh   !== undefined) updates['labor_share_foh']   = body.laborShares.foh;
-      if (body.laborShares.boh   !== undefined) updates['labor_share_boh']   = body.laborShares.boh;
-      if (body.laborShares.other !== undefined) updates['labor_share_other'] = body.laborShares.other;
+      if (body.laborShares.foh      !== undefined) updates['labor_share_foh']      = body.laborShares.foh;
+      if (body.laborShares.boh      !== undefined) updates['labor_share_boh']      = body.laborShares.boh;
+      if (body.laborShares.other    !== undefined) updates['labor_share_other']    = body.laborShares.other;
+      if (body.laborShares.trainingFoh !== undefined) updates['labor_share_training_foh'] = body.laborShares.trainingFoh;
+      if (body.laborShares.trainingBoh !== undefined) updates['labor_share_training_boh'] = body.laborShares.trainingBoh;
     }
     if (body.smoothingAlpha !== undefined) updates['smoothing_alpha'] = body.smoothingAlpha;
     if (body.biasThreshold  !== undefined) updates['bias_threshold']  = body.biasThreshold;
@@ -565,7 +607,8 @@ function saveSalesCurves_(ss, daysCurveData) {
     });
   });
 
-  // Single batch write
+  // Single batch write — force hour column (B) to plain text
+  sheet.getRange(2, 2, allData.length, 1).setNumberFormat('@');
   sheet.getRange(2, 1, allData.length, 5).setValues(allData);
 }
 
@@ -594,8 +637,11 @@ function deleteWeekRows_(sheet, weekStart) {
  * Batch-writes a week's schedule and sales data to history sheets,
  * then computes and appends a summary row to weekly_summary.
  *
- * Body shape: { weekStart, scheduleData, fohScheduleData, bohScheduleData, salesData, salesSource }
+ * Body shape: { weekStart, scheduleData, fohScheduleData, bohScheduleData, salesData, salesSource,
+ *               fohStaffNames, bohStaffNames, trainingStaffNames, managerShifts, suggestedStaff,
+ *               locationName }
  * Duplicate weeks are deleted before writing — safe to re-run for the same week.
+ * Also writes a JSON blob to schedule_published for the manager dashboard view.
  */
 function saveWeekSnapshot(body) {
   try {
@@ -605,13 +651,15 @@ function saveWeekSnapshot(body) {
     var schedSheet  = getSheet(ss, 'schedule_history');
     var salesSheet  = getSheet(ss, 'sales_history');
     var summSheet   = getSheet(ss, 'weekly_summary');
+    var trainingSheet = getSheet(ss, 'training_schedule_history');
 
-    var weekStart   = String(body.weekStart);
-    var schedData   = body.scheduleData    || {};
-    var fohData     = body.fohScheduleData || {};
-    var bohData     = body.bohScheduleData || {};
-    var salesData   = body.salesData       || {};
-    var salesSource = body.salesSource     || 'estimated';
+    var weekStart    = String(body.weekStart);
+    var schedData    = body.scheduleData         || {};
+    var fohData      = body.fohScheduleData      || {};
+    var bohData      = body.bohScheduleData      || {};
+    var trainingData = body.trainingScheduleData || {};
+    var salesData    = body.salesData            || {};
+    var salesSource  = body.salesSource          || 'estimated';
     var goal        = parseFloat(cfgMap['splh_goal_overall']) || 90;
     var locName     = cfgMap['location_name'] || 'Cockrell Hill';
     var now         = new Date().toISOString();
@@ -619,19 +667,39 @@ function saveWeekSnapshot(body) {
     // Delete existing rows for this weekStart (idempotent re-run)
     deleteWeekRows_(schedSheet, weekStart);
     deleteWeekRows_(salesSheet,  weekStart);
+    deleteWeekRows_(trainingSheet, weekStart);
 
     // Build complete row arrays in memory first, then write once per sheet
     var schedRows = [];
     var salesRows = [];
+    var trainingRows = [];
+
+    // Map day names to offsets from Monday (weekStart) to detect future days
+    var dayOffset = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5 };
+    var wsDate = new Date(weekStart + 'T00:00:00');
+    var today  = new Date();
+    today.setHours(0, 0, 0, 0);
 
     Object.keys(schedData).forEach(function(day) {
+      // Check if this day is in the future — skip estimated sales for future days
+      var dayDate = new Date(wsDate.getTime() + (dayOffset[day] || 0) * 86400000);
+      var isFuture = dayDate > today;
+
       HOURS_LIST.forEach(function(hour) {
+        var trainingCount = (trainingData[day] && trainingData[day][hour]) || 0;
+        if (trainingCount > 0) {
+          trainingRows.push([weekStart, day, hour, trainingCount, now]);
+        }
+
         var combined = (schedData[day] && schedData[day][hour]) || 0;
         if (combined === 0) return; // Skip unstaffed hours
 
         var foh = (fohData[day] && fohData[day][hour]) || 0;
         var boh = (bohData[day] && bohData[day][hour]) || 0;
         schedRows.push([weekStart, day, hour, foh, boh, combined, now]);
+
+        // Only write estimated sales for days that have already occurred
+        if (isFuture && salesSource === 'estimated') return;
 
         var sales = (salesData[day] && salesData[day][hour]) || 0;
         if (sales > 0) {
@@ -647,11 +715,24 @@ function saveWeekSnapshot(body) {
 
     if (schedRows.length > 0) {
       var sn = schedSheet.getLastRow() + 1;
+      // Force week_start (A) and hour (C) columns to plain text
+      schedSheet.getRange(sn, 1, schedRows.length, 1).setNumberFormat('@');
+      schedSheet.getRange(sn, 3, schedRows.length, 1).setNumberFormat('@');
       schedSheet.getRange(sn, 1, schedRows.length, 7).setValues(schedRows);
     }
     if (salesRows.length > 0) {
       var an = salesSheet.getLastRow() + 1;
+      // Force week_start (A) and hour (C) columns to plain text
+      salesSheet.getRange(an, 1, salesRows.length, 1).setNumberFormat('@');
+      salesSheet.getRange(an, 3, salesRows.length, 1).setNumberFormat('@');
       salesSheet.getRange(an, 1, salesRows.length, 9).setValues(salesRows);
+    }
+    if (trainingRows.length > 0) {
+      var tn = trainingSheet.getLastRow() + 1;
+      // Force week_start (A) and hour (C) columns to plain text
+      trainingSheet.getRange(tn, 1, trainingRows.length, 1).setNumberFormat('@');
+      trainingSheet.getRange(tn, 3, trainingRows.length, 1).setNumberFormat('@');
+      trainingSheet.getRange(tn, 1, trainingRows.length, 5).setValues(trainingRows);
     }
 
     // Compute weekly_summary values from already-built salesRows
@@ -673,15 +754,143 @@ function saveWeekSnapshot(body) {
 
     deleteWeekRows_(summSheet, weekStart);
     var un = summSheet.getLastRow() + 1;
+    // Force week_start (A) to plain text
+    summSheet.getRange(un, 1, 1, 1).setNumberFormat('@');
     summSheet.getRange(un, 1, 1, 9).setValues([[
       weekStart, locName, avgSplh, peakHour,
       belowCount / total, nearCount / total, meetCount / total,
       totalHoursScheduled, now
     ]]);
 
+    // Publish to schedule_published tab for the manager dashboard
+    writePublishedSchedule_(ss, weekStart, body, locName, now);
+
     return { success: true };
   } catch (err) {
     Logger.log('saveWeekSnapshot error: ' + err.message);
+    return { error: err.message };
+  }
+}
+
+/**
+ * Writes the full schedule payload to schedule_published as one JSON blob per week.
+ * One row per weekStart — idempotent re-writes. Safe if fields are missing (old clients).
+ * Payload shape:
+ *   {
+ *     weekStart, locationName, updatedAt,
+ *     fohCounts, bohCounts, trainingCounts,
+ *     fohNames, bohNames, trainingNames,
+ *     managers: { foh: {day: [{label,name}]}, boh: {...} },
+ *     suggested: { foh: {day: {hour: N}}, boh: {day: {hour: N}} }
+ *   }
+ */
+function writePublishedSchedule_(ss, weekStart, body, locName, nowIso) {
+  var sheet = ss.getSheetByName('schedule_published');
+  if (!sheet) {
+    sheet = ss.insertSheet('schedule_published');
+    sheet.getRange(1, 1, 1, 3).setValues(SCHEDULE_PUBLISHED_HEADERS);
+    sheet.setFrozenRows(1);
+  }
+
+  var payload = {
+    weekStart:      weekStart,
+    locationName:   locName,
+    updatedAt:      nowIso,
+    fohCounts:      body.fohScheduleData      || {},
+    bohCounts:      body.bohScheduleData      || {},
+    trainingCounts: body.trainingScheduleData || {},
+    fohNames:       body.fohStaffNames        || {},
+    bohNames:       body.bohStaffNames        || {},
+    trainingNames:  body.trainingStaffNames   || {},
+    managers:       body.managerShifts        || {},
+    suggested:      body.suggestedStaff       || { foh: {}, boh: {} }
+  };
+  var json = JSON.stringify(payload);
+
+  // Delete existing row for this week (idempotent re-write)
+  var last = sheet.getLastRow();
+  if (last > 1) {
+    var weekCol = sheet.getRange(2, 1, last - 1, 1).getValues();
+    for (var i = weekCol.length - 1; i >= 0; i--) {
+      if (String(weekCol[i][0]) === weekStart) {
+        sheet.deleteRow(i + 2);
+      }
+    }
+  }
+
+  var rowNum = sheet.getLastRow() + 1;
+  sheet.getRange(rowNum, 1, 1, 1).setNumberFormat('@'); // week_start as plain text
+  sheet.getRange(rowNum, 1, 1, 3).setValues([[weekStart, json, nowIso]]);
+}
+
+/**
+ * Returns the published schedule payload for a given weekStart.
+ * If weekStart is omitted, returns the most recently published week.
+ * Shape: { weekStart, locationName, updatedAt, fohCounts, bohCounts, trainingCounts,
+ *          fohNames, bohNames, trainingNames, managers, suggested, availableWeeks }
+ * Returns { empty: true, availableWeeks: [...] } if nothing published yet.
+ */
+function getPublishedSchedule(weekStart) {
+  try {
+    var ss    = getSpreadsheet();
+    var sheet = ss.getSheetByName('schedule_published');
+    if (!sheet || sheet.getLastRow() < 2) {
+      return { empty: true, availableWeeks: [] };
+    }
+    var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
+    var weeks = rows.map(function(r) { return String(r[0]); }).sort(); // ascending
+    var target = weekStart ? String(weekStart) : weeks[weeks.length - 1];
+    var row = null;
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]) === target) { row = rows[i]; break; }
+    }
+    if (!row) {
+      return { empty: true, availableWeeks: weeks, requestedWeek: target };
+    }
+    var payload;
+    try {
+      payload = JSON.parse(row[1]);
+    } catch (parseErr) {
+      return { error: 'Payload parse failed for week ' + target + ': ' + parseErr.message };
+    }
+    payload.availableWeeks = weeks;
+    return payload;
+  } catch (err) {
+    Logger.log('getPublishedSchedule error: ' + err.message);
+    return { error: err.message };
+  }
+}
+
+/**
+ * Returns the most recent published weekStart as a string, or null if none.
+ * Cheap helper for the dashboard's default view.
+ */
+function getLatestPublishedWeekStart() {
+  try {
+    var ss    = getSpreadsheet();
+    var sheet = ss.getSheetByName('schedule_published');
+    if (!sheet || sheet.getLastRow() < 2) return null;
+    var weeks = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues()
+      .map(function(r) { return String(r[0]); })
+      .filter(function(w) { return w && w !== 'null' && w !== 'undefined'; })
+      .sort();
+    return weeks.length > 0 ? weeks[weeks.length - 1] : null;
+  } catch (err) {
+    Logger.log('getLatestPublishedWeekStart error: ' + err.message);
+    return null;
+  }
+}
+
+/**
+ * Returns the published web app URL for the Schedule view (?page=schedule).
+ * Called by the frontend to render the "View Schedule" link after publish.
+ */
+function getScheduleUrl() {
+  try {
+    var base = ScriptApp.getService().getUrl();
+    if (!base) return { error: 'Web app URL unavailable — deploy the app first.' };
+    return { url: base + '?page=schedule' };
+  } catch (err) {
     return { error: err.message };
   }
 }
@@ -839,27 +1048,30 @@ function validateSheet1() {
   var last = sheet.getLastRow();
   if (last < 2) return { valid: false, reason: 'Sheet1 is empty — CFA sync may have failed.' };
 
-  // Find the "Today date" column dynamically
+  // Find the "Business Date" column dynamically
   var headers   = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  var todayCol  = -1;
+  var dateCol   = -1;
   headers.forEach(function(h, i) {
-    if (todayCol === -1 && String(h).toLowerCase().indexOf('today') !== -1) todayCol = i + 1; // 1-based
+    if (dateCol === -1 && String(h).toLowerCase().indexOf('business date') !== -1) dateCol = i + 1; // 1-based
   });
-  if (todayCol === -1) {
-    // No "today" column — skip date validation, just confirm data exists
+  if (dateCol === -1) {
+    // No "Business Date" column — skip date validation, just confirm data exists
     return { valid: true };
   }
 
   var tz       = Session.getScriptTimeZone();
-  var todayStr = Utilities.formatDate(new Date(), tz, 'MM/dd/yyyy');
-  var col      = sheet.getRange(2, todayCol, last - 1, 1).getValues().flat();
-  var hasToday = col.some(function(v) {
-    try { return Utilities.formatDate(new Date(v), tz, 'MM/dd/yyyy') === todayStr; }
-    catch(e) { return false; }
+  var now      = new Date();
+  var cutoff   = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
+  var col      = sheet.getRange(2, dateCol, last - 1, 1).getValues().flat();
+  var hasRecent = col.some(function(v) {
+    try {
+      var d = new Date(v);
+      return !isNaN(d.getTime()) && d >= cutoff && d <= now;
+    } catch(e) { return false; }
   });
-  if (!hasToday) return {
+  if (!hasRecent) return {
     valid: false,
-    reason: 'Sheet1 has no rows with today\'s date. CFA sync may not have run.'
+    reason: 'Sheet1 has no rows within the last 7 days. CFA sync may not have run.'
   };
   return { valid: true };
 }
@@ -905,6 +1117,17 @@ function installTriggers() {
     Logger.log('Thursday trigger already exists — skipped.');
   }
   return { success: true };
+}
+
+/**
+ * Deletes all project triggers. Safe to re-run — no-op if none exist.
+ * Use before re-installing triggers from scratch or when decommissioning.
+ */
+function deleteTriggers() {
+  var triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(function(t) { ScriptApp.deleteTrigger(t); });
+  Logger.log('Deleted ' + triggers.length + ' trigger(s).');
+  return { success: true, deleted: triggers.length };
 }
 
 /**
@@ -1366,9 +1589,10 @@ function backfillSalesHistoryFromSheet1() {
   var salesLast    = salesSheet.getLastRow();
   var existingKeys = {};
   if (salesLast >= 2) {
-    salesSheet.getRange(2, 1, salesLast - 1, 5).getValues().forEach(function(row) {
+    var existingSalesRows = salesSheet.getRange(2, 1, salesLast - 1, 5).getValues();
+    existingSalesRows.forEach(function(row) {
       if (String(row[4]) === 'api') {
-        existingKeys[toDateString_(row[0]) + '|' + row[1] + '|' + row[2]] = true;
+        existingKeys[toDateString_(row[0]) + '|' + row[1] + '|' + hourCellToLabel_(row[2])] = true;
       }
     });
   }
@@ -1392,10 +1616,61 @@ function backfillSalesHistoryFromSheet1() {
   });
 
   if (newRows.length > 0) {
-    salesSheet.getRange(salesLast + 1, 1, newRows.length, 9).setValues(newRows);
+    var writeRange = salesSheet.getRange(salesLast + 1, 1, newRows.length, 9);
+    // Force week_start (A) and hour (C) columns to plain text
+    salesSheet.getRange(salesLast + 1, 1, newRows.length, 1).setNumberFormat('@');
+    salesSheet.getRange(salesLast + 1, 3, newRows.length, 1).setNumberFormat('@');
+    writeRange.setValues(newRows);
   }
   Logger.log('backfillSalesHistoryFromSheet1: added=' + newRows.length + ' skipped=' + skipped);
   return { added: newRows.length, skipped: skipped };
+}
+
+/**
+ * One-time cleanup: normalizes week_start and hour columns in sales_history,
+ * then removes duplicate (week_start, day, hour, source) rows keeping the latest.
+ * Safe to re-run. Returns { normalized, deduped } counts.
+ */
+function dedupSalesHistory() {
+  var ss    = getSpreadsheet();
+  var sheet = ss.getSheetByName('sales_history');
+  if (!sheet || sheet.getLastRow() < 2) return { normalized: 0, deduped: 0 };
+
+  var data    = sheet.getRange(2, 1, sheet.getLastRow() - 1, 9).getValues();
+  var normalized = 0;
+
+  // Normalize week_start (col 0) and hour (col 2) in every row
+  data.forEach(function(row) {
+    var origWs = String(row[0]);
+    row[0] = toDateString_(row[0]);
+    row[2] = hourCellToLabel_(row[2]);
+    if (row[0] !== origWs) normalized++;
+  });
+
+  // Deduplicate: keep last occurrence of each (week_start, day, hour, source) combo
+  var seen = {};
+  var kept = [];
+  for (var i = data.length - 1; i >= 0; i--) {
+    var key = data[i][0] + '|' + data[i][1] + '|' + data[i][2] + '|' + data[i][4];
+    if (seen[key]) continue;
+    seen[key] = true;
+    kept.push(data[i]);
+  }
+  kept.reverse();
+
+  var deduped = data.length - kept.length;
+
+  // Rewrite the sheet
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, 9).setValues(SALES_HISTORY_HEADERS);
+  if (kept.length > 0) {
+    sheet.getRange(2, 1, kept.length, 1).setNumberFormat('@');
+    sheet.getRange(2, 3, kept.length, 1).setNumberFormat('@');
+    sheet.getRange(2, 1, kept.length, 9).setValues(kept);
+  }
+  SpreadsheetApp.flush();
+  Logger.log('dedupSalesHistory: normalized=' + normalized + ' deduped=' + deduped);
+  return { normalized: normalized, deduped: deduped };
 }
 
 /**
@@ -1523,7 +1798,8 @@ function archiveSalesPayload(salesPayload, weekStart) {
   var schedLookup = {};
   var schedLast = schedSheet.getLastRow();
   if (schedLast >= 2) {
-    schedSheet.getRange(2, 1, schedLast - 1, 7).getValues().forEach(function(row) {
+    var schedRows = schedSheet.getRange(2, 1, schedLast - 1, 7).getValues();
+    schedRows.forEach(function(row) {
       if (toDateString_(row[0]) === weekStart) {
         var day = String(row[1]), hour = hourCellToLabel_(row[2]), combined = row[5] || 0;
         if (!schedLookup[day]) schedLookup[day] = {};
@@ -1569,7 +1845,12 @@ function archiveSalesPayload(salesPayload, weekStart) {
   var allRows = kept.concat(newRows);
   salesSheet.clearContents();
   salesSheet.getRange(1, 1, 1, 9).setValues(SALES_HISTORY_HEADERS);
-  if (allRows.length > 0) salesSheet.getRange(2, 1, allRows.length, 9).setValues(allRows);
+  if (allRows.length > 0) {
+    // Force week_start (A) and hour (C) columns to plain text
+    salesSheet.getRange(2, 1, allRows.length, 1).setNumberFormat('@');
+    salesSheet.getRange(2, 3, allRows.length, 1).setNumberFormat('@');
+    salesSheet.getRange(2, 1, allRows.length, 9).setValues(allRows);
+  }
 }
 
 /**
@@ -1682,7 +1963,8 @@ function runSmoothingUpdate(salesPayload) {
     });
   });
 
-  // Single batch write
+  // Single batch write — force hour column to plain text first
+  sheet.getRange(2, 2, allData.length, 1).setNumberFormat('@');
   sheet.getRange(2, 1, allData.length, 5).setValues(allData);
 }
 
@@ -1771,7 +2053,12 @@ function cleanupOldHistory() {
     var kept   = all.slice(1).filter(function(row) { return toDateString_(row[0]) >= cutoffStr; });
     sheet.clearContents();
     sheet.getRange(1, 1, 1, header.length).setValues([header]);
-    if (kept.length) sheet.getRange(2, 1, kept.length, header.length).setValues(kept);
+    if (kept.length) {
+      // Force week_start (A) and hour (C) columns to plain text
+      sheet.getRange(2, 1, kept.length, 1).setNumberFormat('@');
+      sheet.getRange(2, 3, kept.length, 1).setNumberFormat('@');
+      sheet.getRange(2, 1, kept.length, header.length).setValues(kept);
+    }
   });
 }
 

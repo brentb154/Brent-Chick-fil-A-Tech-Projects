@@ -1463,6 +1463,19 @@
   </nav>
 
   <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
     // ============================================
     // DASHBOARD JAVASCRIPT
     // ============================================
@@ -1616,6 +1629,7 @@
       clearSessionData();
       const fallbackUrl = getBaseUrl() + '?page=login';
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           redirectTo(url + '?page=login');
         })
@@ -1663,6 +1677,7 @@
 
       // Verify session with server using token
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result || !result.valid) {
             showLoadFailure('Session expired. Please log in again.');
@@ -1886,6 +1901,7 @@
     function loadLinksData(token) {
       // Use the new safe wrapper for links
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
            console.log('[dashboard] links:', safeStringify(result));
            quickLinksData = result || { success: false };
@@ -1913,6 +1929,7 @@
       const token = getSessionToken();
       if (!token) return;
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           const body = document.getElementById('recentReportsBody');
           if (!body) return;
@@ -1947,6 +1964,7 @@
         badge.className = 'status-pill warning';
       }
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result || !result.visible) return;
           const status = result.overall_status || 'warning';
@@ -2561,6 +2579,7 @@
     function viewEmployee(employeeId) {
       // Navigate to employee list with selected employee
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           redirectTo(url + '?page=employees&employee=' + employeeId + '&t=' + Date.now());
         })
@@ -2587,6 +2606,7 @@
       }, 1500);
       try {
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(url) {
             didNavigate = true;
             clearTimeout(fallbackTimer);
@@ -2621,6 +2641,7 @@
       }, 1500);
       try {
         google.script.run
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(url) {
             didNavigate = true;
             clearTimeout(fallbackTimer);
@@ -2651,6 +2672,7 @@
       const language = select.value;
       sessionStorage.setItem('cfa_language', language);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             applyDashboardNavTranslations(language);
@@ -2675,6 +2697,7 @@
         'links.boh'
       ];
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           const t = result || {};
           window.dashboardTranslations = t;
@@ -2758,6 +2781,7 @@
         'help.refresh_body'
       ];
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           analyticsTranslations = result || {};
           const t = (key, fallback) => analyticsTranslations[key] || fallback || key;
@@ -2851,8 +2875,10 @@
       var token = getSessionToken();
       clearSessionData();
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function() {
           google.script.run
+            .withFailureHandler(handleServerError)
             .withSuccessHandler(function(url) {
               redirectTo(url + '?page=login');
             })
@@ -2861,6 +2887,7 @@
         .withFailureHandler(function() {
           // Even if server logout fails, redirect to login
           google.script.run
+            .withFailureHandler(handleServerError)
             .withSuccessHandler(function(url) {
               redirectTo(url + '?page=login');
             })

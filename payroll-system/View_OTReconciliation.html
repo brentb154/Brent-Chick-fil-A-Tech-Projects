@@ -124,6 +124,19 @@
 </div>
 
 <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
 var ReconState = {
   data: null,
   periods: [],
@@ -133,6 +146,7 @@ var ReconState = {
 
 function initOTReconciliationView() {
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(periods) {
       ReconState.periods = periods || [];
       var select = document.getElementById('reconPeriodSelect');
@@ -153,6 +167,7 @@ function initOTReconciliationView() {
     .getOTHistoryPeriods();
 
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(settings) {
       if (settings) {
         ReconState.loc1Name = settings.location1Name || 'Location 1';
@@ -181,6 +196,7 @@ function loadReconciliation() {
   document.getElementById('reconResults').innerHTML = '<div style="text-align:center; padding:40px;"><div class="spinner"></div><p style="margin-top:12px; color:var(--gray-500);">Loading reconciliation data...</p></div>';
 
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
       if (!result || result.success === false) {
         document.getElementById('reconResults').innerHTML = '<div class="recon-empty"><span class="material-icons-round">error_outline</span><p>' + ((result && result.error) || 'Failed to load') + '</p></div>';
@@ -472,6 +488,7 @@ function exportReconciliationPDF() {
   var periodStr = document.getElementById('reconPeriodSelect').value;
   showToast('Generating PDF...', 'info');
   google.script.run
+    .withFailureHandler(handleServerError)
     .withSuccessHandler(function(url) {
       if (url) window.open(url, '_blank');
       else showToast('PDF generated — check your Drive', 'success');

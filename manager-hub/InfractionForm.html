@@ -479,6 +479,19 @@
   </nav>
 
   <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
     // ============================================
     // GLOBAL VARIABLES
     // ============================================
@@ -575,6 +588,7 @@
       // Validate token with server
       // IMPORTANT: Only load form data AFTER session is confirmed valid
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.valid) {
             userRole = result.role;
@@ -610,6 +624,7 @@
       const language = select.value;
       sessionStorage.setItem('cfa_language', language);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.success) {
             applyFormTranslations(language);
@@ -663,6 +678,7 @@
         'modal.return_to_login'
       ];
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           formTranslations = result || {};
           const requiredSuffix = tForm('form.required_field', '*');
@@ -740,6 +756,7 @@
       }
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (!result || !result.valid) {
             handleSessionExpired();
@@ -784,6 +801,7 @@
       if (!token) return;
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           // Session extended silently by validateSessionToken
         })
@@ -845,6 +863,7 @@
         }
       }, 1500);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           didNavigate = true;
           clearTimeout(fallbackTimer);
@@ -907,6 +926,7 @@
 
       // End session on server
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function() {
           showLogoutScreen(tForm('form.logout_success', 'You have been logged out successfully.'));
         })
@@ -941,6 +961,7 @@
 
       // Get the actual deployment URL from the server
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(url) {
           var loginUrl = url + '?t=' + Date.now();
           var link = document.getElementById('loginLink');
@@ -1296,6 +1317,7 @@
       }
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.isDuplicate) {
             const proceed = confirm(

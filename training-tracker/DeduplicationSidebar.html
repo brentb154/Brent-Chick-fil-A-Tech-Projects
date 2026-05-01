@@ -37,6 +37,19 @@
   </div>
 
   <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
     window.onload = function () {
       google.script.run
         .withSuccessHandler(displayDuplicates)
@@ -81,11 +94,13 @@
       if (card) card.style.opacity = '0.5';
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function (message) {
           // Remove the card and show toast
           if (card) card.remove();
           // Reload remaining
           google.script.run
+            .withFailureHandler(handleServerError)
             .withSuccessHandler(displayDuplicates)
             .getPendingDuplicates();
         })

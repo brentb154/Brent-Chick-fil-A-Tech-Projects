@@ -834,6 +834,17 @@ function setupMondayTrigger() {
     'automatically loaded from the Training Schedule.');
 }
 
+/**
+ * Removes all project triggers. Safe to re-run.
+ */
+function deleteAllTriggers() {
+  var triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(function(trigger) {
+    ScriptApp.deleteTrigger(trigger);
+  });
+  SpreadsheetApp.getUi().alert('All triggers removed (' + triggers.length + ' deleted).');
+}
+
 
 // ==============================================================
 // EXISTING HELPERS

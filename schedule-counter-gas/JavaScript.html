@@ -7,14 +7,24 @@
 // ── Global State ─────────────────────────────────────────────
 var fohScheduleData = {};
 var bohScheduleData = {};
+var trainingScheduleData = {};
 var fohStaffNames   = {};
 var bohStaffNames   = {};
+var trainingStaffNames = {};
+var fohDecimalHours = {};
+var bohDecimalHours = {};
+var trainingDecimalHours = {};
+var decimalHoursData = {};
+var fohEmployeeWeeklyHours = {};
+var bohEmployeeWeeklyHours = {};
+var trainingEmployeeWeeklyHours = {};
 var scheduleData    = {};
 var salesData       = {};
 var chartInstance   = null;
 var dayChartInstances = {};
 var currentDepartmentView = 'overall';
 var currentDaypart        = 'all';
+var includeTraining       = false;
 var managerShifts         = {};
 var managerGridVisible    = false;
 var salesConfig           = null;       // { goals, laborSharesPercent } — set by applyConfig()
@@ -25,6 +35,9 @@ var currentSalesSource    = 'estimated'; // Always 'estimated' in Chunk 2; Chunk
 var trendsLoaded          = false;      // lazy-load flag for Trends tab
 var trendsSplhChart       = null;       // Chart.js instance for SPLH line
 var trendsStackedChart    = null;       // Chart.js instance for stacked bar
+
+// Default failure handler — overridden by any .withFailureHandler() call later in the chain
+var _gsFail = function(err) { if (window.console) console.error('google.script.run failed:', err); };
 
 // ── Constants ─────────────────────────────────────────────────
 var HOURS = [
@@ -56,7 +69,9 @@ var DEFAULT_SALES_CURVE = {
 
 var DEFAULT_SALES_CONFIG = {
   goals: { overall:90.0, foh:90.0, boh:90.0 },
-  laborSharesPercent: { foh:50, boh:40, other:10 }
+  laborSharesPercent: { foh:50, boh:40, other:10 },
+  trainingSharePercentFoh: 3,
+  trainingSharePercentBoh: 3
 };
 
 // ── Onboarding Overlay ────────────────────────────────────────
@@ -93,7 +108,7 @@ function onboardInitSheets() {
   btn.textContent = 'Initializing\u2026';
   status.style.display = 'none';
 
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function() {
       status.className   = 'onboarding-status success';
       status.textContent = 'Spreadsheet initialized successfully!';
@@ -119,7 +134,7 @@ function onboardSaveLocation() {
   btn.textContent = 'Saving\u2026';
   status.style.display = 'none';
 
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(res) {
       btn.disabled    = false;
       btn.textContent = 'Save & Continue \u2192';
@@ -148,7 +163,7 @@ function onboardComplete() {
   btn.textContent = 'Launching\u2026';
   status.style.display = 'none';
 
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(res) {
       if (res && res.error) {
         btn.disabled    = false;
@@ -159,7 +174,7 @@ function onboardComplete() {
         return;
       }
       // Reload config from server, then hide the overlay
-      google.script.run
+      google.script.run.withFailureHandler(_gsFail)
         .withSuccessHandler(function(config) {
           applyConfig(config, true);
         })
@@ -227,7 +242,7 @@ function getDefaultConfig() {
   });
   return {
     splhGoals:       { overall:90, foh:90, boh:90 },
-    laborShares:     { foh:50, boh:40, other:10 },
+    laborShares:     { foh:50, boh:40, other:10, training:6 },
     smoothingAlpha:  0.3,
     biasThreshold:   10,
     operatorEmail:   '',
@@ -266,7 +281,9 @@ function applyConfig(config, isServerData) {
       foh:   config.laborShares.foh,
       boh:   config.laborShares.boh,
       other: config.laborShares.other
-    }
+    },
+    trainingSharePercentFoh: (config.laborShares.trainingFoh !== undefined ? config.laborShares.trainingFoh : 3),
+    trainingSharePercentBoh: (config.laborShares.trainingBoh !== undefined ? config.laborShares.trainingBoh : 3)
   };
 
   // Set per-day curves; fill any missing days with defaults
@@ -330,6 +347,29 @@ function applyConfig(config, isServerData) {
 }
 
 // ── Tab Navigation ────────────────────────────────────────────
+// Opens the read-only manager Schedule page in a new tab.
+// Fetches the deployed web app URL from the server so the link matches the
+// current deployment (no hardcoded URL to rot across redeploys).
+function openSchedulePage() {
+  // Open a placeholder tab synchronously — avoids popup blockers after async round-trip
+  var win = window.open('about:blank', '_blank');
+  google.script.run.withFailureHandler(_gsFail)
+    .withSuccessHandler(function(res) {
+      if (res && res.url) {
+        if (win) win.location.href = res.url;
+        else window.open(res.url, '_blank');
+      } else {
+        if (win) win.close();
+        showToast('Schedule URL unavailable: ' + ((res && res.error) || 'unknown'), 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      if (win) win.close();
+      showToast('Could not fetch Schedule URL: ' + err.message, 'error');
+    })
+    .getScheduleUrl();
+}
+
 function switchMainPanel(panel) {
   var panels = ['converter','counter','trends','settings','tracker','forecast','info'];
   panels.forEach(function(p) {
@@ -343,7 +383,7 @@ function switchMainPanel(panel) {
   });
 
   if (panel === 'settings') {
-    google.script.run
+    google.script.run.withFailureHandler(_gsFail)
       .withSuccessHandler(function(freshConfig) {
         _lastLoadedConfig = freshConfig;
         populateSettingsFromConfig(freshConfig);
@@ -382,6 +422,8 @@ function populateSettingsFromConfig(config) {
   set('settings-share-foh',       config.laborShares.foh);
   set('settings-share-boh',       config.laborShares.boh);
   set('settings-share-other',     config.laborShares.other);
+  set('settings-share-training-foh', config.laborShares.trainingFoh !== undefined ? config.laborShares.trainingFoh : 3);
+  set('settings-share-training-boh', config.laborShares.trainingBoh !== undefined ? config.laborShares.trainingBoh : 3);
   set('settings-location-name',   config.locationName);
   set('settings-operator-email',  config.operatorEmail);
   set('settings-smoothing-alpha', config.smoothingAlpha);
@@ -412,7 +454,7 @@ function saveSettingsSPLH() {
     showToast('Please enter valid numbers for all SPLH goals.', 'warning');
     return;
   }
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(res) {
       if (res && res.error) { showToast('Save failed: ' + res.error, 'error'); return; }
       showToast('SPLH goals saved.', 'success');
@@ -426,31 +468,39 @@ function saveSettingsSPLH() {
 }
 
 function saveSettingsLaborShares() {
-  var foh   = parseFloat(document.getElementById('settings-share-foh').value);
-  var boh   = parseFloat(document.getElementById('settings-share-boh').value);
-  var other = parseFloat(document.getElementById('settings-share-other').value);
+  var foh      = parseFloat(document.getElementById('settings-share-foh').value);
+  var boh      = parseFloat(document.getElementById('settings-share-boh').value);
+  var other    = parseFloat(document.getElementById('settings-share-other').value);
+  var tFohEl   = document.getElementById('settings-share-training-foh');
+  var tBohEl   = document.getElementById('settings-share-training-boh');
+  var trainingFoh = tFohEl ? parseFloat(tFohEl.value) : 3;
+  var trainingBoh = tBohEl ? parseFloat(tBohEl.value) : 3;
+  if (isNaN(trainingFoh) || trainingFoh < 0) trainingFoh = 0;
+  if (trainingFoh > 100) trainingFoh = 100;
+  if (isNaN(trainingBoh) || trainingBoh < 0) trainingBoh = 0;
+  if (trainingBoh > 100) trainingBoh = 100;
   var total = foh + boh + other;
   if (Math.abs(total - 100) > 0.15) {
     showToast('Labor shares must total 100%.', 'warning');
     return;
   }
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(res) {
       if (res && res.error) { showToast('Save failed: ' + res.error, 'error'); return; }
       showToast('Labor shares saved.', 'success');
       if (_lastLoadedConfig) {
-        _lastLoadedConfig.laborShares = { foh:foh, boh:boh, other:other };
+        _lastLoadedConfig.laborShares = { foh:foh, boh:boh, other:other, trainingFoh:trainingFoh, trainingBoh:trainingBoh };
         applyConfig(_lastLoadedConfig);
       }
     })
     .withFailureHandler(function(err) { showToast('Save failed: ' + err.message, 'error'); })
-    .saveConfig({ laborShares:{ foh:foh, boh:boh, other:other } });
+    .saveConfig({ laborShares:{ foh:foh, boh:boh, other:other, trainingFoh:trainingFoh, trainingBoh:trainingBoh } });
 }
 
 function saveSettingsLocation() {
   var locationName  = (document.getElementById('settings-location-name').value  || '').trim();
   var operatorEmail = (document.getElementById('settings-operator-email').value || '').trim();
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(res) {
       if (res && res.error) { showToast('Save failed: ' + res.error, 'error'); return; }
       showToast('Location & notifications saved.', 'success');
@@ -475,7 +525,7 @@ function saveSettingsAdvanced() {
     showToast('Bias threshold must be a positive number.', 'warning');
     return;
   }
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(res) {
       if (res && res.error) { showToast('Save failed: ' + res.error, 'error'); return; }
       showToast('Advanced settings saved.', 'success');
@@ -641,7 +691,7 @@ function saveDayCurve(day) {
   var payload = { salesCurves:{} };
   payload.salesCurves[day] = dayCurve;
 
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(res) {
       if (res && res.error) { showToast('Save failed: ' + res.error, 'error'); return; }
       showToast(day + ' curve saved.', 'success');
@@ -682,11 +732,30 @@ function getLaborShares() {
 }
 
 function getSalesFractions() {
-  var shares     = (salesConfig && salesConfig.laborSharesPercent) || DEFAULT_SALES_CONFIG.laborSharesPercent;
-  var foh        = Number(shares.foh) || 0;
-  var boh        = Number(shares.boh) || 0;
-  var totalFOHBOH = foh + boh || 1;
-  return { fohFraction:foh/totalFOHBOH, bohFraction:boh/totalFOHBOH };
+  var shares = (salesConfig && salesConfig.laborSharesPercent) || DEFAULT_SALES_CONFIG.laborSharesPercent;
+  var foh    = Number(shares.foh) || 0;
+  var boh    = Number(shares.boh) || 0;
+  return { fohFraction: foh / 100, bohFraction: boh / 100 };
+}
+
+/**
+ * Returns the raw-sales multiplier to apply for the current view, given the
+ * includeTraining overlay. Overall view returns 1.0 (all sales) whether or not
+ * training is overlaid — training ON just adds training hours to the denom.
+ * FOH/BOH views add trainingSharePct/100 to their existing share when overlay on.
+ */
+function getEffectiveSalesMultiplier() {
+  var fractions = getSalesFractions();
+  var addTrain  = includeTraining && hasTrainingData();
+  if (currentDepartmentView === 'foh') {
+    var fohTrain = addTrain ? (getTrainingFohPct() / 100) : 0;
+    return fractions.fohFraction + fohTrain;
+  }
+  if (currentDepartmentView === 'boh') {
+    var bohTrain = addTrain ? (getTrainingBohPct() / 100) : 0;
+    return fractions.bohFraction + bohTrain;
+  }
+  return 1.0;
 }
 
 // ── Sales Data (per-day curve) ────────────────────────────────
@@ -847,7 +916,7 @@ function setDaypart(part, event) {
 function updateViewBadge() {
   var badge = document.getElementById('viewBadge');
   if (!badge) return;
-  var deptName    = currentDepartmentView === 'foh' ? 'FOH' : currentDepartmentView === 'boh' ? 'BOH' : 'Overall';
+  var deptName    = getCurrentViewLabel();
   var daypartInfo = DAYPARTS[currentDaypart] || DAYPARTS.all;
   badge.textContent = 'Current View: ' + deptName + ' \u00b7 Daypart: ' + daypartInfo.label;
 }
@@ -855,33 +924,19 @@ function updateViewBadge() {
 // ── Department View ───────────────────────────────────────────
 
 function combineScheduleData() {
-  scheduleData = {};
-  var days  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  var hours = ['5 AM','6 AM','7 AM','8 AM','9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM','9 PM','10 PM','11 PM'];
-  days.forEach(function(day) {
-    scheduleData[day] = {};
-    hours.forEach(function(hour) {
-      var foh = (fohScheduleData[day] && fohScheduleData[day][hour]) || 0;
-      var boh = (bohScheduleData[day] && bohScheduleData[day][hour]) || 0;
-      scheduleData[day][hour] = foh + boh;
-    });
-  });
-  Object.keys(scheduleData).forEach(function(day) {
-    var hasData = Object.values(scheduleData[day]).some(function(c) { return c > 0; });
-    if (!hasData) delete scheduleData[day];
-  });
+  // Back-compat shim — routes to the unified view builder.
+  rebuildCurrentViewData();
 }
 
 function switchDepartmentView(view, event) {
   currentDepartmentView = view;
   document.querySelectorAll('.view-toggle button').forEach(function(btn) { btn.classList.remove('active'); });
   if (event && event.target) event.target.classList.add('active');
-  if (view === 'foh')      scheduleData = Object.assign({}, fohScheduleData);
-  else if (view === 'boh') scheduleData = Object.assign({}, bohScheduleData);
-  else                     combineScheduleData();
+  rebuildCurrentViewData();
   updateViewBadge();
   if (Object.keys(scheduleData).length > 0) generateReport();
   renderManagerGrid();
+  updateLaborBudgetDisplay();
   var idealPanel = document.getElementById('idealModelPanel');
   if (idealPanel && idealPanel.style.display !== 'none') generateIdealSchedule();
 }
@@ -935,16 +990,40 @@ function handleBOHScheduleUpload(event) {
   }
 }
 
+function handleTrainingScheduleUpload(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
+    reader.onload = function(e) {
+      var content = e.target.result;
+      if (isRawHotSchedulesExport(content)) {
+        showToast('This looks like a raw HotSchedules export! Use "Step 1: File Converter" first.', 'warning', 5000);
+        event.target.value = '';
+        return;
+      }
+      parseTrainingScheduleCSV(content);
+    };
+    reader.readAsText(file);
+  } else {
+    showToast('Please upload a CSV file.', 'warning');
+  }
+}
+
 function parseScheduleCSV(csvText, department) {
-  var isFoh = department === 'foh';
-  var label = isFoh ? 'FOH' : 'BOH';
+  var isFoh      = department === 'foh';
+  var isTraining = department === 'training';
+  var label      = isFoh ? 'FOH' : (isTraining ? 'Training' : 'BOH');
   var schedData = { Sunday:{}, Monday:{}, Tuesday:{}, Wednesday:{}, Thursday:{}, Friday:{}, Saturday:{} };
   var namesData = { Sunday:{}, Monday:{}, Tuesday:{}, Wednesday:{}, Thursday:{}, Friday:{}, Saturday:{} };
+  var decHoursData = { Sunday:{}, Monday:{}, Tuesday:{}, Wednesday:{}, Thursday:{}, Friday:{}, Saturday:{} };
   var hours = ['5 AM','6 AM','7 AM','8 AM','9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM','9 PM','10 PM','11 PM'];
   Object.keys(schedData).forEach(function(day) {
-    hours.forEach(function(hour) { schedData[day][hour] = 0; namesData[day][hour] = []; });
+    hours.forEach(function(hour) { schedData[day][hour] = 0; namesData[day][hour] = []; decHoursData[day][hour] = 0; });
   });
   var employeesByDayHour = {};
+  var decimalHoursByDayHour = {};
+  var empWeeklyHours = {};
   var lines = csvText.split('\n');
   for (var i = 1; i < lines.length; i++) {
     var line = lines[i].trim();
@@ -954,6 +1033,8 @@ function parseScheduleCSV(csvText, department) {
     var dateStr  = parts[0].trim();
     var timeStr  = parts[1].trim();
     var employee = parts[2].trim();
+    var rowHours = parts.length >= 4 ? parseFloat(parts[3]) : 1.0;
+    if (isNaN(rowHours)) rowHours = 1.0;
     if (!dateStr || !timeStr || !employee) continue;
     var dateParts = dateStr.split('/');
     if (dateParts.length === 3) {
@@ -961,7 +1042,7 @@ function parseScheduleCSV(csvText, department) {
       var day    = parseInt(dateParts[1]);
       var year   = parseInt(dateParts[2]);
       var date   = new Date(year, month, day);
-      if (isFoh) scheduleWeekDates.push(date); // Track dates for detectWeekStart()
+      if (isFoh) scheduleWeekDates.push(date);
       var dayNames   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
       var dayOfWeek  = dayNames[date.getDay()];
       var normalizedTime = timeStr;
@@ -975,6 +1056,10 @@ function parseScheduleCSV(csvText, department) {
       var key = dayOfWeek + '-' + normalizedTime;
       if (!employeesByDayHour[key]) employeesByDayHour[key] = new Set();
       employeesByDayHour[key].add(employee);
+      if (!decimalHoursByDayHour[key]) decimalHoursByDayHour[key] = 0;
+      decimalHoursByDayHour[key] += rowHours;
+      if (!empWeeklyHours[employee]) empWeeklyHours[employee] = 0;
+      empWeeklyHours[employee] += rowHours;
     }
   }
   Object.keys(employeesByDayHour).forEach(function(key) {
@@ -984,15 +1069,25 @@ function parseScheduleCSV(csvText, department) {
     if (schedData[dow] && hours.includes(time)) {
       schedData[dow][time] = employeesByDayHour[key].size;
       namesData[dow][time] = Array.from(employeesByDayHour[key]).sort();
+      decHoursData[dow][time] = decimalHoursByDayHour[key] || 0;
     }
   });
   Object.keys(schedData).forEach(function(day) {
     var hasData = hours.some(function(h) { return schedData[day][h] > 0; });
-    if (!hasData) { delete schedData[day]; delete namesData[day]; }
+    if (!hasData) { delete schedData[day]; delete namesData[day]; delete decHoursData[day]; }
   });
-  if (isFoh) { fohScheduleData = schedData; fohStaffNames = namesData; }
-  else        { bohScheduleData = schedData; bohStaffNames = namesData; }
-  combineScheduleData();
+  if (isFoh) {
+    fohScheduleData = schedData; fohStaffNames = namesData;
+    fohDecimalHours = decHoursData; fohEmployeeWeeklyHours = empWeeklyHours;
+  } else if (isTraining) {
+    trainingScheduleData = schedData; trainingStaffNames = namesData;
+    trainingDecimalHours = decHoursData; trainingEmployeeWeeklyHours = empWeeklyHours;
+  } else {
+    bohScheduleData = schedData; bohStaffNames = namesData;
+    bohDecimalHours = decHoursData; bohEmployeeWeeklyHours = empWeeklyHours;
+  }
+  rebuildCurrentViewData();
+  refreshIncludeTrainingToggle();
   var hasData = Object.keys(schedData).some(function(day) {
     return Object.values(schedData[day]).some(function(c) { return c > 0; });
   });
@@ -1005,6 +1100,109 @@ function parseFOHScheduleCSV(csvText) {
   parseScheduleCSV(csvText, 'foh');
 }
 function parseBOHScheduleCSV(csvText) { parseScheduleCSV(csvText, 'boh'); }
+function parseTrainingScheduleCSV(csvText) { parseScheduleCSV(csvText, 'training'); }
+
+function hasTrainingData() {
+  if (!trainingScheduleData) return false;
+  return Object.keys(trainingScheduleData).some(function(day) {
+    var hrs = trainingScheduleData[day];
+    return hrs && Object.values(hrs).some(function(c) { return c > 0; });
+  });
+}
+
+function getTrainingFohPct() {
+  if (salesConfig && salesConfig.trainingSharePercentFoh !== undefined) {
+    return Number(salesConfig.trainingSharePercentFoh) || 0;
+  }
+  return DEFAULT_SALES_CONFIG.trainingSharePercentFoh || 0;
+}
+
+function getTrainingBohPct() {
+  if (salesConfig && salesConfig.trainingSharePercentBoh !== undefined) {
+    return Number(salesConfig.trainingSharePercentBoh) || 0;
+  }
+  return DEFAULT_SALES_CONFIG.trainingSharePercentBoh || 0;
+}
+
+function getTrainingSharePct() {
+  return getTrainingFohPct() + getTrainingBohPct();
+}
+
+function getCurrentViewLabel() {
+  var base = currentDepartmentView === 'foh' ? 'FOH'
+           : currentDepartmentView === 'boh' ? 'BOH'
+           : 'Overall';
+  return (includeTraining && hasTrainingData()) ? (base + ' + Training') : base;
+}
+
+function refreshIncludeTrainingToggle() {
+  var cb   = document.getElementById('includeTrainingCheckbox');
+  var wrap = document.getElementById('includeTrainingWrap');
+  if (!cb || !wrap) return;
+  var available = hasTrainingData();
+  cb.disabled = !available;
+  if (available) {
+    wrap.classList.remove('is-disabled');
+    wrap.title = 'Include Training hours and share in the current view';
+  } else {
+    wrap.classList.add('is-disabled');
+    wrap.title = 'Upload training CSV to enable';
+    cb.checked = false;
+    includeTraining = false;
+  }
+}
+
+function toggleIncludeTraining(checked) {
+  includeTraining = !!checked && hasTrainingData();
+  rebuildCurrentViewData();
+  if (Object.keys(scheduleData).length > 0) {
+    updateSalesDataFromDailyTotals();
+    calculateMetrics();
+    generateScheduleTable();
+    renderManagerGrid();
+    createChart();
+    createDayCharts();
+    generateInsights();
+  }
+  updateViewBadge();
+}
+
+/**
+ * Builds scheduleData + decimalHoursData based on the current view +
+ * includeTraining flag. Replaces the old combineScheduleData / direct
+ * assignment pattern so training can be overlaid consistently.
+ */
+function rebuildCurrentViewData() {
+  var addTrain = includeTraining && hasTrainingData();
+  var days  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  scheduleData = {};
+  decimalHoursData = {};
+  days.forEach(function(day) {
+    scheduleData[day] = {};
+    decimalHoursData[day] = {};
+    HOURS.forEach(function(hour) {
+      var count = 0, dec = 0;
+      if (currentDepartmentView === 'foh' || currentDepartmentView === 'overall') {
+        count += (fohScheduleData[day] && fohScheduleData[day][hour]) || 0;
+        dec   += (fohDecimalHours[day] && fohDecimalHours[day][hour]) || 0;
+      }
+      if (currentDepartmentView === 'boh' || currentDepartmentView === 'overall') {
+        count += (bohScheduleData[day] && bohScheduleData[day][hour]) || 0;
+        dec   += (bohDecimalHours[day] && bohDecimalHours[day][hour]) || 0;
+      }
+      if (addTrain) {
+        count += (trainingScheduleData[day] && trainingScheduleData[day][hour]) || 0;
+        dec   += (trainingDecimalHours[day] && trainingDecimalHours[day][hour]) || 0;
+      }
+      scheduleData[day][hour] = count;
+      decimalHoursData[day][hour] = dec;
+    });
+  });
+  Object.keys(scheduleData).forEach(function(day) {
+    var hasData = Object.values(scheduleData[day]).some(function(c) { return c > 0; });
+    if (!hasData) { delete scheduleData[day]; delete decimalHoursData[day]; }
+  });
+}
 
 function parseTime(timeStr) {
   var match = timeStr.match(/(\d{1,2}):?(\d{0,2})\s*(AM|PM)/i);
@@ -1055,9 +1253,7 @@ function generateReport() {
     return;
   }
 
-  if (currentDepartmentView === 'foh')      scheduleData = JSON.parse(JSON.stringify(fohScheduleData));
-  else if (currentDepartmentView === 'boh') scheduleData = JSON.parse(JSON.stringify(bohScheduleData));
-  else                                      combineScheduleData();
+  rebuildCurrentViewData();
 
   if (currentDepartmentView === 'foh' && !hasFOHData) switchDepartmentView('overall', null);
   else if (currentDepartmentView === 'boh' && !hasBOHData) switchDepartmentView('overall', null);
@@ -1070,15 +1266,58 @@ function generateReport() {
   createDayCharts();
   generateInsights();
 
-  // Fire-and-forget: persist to history (email moved to Thursday reminder only).
+  // Save/publish is now an explicit action — see savePublishSchedule().
+}
+
+// Explicit Save & Publish action. Writes to schedule_history / sales_history /
+// weekly_summary and pushes a fresh payload to schedule_published for the
+// manager-facing Schedule page.
+function savePublishSchedule() {
   var snapshot = buildSnapshotPayload();
-  if (snapshot.weekStart) {
-    google.script.run
-      .withSuccessHandler(function() { showToast('Saved to history.', 'info', 2000); })
-      .withFailureHandler(function(err) { console.error('History save failed:', err); })
-      .saveWeekSnapshot(snapshot);
-    trendsLoaded = false; // Invalidate trends cache — reload on next visit
+  if (!snapshot.weekStart) {
+    showToast('Upload a schedule file and generate an analysis before saving.', 'warning');
+    return;
   }
+  var btn = document.querySelector("button[onclick='savePublishSchedule()']");
+  var statusBox = document.getElementById('publishStatus');
+  var statusText = document.getElementById('publishStatusText');
+  var statusLink = document.getElementById('publishStatusLink');
+  if (btn) { btn.disabled = true; btn.dataset._label = btn.innerHTML; btn.innerHTML = 'Saving…'; }
+
+  google.script.run.withFailureHandler(_gsFail)
+    .withSuccessHandler(function(res) {
+      if (btn) { btn.disabled = false; btn.innerHTML = btn.dataset._label || '&#128190; Save &amp; Publish Schedule'; }
+      if (res && res.error) {
+        showToast('Publish failed: ' + res.error, 'error');
+        return;
+      }
+      trendsLoaded = false; // Invalidate trends cache
+      showToast('Schedule saved & published.', 'success');
+      // Fetch the public URL so the operator can share the link
+      google.script.run.withFailureHandler(_gsFail)
+        .withSuccessHandler(function(urlRes) {
+          if (urlRes && urlRes.url) {
+            statusLink.href = urlRes.url;
+            statusText.textContent = 'Published for week ' + snapshot.weekStart + '.';
+            statusBox.style.display = 'block';
+          } else {
+            statusText.textContent = 'Published for week ' + snapshot.weekStart + ' (URL unavailable).';
+            statusLink.style.display = 'none';
+            statusBox.style.display = 'block';
+          }
+        })
+        .withFailureHandler(function(err) {
+          statusText.textContent = 'Published (could not fetch URL: ' + err.message + ').';
+          statusLink.style.display = 'none';
+          statusBox.style.display = 'block';
+        })
+        .getScheduleUrl();
+    })
+    .withFailureHandler(function(err) {
+      if (btn) { btn.disabled = false; btn.innerHTML = btn.dataset._label || '&#128190; Save &amp; Publish Schedule'; }
+      showToast('Publish failed: ' + err.message, 'error');
+    })
+    .saveWeekSnapshot(snapshot);
 }
 
 function calculateMetrics() {
@@ -1087,26 +1326,27 @@ function calculateMetrics() {
   var dailySalesTotals = {}, dailyLaborTotals = {};
   var hasSalesData  = Object.keys(salesData).length > 0;
   var goal          = getProductivityGoal();
-  var salesFractions = hasSalesData ? getSalesFractions() : { fohFraction:0, bohFraction:0 };
+  var viewMult      = getEffectiveSalesMultiplier();
 
   Object.keys(scheduleData).forEach(function(day) {
     Object.keys(scheduleData[day]).forEach(function(hour) {
       if (!isHourInCurrentDaypart(hour)) return;
       var staff = scheduleData[day][hour];
+      // Use actual decimal hours when available, fall back to body count
+      var actualHours = (decimalHoursData[day] && decimalHoursData[day][hour]) || 0;
+      if (actualHours === 0 && staff > 0) actualHours = staff;
       if (staff > 0) {
-        totalStaff += staff; totalHours++; totalLaborHours += staff;
+        totalStaff += staff; totalHours++; totalLaborHours += actualHours;
         if (!dailyLaborTotals[day]) dailyLaborTotals[day] = 0;
-        dailyLaborTotals[day] += staff;
+        dailyLaborTotals[day] += actualHours;
       }
       if (hasSalesData && salesData[day] && salesData[day][hour] && staff > 0) {
         var rawSales = salesData[day][hour];
-        var effectiveSales = rawSales;
-        if (currentDepartmentView === 'foh') effectiveSales = rawSales * salesFractions.fohFraction;
-        else if (currentDepartmentView === 'boh') effectiveSales = rawSales * salesFractions.bohFraction;
+        var effectiveSales = rawSales * viewMult;
         totalSales += effectiveSales;
         if (!dailySalesTotals[day]) dailySalesTotals[day] = 0;
         dailySalesTotals[day] += effectiveSales;
-        sumSPLH += effectiveSales / staff;
+        sumSPLH += effectiveSales / actualHours;
         splhSamples++;
       }
     });
@@ -1115,7 +1355,7 @@ function calculateMetrics() {
   var avgStaff = totalHours > 0 ? (totalStaff / totalHours).toFixed(1) : '0';
   document.getElementById('avgStaff').textContent = avgStaff;
 
-  var deptName = currentDepartmentView === 'foh' ? 'FOH' : currentDepartmentView === 'boh' ? 'BOH' : 'Overall';
+  var deptName = getCurrentViewLabel();
   var splhLabel = document.querySelector('#splh') ? document.querySelector('#splh').parentElement.querySelector('.metric-label') : null;
   var prodLabel = document.querySelector('#peakEfficiency') ? document.querySelector('#peakEfficiency').parentElement.querySelector('.metric-label') : null;
   if (splhLabel) splhLabel.textContent = deptName + ' $/LH (Goal: $' + goal.toFixed(2) + ')';
@@ -1140,7 +1380,7 @@ function calculateMetrics() {
     if (sc) { sc.textContent = 'Enter daily sales estimates to see $/LH'; sc.className = 'metric-change'; }
   }
 
-  document.getElementById('laborCost').textContent = totalLaborHours + ' hrs';
+  document.getElementById('laborCost').textContent = (Math.round(totalLaborHours * 100) / 100) + ' hrs';
   var lcChange = document.querySelector('#laborCost') ? document.querySelector('#laborCost').nextElementSibling : null;
   if (lcChange) { lcChange.textContent = deptName + ' scheduled hours'; lcChange.className = 'metric-change'; }
 
@@ -1166,30 +1406,84 @@ function calculateMetrics() {
         : 'No per-day productivity available yet for this view.';
     }
   }
-  updateOvertimeDisplay();
+  updateLaborBudgetDisplay();
 }
 
-// ── Overtime ──────────────────────────────────────────────────
+// ── Labor $ Budget ─────────────────────────────────────────────
+
+function updateLaborBudgetDisplay() {
+  var valEl = document.getElementById('laborBudgetValue');
+  var lblEl = document.getElementById('laborBudgetLabel');
+  var subEl = document.getElementById('laborBudgetSubtext');
+  if (!valEl || !lblEl || !subEl) return;
+
+  var dailyTotals = getDailySalesTotalsFromInputs();
+  var totalSales  = 0;
+  Object.keys(dailyTotals).forEach(function(d) { totalSales += dailyTotals[d] || 0; });
+
+  var shares = getLaborShares();
+  var deptName = getCurrentViewLabel();
+  var fraction;
+  if (currentDepartmentView === 'foh')      { fraction = shares.fohShare; }
+  else if (currentDepartmentView === 'boh') { fraction = shares.bohShare; }
+  else                                      { fraction = shares.fohShare + shares.bohShare + shares.otherShare; }
+  if (includeTraining && hasTrainingData()) {
+    var trainPct;
+    if (currentDepartmentView === 'foh')      { trainPct = getTrainingFohPct(); }
+    else if (currentDepartmentView === 'boh') { trainPct = getTrainingBohPct(); }
+    else                                      { trainPct = getTrainingFohPct() + getTrainingBohPct(); }
+    fraction += trainPct / 100;
+    if (fraction > 1) fraction = 1;
+  }
+  var sharePct = Math.round(fraction * 1000) / 10;
+
+  lblEl.innerHTML = '&#128176; ' + deptName + ' Labor $ Budget';
+
+  if (totalSales <= 0) {
+    valEl.textContent = '$0';
+    subEl.textContent = 'Enter daily sales to see budget';
+    subEl.className   = 'metric-change';
+    return;
+  }
+
+  var budget = totalSales * fraction;
+  valEl.textContent = '$' + Math.round(budget).toLocaleString();
+  subEl.textContent = sharePct + '% of $' + Math.round(totalSales).toLocaleString();
+  subEl.className   = 'metric-change positive';
+}
+
+// ── Overtime (legacy — unused) ─────────────────────────────────
 
 function calculateOvertimeData() {
+  // Merge FOH + BOH per-employee decimal hours
   var employeeHours = {};
-  [fohStaffNames, bohStaffNames].forEach(function(namesObj) {
-    Object.keys(namesObj).forEach(function(day) {
-      Object.keys(namesObj[day]).forEach(function(hour) {
-        (namesObj[day][hour] || []).forEach(function(name) {
-          if (!name || !name.trim()) return;
-          var n = name.trim();
-          if (!employeeHours[n]) employeeHours[n] = 0;
-          employeeHours[n]++;
+  [fohEmployeeWeeklyHours, bohEmployeeWeeklyHours].forEach(function(hoursObj) {
+    Object.keys(hoursObj).forEach(function(name) {
+      if (!employeeHours[name]) employeeHours[name] = 0;
+      employeeHours[name] += hoursObj[name];
+    });
+  });
+  // If no decimal hours data loaded (old CSV), fall back to slot counting
+  if (Object.keys(employeeHours).length === 0) {
+    [fohStaffNames, bohStaffNames].forEach(function(namesObj) {
+      Object.keys(namesObj).forEach(function(day) {
+        Object.keys(namesObj[day]).forEach(function(hour) {
+          (namesObj[day][hour] || []).forEach(function(name) {
+            if (!name || !name.trim()) return;
+            var n = name.trim();
+            if (!employeeHours[n]) employeeHours[n] = 0;
+            employeeHours[n]++;
+          });
         });
       });
     });
-  });
+  }
   var totalOTHours = 0, employeesInOT = [];
   Object.keys(employeeHours).forEach(function(name) {
-    var h = employeeHours[name];
-    if (h > 40) { var ot = h-40; totalOTHours += ot; employeesInOT.push({name:name,totalHours:h,otHours:ot}); }
+    var h = Math.round(employeeHours[name] * 100) / 100;
+    if (h > 40) { var ot = Math.round((h - 40) * 100) / 100; totalOTHours += ot; employeesInOT.push({name:name,totalHours:h,otHours:ot}); }
   });
+  totalOTHours = Math.round(totalOTHours * 100) / 100;
   employeesInOT.sort(function(a,b) { return b.otHours - a.otHours; });
   return { totalOTHours:totalOTHours, employeesInOT:employeesInOT, employeeCount:employeesInOT.length, allEmployeeHours:employeeHours, totalEmployees:Object.keys(employeeHours).length };
 }
@@ -1199,7 +1493,7 @@ function updateOvertimeDisplay() {
   var hoursEl = document.getElementById('otHours');
   var subEl   = document.getElementById('otSubtext');
   if (!hoursEl || !subEl) return;
-  hoursEl.textContent = data.totalOTHours + ' hrs';
+  hoursEl.textContent = (Math.round(data.totalOTHours * 100) / 100) + ' hrs';
   if (data.employeeCount === 0)      { subEl.textContent = 'No overtime this week';                        subEl.className = 'metric-change positive'; }
   else if (data.employeeCount === 1) { subEl.textContent = '1 employee over 40 hrs';                       subEl.className = 'metric-change warning'; }
   else                               { subEl.textContent = data.employeeCount + ' employees over 40 hrs';  subEl.className = 'metric-change warning'; }
@@ -1236,7 +1530,7 @@ function generateScheduleTable() {
   var tbody = document.getElementById('scheduleBody');
   tbody.innerHTML = '';
   var gridTitle = document.getElementById('gridTitle');
-  var deptName  = currentDepartmentView === 'foh' ? 'FOH' : currentDepartmentView === 'boh' ? 'BOH' : 'Overall';
+  var deptName  = getCurrentViewLabel();
   if (gridTitle) gridTitle.textContent = deptName + ' Staff Coverage vs Sales Volume';
   var hours        = HOURS.filter(function(h) { return isHourInCurrentDaypart(h); });
   var hasSalesData = Object.keys(salesData).length > 0;
@@ -1274,13 +1568,12 @@ function generateScheduleTable() {
       var cell       = document.createElement('td');
       var staffCount = scheduleData[day][hour] || 0;
       var rawSales   = hasSalesData && salesData[day] && salesData[day][hour] !== undefined ? salesData[day][hour] : 0;
-      var effectiveSales = rawSales, rec = 0, staffClass = '', suggestionHtml = '';
+      var effectiveSales = rawSales * getEffectiveSalesMultiplier();
+      var rec = 0, staffClass = '', suggestionHtml = '';
 
       if (currentDepartmentView === 'foh') {
-        effectiveSales = rawSales * getSalesFractions().fohFraction;
         rec = recFOH[day] ? recFOH[day][hour] : 0;
       } else if (currentDepartmentView === 'boh') {
-        effectiveSales = rawSales * getSalesFractions().bohFraction;
         rec = recBOH[day] ? recBOH[day][hour] : 0;
       }
 
@@ -1363,33 +1656,61 @@ function createChart() {
     return;
   }
 
-  var hours = [], avgStaffing = [], avgProductivity = [];
+  var overlayTraining = includeTraining && hasTrainingData();
+  var viewMult = getEffectiveSalesMultiplier();
+  var hours = [], baseStaffing = [], trainStaffing = [], avgProductivity = [];
   baseHours.forEach(function(hour) {
     var hl = hour.replace('AM',' AM').replace('PM',' PM');
     if (!isHourInCurrentDaypart(hl)) return;
     hours.push(hour);
-    var ts = 0, tSPLH = 0, dc = 0;
-    var fractions = getSalesFractions();
+    var tsCombined = 0, tsTrain = 0, tSPLH = 0, dc = 0;
     Object.keys(scheduleData).forEach(function(d) {
       if (scheduleData[d][hl] !== undefined) {
-        var staff = scheduleData[d][hl]; ts += staff;
+        var staff = scheduleData[d][hl]; tsCombined += staff;
+        if (overlayTraining) {
+          tsTrain += (trainingScheduleData[d] && trainingScheduleData[d][hl]) || 0;
+        }
         if (salesData[d] && salesData[d][hl] !== undefined) {
-          var rs = salesData[d][hl], eff = rs;
-          if (currentDepartmentView === 'foh') eff = rs * fractions.fohFraction;
-          else if (currentDepartmentView === 'boh') eff = rs * fractions.bohFraction;
+          var rs = salesData[d][hl], eff = rs * viewMult;
           if (staff > 0) tSPLH += eff/staff;
         }
         dc++;
       }
     });
-    avgStaffing.push(dc > 0 ? ts/dc : 0);
+    var avgCombined = dc > 0 ? tsCombined/dc : 0;
+    var avgTrain    = dc > 0 ? tsTrain/dc : 0;
+    if (overlayTraining) {
+      baseStaffing.push(Math.max(0, avgCombined - avgTrain));
+      trainStaffing.push(avgTrain);
+    } else {
+      baseStaffing.push(avgCombined);
+    }
     avgProductivity.push(dc > 0 ? Math.round(tSPLH/dc) : null);
   });
 
-  chartInstance = new Chart(ctx, { type:'line', data:{ labels:hours, datasets:[
-    { label:'Average Staff Count', data:avgStaffing, borderColor:'rgb(102,126,234)', backgroundColor:'rgba(102,126,234,0.1)', yAxisID:'y', tension:0.3 },
-    { label:'Sales per Labor Hour ($)', data:avgProductivity, borderColor:'rgb(251,146,60)', backgroundColor:'rgba(251,146,60,0.1)', yAxisID:'y2', tension:0.3, borderDash:[5,5], spanGaps:true }
-  ]}, options:{ responsive:true, maintainAspectRatio:true, aspectRatio:3, interaction:{ mode:'index', intersect:false }, scales:{ y:{ type:'linear', display:true, position:'left', title:{ display:true, text:'Staff Count' } }, y2:{ type:'linear', display:false } }, plugins:{ legend:{ display:true, position:'bottom' }, tooltip:{ callbacks:{ label:function(ctx) { var l = ctx.dataset.label ? ctx.dataset.label + ': ' : ''; if (ctx.parsed.y !== null) l += l.includes('Sales') ? '$'+ctx.parsed.y.toFixed(0) : ctx.parsed.y.toFixed(1); return l; } } } } } });
+  var datasets = [
+    { label: overlayTraining ? 'FOH/BOH Staff' : 'Average Staff Count',
+      data: baseStaffing,
+      borderColor:'rgb(102,126,234)', backgroundColor:'rgba(102,126,234,0.25)',
+      yAxisID:'y', tension:0.3,
+      fill: overlayTraining ? 'origin' : false,
+      stack: 'staff' }
+  ];
+  if (overlayTraining) {
+    datasets.push({
+      label: 'Training Staff',
+      data: trainStaffing,
+      borderColor: 'rgb(234,179,8)',
+      backgroundColor: 'rgba(234,179,8,0.45)',
+      yAxisID: 'y',
+      tension: 0.3,
+      fill: '-1',
+      stack: 'staff'
+    });
+  }
+  datasets.push({ label:'Sales per Labor Hour ($)', data:avgProductivity, borderColor:'rgb(251,146,60)', backgroundColor:'rgba(251,146,60,0.1)', yAxisID:'y2', tension:0.3, borderDash:[5,5], spanGaps:true });
+
+  chartInstance = new Chart(ctx, { type:'line', data:{ labels:hours, datasets:datasets }, options:{ responsive:true, maintainAspectRatio:true, aspectRatio:3, interaction:{ mode:'index', intersect:false }, scales:{ y:{ type:'linear', display:true, position:'left', stacked: overlayTraining, title:{ display:true, text:'Staff Count' } }, y2:{ type:'linear', display:false } }, plugins:{ legend:{ display:true, position:'bottom' }, tooltip:{ callbacks:{ label:function(ctx) { var l = ctx.dataset.label ? ctx.dataset.label + ': ' : ''; if (ctx.parsed.y !== null) l += l.includes('Sales') ? '$'+ctx.parsed.y.toFixed(0) : ctx.parsed.y.toFixed(1); return l; } } } } } });
 }
 
 function createDayCharts() {
@@ -1402,6 +1723,7 @@ function createDayCharts() {
   var toRender = desired.filter(function(d) { return scheduleData[d]; });
   if (toRender.length === 0) return;
   var baseHours = ['5AM','6AM','7AM','8AM','9AM','10AM','11AM','12PM','1PM','2PM','3PM','4PM','5PM','6PM','7PM','8PM','9PM','10PM','11PM'];
+  var viewMult = getEffectiveSalesMultiplier();
   toRender.forEach(function(day) {
     var card = document.createElement('div'); card.className = 'day-chart-card';
     var title = document.createElement('div'); title.className = 'day-chart-title'; title.textContent = day;
@@ -1414,11 +1736,7 @@ function createDayCharts() {
       dh.push(h);
       var staff = scheduleData[day] && scheduleData[day][hl] !== undefined ? scheduleData[day][hl] : 0;
       var rawSales = salesData[day] && salesData[day][hl] !== undefined ? salesData[day][hl] : null;
-      var fractions = getSalesFractions(), eff = rawSales;
-      if (rawSales !== null) {
-        if (currentDepartmentView === 'foh') eff = rawSales * fractions.fohFraction;
-        else if (currentDepartmentView === 'boh') eff = rawSales * fractions.bohFraction;
-      }
+      var eff = rawSales !== null ? rawSales * viewMult : null;
       ss.push(staff);
       sp.push(staff > 0 && eff !== null ? Math.round(eff/staff) : null);
     });
@@ -1532,7 +1850,7 @@ function generateIdealSchedule() {
   if (!panel || !tbody) return;
   if (Object.keys(salesData).length === 0) { showToast('Enter daily sales estimates first to generate an ideal model.', 'warning'); return; }
   var goal     = getProductivityGoal();
-  var deptName = currentDepartmentView === 'foh' ? 'FOH' : currentDepartmentView === 'boh' ? 'BOH' : 'Overall';
+  var deptName = getCurrentViewLabel();
   var ht = document.querySelector('#idealModelPanel .chart-header span');
   if (ht) ht.textContent = '\u2728 Ideal Staffing Model (' + deptName + ' Target)';
   goalSpan.textContent = goal.toFixed(2);
@@ -1540,16 +1858,15 @@ function generateIdealSchedule() {
   tbody.innerHTML      = '';
   var days     = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   var hours    = HOURS.filter(function(h) { return isHourInCurrentDaypart(h); });
-  var fractions = getSalesFractions();
+  var viewMult = getEffectiveSalesMultiplier();
   hours.forEach(function(hour) {
     var row = document.createElement('tr');
     row.innerHTML = '<td class="hour-label">' + hour + '</td>';
     days.forEach(function(day) {
       var cell = document.createElement('td'), ideal = 0;
       if (salesData[day] && salesData[day][hour]) {
-        var rs = salesData[day][hour], eff = rs;
-        if (currentDepartmentView === 'foh')      eff = rs * fractions.fohFraction;
-        else if (currentDepartmentView === 'boh') eff = rs * fractions.bohFraction;
+        var rs = salesData[day][hour];
+        var eff = rs * viewMult;
         if (eff > 0) { ideal = Math.ceil(eff/goal); if (ideal < 1) ideal = 1; }
       }
       var current = scheduleData[day] && scheduleData[day][hour] ? scheduleData[day][hour] : 0;
@@ -1591,7 +1908,9 @@ function downloadResults() {
   var url  = window.URL.createObjectURL(blob);
   var a    = document.createElement('a');
   a.href   = url;
-  a.download = 'schedule_analysis_' + (currentDepartmentView === 'foh' ? 'FOH' : currentDepartmentView === 'boh' ? 'BOH' : 'Overall') + '.csv';
+  var baseName = currentDepartmentView === 'foh' ? 'FOH' : currentDepartmentView === 'boh' ? 'BOH' : 'Overall';
+  if (includeTraining && hasTrainingData()) baseName += '_withTraining';
+  a.download = 'schedule_analysis_' + baseName + '.csv';
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); window.URL.revokeObjectURL(url);
 }
@@ -1734,9 +2053,10 @@ function loadDemoData() {
 
 function setupDragAndDrop() {
   var dropzones = [
-    { id:'fileInput',       labelClass:'dropzone',       type:'converter' },
-    { id:'fohScheduleFile', labelClass:'control-group',  type:'foh' },
-    { id:'bohScheduleFile', labelClass:'control-group',  type:'boh' }
+    { id:'fileInput',            labelClass:'dropzone',       type:'converter' },
+    { id:'fohScheduleFile',      labelClass:'control-group',  type:'foh' },
+    { id:'bohScheduleFile',      labelClass:'control-group',  type:'boh' },
+    { id:'trainingScheduleFile', labelClass:'control-group',  type:'training' }
   ];
   dropzones.forEach(function(zone) {
     var input = document.getElementById(zone.id);
@@ -1961,14 +2281,48 @@ function buildSnapshotPayload() {
     });
   });
   return {
-    weekStart:       detectWeekStart(),
-    scheduleData:    combined,
-    fohScheduleData: fohScheduleData,
-    bohScheduleData: bohScheduleData,
-    salesData:       salesData,
-    salesSource:     currentSalesSource,
-    biasFlags:       (_lastLoadedConfig && _lastLoadedConfig.biasFlags) || {}
+    weekStart:            detectWeekStart(),
+    scheduleData:         combined,
+    fohScheduleData:      fohScheduleData,
+    bohScheduleData:      bohScheduleData,
+    trainingScheduleData: trainingScheduleData,
+    salesData:            salesData,
+    salesSource:          currentSalesSource,
+    biasFlags:            (_lastLoadedConfig && _lastLoadedConfig.biasFlags) || {},
+    // Added for manager dashboard (schedule_published tab)
+    fohStaffNames:        fohStaffNames,
+    bohStaffNames:        bohStaffNames,
+    trainingStaffNames:   trainingStaffNames,
+    managerShifts:        managerShifts,
+    suggestedStaff:       buildSuggestedStaffGrid_()
   };
+}
+
+/**
+ * Computes the suggested FOH/BOH staffing grid from current sales data + config,
+ * mirroring the logic in generateScheduleTable() at recFOH/recBOH. Safe if
+ * salesData is empty — returns empty objects.
+ */
+function buildSuggestedStaffGrid_() {
+  var foh = {}, boh = {};
+  if (!salesData || Object.keys(salesData).length === 0) return { foh: foh, boh: boh };
+  var goals  = getConfiguredGoals();
+  var shares = getLaborShares();
+  var overallGoal = Number(goals.overall) || 0;
+  if (overallGoal <= 0) return { foh: foh, boh: boh };
+  Object.keys(salesData).forEach(function(day) {
+    foh[day] = {}; boh[day] = {};
+    HOURS.forEach(function(hour) {
+      var sh = (salesData[day] && salesData[day][hour] !== undefined) ? salesData[day][hour] : 0;
+      if (sh > 0) {
+        foh[day][hour] = Math.floor((sh / overallGoal) * shares.fohShare);
+        boh[day][hour] = Math.floor((sh / overallGoal) * shares.bohShare);
+      } else {
+        foh[day][hour] = 0; boh[day][hour] = 0;
+      }
+    });
+  });
+  return { foh: foh, boh: boh };
 }
 
 // ── Trends Tab ────────────────────────────────────────────────
@@ -1999,10 +2353,10 @@ function loadTrendsData() {
   showTrendsSpinner();
 
   // Load SPLH summary and raw sales history in sequence
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(summaryData) {
       // Now load the raw sales history regardless of whether summary has rows
-      google.script.run
+      google.script.run.withFailureHandler(_gsFail)
         .withSuccessHandler(function(salesData) {
           hideTrendsSpinner();
           renderTrendsSalesHistory(salesData);
@@ -2329,7 +2683,7 @@ function openHistoryDrillDown(weekStart) {
   var modal = document.getElementById('drillDownModal');
   if (modal) modal.style.display = 'flex';
   showDrillDownSpinner();
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(data) {
       if (data && data.error) { showDrillDownError(data.error); return; }
       renderDrillDown(data, weekStart);
@@ -2542,7 +2896,7 @@ function loadTriggersStatus() {
   if (mondayBadge)   { mondayBadge.textContent = 'Checking\u2026';   mondayBadge.className = 'automation-status-badge'; }
   if (thursdayBadge) { thursdayBadge.textContent = 'Checking\u2026'; thursdayBadge.className = 'automation-status-badge'; }
 
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(status) {
       if (!status) return;
       if (sundayBadge) {
@@ -2578,7 +2932,7 @@ function installTriggersFromSettings() {
   if (btn) { btn.disabled = true; btn.textContent = 'Installing\u2026'; }
   if (result) result.style.display = 'none';
 
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(res) {
       if (btn) { btn.disabled = false; btn.textContent = '\u25b6 Install Triggers'; }
       if (result) {
@@ -2615,7 +2969,7 @@ function runRebuildCurves() {
     result.style.display    = 'block';
   }
 
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(res) {
       if (btn) { btn.disabled = false; btn.textContent = '\u{1F4C8} Rebuild Curves'; }
       if (result) {
@@ -2651,7 +3005,7 @@ function runBackfill() {
     result.style.display    = 'block';
   }
 
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(res) {
       if (btn) { btn.disabled = false; btn.textContent = '\u2B06 Backfill History'; }
       if (result) {
@@ -2675,6 +3029,42 @@ function runBackfill() {
     .backfillSalesHistoryFromSheet1();
 }
 
+function runDedupHistory() {
+  var btn    = document.getElementById('btn-dedup-history');
+  var result = document.getElementById('automation-result');
+  if (btn) { btn.disabled = true; btn.textContent = 'Deduplicating\u2026'; }
+  if (result) {
+    result.style.background = '#eff6ff';
+    result.style.border     = '1px solid #93c5fd';
+    result.style.color      = '#1d4ed8';
+    result.textContent      = '\u23f3 Normalizing dates and removing duplicate rows\u2026';
+    result.style.display    = 'block';
+  }
+
+  google.script.run.withFailureHandler(_gsFail)
+    .withSuccessHandler(function(res) {
+      if (btn) { btn.disabled = false; btn.textContent = '\u{1F527} Dedup History'; }
+      if (result) {
+        result.style.background = '#f0fdf4';
+        result.style.border     = '1px solid #86efac';
+        result.style.color      = '#15803d';
+        result.textContent      = '\u2705 Done. Normalized ' + res.normalized + ' date formats, removed ' + res.deduped + ' duplicate rows.';
+        result.style.display    = 'block';
+      }
+    })
+    .withFailureHandler(function(err) {
+      if (btn) { btn.disabled = false; btn.textContent = '\u{1F527} Dedup History'; }
+      if (result) {
+        result.style.background = '#fef2f2';
+        result.style.border     = '1px solid #fecaca';
+        result.style.color      = '#dc2626';
+        result.textContent      = 'Dedup error: ' + err.message;
+        result.style.display    = 'block';
+      }
+    })
+    .dedupSalesHistory();
+}
+
 function runTestPipeline() {
   var btn    = document.getElementById('btn-test-pipeline');
   var result = document.getElementById('automation-result');
@@ -2687,7 +3077,7 @@ function runTestPipeline() {
     result.style.display    = 'block';
   }
 
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function() {
       if (btn) { btn.disabled = false; btn.textContent = '\u25b6 Test Pipeline Now'; }
       if (result) {
@@ -2724,7 +3114,7 @@ function testThursdayReminderFromUI() {
     result.style.display    = 'block';
   }
 
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(res) {
       if (btn) { btn.disabled = false; btn.textContent = '\ud83d\udce7 Test Reminder'; }
       if (result) {
@@ -2764,7 +3154,7 @@ function onboardInstallTriggers() {
   btn.textContent = 'Installing\u2026';
   status.style.display = 'none';
 
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(res) {
       btn.disabled    = false;
       btn.textContent = '\u25b6 Install Triggers \u2192';
@@ -2797,7 +3187,7 @@ function loadForecastData() {
   if (error)   error.style.display   = 'none';
   if (content) content.style.display = 'none';
 
-  google.script.run
+  google.script.run.withFailureHandler(_gsFail)
     .withSuccessHandler(function(result) {
       if (spinner) spinner.style.display = 'none';
       if (!result || !result.predictions) {
@@ -2919,6 +3309,9 @@ var _fohEl = document.getElementById('fohScheduleFile');
 if (_fohEl) _fohEl.addEventListener('change', handleFOHScheduleUpload);
 var _bohEl = document.getElementById('bohScheduleFile');
 if (_bohEl) _bohEl.addEventListener('change', handleBOHScheduleUpload);
+var _trainEl = document.getElementById('trainingScheduleFile');
+if (_trainEl) _trainEl.addEventListener('change', handleTrainingScheduleUpload);
+refreshIncludeTrainingToggle();
 
 // Wire up processBtn
 if (document.getElementById('processBtn')) {
@@ -2943,7 +3336,7 @@ applyConfig(getDefaultConfig());
 
   function initWithGAS() {
     showLoadingState('Loading configuration\u2026');
-    google.script.run
+    google.script.run.withFailureHandler(_gsFail)
       .withSuccessHandler(function(config) {
         applyConfig(config, true);
         hideLoadingState();

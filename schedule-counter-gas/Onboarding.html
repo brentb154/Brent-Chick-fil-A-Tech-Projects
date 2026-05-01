@@ -183,6 +183,19 @@
   </div><!-- /container -->
 
   <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
   // ── Onboarding Logic ──────────────────────────────────────────
   var _currentStep = 1;
 
@@ -203,6 +216,7 @@
     status.style.display = 'none';
 
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function() {
         status.className   = 'onboarding-status success';
         status.textContent = 'Spreadsheet initialized successfully!';
@@ -229,6 +243,7 @@
     status.style.display = 'none';
 
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(res) {
         btn.disabled    = false;
         btn.textContent = 'Save & Continue \u2192';
@@ -258,6 +273,7 @@
     status.style.display = 'none';
 
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(res) {
         btn.disabled    = false;
         btn.textContent = '\u25b6 Install Triggers \u2192';
@@ -286,6 +302,7 @@
     status.style.display = 'none';
 
     google.script.run
+      .withFailureHandler(handleServerError)
       .withSuccessHandler(function(res) {
         if (res && res.error) {
           btn.disabled    = false;

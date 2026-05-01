@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <title>Schedule — Cockrell Hill</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #dd0031;
+      --well: #15803d;
+      --well-bg: #dcfce7;
+      --low: #ea580c;
+      --low-bg: #fed7aa;
+      --bad: #dc2626;
+      --bad-bg: #fecaca;
+      --over: #2563eb;
+      --over-bg: #dbeafe;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased; }
+    body { min-height: 100vh; padding: 12px; }
+    .header { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px 16px; margin-bottom: 12px; }
+    .header-top { display: flex; justify-content: space-between; align-items: baseline;
+      flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .loc-name { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+    .updated { font-size: 12px; color: var(--muted); }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .control-group { display: flex; gap: 6px; align-items: center; }
+    .control-label { font-size: 11px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.04em; }
+    select.week-select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px;
+      background: white; font-size: 14px; font-weight: 500; color: var(--text);
+      min-width: 170px; cursor: pointer; }
+    .toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 8px;
+      overflow: hidden; background: #f1f5f9; }
+    .toggle button { border: 0; background: transparent; padding: 6px 14px; font-size: 13px;
+      font-weight: 600; color: var(--muted); cursor: pointer; }
+    .toggle button.active { background: white; color: var(--text);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+    .toggle button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .mgr-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px; margin-bottom: 12px; overflow-x: auto; }
+    .mgr-grid { display: grid; gap: 8px; min-width: 100%; }
+    .mgr-col { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 10px; }
+    .mgr-day { font-size: 11px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.04em; }
+    .mgr-row { font-size: 13px; margin: 2px 0; display: flex; gap: 6px; align-items: baseline; }
+    .mgr-role { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.04em; min-width: 40px; }
+    .mgr-name { font-weight: 500; }
+    .mgr-empty { color: #cbd5e1; font-style: italic; font-size: 12px; }
+
+    /* Week view */
+    .week-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 8px; overflow-x: auto; }
+    .week-grid { display: grid; gap: 2px; min-width: 720px; }
+    .week-header-cell { background: #f1f5f9; padding: 8px 6px; text-align: center;
+      font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.03em; border-radius: 6px; }
+    .hour-label { background: #f1f5f9; padding: 8px 6px; text-align: center; font-size: 12px;
+      font-weight: 600; color: var(--muted); border-radius: 6px; display: flex;
+      align-items: center; justify-content: center; }
+    .cell { padding: 6px 4px; border-radius: 6px; text-align: center; cursor: pointer;
+      border: 1px solid transparent; transition: transform 0.06s; }
+    .cell:hover { transform: scale(0.98); }
+    .cell-count { font-size: 18px; font-weight: 700; line-height: 1.1; }
+    .cell-sub { font-size: 10px; opacity: 0.85; margin-top: 2px; }
+    .cell-empty { background: #f8fafc; color: #cbd5e1; cursor: default; }
+    .cell-empty:hover { transform: none; }
+    .cell-neutral { background: #e2e8f0; color: var(--text); }
+    .cell-well { background: var(--well-bg); color: var(--well); }
+    .cell-low { background: var(--low-bg); color: var(--low); }
+    .cell-bad { background: var(--bad-bg); color: var(--bad); }
+    .cell-over { background: var(--over-bg); color: var(--over); }
+
+    /* Day view */
+    .day-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 4px; }
+    .day-picker { display: flex; gap: 6px; padding: 8px; overflow-x: auto; }
+    .day-tab { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      background: #f1f5f9; color: var(--muted); border: 0; cursor: pointer; white-space: nowrap; }
+    .day-tab.active { background: var(--text); color: white; }
+    .day-list { display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+    .hour-row { display: grid; grid-template-columns: 70px 1fr auto; gap: 12px; align-items: center;
+      padding: 10px 12px; background: #f8fafc; border-radius: 8px;
+      border-left: 4px solid transparent; }
+    .hour-row.row-well { border-left-color: var(--well); }
+    .hour-row.row-low  { border-left-color: var(--low); }
+    .hour-row.row-bad  { border-left-color: var(--bad); }
+    .hour-row.row-over { border-left-color: var(--over); }
+    .hour-label-big { font-size: 15px; font-weight: 700; color: var(--text); }
+    .hour-stats { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+    .hour-count { font-size: 22px; font-weight: 800; line-height: 1; }
+    .hour-suggested { font-size: 12px; color: var(--muted); }
+    .hour-names { font-size: 13px; color: var(--text); margin-top: 4px; line-height: 1.5; }
+    .name-chip { display: inline-block; background: white; border: 1px solid var(--border);
+      padding: 2px 8px; border-radius: 999px; font-size: 12px; margin: 2px 4px 2px 0; }
+    .name-chip.training { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+    .training-tag { font-size: 9px; font-weight: 800; margin-right: 3px;
+      background: #92400e; color: white; padding: 1px 4px; border-radius: 3px; }
+
+    .unstaffed { opacity: 0.5; }
+    .unstaffed .hour-count { color: var(--muted); }
+
+    .state-msg { padding: 48px 24px; text-align: center; color: var(--muted);
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      margin: 24px 0; }
+    .state-msg h2 { margin: 0 0 8px 0; color: var(--text); font-size: 18px; }
+    .state-msg p { margin: 0; font-size: 14px; }
+    .spinner { border: 3px solid var(--border); border-top-color: var(--accent);
+      border-radius: 50%; width: 28px; height: 28px; margin: 0 auto 12px;
+      animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 640px) {
+      .loc-name { font-size: 17px; }
+      .controls { gap: 6px; }
+      select.week-select { min-width: 140px; font-size: 13px; }
+      .toggle button { padding: 6px 10px; font-size: 12px; }
+      .week-grid { min-width: 640px; }
+      .mgr-grid { min-width: 700px; }
+      .hour-row { grid-template-columns: 54px 1fr; }
+      .hour-row > :nth-child(3) { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="loading" class="state-msg">
+    <div class="spinner"></div>
+    <p>Loading schedule...</p>
+  </div>
+
+  <div id="app" style="display:none;">
+    <div class="header">
+      <div class="header-top">
+        <div class="loc-name" id="locName">Schedule</div>
+        <div class="updated" id="updated"></div>
+      </div>
+      <div class="controls">
+        <div class="control-group">
+          <span class="control-label">Week</span>
+          <select class="week-select" id="weekSelect" onchange="onWeekChange()"></select>
+        </div>
+        <div class="control-group">
+          <span class="control-label">View</span>
+          <div class="toggle" id="viewToggle">
+            <button data-view="day"  onclick="setView('day')">Day</button>
+            <button data-view="week" onclick="setView('week')">Week</button>
+          </div>
+        </div>
+        <div class="control-group">
+          <span class="control-label">Dept</span>
+          <div class="toggle" id="deptToggle">
+            <button data-dept="foh" onclick="setDept('foh')">FOH</button>
+            <button data-dept="boh" onclick="setDept('boh')">BOH</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mgr-bar" id="mgrBar"></div>
+    <div id="body"></div>
+  </div>
+
+  <div id="errorState" class="state-msg" style="display:none;">
+    <h2>Could not load schedule</h2>
+    <p id="errorMsg"></p>
+  </div>
+
+  <script>
+    var DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var HOURS = ['5 AM','6 AM','7 AM','8 AM','9 AM','10 AM','11 AM','12 PM',
+                 '1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM',
+                 '9 PM','10 PM','11 PM'];
+
+    var state = {
+      payload:      null,
+      availableWeeks: [],
+      selectedWeek: null,
+      view:         'day',   // 'day' or 'week'
+      dept:         'foh',   // 'foh' or 'boh'
+      selectedDay:  null     // day name for day view
+    };
+
+    // ── Boot ──
+    window.addEventListener('DOMContentLoaded', function() {
+      state.view = window.innerWidth < 900 ? 'day' : 'week';
+      loadWeek(null);
+    });
+
+    function loadWeek(weekStart) {
+      show('loading'); hide('app'); hide('errorState');
+      google.script.run
+        .withSuccessHandler(onDataLoaded)
+        .withFailureHandler(onLoadFail)
+        .getPublishedSchedule(weekStart);
+    }
+
+    function onDataLoaded(data) {
+      hide('loading');
+      if (!data) { onLoadFail({ message: 'No data returned.' }); return; }
+      if (data.error) { onLoadFail({ message: data.error }); return; }
+
+      state.availableWeeks = data.availableWeeks || [];
+
+      if (data.empty) {
+        state.payload = null;
+        state.selectedWeek = data.requestedWeek || null;
+        renderWeekPicker();
+        show('app');
+        renderManagerBar();
+        renderEmptyState();
+        return;
+      }
+
+      state.payload = data;
+      state.selectedWeek = data.weekStart;
+      if (!state.selectedDay || !dayHasData(state.selectedDay)) {
+        state.selectedDay = pickDefaultDay();
+      }
+      show('app');
+      renderAll();
+    }
+
+    function onLoadFail(err) {
+      hide('loading'); hide('app');
+      document.getElementById('errorMsg').textContent = (err && err.message) || 'Unknown error.';
+      show('errorState');
+    }
+
+    // ── Helpers ──
+    function show(id) { var el = document.getElementById(id); if (el) el.style.display = ''; }
+    function hide(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; }
+
+    function deptCounts() {
+      if (!state.payload) return {};
+      return state.dept === 'foh' ? (state.payload.fohCounts || {})
+                                   : (state.payload.bohCounts || {});
+    }
+    function deptNames() {
+      if (!state.payload) return {};
+      return state.dept === 'foh' ? (state.payload.fohNames || {})
+                                   : (state.payload.bohNames || {});
+    }
+    function trainingNames() { return (state.payload && state.payload.trainingNames) || {}; }
+    function trainingCounts() { return (state.payload && state.payload.trainingCounts) || {}; }
+    function deptManagers() {
+      if (!state.payload || !state.payload.managers) return {};
+      return state.payload.managers[state.dept] || {};
+    }
+    function deptSuggested() {
+      if (!state.payload || !state.payload.suggested) return {};
+      return state.payload.suggested[state.dept] || {};
+    }
+
+    function deptHasData() {
+      var counts = deptCounts();
+      if (!counts || Object.keys(counts).length === 0) return false;
+      for (var d in counts) {
+        for (var h in counts[d]) {
+          if (counts[d][h] > 0) return true;
+        }
+      }
+      return false;
+    }
+
+    function dayHasData(day) {
+      var counts = deptCounts();
+      if (!counts[day]) return false;
+      for (var h in counts[day]) {
+        if (counts[day][h] > 0) return true;
+      }
+      return false;
+    }
+
+    function pickDefaultDay() {
+      var today = new Date();
+      var weekday = today.toLocaleDateString('en-US', { weekday: 'long' });
+      if (dayHasData(weekday)) return weekday;
+      for (var i = 0; i < DAYS.length; i++) {
+        if (dayHasData(DAYS[i])) return DAYS[i];
+      }
+      return DAYS[0];
+    }
+
+    function formatWeekLabel(ws) {
+      if (!ws) return 'Unknown week';
+      var parts = String(ws).split('-');
+      if (parts.length !== 3) return ws;
+      var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      if (isNaN(d.getTime())) return ws;
+      var end = new Date(d.getTime() + 5 * 86400000); // Mon + 5 = Sat
+      var mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return mo[d.getMonth()] + ' ' + d.getDate() + ' – ' + mo[end.getMonth()] + ' ' + end.getDate();
+    }
+
+    function dayDateLabel(day) {
+      if (!state.selectedWeek) return day;
+      var parts = String(state.selectedWeek).split('-');
+      if (parts.length !== 3) return day;
+      var monday = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      var offset = DAYS.indexOf(day);
+      if (offset < 0) return day;
+      var d = new Date(monday.getTime() + offset * 86400000);
+      var mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return day + ', ' + mo[d.getMonth()] + ' ' + d.getDate();
+    }
+
+    function timeAgo(iso) {
+      if (!iso) return '';
+      try {
+        var then = new Date(iso);
+        var diff = (Date.now() - then.getTime()) / 1000;
+        if (diff < 60)    return 'Updated just now';
+        if (diff < 3600)  return 'Updated ' + Math.floor(diff / 60) + ' min ago';
+        if (diff < 86400) return 'Updated ' + Math.floor(diff / 3600) + ' hr ago';
+        var days = Math.floor(diff / 86400);
+        return 'Updated ' + days + ' day' + (days === 1 ? '' : 's') + ' ago';
+      } catch (e) { return ''; }
+    }
+
+    function cellClass(actual, suggested) {
+      if (!suggested || suggested <= 0) return actual > 0 ? 'cell-neutral' : 'cell-empty';
+      var diff = actual - suggested;
+      if (diff <= -2) return 'cell-bad';
+      if (diff === -1 || diff === 1) return 'cell-low';
+      if (diff === 0) return 'cell-well';
+      return 'cell-over';
+    }
+    function rowClass(actual, suggested) {
+      if (!suggested || suggested <= 0) return '';
+      var diff = actual - suggested;
+      if (diff <= -2) return 'row-bad';
+      if (diff === -1 || diff === 1) return 'row-low';
+      if (diff === 0) return 'row-well';
+      return 'row-over';
+    }
+
+    // ── Event handlers ──
+    function onWeekChange() {
+      var sel = document.getElementById('weekSelect');
+      var week = sel.value;
+      state.selectedDay = null;
+      loadWeek(week);
+    }
+    function setView(v) {
+      state.view = v;
+      renderAll();
+    }
+    function setDept(d) {
+      state.dept = d;
+      if (!dayHasData(state.selectedDay)) state.selectedDay = pickDefaultDay();
+      renderAll();
+    }
+    function setDay(day) {
+      state.selectedDay = day;
+      state.view = 'day';
+      renderAll();
+    }
+
+    // ── Rendering ──
+    function renderAll() {
+      renderHeader();
+      renderWeekPicker();
+      renderToggles();
+      renderManagerBar();
+      if (!deptHasData()) {
+        document.getElementById('body').innerHTML = deptEmptyHtml();
+        return;
+      }
+      if (state.view === 'week') renderWeekView();
+      else                       renderDayView();
+    }
+
+    function renderHeader() {
+      var loc = (state.payload && state.payload.locationName) || 'Schedule';
+      document.getElementById('locName').textContent = loc;
+      document.getElementById('updated').textContent = state.payload ? timeAgo(state.payload.updatedAt) : '';
+    }
+
+    function renderWeekPicker() {
+      var sel = document.getElementById('weekSelect');
+      sel.innerHTML = '';
+      var weeks = state.availableWeeks.slice().sort().reverse();
+      if (weeks.length === 0) {
+        var opt = document.createElement('option');
+        opt.textContent = 'No weeks available';
+        opt.value = '';
+        sel.appendChild(opt);
+        sel.disabled = true;
+        return;
+      }
+      sel.disabled = false;
+      weeks.forEach(function(w) {
+        var opt = document.createElement('option');
+        opt.value = w;
+        opt.textContent = formatWeekLabel(w);
+        if (w === state.selectedWeek) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    function renderToggles() {
+      var vt = document.getElementById('viewToggle').querySelectorAll('button');
+      vt.forEach(function(b) { b.classList.toggle('active', b.dataset.view === state.view); });
+      var dt = document.getElementById('deptToggle').querySelectorAll('button');
+      dt.forEach(function(b) { b.classList.toggle('active', b.dataset.dept === state.dept); });
+    }
+
+    function renderManagerBar() {
+      var bar = document.getElementById('mgrBar');
+      var mgrs = deptManagers();
+      var daysToShow = DAYS.filter(function(d) { return dayHasData(d); });
+      if (daysToShow.length === 0) daysToShow = DAYS;
+      var any = false;
+      daysToShow.forEach(function(day) {
+        var list = mgrs[day] || [];
+        list.forEach(function(s) { if (s && s.name && String(s.name).trim()) any = true; });
+      });
+      if (!any) { bar.innerHTML = ''; bar.style.display = 'none'; return; }
+      bar.style.display = '';
+      var html = '<div class="mgr-grid" style="grid-template-columns:repeat(' + daysToShow.length + ',1fr);">';
+      daysToShow.forEach(function(day) {
+        html += '<div class="mgr-col">';
+        html += '<div class="mgr-day">' + day + '</div>';
+        var list = mgrs[day] || [];
+        if (list.length === 0) {
+          html += '<div class="mgr-empty">—</div>';
+        } else {
+          list.forEach(function(s) {
+            var nm = s && s.name ? String(s.name).trim() : '';
+            var lb = s && s.label ? String(s.label) : '';
+            html += '<div class="mgr-row"><span class="mgr-role">' + esc(lb) + '</span>'
+                 + '<span class="mgr-name">' + (nm ? esc(nm) : '<span class="mgr-empty">—</span>') + '</span></div>';
+          });
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+      bar.innerHTML = html;
+    }
+
+    function deptEmptyHtml() {
+      var label = state.dept === 'foh' ? 'FOH' : 'BOH';
+      return '<div class="state-msg"><h2>' + label + ' schedule not uploaded</h2>'
+           + '<p>This week\'s ' + label + ' schedule has not been published yet.</p></div>';
+    }
+
+    function renderEmptyState() {
+      document.getElementById('body').innerHTML =
+        '<div class="state-msg"><h2>No schedule published yet</h2>'
+        + '<p>Check back once the week\'s schedule has been saved.</p></div>';
+    }
+
+    function renderWeekView() {
+      var counts = deptCounts();
+      var tCounts = trainingCounts();
+      var sug = deptSuggested();
+      var daysToShow = DAYS.filter(function(d) { return counts[d]; });
+      if (daysToShow.length === 0) daysToShow = DAYS;
+
+      var cols = daysToShow.length + 1;
+      var html = '<div class="week-wrap"><div class="week-grid" style="grid-template-columns: 70px repeat(' + daysToShow.length + ', 1fr);">';
+      html += '<div class="week-header-cell"></div>';
+      daysToShow.forEach(function(day) {
+        html += '<div class="week-header-cell" style="cursor:pointer;" onclick="setDay(\'' + day + '\')">' + day.slice(0, 3) + '</div>';
+      });
+
+      HOURS.forEach(function(hour) {
+        var hasAny = false;
+        daysToShow.forEach(function(day) {
+          if ((counts[day] && counts[day][hour] > 0) || (tCounts[day] && tCounts[day][hour] > 0)) hasAny = true;
+        });
+        if (!hasAny) return;
+        html += '<div class="hour-label">' + hour + '</div>';
+        daysToShow.forEach(function(day) {
+          var actual = ((counts[day] && counts[day][hour]) || 0)
+                     + ((tCounts[day] && tCounts[day][hour]) || 0);
+          var suggested = (sug[day] && sug[day][hour]) || 0;
+          var cls = cellClass(actual, suggested);
+          if (actual === 0) {
+            html += '<div class="cell cell-empty"></div>';
+          } else {
+            var sub = suggested > 0 ? ('Sug ' + suggested) : '';
+            html += '<div class="cell ' + cls + '" onclick="setDay(\'' + day + '\')">'
+                 + '<div class="cell-count">' + actual + '</div>'
+                 + (sub ? '<div class="cell-sub">' + sub + '</div>' : '')
+                 + '</div>';
+          }
+        });
+      });
+      html += '</div></div>';
+      document.getElementById('body').innerHTML = html;
+    }
+
+    function renderDayView() {
+      var counts = deptCounts();
+      var names = deptNames();
+      var tNames = trainingNames();
+      var tCounts = trainingCounts();
+      var sug = deptSuggested();
+      var daysToShow = DAYS.filter(function(d) { return dayHasData(d); });
+      if (daysToShow.length === 0) daysToShow = DAYS;
+
+      var day = state.selectedDay;
+      if (daysToShow.indexOf(day) === -1) day = daysToShow[0];
+
+      var html = '<div class="day-wrap">';
+      html += '<div class="day-picker">';
+      daysToShow.forEach(function(d) {
+        var active = d === day ? ' active' : '';
+        html += '<button class="day-tab' + active + '" onclick="setDay(\'' + d + '\')">' + dayDateLabel(d) + '</button>';
+      });
+      html += '</div>';
+
+      html += '<div class="day-list">';
+      var anyHour = false;
+      HOURS.forEach(function(hour) {
+        var deptCt = (counts[day] && counts[day][hour]) || 0;
+        var trainCt = (tCounts[day] && tCounts[day][hour]) || 0;
+        var actual = deptCt + trainCt;
+        if (actual === 0) return;
+        anyHour = true;
+        var suggested = (sug[day] && sug[day][hour]) || 0;
+        var rc = rowClass(actual, suggested);
+        var deptList = (names[day] && names[day][hour]) || [];
+        var trainList = (tNames[day] && tNames[day][hour]) || [];
+        var sugTxt = suggested > 0
+          ? ('Suggested ' + suggested + ' (' + diffLabel(actual - suggested) + ')')
+          : '';
+        html += '<div class="hour-row ' + rc + '">';
+        html += '<div class="hour-label-big">' + hour + '</div>';
+        html += '<div>';
+        html += '<div class="hour-stats"><span class="hour-count">' + actual + '</span>'
+             + (sugTxt ? '<span class="hour-suggested">' + sugTxt + '</span>' : '') + '</div>';
+        if (deptList.length || trainList.length) {
+          html += '<div class="hour-names">';
+          deptList.forEach(function(n) { html += '<span class="name-chip">' + esc(toTitleCase(n)) + '</span>'; });
+          trainList.forEach(function(n) { html += '<span class="name-chip training"><span class="training-tag">T</span>' + esc(toTitleCase(n)) + '</span>'; });
+          html += '</div>';
+        }
+        html += '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      if (!anyHour) {
+        html += '<div class="state-msg"><h2>No ' + (state.dept === 'foh' ? 'FOH' : 'BOH')
+             + ' hours for ' + day + '</h2><p>Nothing scheduled.</p></div>';
+      }
+      html += '</div>';
+      document.getElementById('body').innerHTML = html;
+    }
+
+    function diffLabel(diff) {
+      if (diff === 0) return 'perfect';
+      if (diff > 0)  return '+' + diff + ' over';
+      return diff + ' under';
+    }
+
+    function toTitleCase(name) {
+      return String(name).toLowerCase().replace(/\b[a-z]/g, function(c) { return c.toUpperCase(); });
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+  </script>
+</body>
+</html>

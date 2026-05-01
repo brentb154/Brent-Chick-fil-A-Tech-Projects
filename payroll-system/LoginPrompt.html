@@ -263,6 +263,19 @@
   </div>
 
   <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
     const BASE_URL = '<?= baseUrl ?>' || window.location.href.split('?')[0].split('#')[0];
 
     // Autofocus the name field on load
@@ -296,6 +309,7 @@
       }
       setBusy(true);
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result && result.token) {
             window.top.location.href = BASE_URL + '?token=' + encodeURIComponent(result.token);

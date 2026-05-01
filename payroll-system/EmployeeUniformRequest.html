@@ -2623,6 +2623,19 @@
   </div>
 
   <script>
+  // Generic server error handler
+  function handleServerError(error) {
+    var msg = error && error.message ? error.message : 'An unexpected error occurred';
+    console.error('Server error:', msg);
+    if (typeof showToast === 'function') {
+      showToast('Error: ' + msg, 'error');
+    } else if (typeof showStatus === 'function') {
+      showStatus('error', 'Error: ' + msg);
+    } else {
+      alert('Error: ' + msg);
+    }
+  }
+
     // ========================================
     // STATE
     // ========================================
@@ -2705,6 +2718,7 @@
       }
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           if (result.success && result.config) {
             const c = result.config;
@@ -2785,6 +2799,7 @@
       }
       
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(employees) {
           select.innerHTML = '<option value="">Select employee / Selecciona empleado</option>';
           
@@ -3034,6 +3049,7 @@
       
       // Check for similar names
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(results) {
           NewEmpState.similarWarnings = results.similar || [];
           renderSimilarWarning(results);
@@ -3110,6 +3126,7 @@
       
       // Validate against backend
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(isValid) {
           showLoading(false);
           if (isValid) {
@@ -3228,6 +3245,7 @@
       }
       
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(locations) {
           select.innerHTML = '<option value="">Select location / Selecciona ubicación</option>';
           
@@ -3267,6 +3285,7 @@
       }
 
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(items) {
           catalogItems = items || [];
           populateCategories();
@@ -3826,6 +3845,7 @@
       };
       
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result.success) {
@@ -4066,6 +4086,7 @@
       showLoading(true, 'Verifying... / Verificando...');
       
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(isValid) {
           showLoading(false);
           if (isValid) {
@@ -4363,6 +4384,7 @@
       const orderIds = Array.from(bulkSelectedOrders);
       
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           document.getElementById('bulkProgressModal').classList.remove('show');
           
@@ -4423,6 +4445,7 @@
       const select = document.getElementById('receivingLocationFilter');
       
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(locations) {
           select.innerHTML = '<option value="All">All Locations</option>';
           if (locations && locations.length > 0) {
@@ -4458,6 +4481,7 @@
       `;
       
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(orders) {
           console.log('Received orders:', orders ? orders.length : 0);
           pendingOrders = Array.isArray(orders) ? orders : [];
@@ -4956,6 +4980,7 @@
       
       // Call backend to activate as Store Paid
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result.success) {
@@ -5013,6 +5038,7 @@
       showLoading(true, 'Cancelling item... / Cancelando artículo...');
       
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result.success) {
@@ -5341,6 +5367,7 @@
       showLoading(true, 'Undoing...');
       
       google.script.run
+        .withFailureHandler(handleServerError)
         .withSuccessHandler(function(result) {
           showLoading(false);
           if (result.success) {
