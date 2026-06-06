@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>H.E.A.R.D. Log — Cockrell Hill</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0d2620 0%, #102f2a 50%, #0a3d39 100%);
+            min-height: 100vh;
+            color: #e8e8e8;
+            padding: 2rem;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            color: #a8a8a8; text-decoration: none; font-size: 0.9rem;
+            margin-bottom: 2rem; transition: color 0.2s;
+        }
+        .back-link:hover { color: #fff; }
+        .header {
+            background: rgba(255,255,255,0.05); border-radius: 16px; padding: 2rem;
+            border: 1px solid rgba(255,255,255,0.1); border-top: 4px solid #00897B;
+            margin-bottom: 1.5rem;
+        }
+        .project-icon { font-size: 3rem; margin-bottom: 1rem; }
+        h1 { font-size: 2rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+        .subtitle { color: #a8a8a8; font-size: 1rem; line-height: 1.5; }
+        .tag {
+            display: inline-block; padding: 0.25rem 0.6rem;
+            background: rgba(255,255,255,0.1); border-radius: 4px;
+            font-size: 0.75rem; color: #a0a0a0; margin: 0.5rem 0.3rem 0 0;
+        }
+        .section {
+            background: rgba(255,255,255,0.05); border-radius: 12px; padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1); margin-bottom: 1.5rem;
+        }
+        h2 {
+            font-size: 1.1rem; font-weight: 600; color: #26A69A;
+            margin-bottom: 1rem; padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .feature-list { list-style: none; }
+        .feature-list li {
+            padding: 0.4rem 0; color: #c0c0c0; font-size: 0.95rem;
+            display: flex; align-items: flex-start; gap: 0.6rem;
+        }
+        .feature-list li::before { content: '\2713'; color: #00897B; flex-shrink: 0; }
+        .cta-row { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem; }
+        .btn {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.65rem 1.4rem; border-radius: 8px; border: none;
+            font-size: 0.95rem; font-weight: 600; cursor: pointer;
+            text-decoration: none; transition: opacity 0.2s, background 0.2s;
+        }
+        .btn-primary { background: linear-gradient(135deg,#00897B,#26A69A); color: #fff; }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-ghost { background: rgba(255,255,255,0.08); color: #e8e8e8; border: 1px solid rgba(255,255,255,0.15); }
+        .btn-ghost:hover { background: rgba(255,255,255,0.15); }
+        .badge-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem; }
+        .badge-card {
+            flex: 1; min-width: 220px; background: rgba(255,255,255,0.04);
+            border-radius: 8px; padding: 1rem; border: 1px solid rgba(255,255,255,0.08);
+        }
+        .badge-card h4 { font-size: 0.95rem; margin-bottom: 0.3rem; }
+        .badge-card p { font-size: 0.82rem; color: #999; line-height: 1.5; }
+        .badge-yellow h4 { color: #FFD54F; }
+        .badge-red h4 { color: #EF5350; }
+        .file-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem;
+        }
+        .file-item {
+            display: block; background: rgba(255,255,255,0.05); border-radius: 6px;
+            padding: 0.5rem 0.75rem; font-size: 0.8rem; color: #a0a0a0;
+            font-family: monospace; text-decoration: none; transition: background 0.2s;
+        }
+        .file-item:hover { background: rgba(255,255,255,0.12); }
+        .file-item.gs { color: #4DB6AC; }
+        .file-item.html { color: #64B5F6; }
+        .file-item.doc { color: #FFB74D; }
+        .note {
+            background: rgba(0,137,123,0.12); border: 1px solid rgba(38,166,154,0.35);
+            border-radius: 8px; padding: 1rem 1.25rem; font-size: 0.9rem;
+            color: #c0c0c0; line-height: 1.6; margin-bottom: 1.5rem;
+        }
+        .note strong { color: #26A69A; }
+        code {
+            font-family: monospace; background: rgba(255,255,255,0.08);
+            padding: 0.1rem 0.35rem; border-radius: 4px; font-size: 0.85em; color: #80CBC4;
+        }
+        @media (max-width: 600px) {
+            body { padding: 1rem; }
+            h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">&#8592; Back to Hub</a>
+
+        <div class="header">
+            <div class="project-icon">&#128483;&#65039;</div>
+            <h1>H.E.A.R.D. Log</h1>
+            <p class="subtitle">Guest-recovery complaint log. Log guest issues in under a minute, auto-flag repeat complainers via phone lookup, see a live dashboard of trends and resolutions, and send email alerts &mdash; all backed by a single Google Sheet.</p>
+            <div>
+                <span class="tag">React</span>
+                <span class="tag">Google Apps Script</span>
+                <span class="tag">Sheets Integration</span>
+            </div>
+        </div>
+
+        <div class="note">
+            <strong>This is a setup-it-yourself template.</strong> The frontend (<code>index.html</code>) is wired to a Google Sheet through a Google Apps Script web app. Before it will load or save anything, you deploy your own copy &mdash; your Sheet, your script, your passcodes. Nothing here connects to a live store. The full walkthrough takes about 15 minutes.
+            <div class="cta-row" style="margin-top: 1rem;">
+                <a href="setup-guide.html" class="btn btn-primary">&#128214; Open Setup Guide</a>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>What It Does</h2>
+            <ul class="feature-list">
+                <li>One-tap complaint form &mdash; phone, guest, order details, issue type, resolution, daypart, manager</li>
+                <li>Live phone lookup flags repeat complainers as you type (last 60 days)</li>
+                <li>Dashboard with totals, flagged-guest count, and trends</li>
+                <li>Searchable, filterable log &mdash; edit, delete, and mark-resolved on any entry</li>
+                <li>Configurable email alerts for repeat complainers (passcode-protected settings)</li>
+                <li>Offline mode &mdash; complaints save locally and submit automatically when back online</li>
+                <li>One-click <code>runFirstTimeSetup()</code> builds the sheet, headers, and alert storage for you</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Repeat-Complainer Flags</h2>
+            <div class="badge-row">
+                <div class="badge-card badge-yellow">
+                    <h4>&#9888; Yellow Badge</h4>
+                    <p>Guest has 2 complaints in the last 30 days &mdash; the one you're logging makes 3.</p>
+                </div>
+                <div class="badge-card badge-red">
+                    <h4>&#9888; Red Badge</h4>
+                    <p>Guest has 3+ complaints in the last 30 days. Tap the badge to see their history.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>How It Works</h2>
+            <ul class="feature-list">
+                <li><strong style="color:#e8e8e8;">Frontend</strong> &mdash; <code>index.html</code>, a self-contained React app (no build step). Open in any browser or pin to a tablet.</li>
+                <li><strong style="color:#e8e8e8;">Backend</strong> &mdash; <code>Code.gs</code>, a Google Apps Script web app bound to your Sheet. Handles all reads and writes.</li>
+                <li><strong style="color:#e8e8e8;">Data</strong> &mdash; one Google Sheet tab is the database. Columns are built automatically on first setup.</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Project Files</h2>
+            <div style="margin-bottom: 1rem;">
+                <button onclick="downloadZip()" id="download-btn" class="btn btn-primary">&#8595; Download All as ZIP</button>
+                <a href="setup-guide.html" class="btn btn-ghost">&#128214; Setup Guide</a>
+                <a href="https://github.com/brentb154/cfa-guest-recovery-log" class="btn btn-ghost" target="_blank">&#128025; GitHub Repo</a>
+            </div>
+            <div class="file-grid">
+                <a href="index.html" class="file-item html" target="_blank">index.html</a>
+                <a href="Code.gs" class="file-item gs" target="_blank">Code.gs</a>
+                <a href="SETUP_GUIDE.md" class="file-item doc" target="_blank">SETUP_GUIDE.md</a>
+                <a href="README.md" class="file-item doc" target="_blank">README.md</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script>
+        async function downloadZip() {
+            var btn = document.getElementById('download-btn');
+            var orig = btn.innerHTML;
+            btn.innerHTML = 'Packaging…';
+            btn.disabled = true;
+            var files = ['index.html','Code.gs','README.md','SETUP_GUIDE.md'];
+            try {
+                var zip = new JSZip();
+                for (var i = 0; i < files.length; i++) {
+                    var res = await fetch(files[i]);
+                    if (!res.ok) throw new Error('Failed: ' + files[i]);
+                    zip.file(files[i], await res.blob());
+                }
+                var blob = await zip.generateAsync({ type: 'blob' });
+                saveAs(blob, 'guest-recovery-log.zip');
+                btn.innerHTML = '✓ Done!';
+                setTimeout(function() { btn.innerHTML = orig; btn.disabled = false; }, 3000);
+            } catch (e) {
+                btn.innerHTML = '✗ Error';
+                setTimeout(function() { btn.innerHTML = orig; btn.disabled = false; }, 3000);
+            }
+        }
+    </script>
+</body>
+</html>

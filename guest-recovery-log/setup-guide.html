@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>H.E.A.R.D. Log — Setup Guide</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0d2620 0%, #102f2a 50%, #0a3d39 100%);
+            min-height: 100vh;
+            color: #e8e8e8;
+            padding: 2rem;
+        }
+        .container { max-width: 820px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            color: #a8a8a8; text-decoration: none; font-size: 0.9rem;
+            margin-bottom: 2rem; transition: color 0.2s;
+        }
+        .back-link:hover { color: #fff; }
+        .header {
+            background: rgba(255,255,255,0.05); border-radius: 16px; padding: 2rem;
+            border: 1px solid rgba(255,255,255,0.1); border-top: 4px solid #00897B;
+            margin-bottom: 1.5rem;
+        }
+        .project-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+        h1 { font-size: 1.9rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+        .subtitle { color: #a8a8a8; font-size: 1rem; line-height: 1.5; }
+        .pill {
+            display: inline-block; margin-top: 0.75rem; padding: 0.3rem 0.7rem;
+            background: rgba(0,137,123,0.18); border: 1px solid rgba(38,166,154,0.4);
+            border-radius: 999px; font-size: 0.8rem; color: #80CBC4;
+        }
+        .step {
+            background: rgba(255,255,255,0.05); border-radius: 12px; padding: 1.5rem 1.75rem;
+            border: 1px solid rgba(255,255,255,0.1); margin-bottom: 1.25rem;
+        }
+        .step-head { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1rem; }
+        .step-num {
+            flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+            background: linear-gradient(135deg,#00897B,#26A69A); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 1rem;
+        }
+        .step-head h2 { font-size: 1.15rem; font-weight: 600; color: #fff; }
+        .step p { color: #c5c5c5; font-size: 0.95rem; line-height: 1.65; margin: 0.5rem 0; }
+        .step ol, .step ul { margin: 0.5rem 0 0.5rem 1.25rem; }
+        .step li { color: #c5c5c5; font-size: 0.95rem; line-height: 1.7; margin-bottom: 0.35rem; }
+        strong { color: #fff; }
+        code {
+            font-family: 'SF Mono', Menlo, monospace; background: rgba(255,255,255,0.08);
+            padding: 0.12rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: #80CBC4;
+        }
+        pre {
+            background: #07211d; border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px; padding: 0.9rem 1.1rem; overflow-x: auto;
+            margin: 0.75rem 0; font-size: 0.85rem; line-height: 1.55;
+        }
+        pre code { background: none; padding: 0; color: #b2dfdb; }
+        .callout {
+            background: rgba(0,137,123,0.1); border-left: 3px solid #26A69A;
+            border-radius: 6px; padding: 0.85rem 1.1rem; margin: 0.85rem 0;
+            font-size: 0.9rem; color: #c0c0c0; line-height: 1.6;
+        }
+        .callout.warn { background: rgba(239,83,80,0.08); border-left-color: #EF5350; }
+        .callout strong { color: #80CBC4; }
+        .callout.warn strong { color: #EF9A9A; }
+        h3.section-title {
+            font-size: 1.25rem; color: #26A69A; margin: 2rem 0 1rem; font-weight: 700;
+        }
+        table {
+            width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.9rem;
+        }
+        th, td {
+            text-align: left; padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        th { color: #80CBC4; font-weight: 600; }
+        td { color: #c5c5c5; }
+        td code { white-space: nowrap; }
+        .lead {
+            background: rgba(255,255,255,0.05); border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1); padding: 1.25rem 1.5rem;
+            margin-bottom: 1.5rem; color: #c5c5c5; font-size: 0.95rem; line-height: 1.65;
+        }
+        .lead ol { margin: 0.5rem 0 0 1.25rem; }
+        .lead li { margin-bottom: 0.3rem; }
+        @media (max-width: 600px) {
+            body { padding: 1rem; }
+            h1 { font-size: 1.5rem; }
+            .step { padding: 1.1rem 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="landing.html" class="back-link">&#8592; Back to H.E.A.R.D. Log</a>
+
+        <div class="header">
+            <div class="project-icon">&#128214;</div>
+            <h1>H.E.A.R.D. Log — Setup Guide</h1>
+            <p class="subtitle">From zero to a working guest-recovery log. No coding experience needed &mdash; you'll copy and paste a few things and click some buttons. Follow the steps in order.</p>
+            <span class="pill">&#9201; About 15 minutes</span>
+        </div>
+
+        <div class="lead">
+            You'll set up three things:
+            <ol>
+                <li>A <strong>Google Sheet</strong> to hold the data</li>
+                <li>The <strong>Apps Script backend</strong> that reads and writes to that sheet</li>
+                <li>The <strong>frontend</strong> (<code>index.html</code>) your managers actually use</li>
+            </ol>
+            <p style="margin-top:0.75rem;">Before you start, download <code>Code.gs</code> and <code>index.html</code> from this project, and have a Google account that can create Google Sheets (your CFA Workspace account is perfect).</p>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">1</div><h2>Create the Google Sheet</h2></div>
+            <ol>
+                <li>Go to <a href="https://sheets.google.com" target="_blank" style="color:#80CBC4;">sheets.google.com</a> and click <strong>Blank spreadsheet</strong>.</li>
+                <li>Rename it something clear, like <strong>"H.E.A.R.D. Log Data"</strong> (click the title at top-left).</li>
+                <li>Leave the default tab named <code>Sheet1</code>. If yours is named something else, that's fine &mdash; you'll match it in Step 3.</li>
+            </ol>
+            <p>You don't need to add column headers &mdash; the setup function does that for you in Step 3.</p>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">2</div><h2>Get the Sheet ID</h2></div>
+            <p>The Sheet ID is the long code in the sheet's web address:</p>
+            <pre><code>https://docs.google.com/spreadsheets/d/<strong style="color:#FFD54F;">1AbC...XyZ</strong>/edit#gid=0
+                                        └──── this part ────┘</code></pre>
+            <ol>
+                <li>Copy everything between <code>/d/</code> and the next <code>/</code>.</li>
+                <li>Keep it handy &mdash; you'll paste it in the next step.</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">3</div><h2>Set Up the Backend &amp; Run One-Click Setup</h2></div>
+            <ol>
+                <li>In your Sheet, click <strong>Extensions &rarr; Apps Script</strong>. A code editor opens.</li>
+                <li>Delete any starter code shown there (usually an empty <code>myFunction</code>).</li>
+                <li>Open <code>Code.gs</code> from this project, <strong>select all, copy</strong>, and <strong>paste</strong> it into the editor.</li>
+                <li>Near the top, find <code>const SHEET_ID = 'YOUR_SHEET_ID';</code> and replace <code>YOUR_SHEET_ID</code> with the ID from Step 2 (keep the quotes).</li>
+                <li>If your tab isn't named <code>Sheet1</code>, also update <code>const SHEET_NAME = 'Sheet1';</code>.</li>
+                <li>Click the <strong>&#128190; Save</strong> icon.</li>
+            </ol>
+            <p><strong>Now run the one-click setup:</strong></p>
+            <ol start="7">
+                <li>In the function dropdown at the top (may say <code>doGet</code>), choose <strong><code>runFirstTimeSetup</code></strong>.</li>
+                <li>Click <strong>&#9654; Run</strong>.</li>
+                <li>The first time, Google asks for permission: <strong>Review permissions</strong> &rarr; pick your account &rarr; <strong>Advanced &rarr; Go to (project)</strong> &rarr; <strong>Allow</strong>.</li>
+                <li>Open the <strong>Execution log</strong> at the bottom. You should see "H.E.A.R.D. Log setup complete."</li>
+            </ol>
+            <div class="callout"><strong>Safe to re-run.</strong> <code>runFirstTimeSetup</code> never overwrites or deletes existing data &mdash; it just makes sure the data tab, header row, and alert storage all exist.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">4</div><h2>Deploy the Backend as a Web App</h2></div>
+            <ol>
+                <li>In the Apps Script editor, click <strong>Deploy &rarr; New deployment</strong> (top-right).</li>
+                <li>Click the gear &#9881;&#65039; next to "Select type" and choose <strong>Web app</strong>.</li>
+                <li>Set <strong>Execute as: Me</strong> and <strong>Who has access: Anyone</strong> &mdash; this matters, or the app can't reach it.</li>
+                <li>Click <strong>Deploy</strong> and copy the <strong>Web app URL</strong> (ends in <code>/exec</code>). Keep it for the next step.</li>
+            </ol>
+            <div class="callout"><strong>Updating later:</strong> if you change <code>Code.gs</code>, go to <strong>Deploy &rarr; Manage deployments &rarr; &#9998; Edit &rarr; Version: New version &rarr; Deploy</strong>. The URL stays the same.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">5</div><h2>Configure the Frontend</h2></div>
+            <ol>
+                <li>Open <code>index.html</code> in a plain text editor (TextEdit, Notepad, or VS Code).</li>
+                <li>Find <code>const APPS_SCRIPT_URL = 'YOUR_APPS_SCRIPT_URL';</code> and paste your Web app URL from Step 4 (keep the quotes).</li>
+                <li>Find <code>if (passcode === 'YOUR_LOGIN_PASSCODE')</code> and set the 4-digit code your <strong>team</strong> uses to log in (e.g. <code>'1234'</code>).</li>
+                <li>Find <code>if (settingsPasscode === 'YOUR_SETTINGS_PASSCODE')</code> and set a <strong>different</strong> 4-digit code only <strong>managers</strong> know &mdash; it protects the email-alert settings (e.g. <code>'5678'</code>).</li>
+                <li><strong>Save</strong> the file.</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">6</div><h2>Use It</h2></div>
+            <ol>
+                <li><strong>Double-click <code>index.html</code></strong> to open it in any browser (or host it &mdash; see below).</li>
+                <li>Enter your <strong>login passcode</strong> from Step 5.</li>
+                <li>Log a test complaint: type a phone number, fill the required fields (marked with *), click <strong>Submit Complaint</strong>.</li>
+                <li>Open your Google Sheet &mdash; the row should appear. &#127881;</li>
+            </ol>
+        </div>
+
+        <h3 class="section-title">Where to Put <code style="font-size:0.85em;">index.html</code></h3>
+        <div class="step">
+            <table>
+                <tr><th>Option</th><th>Best for</th><th>How</th></tr>
+                <tr><td>Local file</td><td>One device</td><td>Double-click <code>index.html</code>. Bookmark it.</td></tr>
+                <tr><td>Tablet home screen</td><td>A dedicated front-counter tablet</td><td>Open the file, then "Add to Home Screen."</td></tr>
+                <tr><td>Google Drive</td><td>Quick sharing</td><td>Upload <code>index.html</code>, open with a preview/host add-on.</td></tr>
+                <tr><td>GitHub Pages</td><td>A permanent link</td><td>Host it in a repo with Pages enabled.</td></tr>
+            </table>
+        </div>
+
+        <h3 class="section-title">Email Alerts for Repeat Complainers</h3>
+        <div class="step">
+            <ol>
+                <li>In the app, open <strong>&#9881;&#65039; Settings</strong> and enter your <strong>settings passcode</strong> (Step 5).</li>
+                <li>Add the email addresses that should be notified when a guest crosses the repeat-complaint threshold.</li>
+                <li>Addresses are stored on the backend (Script Properties), so they persist for everyone &mdash; not just your device.</li>
+            </ol>
+        </div>
+
+        <h3 class="section-title">Troubleshooting</h3>
+        <div class="step">
+            <p><strong>"Set SHEET_ID at the top of this file before running setup."</strong> &mdash; You ran <code>runFirstTimeSetup</code> before pasting your Sheet ID (Step 3). Paste it, save, run again.</p>
+            <p><strong>App opens but data won't load / submit fails</strong> &mdash; Check <code>APPS_SCRIPT_URL</code> exactly matches the URL from Step 4 (must end in <code>/exec</code>, not <code>/dev</code>). Confirm the deployment's <strong>Who has access</strong> is <strong>Anyone</strong>. After any <code>Code.gs</code> change, redeploy a <strong>New version</strong>.</p>
+            <p><strong>"Google hasn't verified this app"</strong> &mdash; Normal for personal scripts. Click <strong>Advanced &rarr; Go to (project) &rarr; Allow</strong>. It's your own script.</p>
+            <p><strong>Rows appear but columns look shifted</strong> &mdash; Re-running <code>runFirstTimeSetup</code> on an empty sheet rewrites the headers correctly. It won't touch a sheet that already has data &mdash; clear the tab first for a clean reset.</p>
+            <p><strong>Wrong tab</strong> &mdash; <code>SHEET_NAME</code> in <code>Code.gs</code> must exactly match your tab name, including capitalization.</p>
+        </div>
+
+        <h3 class="section-title">Quick Reference</h3>
+        <div class="step">
+            <table>
+                <tr><th>What</th><th>Where</th></tr>
+                <tr><td>Sheet ID</td><td><code>Code.gs</code> &rarr; <code>SHEET_ID</code></td></tr>
+                <tr><td>Tab name</td><td><code>Code.gs</code> &rarr; <code>SHEET_NAME</code></td></tr>
+                <tr><td>One-click setup</td><td><code>Code.gs</code> &rarr; run <code>runFirstTimeSetup</code></td></tr>
+                <tr><td>Web app URL</td><td><code>index.html</code> &rarr; <code>APPS_SCRIPT_URL</code></td></tr>
+                <tr><td>Login passcode</td><td><code>index.html</code> &rarr; <code>YOUR_LOGIN_PASSCODE</code></td></tr>
+                <tr><td>Settings passcode</td><td><code>index.html</code> &rarr; <code>YOUR_SETTINGS_PASSCODE</code></td></tr>
+                <tr><td>Alert emails</td><td>App &rarr; Settings (stored on backend)</td></tr>
+            </table>
+        </div>
+
+        <p style="text-align:center; color:#6a8a85; font-size:0.85rem; margin: 2rem 0 1rem;">Built with care for Cockrell Hill Chick-fil-A</p>
+    </div>
+</body>
+</html>
