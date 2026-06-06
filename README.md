@@ -24,6 +24,9 @@ Create, manage, email, and print professional catering quotes. Features a search
 ### Shared Table Email Summary (`/shared-table-email-summary`)
 Automatically sends weekly waste summary emails from Google Form responses. Configurable send schedule, recipients, and categorized item reporting. Built with Google Apps Script.
 
+### H.E.A.R.D. Log (`/guest-recovery-log`)
+Guest-recovery complaint log. Log guest issues in under a minute, auto-flag repeat complainers via phone lookup, live dashboard of trends and resolutions, and configurable email alerts. React frontend with a Google Apps Script + Sheets backend and a one-click first-time setup function.
+
 ## How to Use
 
 **Standalone Tools (Schedule Counter, Inventory Analyzer):**

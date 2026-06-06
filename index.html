@@ -89,6 +89,7 @@
         .project-card.training { --accent-color: #E53935; --accent-secondary: #FF7043; }
         .project-card.huddle { --accent-color: #7C4DFF; --accent-secondary: #B388FF; }
         .project-card.schedule-gas { --accent-color: #DD0031; --accent-secondary: #FF4444; }
+        .project-card.heard { --accent-color: #00897B; --accent-secondary: #26A69A; }
 
         .project-icon {
             font-size: 2.5rem;
@@ -250,6 +251,26 @@
         </header>
 
         <div class="projects-grid">
+            <!-- H.E.A.R.D. Log -->
+            <div class="project-card heard">
+                <div class="project-icon">🗣️</div>
+                <h3 class="project-title">H.E.A.R.D. Log</h3>
+                <p class="project-description">
+                    Guest-recovery complaint log. Log guest issues in under a minute, auto-flag repeat complainers (yellow/red badges on phone lookup), live dashboard of trends and resolutions, and email alerts — backed by a single Google Sheet with a one-click first-time setup.
+                </p>
+                <div>
+                    <span class="tag">React</span>
+                    <span class="tag">Google Apps Script</span>
+                    <span class="tag">Sheets Integration</span>
+                </div>
+                <div class="project-links">
+                    <a href="guest-recovery-log/SETUP_GUIDE.md" class="project-link primary">Setup Guide</a>
+                    <a href="guest-recovery-log/" class="project-link">View Files</a>
+                    <a href="https://github.com/brentb154/cfa-guest-recovery-log" class="project-link">GitHub Repo</a>
+                    <button onclick="downloadZip('guest-recovery-log',['index.html','Code.gs','README.md','SETUP_GUIDE.md'],'guest-recovery-log.zip',this)" class="project-link zip-btn">&#8595; ZIP</button>
+                </div>
+            </div>
+
             <!-- Training Tracker -->
             <div class="project-card training">
                 <div class="project-icon">🎓</div>
