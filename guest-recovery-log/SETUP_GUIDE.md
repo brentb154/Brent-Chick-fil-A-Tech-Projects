@@ -118,13 +118,13 @@ This gives your backend a web address the app can talk to.
    ```js
    if (passcode === 'YOUR_LOGIN_PASSCODE') {
    ```
-   Change `YOUR_LOGIN_PASSCODE` to the 4-digit code your **team** will use to log in (e.g. `'1535'`). Keep the quotes.
+   Change `YOUR_LOGIN_PASSCODE` to the 4-digit code your **team** will use to log in (e.g. `'1234'`). Keep the quotes.
 
 4. Find:
    ```js
    if (settingsPasscode === 'YOUR_SETTINGS_PASSCODE') {
    ```
-   Change `YOUR_SETTINGS_PASSCODE` to a **different** 4-digit code only **managers** know — this protects the email-alert settings (e.g. `'9876'`). Keep the quotes.
+   Change `YOUR_SETTINGS_PASSCODE` to a **different** 4-digit code only **managers** know — this protects the email-alert settings (e.g. `'5678'`). Keep the quotes.
 
 5. **Save** the file.
 
