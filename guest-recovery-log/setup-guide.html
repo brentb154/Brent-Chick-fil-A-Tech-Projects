@@ -174,8 +174,10 @@
                 <li>Find <code>const APPS_SCRIPT_URL = 'YOUR_APPS_SCRIPT_URL';</code> and paste your Web app URL from Step 4 (keep the quotes).</li>
                 <li>Find <code>if (passcode === 'YOUR_LOGIN_PASSCODE')</code> and set the 4-digit code your <strong>team</strong> uses to log in (e.g. <code>'1234'</code>).</li>
                 <li>Find <code>if (settingsPasscode === 'YOUR_SETTINGS_PASSCODE')</code> and set a <strong>different</strong> 4-digit code only <strong>managers</strong> know &mdash; it protects the email-alert settings (e.g. <code>'5678'</code>).</li>
+                <li>Find <code>const API_TOKEN = 'YOUR_API_TOKEN';</code> and paste the <strong>API token</strong> that <code>runFirstTimeSetup</code> printed in the log back in Step 3. It must match exactly &mdash; it's the shared secret that keeps your web-app URL from being readable by anyone.</li>
                 <li><strong>Save</strong> the file.</li>
             </ol>
+            <div class="callout warn"><strong>The passcodes are browser-only convenience locks.</strong> The <strong>API token</strong> is what actually protects your guest data &mdash; the backend rejects any call without it. Keep it private and never paste your real token into a public repo.</div>
         </div>
 
         <div class="step">
@@ -225,6 +227,7 @@
                 <tr><td>Tab name</td><td><code>Code.gs</code> &rarr; <code>SHEET_NAME</code></td></tr>
                 <tr><td>One-click setup</td><td><code>Code.gs</code> &rarr; run <code>runFirstTimeSetup</code></td></tr>
                 <tr><td>Web app URL</td><td><code>index.html</code> &rarr; <code>APPS_SCRIPT_URL</code></td></tr>
+                <tr><td>API token</td><td><code>index.html</code> &rarr; <code>API_TOKEN</code> (matches <code>runFirstTimeSetup</code>)</td></tr>
                 <tr><td>Login passcode</td><td><code>index.html</code> &rarr; <code>YOUR_LOGIN_PASSCODE</code></td></tr>
                 <tr><td>Settings passcode</td><td><code>index.html</code> &rarr; <code>YOUR_SETTINGS_PASSCODE</code></td></tr>
                 <tr><td>Alert emails</td><td>App &rarr; Settings (stored on backend)</td></tr>
