@@ -5327,8 +5327,10 @@ th .tooltip-icon .material-icons-round {
 
   // ---- Sample data ----
   var SETTINGS = {
-    numberOfLocations: 1,
+    numberOfLocations: 2,
     location: 'Cockrell Hill',
+    location1Name: 'Cockrell Hill',
+    location2Name: 'DBU',
     nextPayrollDate: 'Jun 12, 2026',
     highThreshold: 10,
     moderateThreshold: 5,
@@ -5449,7 +5451,24 @@ th .tooltip-icon .material-icons-round {
           { ptoId: 'PTO-333', employeeName: 'Marcus Bell', hotSchedulesConfirmed: false, location: 'Cockrell Hill', hoursRequested: 4,  ptoStartDate: 'Jun 7',  ptoEndDate: 'Jun 7',  durationDays: 1, notes: 'Half day', alreadyRecorded: false }
         ]
       },
-      timeTransfers: { employeeCount: 0, employees: [] }
+      timeTransfers: { employeeCount: 2, employees: [
+        { employeeId: 'E107', employeeName: 'Jamal Carter', paidFromLocation: 'Cockrell Hill',
+          grandTotalMinutes: (44 + 38) * 60, grandTotalHours: 82,
+          week1Hours: 44, week1OT: 4, week2Hours: 38, week2OT: 0,
+          transferHours: 22, transferMinutes: 0, transferFrom: 'DBU', transferTo: 'Cockrell Hill',
+          locations: [
+            { name: 'Cockrell Hill', totalHours: 42, regularHours: 38, otHours: 4, week1Hours: 22, week1Regular: 18, week1OT: 4, week2Hours: 20, week2Regular: 20, week2OT: 0 },
+            { name: 'DBU',           totalHours: 40, regularHours: 40, otHours: 0, week1Hours: 22, week1Regular: 22, week1OT: 0, week2Hours: 18, week2Regular: 18, week2OT: 0 }
+          ] },
+        { employeeId: 'E108', employeeName: 'Hana Kim', paidFromLocation: 'Cockrell Hill',
+          grandTotalMinutes: (46 + 38) * 60, grandTotalHours: 84,
+          week1Hours: 46, week1OT: 6, week2Hours: 38, week2OT: 0,
+          transferHours: 20, transferMinutes: 0, transferFrom: 'DBU', transferTo: 'Cockrell Hill',
+          locations: [
+            { name: 'Cockrell Hill', totalHours: 48, regularHours: 42, otHours: 6, week1Hours: 26, week1Regular: 20, week1OT: 6, week2Hours: 22, week2Regular: 22, week2OT: 0 },
+            { name: 'DBU',           totalHours: 36, regularHours: 36, otHours: 0, week1Hours: 20, week1Regular: 20, week1OT: 0, week2Hours: 16, week2Regular: 16, week2OT: 0 }
+          ] }
+      ] }
     };
   }
 
@@ -5490,7 +5509,34 @@ th .tooltip-icon .material-icons-round {
     runPayrollValidation: function () { return validation(); },
     getDismissedValidationChecks: function () { return []; },
     dismissValidationCheckServer: function () { return { success: true }; },
-    getOTReconciliationForPayroll: function () { return { success: false }; },
+    getOTReconciliationForPayroll: function () {
+      function days(startISO, ch, dbu) {
+        var o = {}, d = new Date(startISO);
+        for (var i = 0; i < 7; i++) { o[d.toISOString().slice(0,10)] = { ch: ch[i] || 0, dbu: dbu[i] || 0 }; d.setDate(d.getDate() + 1); }
+        return o;
+      }
+      var L1 = 'Cockrell Hill', L2 = 'DBU';
+      var adjustments = [
+        { employeeName: 'Jamal Carter', totalNetNewOT: 4, weeks: [
+          { week: 1, loc1Name: L1, loc2Name: L2, loc1WeekHours: 22, loc2WeekHours: 22, existingOT: 0, totalWorked: 44, trueOT: 4, netNewOT: 4,
+            primaryLocation: L1, secondaryLocation: L2, adjLoc1Reg: 40, adjLoc2Reg: 0,
+            dailyHours: days('2026-05-25', [8,8,6,0,0,0,0], [0,0,0,8,8,6,0]) },
+          { week: 2, loc1Name: L1, loc2Name: L2, loc1WeekHours: 20, loc2WeekHours: 18, existingOT: 0, totalWorked: 38, trueOT: 0, netNewOT: 0,
+            primaryLocation: L1, secondaryLocation: L2, adjLoc1Reg: 20, adjLoc2Reg: 18,
+            dailyHours: days('2026-06-01', [7,7,6,0,0,0,0], [0,0,0,6,6,6,0]) }
+        ] },
+        { employeeName: 'Hana Kim', totalNetNewOT: 6, weeks: [
+          { week: 1, loc1Name: L1, loc2Name: L2, loc1WeekHours: 26, loc2WeekHours: 20, existingOT: 0, totalWorked: 46, trueOT: 6, netNewOT: 6,
+            primaryLocation: L1, secondaryLocation: L2, adjLoc1Reg: 40, adjLoc2Reg: 0,
+            dailyHours: days('2026-05-25', [8,8,10,0,0,0,0], [0,0,0,8,8,4,0]) },
+          { week: 2, loc1Name: L1, loc2Name: L2, loc1WeekHours: 22, loc2WeekHours: 16, existingOT: 0, totalWorked: 38, trueOT: 0, netNewOT: 0,
+            primaryLocation: L1, secondaryLocation: L2, adjLoc1Reg: 22, adjLoc2Reg: 16,
+            dailyHours: days('2026-06-01', [8,8,6,0,0,0,0], [0,0,0,6,6,4,0]) }
+        ] }
+      ];
+      return { success: true, allEmployees: ['Jamal Carter', 'Hana Kim'], adjustments: adjustments,
+               employeesNeedingAdjustment: adjustments.length, totalNetNewOT: 10 };
+    },
     markPayrollComplete: function () { return { success: true, message: 'Payroll marked complete (demo).' }; },
     getViewTemplate: function (name) {
       var el = document.getElementById('pv-' + name);
@@ -5505,6 +5551,64 @@ th .tooltip-icon .material-icons-round {
         + '</div>';
     }
   };
+
+
+  // ---- OT analytics endpoints (Trends / History / Employee Lookup) ----
+  (function () {
+    function isoWeeksAgo(n) { var d = new Date(); d.setDate(d.getDate() - n * 14); d.setHours(0,0,0,0); return d.toISOString(); }
+    var PERIODS = []; for (var i = 11; i >= 0; i--) PERIODS.push(isoWeeksAgo(i)); // oldest -> newest
+    var ROSTER = ['Marcus Bell','Sofia Reyes','Liam Carter','Ava Nguyen','Owen Diaz','Nina Patel','Jamal Carter','Hana Kim','Diego Cruz','Ruby Soto','Caleb Ford','Ella Brooks'];
+    var BASE = { 'Marcus Bell':13,'Sofia Reyes':11,'Liam Carter':8,'Ava Nguyen':6,'Owen Diaz':5,'Nina Patel':4,'Jamal Carter':3.5,'Hana Kim':3,'Diego Cruz':2.5,'Ruby Soto':2,'Caleb Ford':1.5,'Ella Brooks':1 };
+    var WAGE = 14, MULT = 1.5;
+    function r1(n){ return Math.round(n*10)/10; }
+    function r2(n){ return Math.round(n*100)/100; }
+    function flagFor(ot){ return ot>=15?'Really High':ot>=10?'High':ot>=5?'Moderate':'Normal'; }
+    function otFor(name, pIdx){ var b=BASE[name]||2; var j=((pIdx*7+name.length)%5)-2; return r1(Math.max(0, b + j*0.6)); }
+    function periodEmployees(pIdx){
+      return ROSTER.map(function(n){ var ot=otFor(n,pIdx); var reg=32+((n.length*3)%8); var total=reg+ot;
+        return { employeeName:n, location:'Cockrell Hill', chHours:total, dbuHours:0, totalHours:total, totalOT:ot, otCost:r2(ot*WAGE*MULT), flag:flagFor(ot), isMultiLocation:false }; })
+        .filter(function(e){ return e.totalOT>0; }).sort(function(a,b){ return b.totalOT-a.totalOT; });
+    }
+    SERVER.getPayPeriods = function(){ return PERIODS.slice().reverse(); };
+    SERVER.getAllEmployeeNames = function(){ return ROSTER.slice(); };
+    SERVER.getPeriodData = function(value){
+      var idx = PERIODS.indexOf(value); if (idx < 0) idx = PERIODS.length-1;
+      var emps = periodEmployees(idx);
+      return { success:true,
+        stats:{ employeeCount:emps.length, totalOT:r1(emps.reduce(function(s,e){return s+e.totalOT;},0)),
+                totalCost:r2(emps.reduce(function(s,e){return s+e.otCost;},0)), highOTCount:emps.filter(function(e){return e.totalOT>=10;}).length },
+        employees:emps };
+    };
+    SERVER.getTrendData = function(range){
+      var n = range==='1m'?2 : range==='3m'?6 : range==='12m'?12 : 12; n=Math.min(n, PERIODS.length);
+      var sel = PERIODS.slice(PERIODS.length-n);
+      var periodData = sel.map(function(p){ var idx=PERIODS.indexOf(p); var emps=periodEmployees(idx);
+        return { periodEnd:p, totalOT:r1(emps.reduce(function(s,e){return s+e.totalOT;},0)), employeeCount:emps.length }; });
+      var agg = {};
+      sel.forEach(function(p){ var idx=PERIODS.indexOf(p); periodEmployees(idx).forEach(function(e){
+        var a=agg[e.employeeName]||(agg[e.employeeName]={employeeName:e.employeeName,totalOT:0,periods:0,totalCost:0});
+        a.totalOT+=e.totalOT; a.periods+=1; a.totalCost+=e.otCost; }); });
+      var top = Object.keys(agg).map(function(k){ var a=agg[k]; a.totalOT=r1(a.totalOT); a.totalCost=r2(a.totalCost); a.avgOT=r1(a.totalOT/a.periods); return a; })
+        .sort(function(a,b){ return b.totalOT-a.totalOT; });
+      return { success:true,
+        totals:{ periodsCount:sel.length, uniqueEmployees:top.length, totalOT:r1(periodData.reduce(function(s,p){return s+p.totalOT;},0)), totalCost:r2(top.reduce(function(s,e){return s+e.totalCost;},0)) },
+        periodData:periodData, topEmployees:top, monthlyData:[] };
+    };
+    SERVER.getEmployeeHistory = function(name){
+      var q = String(name||'').toLowerCase();
+      var match = ROSTER.filter(function(n){ return n.toLowerCase()===q; })[0] || ROSTER.filter(function(n){ return n.toLowerCase().indexOf(q)>=0; })[0];
+      if (!match) return { success:false, partialMatches:ROSTER.filter(function(n){ return n.toLowerCase().indexOf(q)>=0; }) };
+      var records = PERIODS.slice().reverse().map(function(p){ var idx=PERIODS.indexOf(p); var ot=otFor(match,idx); var total=34+ot;
+        return { periodEnd:p, location:'Cockrell Hill', totalHours:total, totalOT:ot, otCost:r2(ot*WAGE*MULT), flag:flagFor(ot), isMultiLocation:false }; });
+      var totalOT=records.reduce(function(s,r){return s+r.totalOT;},0);
+      var alerts=[]; if ((BASE[match]||0)>=10) alerts.push(match.split(' ')[0]+' has averaged double-digit OT recently — review scheduling.');
+      return { success:true, employeeName:match,
+        stats:{ periodsWorked:records.length, totalOT:r1(totalOT), avgOTPerPeriod:r1(totalOT/records.length), totalCost:r2(records.reduce(function(s,r){return s+r.otCost;},0)), multiLocationPeriods:0 },
+        alerts:alerts, records:records };
+    };
+    SERVER.searchEmployeesFuzzy = function(qq){ var q=String(qq||'').toLowerCase(); return ROSTER.filter(function(n){ return n.toLowerCase().indexOf(q)>=0; }).map(function(n){ return { name:n, score:1 }; }); };
+    SERVER.getMonthlyTransferData = function(){ return { success:true, employees:[], transfers:[] }; };
+  })();
 
   function makeRunner() {
     var onSuccess = null, onFailure = null;
@@ -21990,6 +22094,251 @@ document.addEventListener('click', function(e) {
   }
 }
 </style>
+
+</template>
+<template id="pv-OTTrends">
+<!-- OT Trends View -->
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">trending_up</span> OT Trends & Analytics</h2>
+    <div class="form-row">
+      <select id="trendRange" class="form-control form-select" style="width: 150px;">
+        <option value="3m">Last 3 Months</option>
+        <option value="6m" selected>Last 6 Months</option>
+        <option value="1y">Last Year</option>
+        <option value="all">All Time</option>
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="exportTrendsPDF()">
+        <span class="material-icons-round">picture_as_pdf</span> Export
+      </button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="trendsStats" class="stats-grid hidden mb-lg">
+      <div class="stat-card">
+        <div class="stat-icon purple"><span class="material-icons-round">date_range</span></div>
+        <div class="stat-content"><h3 id="trendPeriods">0</h3><p>Pay Periods</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue"><span class="material-icons-round">people</span></div>
+        <div class="stat-content"><h3 id="trendEmployees">0</h3><p>Unique Employees</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon yellow"><span class="material-icons-round">timer</span></div>
+        <div class="stat-content"><h3 id="trendTotalOT">0</h3><p>Total OT Hours</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green"><span class="material-icons-round">attach_money</span></div>
+        <div class="stat-content"><h3 id="trendTotalCost">$0</h3><p>Total OT Cost</p></div>
+      </div>
+    </div>
+    <div class="chart-row">
+      <div class="card">
+        <div class="card-header"><h2>OT Over Time</h2></div>
+        <div class="card-body"><div id="otTrendChart" class="chart-container"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h2>Top OT Employees</h2></div>
+        <div class="card-body"><div id="topEmployeesChart" class="chart-container"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">leaderboard</span> Top 15 OT Employees</h2>
+  </div>
+  <div class="card-body">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Employee</th>
+            <th class="numeric">Periods</th>
+            <th class="numeric">Total OT</th>
+            <th class="numeric">Total Cost</th>
+            <th class="numeric">Avg OT</th>
+          </tr>
+        </thead>
+        <tbody id="topEmployeesBody">
+          <tr><td colspan="6"><div class="empty-state"><span class="material-icons-round">hourglass_empty</span><p>Loading...</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">swap_horiz</span> Monthly Time Transfers</h2>
+    <select id="transferMonthSelect" class="form-control form-select" style="width: 180px;" onchange="loadMonthlyTransfers()">
+      <option value="">Select Month...</option>
+    </select>
+  </div>
+  <div class="card-body">
+    <div id="transferSummary" class="stats-grid" style="margin-bottom: var(--space-lg);">
+      <div class="stat-card">
+        <div class="stat-icon blue"><span class="material-icons-round">people</span></div>
+        <div class="stat-content"><h3 id="transferCount">--</h3><p>Multi-Location Employees</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: #FEE2E2;"><span class="material-icons-round" style="color: #991B1B;">arrow_forward</span></div>
+        <div class="stat-content"><h3 id="transferToCH">--</h3><p>Hours → Cockrell Hill</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: #DBEAFE;"><span class="material-icons-round" style="color: #1E40AF;">arrow_forward</span></div>
+        <div class="stat-content"><h3 id="transferToDBU">--</h3><p>Hours → DBU</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple"><span class="material-icons-round">sync_alt</span></div>
+        <div class="stat-content"><h3 id="transferTotal">--</h3><p>Total Hours to Transfer for EOM</p></div>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Pay-out Location</th>
+            <th class="numeric">CH Hours</th>
+            <th class="numeric">DBU Hours</th>
+            <th class="numeric">Transferred</th>
+            <th>Direction</th>
+          </tr>
+        </thead>
+        <tbody id="transferTableBody">
+          <tr><td colspan="6"><div class="empty-state"><span class="material-icons-round">info</span><p>Select a month to view transfer details</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+
+</template>
+<template id="pv-OTHistory">
+<!-- OT History View -->
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">history</span> Pay Period Browser</h2>
+    <div class="form-row">
+      <select id="periodSelect" class="form-control form-select" style="width: 220px;">
+        <option value="">Select a pay period...</option>
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="exportPeriodPDF()">
+        <span class="material-icons-round">picture_as_pdf</span> Export PDF
+      </button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="historyStats" class="stats-grid hidden mb-lg">
+      <div class="stat-card">
+        <div class="stat-icon purple"><span class="material-icons-round">people</span></div>
+        <div class="stat-content"><h3 id="histEmployees">0</h3><p>Employees</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon yellow"><span class="material-icons-round">timer</span></div>
+        <div class="stat-content"><h3 id="histTotalOT">0</h3><p>Total OT</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green"><span class="material-icons-round">attach_money</span></div>
+        <div class="stat-content"><h3 id="histTotalCost">$0</h3><p>OT Cost</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon red"><span class="material-icons-round">warning</span></div>
+        <div class="stat-content"><h3 id="histHighOT">0</h3><p>High OT</p></div>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Location</th>
+            <th class="numeric" id="loc1HoursHeader">Loc 1 Hrs</th>
+            <th class="numeric" id="loc2HoursHeader">Loc 2 Hrs</th>
+            <th class="numeric">Total</th>
+            <th class="numeric">OT</th>
+            <th class="numeric">Cost</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="historyTableBody">
+          <tr><td colspan="8"><div class="empty-state"><span class="material-icons-round">calendar_today</span><h3>Select a Pay Period</h3><p>Choose a period from the dropdown above</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+
+</template>
+<template id="pv-OTEmployee">
+<!-- OT Employee Lookup View -->
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">person_search</span> Employee Lookup</h2>
+    <div class="form-row">
+      <input type="text" id="employeeSearch" class="form-control" placeholder="Search employee name..." list="employeeList" style="width: 250px;">
+      <datalist id="employeeList"></datalist>
+      <button class="btn btn-outline btn-sm" onclick="exportEmployeePDF()">
+        <span class="material-icons-round">picture_as_pdf</span> Export
+      </button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="employeeStats" class="hidden">
+      <h3 id="empName" style="font-size: 1.25rem; margin-bottom: var(--space-md);">--</h3>
+      <div id="empAlerts" class="mb-md"></div>
+      <div class="stats-grid mb-lg">
+        <div class="stat-card">
+          <div class="stat-icon purple"><span class="material-icons-round">date_range</span></div>
+          <div class="stat-content"><h3 id="empPeriods">0</h3><p>Periods</p></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow"><span class="material-icons-round">timer</span></div>
+          <div class="stat-content"><h3 id="empTotalOT">0</h3><p>Total OT</p></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon blue"><span class="material-icons-round">analytics</span></div>
+          <div class="stat-content"><h3 id="empAvgOT">0</h3><p>Avg OT/Period</p></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green"><span class="material-icons-round">attach_money</span></div>
+          <div class="stat-content"><h3 id="empCost">$0</h3><p>Total Cost</p></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon blue"><span class="material-icons-round">compare_arrows</span></div>
+          <div class="stat-content"><h3 id="empMulti">0</h3><p>Multi-Loc</p></div>
+        </div>
+      </div>
+      <div id="employeeChart" class="chart-container"></div>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Period End</th>
+            <th>Location</th>
+            <th class="numeric">Total Hrs</th>
+            <th class="numeric">OT</th>
+            <th class="numeric">Cost</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="empTableBody">
+          <tr><td colspan="6"><div class="empty-state"><span class="material-icons-round">person_search</span><h3>Search for an Employee</h3><p>Enter a name above to see their OT history</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
 
 </template>
 <template id="pv-PayrollProcessing">
