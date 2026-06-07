@@ -1,122 +1,205 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex, nofollow">
-    <title>Tool Demos — Cockrell Hill Tech</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            min-height: 100vh; color: #e8e8e8; padding: 2rem;
-        }
-        .container { max-width: 1100px; margin: 0 auto; }
-        header { text-align: center; margin-bottom: 2.5rem; padding: 2rem 1rem 0; }
-        h1 {
-            font-size: 2.4rem; font-weight: 700;
-            background: linear-gradient(135deg, #26A69A 0%, #4CAF50 100%);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            background-clip: text; margin-bottom: 0.5rem;
-        }
-        .subtitle { color: #a8a8a8; font-size: 1.05rem; max-width: 640px; margin: 0 auto; line-height: 1.5; }
-        .notice {
-            background: rgba(38, 166, 154, 0.12); border: 1px solid rgba(38, 166, 154, 0.4);
-            border-radius: 12px; padding: 1rem 1.25rem; margin: 0 auto 2.5rem; max-width: 760px;
-            font-size: 0.9rem; color: #c8e6e2; line-height: 1.55;
-        }
-        .notice strong { color: #fff; }
-        .grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem; margin-bottom: 3rem;
-        }
-        .card {
-            background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 1.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.1); position: relative; overflow: hidden;
-            transition: all 0.3s ease; display: flex; flex-direction: column;
-        }
-        .card::before {
-            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
-            background: linear-gradient(90deg, var(--c1), var(--c2));
-        }
-        .card.live:hover { transform: translateY(-4px); background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); }
-        .card.soon { opacity: 0.6; }
-        .card.heard { --c1: #00897B; --c2: #26A69A; }
-        .card.payroll { --c1: #4CAF50; --c2: #8BC34A; }
-        .card.schedule-gas { --c1: #DD0031; --c2: #FF4444; }
-        .card.catering { --c1: #00BCD4; --c2: #26C6DA; }
-        .icon { font-size: 2.4rem; margin-bottom: 0.9rem; }
-        .title { font-size: 1.3rem; font-weight: 600; color: #fff; margin-bottom: 0.5rem; }
-        .desc { color: #b0b0b0; font-size: 0.92rem; line-height: 1.5; margin-bottom: 1.1rem; flex-grow: 1; }
-        .status {
-            display: inline-block; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em;
-            text-transform: uppercase; padding: 0.25rem 0.6rem; border-radius: 5px; margin-bottom: 0.9rem; align-self: flex-start;
-        }
-        .status.ready { background: rgba(76, 175, 80, 0.18); color: #8BC34A; }
-        .status.pending { background: rgba(255, 255, 255, 0.08); color: #999; }
-        .btn {
-            display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.1rem;
-            border-radius: 8px; color: #fff; text-decoration: none; font-size: 0.9rem; font-weight: 500;
-            background: linear-gradient(135deg, var(--c1), var(--c2)); align-self: flex-start;
-        }
-        .btn.disabled { background: rgba(255, 255, 255, 0.08); color: #777; cursor: default; pointer-events: none; }
-        footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
-        @media (max-width: 600px) { body { padding: 1rem; } h1 { font-size: 1.8rem; } .grid { grid-template-columns: 1fr; } }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Tool Demos — Brent Baldwin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #F8F9FB;
+      --surface: #FFFFFF;
+      --surface-2: #F2F4F7;
+      --border: #E2E5EA;
+      --border-strong: #D1D5DB;
+      --text: #1F2937;
+      --muted: #6B7280;
+      --muted-light: #9CA3AF;
+      --accent: #E51636;
+      --accent-dark: #B81029;
+      --accent-soft: rgba(229, 22, 54, 0.08);
+      --radius: 10px;
+      --radius-lg: 16px;
+      --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+      --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
+      --font-display: 'Syne', system-ui, sans-serif;
+      --font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+      --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; }
+    a { color: inherit; text-decoration: none; }
+    .container { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+
+    /* Header */
+    .site-header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(248, 249, 251, 0.85);
+      backdrop-filter: saturate(180%) blur(12px);
+      -webkit-backdrop-filter: saturate(180%) blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .site-header__inner {
+      display: flex; align-items: center; justify-content: space-between; height: 68px;
+    }
+    .brand {
+      font-family: var(--font-display); font-weight: 700; font-size: 18px;
+      letter-spacing: -0.01em; color: var(--text);
+    }
+    .brand__dot {
+      display: inline-block; width: 7px; height: 7px; background: var(--accent);
+      border-radius: 50%; margin-left: 6px; vertical-align: middle; transform: translateY(-2px);
+    }
+    .site-nav { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: var(--muted); text-transform: uppercase; }
+    .site-nav a:hover { color: var(--accent); }
+
+    /* Eyebrow */
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--font-body); font-size: 12px; font-weight: 600;
+      letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 18px;
+    }
+    .eyebrow::before { content: ''; width: 28px; height: 2px; background: var(--accent); border-radius: 2px; }
+
+    /* Hero */
+    .hero { padding: clamp(56px, 9vw, 110px) 0 clamp(36px, 5vw, 56px); }
+    .hero__lede {
+      font-size: clamp(34px, 6vw, 58px); line-height: 1.05; letter-spacing: -0.025em; max-width: 760px;
+    }
+    .hero__lede .accent { color: var(--accent); }
+    .hero__sub {
+      margin-top: 22px; max-width: 560px; font-size: 17px; color: var(--muted); line-height: 1.65;
+    }
+
+    /* Notice */
+    .notice {
+      margin-top: 28px; max-width: 640px; background: var(--accent-soft);
+      border: 1px solid rgba(229, 22, 54, 0.18); border-left: 3px solid var(--accent);
+      border-radius: var(--radius); padding: 16px 20px; font-size: 14.5px; color: var(--text-dim, #374151); line-height: 1.6;
+    }
+    .notice strong { color: var(--text); }
+    .notice code {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 5px;
+      padding: 1px 7px; font-family: var(--font-display); font-weight: 700; color: var(--accent); font-size: 13px;
+    }
+
+    /* Section */
+    .section { padding: clamp(40px, 6vw, 72px) 0 clamp(64px, 9vw, 110px); }
+
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; }
+
+    .card {
+      position: relative; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 32px 28px 26px; display: flex; flex-direction: column;
+      min-height: 230px; overflow: hidden;
+      transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease), border-color 0.3s var(--ease);
+    }
+    .card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: var(--accent); opacity: 0; transition: opacity 0.3s var(--ease);
+    }
+    .card.live { cursor: pointer; }
+    .card.live:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+    .card.live:hover::before { opacity: 1; }
+    .card.soon { opacity: 0.72; }
+
+    .card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .card__icon { font-size: 26px; }
+    .status {
+      font-family: var(--font-body); font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; padding: 4px 10px; border-radius: 20px;
+    }
+    .status.ready { background: var(--accent-soft); color: var(--accent-dark); border: 1px solid rgba(229,22,54,0.2); }
+    .status.pending { background: var(--surface-2); color: var(--muted-light); border: 1px solid var(--border); }
+    .card__name { font-size: 24px; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 12px; }
+    .card.live:hover .card__name { color: var(--accent); }
+    .card__desc { font-size: 14.5px; line-height: 1.6; color: var(--muted); flex: 1; margin-bottom: 20px; }
+    .card__cta {
+      font-family: var(--font-display); font-weight: 600; font-size: 14px; color: var(--text);
+      display: inline-flex; align-items: center; gap: 6px; transition: gap 0.25s var(--ease), color 0.25s var(--ease);
+    }
+    .card.live:hover .card__cta { color: var(--accent); gap: 12px; }
+    .card__cta.disabled { color: var(--muted-light); }
+
+    footer {
+      border-top: 1px solid var(--border); padding: 32px 0;
+      font-size: 13px; color: var(--muted-light); text-align: center;
+    }
+
+    @media (max-width: 760px) {
+      .grid { grid-template-columns: 1fr; }
+      .site-nav { display: none; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Tool Demos</h1>
-            <p class="subtitle">Clickable previews of the Cockrell Hill operational tools — explore the real interfaces without any setup.</p>
-        </header>
-
-        <div class="notice">
-            <strong>Unlisted preview.</strong> These are working interface shells running on <strong>fake sample data</strong> — nothing here is real and nothing you do is saved. Each demo resets on reload. The live tools run on Google Apps Script + Sheets behind a passcode. Where a demo asks for a passcode, use <strong>1234</strong>.
-        </div>
-
-        <div class="grid">
-            <!-- H.E.A.R.D. Log -->
-            <div class="card heard live">
-                <div class="icon">🗣️</div>
-                <span class="status ready">Live demo</span>
-                <h3 class="title">H.E.A.R.D. Log</h3>
-                <p class="desc">Guest-recovery complaint log. Submit an issue, look up a phone number to see repeat-complainer flags (yellow/red badges), browse the live dashboard of trends, and toggle resolutions.</p>
-                <a href="heard-log.html" class="btn">Open demo &rarr;</a>
-            </div>
-
-            <!-- Payroll System -->
-            <div class="card payroll soon">
-                <div class="icon">💰</div>
-                <span class="status pending">Coming soon</span>
-                <h3 class="title">Payroll Management System</h3>
-                <p class="desc">PTO tracking, overtime management, uniform ordering, payroll calendar, and year-end processing across a full multi-screen dashboard.</p>
-                <span class="btn disabled">In progress</span>
-            </div>
-
-            <!-- Schedule Counter GAS -->
-            <div class="card schedule-gas soon">
-                <div class="icon">📈</div>
-                <span class="status pending">Coming soon</span>
-                <h3 class="title">Schedule Counter (GAS)</h3>
-                <p class="desc">Weekly schedule analysis with sales forecasting, exponential smoothing, SPLH tracking, and trend history.</p>
-                <span class="btn disabled">In progress</span>
-            </div>
-
-            <!-- Catering Quote Tool -->
-            <div class="card catering soon">
-                <div class="icon">🍽️</div>
-                <span class="status pending">Coming soon</span>
-                <h3 class="title">Catering Quote Generator</h3>
-                <p class="desc">Build professional catering quotes with a searchable menu picker, sequential quote IDs, and PDF email/print.</p>
-                <span class="btn disabled">In progress</span>
-            </div>
-        </div>
-
-        <footer>
-            <p>Cockrell Hill Chick-fil-A — internal preview. Not linked from the main site.</p>
-        </footer>
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <div class="brand">Brent Baldwin<span class="brand__dot"></span></div>
+      <nav class="site-nav"><a href="https://brentbaldwin.com">brentbaldwin.com</a></nav>
     </div>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <div class="eyebrow">Interactive Previews</div>
+      <h1 class="hero__lede">Click through the actual tools.<br><span class="accent">No setup. No real data.</span></h1>
+      <p class="hero__sub">Working interface shells of the operational systems built for Cockrell Hill Chick-fil-A — explore the real screens running on sample data.</p>
+      <div class="notice">
+        <strong>Unlisted preview.</strong> Every demo runs on <strong>fake sample data</strong> — nothing is real and nothing you do is saved. Each one resets on reload. The live tools run on Google Apps Script + Sheets behind a passcode. Where a demo asks for one, use <code>1234</code>.
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="eyebrow">The tools</div>
+      <div class="grid">
+
+        <a class="card live" href="heard-log.html">
+          <div class="card__top"><span class="card__icon">🗣️</span><span class="status ready">Live demo</span></div>
+          <h3 class="card__name">H.E.A.R.D. Log</h3>
+          <p class="card__desc">Guest-recovery complaint log. Submit an issue, look up a phone number to see repeat-complainer flags, browse the live dashboard of trends, and toggle resolutions.</p>
+          <span class="card__cta">Open demo &rarr;</span>
+        </a>
+
+        <a class="card live" href="catering-quote.html">
+          <div class="card__top"><span class="card__icon">🍽️</span><span class="status ready">Live demo</span></div>
+          <h3 class="card__name">Catering Quote Generator</h3>
+          <p class="card__desc">Build a quote from a searchable menu, apply discounts and tax, save it to history, and preview the printable PDF — sequential quote IDs and all.</p>
+          <span class="card__cta">Open demo &rarr;</span>
+        </a>
+
+        <a class="card live" href="schedule-counter.html">
+          <div class="card__top"><span class="card__icon">📈</span><span class="status ready">Live demo</span></div>
+          <h3 class="card__name">Schedule Counter</h3>
+          <p class="card__desc">A sample week is pre-loaded: staffing by hour, sales-per-labor-hour against goal, FOH/BOH split, and sales-curve weighting. Adjust the sales inputs and watch it recompute.</p>
+          <span class="card__cta">Open demo &rarr;</span>
+        </a>
+
+        <div class="card soon">
+          <div class="card__top"><span class="card__icon">💰</span><span class="status pending">Coming soon</span></div>
+          <h3 class="card__name">Payroll Management System</h3>
+          <p class="card__desc">PTO tracking, overtime management, uniform ordering, payroll calendar, and year-end processing across a full multi-screen dashboard.</p>
+          <span class="card__cta disabled">In progress</span>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">Cockrell Hill Chick-fil-A — internal preview. Not linked from the main site.</div>
+  </footer>
 </body>
 </html>
