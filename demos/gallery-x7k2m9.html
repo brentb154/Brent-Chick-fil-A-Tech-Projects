@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Tool Demos — Cockrell Hill Tech</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh; color: #e8e8e8; padding: 2rem;
+        }
+        .container { max-width: 1100px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 2.5rem; padding: 2rem 1rem 0; }
+        h1 {
+            font-size: 2.4rem; font-weight: 700;
+            background: linear-gradient(135deg, #26A69A 0%, #4CAF50 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; margin-bottom: 0.5rem;
+        }
+        .subtitle { color: #a8a8a8; font-size: 1.05rem; max-width: 640px; margin: 0 auto; line-height: 1.5; }
+        .notice {
+            background: rgba(38, 166, 154, 0.12); border: 1px solid rgba(38, 166, 154, 0.4);
+            border-radius: 12px; padding: 1rem 1.25rem; margin: 0 auto 2.5rem; max-width: 760px;
+            font-size: 0.9rem; color: #c8e6e2; line-height: 1.55;
+        }
+        .notice strong { color: #fff; }
+        .grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem; margin-bottom: 3rem;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1); position: relative; overflow: hidden;
+            transition: all 0.3s ease; display: flex; flex-direction: column;
+        }
+        .card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, var(--c1), var(--c2));
+        }
+        .card.live:hover { transform: translateY(-4px); background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); }
+        .card.soon { opacity: 0.6; }
+        .card.heard { --c1: #00897B; --c2: #26A69A; }
+        .card.payroll { --c1: #4CAF50; --c2: #8BC34A; }
+        .card.schedule-gas { --c1: #DD0031; --c2: #FF4444; }
+        .card.catering { --c1: #00BCD4; --c2: #26C6DA; }
+        .icon { font-size: 2.4rem; margin-bottom: 0.9rem; }
+        .title { font-size: 1.3rem; font-weight: 600; color: #fff; margin-bottom: 0.5rem; }
+        .desc { color: #b0b0b0; font-size: 0.92rem; line-height: 1.5; margin-bottom: 1.1rem; flex-grow: 1; }
+        .status {
+            display: inline-block; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em;
+            text-transform: uppercase; padding: 0.25rem 0.6rem; border-radius: 5px; margin-bottom: 0.9rem; align-self: flex-start;
+        }
+        .status.ready { background: rgba(76, 175, 80, 0.18); color: #8BC34A; }
+        .status.pending { background: rgba(255, 255, 255, 0.08); color: #999; }
+        .btn {
+            display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.1rem;
+            border-radius: 8px; color: #fff; text-decoration: none; font-size: 0.9rem; font-weight: 500;
+            background: linear-gradient(135deg, var(--c1), var(--c2)); align-self: flex-start;
+        }
+        .btn.disabled { background: rgba(255, 255, 255, 0.08); color: #777; cursor: default; pointer-events: none; }
+        footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
+        @media (max-width: 600px) { body { padding: 1rem; } h1 { font-size: 1.8rem; } .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Tool Demos</h1>
+            <p class="subtitle">Clickable previews of the Cockrell Hill operational tools — explore the real interfaces without any setup.</p>
+        </header>
+
+        <div class="notice">
+            <strong>Unlisted preview.</strong> These are working interface shells running on <strong>fake sample data</strong> — nothing here is real and nothing you do is saved. Each demo resets on reload. The live tools run on Google Apps Script + Sheets behind a passcode. Where a demo asks for a passcode, use <strong>1234</strong>.
+        </div>
+
+        <div class="grid">
+            <!-- H.E.A.R.D. Log -->
+            <div class="card heard live">
+                <div class="icon">🗣️</div>
+                <span class="status ready">Live demo</span>
+                <h3 class="title">H.E.A.R.D. Log</h3>
+                <p class="desc">Guest-recovery complaint log. Submit an issue, look up a phone number to see repeat-complainer flags (yellow/red badges), browse the live dashboard of trends, and toggle resolutions.</p>
+                <a href="heard-log.html" class="btn">Open demo &rarr;</a>
+            </div>
+
+            <!-- Payroll System -->
+            <div class="card payroll soon">
+                <div class="icon">💰</div>
+                <span class="status pending">Coming soon</span>
+                <h3 class="title">Payroll Management System</h3>
+                <p class="desc">PTO tracking, overtime management, uniform ordering, payroll calendar, and year-end processing across a full multi-screen dashboard.</p>
+                <span class="btn disabled">In progress</span>
+            </div>
+
+            <!-- Schedule Counter GAS -->
+            <div class="card schedule-gas soon">
+                <div class="icon">📈</div>
+                <span class="status pending">Coming soon</span>
+                <h3 class="title">Schedule Counter (GAS)</h3>
+                <p class="desc">Weekly schedule analysis with sales forecasting, exponential smoothing, SPLH tracking, and trend history.</p>
+                <span class="btn disabled">In progress</span>
+            </div>
+
+            <!-- Catering Quote Tool -->
+            <div class="card catering soon">
+                <div class="icon">🍽️</div>
+                <span class="status pending">Coming soon</span>
+                <h3 class="title">Catering Quote Generator</h3>
+                <p class="desc">Build professional catering quotes with a searchable menu picker, sequential quote IDs, and PDF email/print.</p>
+                <span class="btn disabled">In progress</span>
+            </div>
+        </div>
+
+        <footer>
+            <p>Cockrell Hill Chick-fil-A — internal preview. Not linked from the main site.</p>
+        </footer>
+    </div>
+</body>
+</html>
