@@ -600,10 +600,11 @@
   // ---- google.script.run stand-in ----
   function makeRunner() {
     var onSuccess = null, onFailure = null;
+    var proxy;
     var api = {
-      withSuccessHandler: function (f) { onSuccess = f; return api; },
-      withFailureHandler: function (f) { onFailure = f; return api; },
-      withUserObject: function () { return api; }
+      withSuccessHandler: function (f) { onSuccess = f; return proxy; },
+      withFailureHandler: function (f) { onFailure = f; return proxy; },
+      withUserObject: function () { return proxy; }
     };
     Object.keys(SERVER).forEach(function (name) {
       api[name] = function () {
@@ -611,17 +612,17 @@
         setTimeout(function () {
           try { var r = SERVER[name].apply(null, args); if (onSuccess) onSuccess(r); }
           catch (e) { if (onFailure) onFailure(e); else console.error(e); }
-        }, 90);
-        return api;
+        }, 60);
+        return proxy;
       };
     });
-    // Any server call we didn't explicitly mock resolves to true (no-op).
-    return new Proxy(api, {
+    proxy = new Proxy(api, {
       get: function (t, prop) {
         if (prop in t) return t[prop];
-        return function () { var a = arguments; setTimeout(function () { if (onSuccess) onSuccess(true); }, 90); return api; };
+        return function () { setTimeout(function () { if (onSuccess) onSuccess({ success: true }); }, 60); return proxy; };
       }
     });
+    return proxy;
   }
 
   window.google = window.google || {};

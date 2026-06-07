@@ -5384,6 +5384,7 @@ th .tooltip-icon .material-icons-round {
 
   function payrollReport(date) {
     return {
+      success: true,
       payrollDate: date || 'Jun 12, 2026',
       payPeriodEnd: 'Jun 8, 2026',
       overtime: {
@@ -5507,10 +5508,11 @@ th .tooltip-icon .material-icons-round {
 
   function makeRunner() {
     var onSuccess = null, onFailure = null;
+    var proxy;
     var api = {
-      withSuccessHandler: function (f) { onSuccess = f; return api; },
-      withFailureHandler: function (f) { onFailure = f; return api; },
-      withUserObject: function () { return api; }
+      withSuccessHandler: function (f) { onSuccess = f; return proxy; },
+      withFailureHandler: function (f) { onFailure = f; return proxy; },
+      withUserObject: function () { return proxy; }
     };
     Object.keys(SERVER).forEach(function (name) {
       api[name] = function () {
@@ -5519,16 +5521,16 @@ th .tooltip-icon .material-icons-round {
           try { var r = SERVER[name].apply(null, args); if (onSuccess) onSuccess(r); }
           catch (e) { if (onFailure) onFailure(e); else console.error(e); }
         }, 60);
-        return api;
+        return proxy;
       };
     });
-    return new Proxy(api, {
+    proxy = new Proxy(api, {
       get: function (t, prop) {
         if (prop in t) return t[prop];
-        // Unmocked endpoints (other views' data) resolve to a benign success object.
-        return function () { setTimeout(function () { if (onSuccess) onSuccess({ success: true }); }, 60); return api; };
+        return function () { setTimeout(function () { if (onSuccess) onSuccess({ success: true }); }, 60); return proxy; };
       }
     });
+    return proxy;
   }
 
   window.google = window.google || {};
