@@ -5637,11 +5637,11 @@ th .tooltip-icon .material-icons-round {
       { itemId:'C09', itemName:'New Hire Bundle',       category:'Bundles',   price:60.00, availableSizes:[], active:true }
     ];
     var UNIFORM_ORDERS = [
-      { orderId:'U-2041', employeeName:'Sofia Reyes', location:'Cockrell Hill', orderDate:'May 20, 2026', status:'Active',  totalAmount:256.00, amountRemaining:128.00, paymentsMade:1, paymentPlan:2, orderDiscount:0 },
-      { orderId:'U-2052', employeeName:'Owen Diaz',   location:'Cockrell Hill', orderDate:'May 22, 2026', status:'Active',  totalAmount:90.00,  amountRemaining:45.00,  paymentsMade:1, paymentPlan:2, orderDiscount:0 },
-      { orderId:'U-2058', employeeName:'Owen Diaz',   location:'Cockrell Hill', orderDate:'Apr 30, 2026', status:'Paid',    totalAmount:77.50,  amountRemaining:0.00,   paymentsMade:2, paymentPlan:2, orderDiscount:0 },
-      { orderId:'U-2063', employeeName:'Liam Carter', location:'DBU',           orderDate:'May 25, 2026', status:'Active',  totalAmount:136.00, amountRemaining:68.00,  paymentsMade:1, paymentPlan:2, orderDiscount:10 },
-      { orderId:'U-2070', employeeName:'Nina Patel',  location:'DBU',           orderDate:'Jun 1, 2026',  status:'Pending', totalAmount:45.00,  amountRemaining:45.00,  paymentsMade:0, paymentPlan:1, orderDiscount:0 }
+      { orderId:'U-2041', employeeName:'Sofia Reyes', location:'Cockrell Hill', orderDate:'2026-05-20', status:'Active',  totalAmount:256.00, amountRemaining:128.00, paymentsMade:1, paymentPlan:2, orderDiscount:0 },
+      { orderId:'U-2052', employeeName:'Owen Diaz',   location:'Cockrell Hill', orderDate:'2026-05-22', status:'Active',  totalAmount:90.00,  amountRemaining:45.00,  paymentsMade:1, paymentPlan:2, orderDiscount:0 },
+      { orderId:'U-2058', employeeName:'Owen Diaz',   location:'Cockrell Hill', orderDate:'2026-04-30', status:'Paid',    totalAmount:77.50,  amountRemaining:0.00,   paymentsMade:2, paymentPlan:2, orderDiscount:0 },
+      { orderId:'U-2063', employeeName:'Liam Carter', location:'DBU',           orderDate:'2026-05-25', status:'Active',  totalAmount:136.00, amountRemaining:68.00,  paymentsMade:1, paymentPlan:2, orderDiscount:10 },
+      { orderId:'U-2070', employeeName:'Nina Patel',  location:'DBU',           orderDate:'2026-06-01', status:'Pending', totalAmount:45.00,  amountRemaining:45.00,  paymentsMade:0, paymentPlan:1, orderDiscount:0 }
     ];
     SERVER.getCatalogItems = function () { return CATALOG.slice(); };
     SERVER.getUniformOrders = function () { return UNIFORM_ORDERS.slice(); };
@@ -26271,7 +26271,7 @@ document.addEventListener('click', function(e) {
     if (el) el.innerHTML = '<div class="empty-state" style="padding:32px 16px;text-align:center;">'
       + '<span class="material-icons-round" style="font-size:40px;color:#cbd5e1;">event_busy</span>'
       + '<h3 style="margin:8px 0 4px;">Calendar not available in demo</h3>'
-      + '<p style="color:#64748b;font-size:0.9rem;">The live payroll calendar syncs with Google Calendar.</p></div>';
+      + '<p style="color:#64748b;font-size:0.9rem;">This widget isn\'t wired up in the preview.</p></div>';
   }
   window.loadPayrollCalendar = calNote;
   window.refreshPayrollCalendar = calNote;
