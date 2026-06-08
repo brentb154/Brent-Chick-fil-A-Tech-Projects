@@ -4642,13 +4642,13 @@ th .tooltip-icon .material-icons-round {
 
         <!-- Employee Request Forms (External Links) -->
         <div class="nav-section-label">Employee Forms</div>
-        <a href="#?view=pto-request"
+        <a href="pto-request.html"
            class="nav-item external-link" target="_blank" rel="noopener">
           <span class="material-icons-round">beach_access</span>
           <span>PTO Request Form</span>
           <span class="material-icons-round external-icon">open_in_new</span>
         </a>
-        <a href="#?view=uniform-request" 
+        <a href="uniform-request.html" 
            class="nav-item external-link" target="_blank" rel="noopener">
           <span class="material-icons-round">checkroom</span>
           <span>Uniform Request Form</span>
@@ -5338,7 +5338,19 @@ th .tooltip-icon .material-icons-round {
     hourlyWage: 14,
     loginHint: '',
     pendingPTOAlertThreshold: 5,
-    payrollUrgencyDays: 2
+    payrollUrgencyDays: 2,
+    location3Name: '',
+    reallyHighThreshold: 15,
+    adminEmails: 'brent@example.com, jeff@example.com',
+    notificationsEnabled: true,
+    notifyOnHighOT: true,
+    notifyOnPTORequest: true,
+    notifyOnPayrollDue: true,
+    notifyOnUniformOrder: true,
+    paydayReference: '2026-06-12',
+    weeklySummaryDay: 'Monday',
+    weeklySummaryHour: 8,
+    weeklySummaryMinute: 0
   };
 
   var DASHBOARD = {
@@ -5499,7 +5511,7 @@ th .tooltip-icon .material-icons-round {
     getPTORecordsLite: function () { return []; },
     getUniformOrdersLite: function () { return []; },
     getSettings: function () { var c = {}; for (var k in SETTINGS) c[k] = SETTINGS[k]; return c; },
-    getActiveLocations: function () { return [{ name: 'Cockrell Hill', id: 'CH', active: true }]; },
+    getActiveLocations: function () { return [{ name: 'Cockrell Hill' }, { name: 'DBU' }]; },
     getDashboardData: function () { var d = JSON.parse(JSON.stringify(DASHBOARD)); d.lastUpdated = isoNow(); return d; },
     getAlerts: function () { return DASHBOARD.alerts.slice(); },
     getPayrollCalendarData: function () { return { success: false }; },
@@ -5608,6 +5620,47 @@ th .tooltip-icon .material-icons-round {
     };
     SERVER.searchEmployeesFuzzy = function(qq){ var q=String(qq||'').toLowerCase(); return ROSTER.filter(function(n){ return n.toLowerCase().indexOf(q)>=0; }).map(function(n){ return { name:n, score:1 }; }); };
     SERVER.getMonthlyTransferData = function(){ return { success:true, employees:[], transfers:[] }; };
+  })();
+
+
+  // ---- Uniform catalog / orders / paydays (for Uniform Orders + Catalog views) ----
+  (function () {
+    var CATALOG = [
+      { itemId:'C01', itemName:'Red Polo (Male)',       category:'Shirts',    price:18.00, availableSizes:['S','M','L','XL','2XL'], active:true },
+      { itemId:'C02', itemName:'Red Polo (Female)',     category:'Shirts',    price:18.00, availableSizes:['XS','S','M','L','XL'],  active:true },
+      { itemId:'C03', itemName:'Black Performance Tee', category:'Shirts',    price:15.00, availableSizes:['S','M','L','XL','2XL'], active:true },
+      { itemId:'C04', itemName:'Black Pants (Male)',    category:'PANTS',     price:24.00, availableSizes:[], active:true },
+      { itemId:'C05', itemName:'Black Pants (Female)',  category:'PANTS',     price:24.00, availableSizes:[], active:true },
+      { itemId:'C06', itemName:'Visor',                 category:'Hats',      price:12.00, availableSizes:[], active:true },
+      { itemId:'C07', itemName:'Beanie',                category:'Hats',      price:10.00, availableSizes:[], active:true },
+      { itemId:'C08', itemName:'Quarter-Zip Pullover',  category:'Outerwear', price:34.00, availableSizes:['S','M','L','XL','2XL'], active:true },
+      { itemId:'C09', itemName:'New Hire Bundle',       category:'Bundles',   price:60.00, availableSizes:[], active:true }
+    ];
+    var UNIFORM_ORDERS = [
+      { orderId:'U-2041', employeeName:'Sofia Reyes', location:'Cockrell Hill', orderDate:'May 20, 2026', status:'Active',  totalAmount:256.00, amountRemaining:128.00, paymentsMade:1, paymentPlan:2, orderDiscount:0 },
+      { orderId:'U-2052', employeeName:'Owen Diaz',   location:'Cockrell Hill', orderDate:'May 22, 2026', status:'Active',  totalAmount:90.00,  amountRemaining:45.00,  paymentsMade:1, paymentPlan:2, orderDiscount:0 },
+      { orderId:'U-2058', employeeName:'Owen Diaz',   location:'Cockrell Hill', orderDate:'Apr 30, 2026', status:'Paid',    totalAmount:77.50,  amountRemaining:0.00,   paymentsMade:2, paymentPlan:2, orderDiscount:0 },
+      { orderId:'U-2063', employeeName:'Liam Carter', location:'DBU',           orderDate:'May 25, 2026', status:'Active',  totalAmount:136.00, amountRemaining:68.00,  paymentsMade:1, paymentPlan:2, orderDiscount:10 },
+      { orderId:'U-2070', employeeName:'Nina Patel',  location:'DBU',           orderDate:'Jun 1, 2026',  status:'Pending', totalAmount:45.00,  amountRemaining:45.00,  paymentsMade:0, paymentPlan:1, orderDiscount:0 }
+    ];
+    SERVER.getCatalogItems = function () { return CATALOG.slice(); };
+    SERVER.getUniformOrders = function () { return UNIFORM_ORDERS.slice(); };
+    SERVER.getUniformOrdersLite = function () { return UNIFORM_ORDERS.slice(); };
+    SERVER.getUpcomingPaydays = function () { return ['2026-05-29','2026-06-12','2026-06-26','2026-07-10']; };
+    SERVER.getActivityLog = function () { return []; };
+    SERVER.getEmployeeAuditLog = function () { return []; };
+    SERVER.getEmployeesNeedingReview = function () { return []; };
+    SERVER.fetchEmployeesForReview = function () { return []; };
+    SERVER.getAllEmployeesForUniform = function () { return [
+      { fullName:'Sofia Reyes', location:'Cockrell Hill' }, { fullName:'Owen Diaz', location:'Cockrell Hill' },
+      { fullName:'Liam Carter', location:'DBU' }, { fullName:'Ava Nguyen', location:'Cockrell Hill' },
+      { fullName:'Nina Patel', location:'DBU' }, { fullName:'Marcus Bell', location:'DBU' }
+    ]; };
+    SERVER.getBackupStatus = function () { return { success:true, lastBackup:'', autoBackupEnabled:false }; };
+    SERVER.getArchiveTriggerStatus = function () { return { success:true, active:false }; };
+    SERVER.isWeeklySummaryTriggerActive = function () { return false; };
+    SERVER.getAdminAccessPasscode = function () { return ''; };
+    SERVER.getCodeVersion = function () { return 'demo'; };
   })();
 
   function makeRunner() {
@@ -22341,6 +22394,2887 @@ document.addEventListener('click', function(e) {
 
 
 </template>
+<template id="pv-UniformOrders">
+<!-- Uniform Orders View -->
+<!-- Create Order Card -->
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">add_shopping_cart</span> Create New Order</h2>
+  </div>
+  <div class="card-body">
+    <!-- Employee and Location Row -->
+    <div class="form-row mb-lg">
+      <div class="form-group" style="flex: 1;">
+        <label>Employee</label>
+        <select id="uniformEmployee" class="form-control form-select" onchange="handleEmployeeSelectChange()">
+          <option value="">Select an employee...</option>
+          <!-- Populated dynamically -->
+          <option value="__new__">➕ New Employee (Not in list)</option>
+        </select>
+        
+        <!-- New Employee Panel (hidden by default) -->
+        <div id="newEmployeePanel" class="new-employee-panel" style="display: none;">
+          
+          <!-- Step 1: Search -->
+          <div class="search-step" id="searchStep">
+            <div class="step-header">
+              <span class="step-number">1</span>
+              <span>Search for employee first</span>
+            </div>
+            <div class="search-input-group">
+              <input type="text" id="employeeSearchInput" class="form-control"
+                     placeholder="Type name to search..."
+                     oninput="handleEmployeeSearch()">
+              <span class="search-icon material-icons-round">search</span>
+            </div>
+            
+            <!-- Search Results -->
+            <div id="searchResults" class="search-results" style="display: none;"></div>
+            
+            <!-- "None of these" option -->
+            <div id="createNewOption" class="create-new-option" style="display: none;">
+              <label class="create-new-label">
+                <input type="checkbox" id="confirmNotInList" onchange="handleConfirmNotInList()">
+                <span>None of these - this is a brand new employee not yet in Workstream/HR Payroll</span>
+              </label>
+              <p class="warning-text">
+                <span class="material-icons-round" style="font-size: 14px;">warning</span>
+                Only select this if you're CERTAIN this person hasn't worked yet
+              </p>
+            </div>
+          </div>
+          
+          <!-- Step 2: Enter Name (hidden until Step 1 complete) -->
+          <div class="name-step" id="nameStep" style="display: none;">
+            <div class="step-header">
+              <span class="step-number">2</span>
+              <span>Enter employee name exactly as in Workstream/HR Payroll</span>
+            </div>
+            
+            <input type="text" id="newEmployeeName" class="form-control"
+                   placeholder="First Last (e.g., John Smith)"
+                   oninput="handleNewNameInput()">
+            
+            <div class="name-help">
+              <span class="material-icons-round" style="font-size: 14px;">info</span>
+              Enter name EXACTLY as it appears on their paycheck. Spelling must match perfectly.
+            </div>
+            
+            <div class="name-preview" id="namePreview" style="display: none;">
+              <span>Will be saved as: </span>
+              <strong id="normalizedNamePreview"></strong>
+            </div>
+            
+            <!-- Similar name warning -->
+            <div id="similarNameWarning" class="similar-warning" style="display: none;"></div>
+          </div>
+          
+          <!-- Step 3: Confirm (hidden until Step 2 complete) -->
+          <div class="confirm-step" id="confirmStep" style="display: none;">
+            <div class="step-header">
+              <span class="step-number">3</span>
+              <span>Verify spelling</span>
+            </div>
+            
+            <label class="verification-checkbox">
+              <input type="checkbox" id="spellingVerified" onchange="handleSpellingVerified()">
+              <span>I verify this name is spelled <strong>EXACTLY</strong> as it appears in 
+                    Workstream/HR Payroll. I understand that misspellings will cause duplicate 
+                    employee records and payroll issues.</span>
+            </label>
+          </div>
+          
+          <!-- Step 4: Manager Passcode (hidden until Step 3 complete) -->
+          <div class="passcode-step" id="passcodeStep" style="display: none;">
+            <div class="step-header">
+              <span class="step-number">4</span>
+              <span>Manager Authorization</span>
+            </div>
+            
+            <p class="passcode-info">
+              <span class="material-icons-round" style="font-size: 14px;">lock</span>
+              Creating new employees requires manager approval
+            </p>
+            
+            <div class="passcode-input-row">
+              <input type="password" id="newEmployeePasscode" class="form-control" 
+                     placeholder="Enter manager passcode"
+                     maxlength="10"
+                     onkeypress="if(event.key==='Enter') verifyNewEmployeePasscode()">
+              <button type="button" class="btn btn-primary btn-sm" onclick="verifyNewEmployeePasscode()">
+                <span class="material-icons-round" style="font-size: 16px;">check</span>
+                Verify
+              </button>
+            </div>
+            <div id="newEmployeePasscodeError" class="passcode-error-msg" style="display: none;">
+              Incorrect passcode
+            </div>
+            <div id="newEmployeePasscodeSuccess" class="passcode-success-msg" style="display: none;">
+              <span class="material-icons-round" style="font-size: 16px;">check_circle</span>
+              Verified! You can now create the order.
+            </div>
+          </div>
+          
+          <!-- Cancel button -->
+          <div class="new-employee-actions">
+            <button type="button" class="btn btn-outline btn-sm" onclick="cancelNewEmployee()">
+              <span class="material-icons-round" style="font-size: 16px;">close</span>
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="form-group" style="flex: 0 0 180px;">
+        <label>Location</label>
+        <select id="uniformLocation" class="form-control form-select" onchange="updateOrderTotals(); loadLocationAverage();">
+          <option value="">Select location...</option>
+          <!-- Locations populated dynamically from settings -->
+        </select>
+      </div>
+    </div>
+    
+    <!-- Smart Order Info (Chunk 10) -->
+    <div id="orderSmartInfo" class="order-smart-info" style="display: none;">
+      <div class="smart-info-content">
+        <span class="material-icons-round">insights</span>
+        <span id="avgOrderText">Average order at this location: $--</span>
+      </div>
+      <div id="orderValueWarning" class="order-value-warning" style="display: none;">
+        <span class="material-icons-round">warning</span>
+        <span>This order is significantly higher than average</span>
+      </div>
+    </div>
+    
+    <!-- Item Selection -->
+    <div class="form-row mb-md">
+      <div class="form-group" style="flex: 0 0 150px;">
+        <label>Category</label>
+        <select id="uniformCategory" class="form-control form-select" onchange="filterCatalogByCategory()">
+          <option value="">All Categories</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex: 1;">
+        <label>Item</label>
+        <select id="uniformItem" class="form-control form-select" onchange="updateSizeOptions()">
+          <option value="">Select an item...</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex: 0 0 100px; display: none;" id="genderGroup">
+        <label>Gender</label>
+        <select id="uniformGender" class="form-control form-select" onchange="updatePantsSizes()">
+          <option value="">Select...</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex: 0 0 100px;">
+        <label id="sizeLabel">Size</label>
+        <select id="uniformSize" class="form-control form-select">
+          <option value="">Size...</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex: 0 0 90px; display: none;" id="inseamGroup">
+        <label>Inseam</label>
+        <select id="uniformInseam" class="form-control form-select">
+          <option value="">Inseam...</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex: 0 0 60px;">
+        <label>Qty</label>
+        <input type="number" id="uniformQty" class="form-control" value="1" min="1" max="10">
+      </div>
+      <div class="form-group" style="flex: 0 0 auto; align-self: flex-end;">
+        <label class="checkbox-label" style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.8rem; color: var(--gray-600); margin-bottom: 10px;">
+          <input type="checkbox" id="uniformReplacement" style="width: 16px; height: 16px;">
+          <span>Replacement</span>
+        </label>
+      </div>
+      <div class="form-group" style="flex: 0 0 90px;">
+        <label>Discount $</label>
+        <input type="number" id="uniformDiscount" class="form-control" value="" min="0" step="0.01" placeholder="0.00">
+      </div>
+      <div class="form-group" style="flex: 0 0 auto; align-self: flex-end;">
+        <button type="button" class="btn btn-primary" onclick="addItemToOrder()">
+          <span class="material-icons-round">add</span> Add
+        </button>
+      </div>
+    </div>
+    
+    <!-- Order Items Table -->
+    <div class="table-wrapper mb-lg">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Size</th>
+            <th class="numeric">Qty</th>
+            <th class="numeric">Price</th>
+            <th class="numeric">Total</th>
+            <th style="width: 50px;"></th>
+          </tr>
+        </thead>
+        <tbody id="orderItemsBody">
+          <tr id="emptyOrderRow">
+            <td colspan="6" class="text-center" style="color: var(--gray-500); padding: 20px;">
+              No items added yet. Select items above to build the order.
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr style="background: var(--gray-50);">
+            <td colspan="4" class="text-right"><strong>Order Total:</strong></td>
+            <td class="numeric"><strong id="orderTotal">$0.00</strong></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    
+    <!-- Payment Plan -->
+    <div class="form-row mb-lg">
+      <div class="form-group" style="flex: 0 0 auto;">
+        <label>Payment Plan</label>
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn btn-outline payment-btn active" data-plan="1" onclick="selectPaymentPlan(1)">1</button>
+          <button type="button" class="btn btn-outline payment-btn" data-plan="2" onclick="selectPaymentPlan(2)">2</button>
+          <button type="button" class="btn btn-outline payment-btn" data-plan="3" onclick="selectPaymentPlan(3)">3</button>
+          <span style="align-self: center; margin-left: 4px; color: var(--gray-600); font-size: 0.85rem;">checks</span>
+        </div>
+      </div>
+      <div class="form-group" style="flex: 0 0 120px;">
+        <label>Per Check</label>
+        <div style="font-size: 1.1rem; font-weight: 700; color: var(--cfa-red);" id="perPaycheckAmount">$0.00</div>
+      </div>
+      <div class="form-group" style="flex: 1;">
+        <label>Order Status</label>
+        <div id="deductionPreview" class="deduction-preview" style="background: var(--info-light); border-color: var(--info);">
+          <span style="color: var(--info); font-size: 0.85rem;">
+            <span class="material-icons-round" style="font-size: 16px; vertical-align: middle;">info</span>
+            Order will be created as <strong>Pending</strong>. Deductions start when you mark items as received.
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Notes and Submit -->
+    <div class="form-row">
+      <div class="form-group" style="flex: 1;">
+        <label>Notes (optional)</label>
+        <input type="text" id="uniformNotes" class="form-control" placeholder="Size form link, special instructions, etc.">
+      </div>
+      <div class="form-group" style="flex: 0 0 auto; align-self: flex-end;">
+        <button type="button" class="btn btn-primary" onclick="submitUniformOrder()" id="submitOrderBtn" disabled>
+          <span class="material-icons-round">check_circle</span> Create Order
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Pending Orders Card -->
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">pending_actions</span> Uniform Orders</h2>
+    <div class="form-row" style="gap: 8px;">
+      <input type="text" id="orderSearchInput" class="form-control" placeholder="Search employee..." 
+             style="width: 160px;" oninput="filterOrdersTable()">
+      <select id="orderLocationFilter" class="form-control form-select" style="width: 140px;" onchange="filterOrdersTable()">
+        <option value="">All Locations</option>
+        <!-- Locations populated dynamically from settings -->
+      </select>
+      <select id="orderStatusFilter" class="form-control form-select" style="width: 140px;" onchange="loadUniformOrders()">
+        <option value="Current" selected>📋 Current</option>
+        <option value="Pending">⏳ Pending</option>
+        <option value="Pending - Cash">💵 Pending - Cash</option>
+        <option value="Active">✅ Active</option>
+        <option value="Completed">✓ Completed</option>
+        <option value="Cancelled">✗ Cancelled</option>
+        <option value="Store Paid">🏪 Store Paid</option>
+        <option value="">All Statuses</option>
+      </select>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Order #</th>
+            <th>Employee</th>
+            <th>Location</th>
+            <th>Date</th>
+            <th class="numeric">Total</th>
+            <th class="numeric">Remaining</th>
+            <th>Progress</th>
+            <th>Status</th>
+            <th style="width: 120px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="uniformOrdersBody">
+          <tr><td colspan="9"><div class="empty-state"><span class="material-icons-round">checkroom</span><h3>No Orders</h3><p>Create an order above to get started</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="ordersCount" style="margin-top: 12px; font-size: 0.85rem; color: var(--gray-500);"></div>
+  </div>
+</div>
+
+<!-- Order Details Modal -->
+<div id="orderDetailsModal" class="modal-overlay" style="display: none;">
+  <div class="modal" style="max-width: 650px;">
+    <div class="modal-header">
+      <h3 id="orderDetailsTitle">Order Details</h3>
+      <button class="btn btn-outline btn-sm" onclick="closeOrderDetailsModal()" style="padding: 4px 8px;">
+        <span class="material-icons-round" style="font-size: 18px;">close</span>
+      </button>
+    </div>
+    <div class="modal-body" id="orderDetailsBody">
+      <!-- Populated by JavaScript -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeOrderDetailsModal()">Close</button>
+      <button class="btn btn-danger" id="cancelOrderBtn" onclick="cancelOrderFromModal()" style="display: none;">
+        <span class="material-icons-round">cancel</span> Cancel Order
+      </button>
+      <button class="btn btn-primary" id="markReceivedBtn" onclick="markOrderReceivedFromModal()" style="display: none;">
+        <span class="material-icons-round">inventory</span> Mark Received
+      </button>
+      <button class="btn btn-primary" id="markPaymentBtn" onclick="markPaymentFromModal()" style="display: none;">
+        <span class="material-icons-round">paid</span> Record Payment
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Discount Edit Modal -->
+<div id="discountModal" class="modal-overlay" style="display: none;">
+  <div class="modal" style="max-width: 380px;">
+    <div class="modal-header">
+      <h3 id="discountModalTitle">Edit Discount</h3>
+      <button class="btn btn-outline btn-sm" onclick="closeDiscountModal()" style="padding: 4px 8px;">
+        <span class="material-icons-round" style="font-size: 18px;">close</span>
+      </button>
+    </div>
+    <div class="modal-body" style="padding: 20px;">
+      <div id="discountModalInfo" style="margin-bottom: 16px; font-size: 0.85rem; color: var(--gray-600);"></div>
+      <label style="font-size: 0.8rem; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; display: block;">Discount Amount ($)</label>
+      <input type="number" id="discountModalInput" class="form-control" min="0" step="0.01" placeholder="0.00"
+             style="font-size: 1.1rem; padding: 10px 14px; text-align: center;"
+             onkeypress="if(event.key==='Enter') submitDiscountModal()">
+      <div id="discountModalError" style="color: var(--danger); font-size: 0.8rem; margin-top: 6px; display: none;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeDiscountModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitDiscountModal()">
+        <span class="material-icons-round" style="font-size: 16px;">sell</span> Apply Discount
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* Deduction Preview Styles */
+.deduction-preview {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  max-height: 100px;
+  overflow-y: auto;
+}
+.deduction-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px dashed var(--gray-200);
+}
+.deduction-item:last-child {
+  border-bottom: none;
+}
+.deduction-item.final {
+  font-weight: 600;
+  color: var(--cfa-red);
+}
+
+/* Replacement badge */
+.badge-replacement {
+  background: var(--info-light);
+  color: var(--info);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+/* Discount badge */
+.badge-discount {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+/* Order details modal content */
+.order-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.order-info-item {
+  font-size: 0.9rem;
+}
+.order-info-item label {
+  color: var(--gray-500);
+  font-size: 0.75rem;
+  display: block;
+  margin-bottom: 2px;
+}
+.order-info-item strong {
+  color: var(--gray-900);
+}
+
+/* Payment schedule in modal */
+.payment-schedule {
+  margin-top: 16px;
+}
+.payment-schedule-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--gray-100);
+}
+.payment-schedule-item:last-child {
+  border-bottom: none;
+}
+.payment-schedule-item .check-icon {
+  width: 24px;
+  margin-right: 8px;
+  color: var(--gray-400);
+}
+.payment-schedule-item .check-icon.completed {
+  color: var(--success);
+}
+.payment-schedule-item .check-icon.current {
+  color: var(--warning);
+}
+.payment-schedule-item.completed {
+  color: var(--gray-500);
+}
+.payment-schedule-item.current {
+  background: var(--warning-light);
+  margin: 0 -16px;
+  padding: 8px 16px;
+  border-radius: 6px;
+}
+
+/* Item receiving status badges */
+.badge-item-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.badge-item-status.received {
+  background: var(--success-light);
+  color: #059669;
+}
+.badge-item-status.pending {
+  background: #FEF3C7;
+  color: #D97706;
+}
+.badge-item-status.cancelled {
+  background: var(--gray-200);
+  color: var(--gray-600);
+}
+.item-cancelled-row {
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+
+/* Small icon button for cancel */
+.btn-icon-sm {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.btn-icon-sm:hover {
+  background: var(--cfa-red-light);
+}
+.btn-icon-sm:hover .material-icons-round {
+  color: var(--error) !important;
+}
+
+/* Smart Order Info (Chunk 10) */
+.order-smart-info {
+  background: #EEF2FF;
+  border: 1px solid #C7D2FE;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.smart-info-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4338CA;
+  font-size: 0.9rem;
+}
+
+.smart-info-content .material-icons-round {
+  font-size: 18px;
+}
+
+.order-value-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #D97706;
+  font-size: 0.85rem;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #C7D2FE;
+}
+
+.order-value-warning .material-icons-round {
+  font-size: 16px;
+}
+
+/* ===== New Employee Panel Styles ===== */
+.new-employee-panel {
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--gray-50);
+  border: 2px solid var(--gray-200);
+  border-radius: 10px;
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.step-number {
+  width: 26px;
+  height: 26px;
+  background: var(--primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.search-input-group {
+  position: relative;
+}
+
+.search-input-group input {
+  width: 100%;
+  padding-right: 40px;
+}
+
+.search-input-group .search-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gray-400);
+  pointer-events: none;
+}
+
+.search-results {
+  margin-top: 12px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: white;
+}
+
+.result-section-header {
+  padding: 8px 12px;
+  background: var(--gray-100);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.search-result-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--gray-100);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.15s;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover {
+  background: var(--gray-50);
+}
+
+.search-result-item strong {
+  color: var(--gray-800);
+}
+
+.result-location {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+  margin-left: 8px;
+}
+
+.similarity-badge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  background: #FEF3C7;
+  color: #92400E;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
+.search-result-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--gray-500);
+}
+
+.search-result-empty .material-icons-round {
+  font-size: 32px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.search-result-empty p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.create-new-option {
+  margin-top: 16px;
+  padding: 14px;
+  background: var(--gray-100);
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+}
+
+.create-new-label {
+  display: flex;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.create-new-label input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
+.warning-text {
+  margin: 10px 0 0 28px;
+  font-size: 0.8rem;
+  color: var(--gray-600);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.warning-text .material-icons-round {
+  color: #D97706;
+}
+
+.name-step, .confirm-step {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--gray-300);
+}
+
+.name-help {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--gray-500);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.name-preview {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #ECFDF5;
+  border: 1px solid #10B981;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #065F46;
+}
+
+.similar-warning {
+  margin-top: 14px;
+  padding: 14px;
+  background: #FEF3C7;
+  border: 1px solid #F59E0B;
+  border-radius: 8px;
+}
+
+.similar-warning h4 {
+  color: #92400E;
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.similar-warning ul {
+  margin: 0;
+  padding: 0 0 0 20px;
+}
+
+.similar-warning li {
+  margin: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.similar-warning .btn {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+}
+
+.verification-checkbox {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  background: #FEF2F2;
+  border: 2px solid #DC2626;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.verification-checkbox input {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  accent-color: #DC2626;
+  margin-top: 2px;
+}
+
+.verification-checkbox span {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #7F1D1D;
+}
+
+.new-employee-actions {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gray-200);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Passcode Step Styles */
+.passcode-step {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--gray-300);
+}
+
+.passcode-info {
+  font-size: 0.85rem;
+  color: var(--gray-600);
+  margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.passcode-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.passcode-input-row input {
+  flex: 1;
+  max-width: 200px;
+}
+
+.passcode-error-msg {
+  color: #DC2626;
+  font-size: 0.85rem;
+  margin-top: 8px;
+}
+
+.passcode-success-msg {
+  color: #059669;
+  font-size: 0.9rem;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #ECFDF5;
+  border: 1px solid #10B981;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+</style>
+
+</template>
+<template id="pv-UniformCatalog">
+<!-- Uniform Catalog View -->
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">inventory_2</span> Uniform Catalog</h2>
+    <button class="btn btn-primary btn-sm" onclick="showAddCatalogItemModal()">
+      <span class="material-icons-round">add</span> Add Item
+    </button>
+  </div>
+  <div class="card-body">
+    <div class="form-row mb-lg">
+      <div class="form-group">
+        <label>Filter by Category</label>
+        <select id="catalogCategoryFilter" class="form-control form-select" style="width: 200px;" onchange="loadCatalogTable()">
+          <option value="">All Categories</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Show</label>
+        <select id="catalogStatusFilter" class="form-control form-select" style="width: 150px;" onchange="loadCatalogTable()">
+          <option value="active">Active Only</option>
+          <option value="all">All Items</option>
+          <option value="inactive">Inactive Only</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Item Name</th>
+            <th>Category</th>
+            <th>Sizes</th>
+            <th class="numeric">Price</th>
+            <th>Active</th>
+            <th style="width: 100px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="catalogBody">
+          <tr><td colspan="7"><div class="empty-state"><span class="material-icons-round">hourglass_empty</span><p>Loading...</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Category Summary -->
+<div class="card">
+  <div class="card-header">
+    <h2><span class="material-icons-round">pie_chart</span> Catalog Summary</h2>
+  </div>
+  <div class="card-body">
+    <div id="catalogSummary" class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon blue"><span class="material-icons-round">inventory_2</span></div>
+        <div class="stat-content"><h3 id="totalItems">--</h3><p>Total Items</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green"><span class="material-icons-round">check_circle</span></div>
+        <div class="stat-content"><h3 id="activeItems">--</h3><p>Active</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple"><span class="material-icons-round">category</span></div>
+        <div class="stat-content"><h3 id="categoryCount">--</h3><p>Categories</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Catalog Item Modal -->
+<div class="modal-overlay" id="addCatalogItemModal" style="display: none;">
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-header">
+      <h3><span class="material-icons-round" style="vertical-align: middle; margin-right: 8px;">add_circle</span>Add Catalog Item</h3>
+      <button class="btn-icon" onclick="closeAddCatalogItemModal()">
+        <span class="material-icons-round">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="addCatalogItemForm" onsubmit="submitAddCatalogItem(event)">
+        <div class="form-group">
+          <label class="form-label required">Item ID</label>
+          <input type="text" id="newItemId" class="form-control" placeholder="e.g., POLO-BLK" required 
+                 style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()">
+          <small style="color: var(--gray-500);">Unique identifier (letters, numbers, dashes)</small>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label required">Item Name</label>
+          <input type="text" id="newItemName" class="form-control" placeholder="e.g., Black Polo Shirt" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label required">Category</label>
+          <div style="display: flex; gap: 8px;">
+            <select id="newItemCategory" class="form-control form-select" style="flex: 1;" onchange="handleCategoryChange()">
+              <option value="">Select category...</option>
+              <!-- Categories populated dynamically -->
+            </select>
+            <button type="button" class="btn btn-outline" onclick="toggleNewCategoryInput()" title="Add new category">
+              <span class="material-icons-round">add</span>
+            </button>
+          </div>
+          <input type="text" id="newCategoryInput" class="form-control" placeholder="Enter new category name" 
+                 style="display: none; margin-top: 8px;">
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label required">Price</label>
+          <div style="position: relative;">
+            <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--gray-500);">$</span>
+            <input type="number" id="newItemPrice" class="form-control" placeholder="0.00" step="0.01" min="0" required
+                   style="padding-left: 28px;">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Available Sizes</label>
+          <div style="margin-bottom: 8px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="noSizeCheckbox" onchange="toggleSizeOptions()">
+              <span style="font-size: 14px; color: var(--gray-600);">No size (one size fits all)</span>
+            </label>
+          </div>
+          <div id="sizeOptionsContainer" class="size-checkbox-grid">
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="XS" checked>
+              <span>XS</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="S" checked>
+              <span>S</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="M" checked>
+              <span>M</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="L" checked>
+              <span>L</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="XL" checked>
+              <span>XL</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="2XL" checked>
+              <span>2XL</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="3XL" checked>
+              <span>3XL</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="sizes" value="4XL">
+              <span>4XL</span>
+            </label>
+          </div>
+          <div id="customSizesSection" style="margin-top: 12px;">
+            <label class="form-label" style="font-size: 13px;">Custom Sizes (comma-separated)</label>
+            <input type="text" id="newCustomSizes" class="form-control" placeholder="e.g., S/M, L/XL or 28, 30, 32">
+            <small style="color: var(--gray-500);">For hat sizes, specialty sizes, etc.</small>
+          </div>
+        </div>
+        
+        <!-- Pants-specific: Gender-Specific Waist and Inseam Overrides -->
+        <div id="pantsOverrideSection" style="display: none; padding: 16px; background: var(--gray-50); border-radius: 8px; margin-bottom: 16px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 14px; color: var(--gray-700); display: flex; align-items: center; gap: 8px;">
+            <span class="material-icons-round" style="font-size: 18px;">straighten</span>
+            Pants Size Overrides
+          </h4>
+          <p style="font-size: 12px; color: var(--gray-500); margin-bottom: 16px;">
+            Leave blank to use global defaults from Settings. Fill in to override for this specific item.
+          </p>
+          
+          <!-- Male sizes -->
+          <div style="margin-bottom: 14px; padding: 12px; background: white; border-radius: 6px; border: 1px solid var(--gray-200);">
+            <h5 style="margin: 0 0 10px 0; font-size: 13px; color: var(--gray-600); display: flex; align-items: center; gap: 6px;">
+              <span class="material-icons-round" style="font-size: 16px;">male</span> Male Sizes
+            </h5>
+            <div class="form-group" style="margin-bottom: 8px;">
+              <label class="form-label" style="font-size: 12px;">Waist Sizes (comma-separated)</label>
+              <input type="text" id="newMaleWaistSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34, 36">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 12px;">Inseam Sizes (comma-separated)</label>
+              <input type="text" id="newMaleInseamSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34, 36">
+            </div>
+          </div>
+          
+          <!-- Female sizes -->
+          <div style="padding: 12px; background: white; border-radius: 6px; border: 1px solid var(--gray-200);">
+            <h5 style="margin: 0 0 10px 0; font-size: 13px; color: var(--gray-600); display: flex; align-items: center; gap: 6px;">
+              <span class="material-icons-round" style="font-size: 16px;">female</span> Female Sizes
+            </h5>
+            <div class="form-group" style="margin-bottom: 8px;">
+              <label class="form-label" style="font-size: 12px;">Waist Sizes (comma-separated)</label>
+              <input type="text" id="newFemaleWaistSizes" class="form-control" placeholder="e.g., 00, 0, 2, 4, 6, 8, 10">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 12px;">Inseam Sizes (comma-separated)</label>
+              <input type="text" id="newFemaleInseamSizes" class="form-control" placeholder="e.g., 29, 31, 33, 35">
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeAddCatalogItemModal()">Cancel</button>
+      <button type="submit" form="addCatalogItemForm" class="btn btn-primary">
+        <span class="material-icons-round" style="font-size: 18px;">add</span>
+        Add Item
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* Size Checkbox Grid */
+.size-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.size-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  background: var(--gray-50);
+  border: 2px solid var(--gray-200);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.size-checkbox:hover {
+  border-color: var(--gray-300);
+  background: var(--gray-100);
+}
+
+.size-checkbox input[type="checkbox"] {
+  display: none;
+}
+
+.size-checkbox input[type="checkbox"]:checked + span {
+  color: var(--cfa-red);
+  font-weight: 600;
+}
+
+.size-checkbox:has(input:checked) {
+  border-color: var(--cfa-red);
+  background: var(--cfa-red-light);
+}
+
+.size-checkbox span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-600);
+}
+
+.size-checkbox-grid.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--gray-200);
+  background: var(--gray-50);
+}
+
+.form-label.required::after {
+  content: " *";
+  color: var(--cfa-red);
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 50%;
+  color: var(--gray-500);
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+</style>
+
+<!-- Edit Catalog Item Modal -->
+<div class="modal-overlay" id="editCatalogItemModal" style="display: none;">
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-header">
+      <h3><span class="material-icons-round" style="vertical-align: middle; margin-right: 8px;">edit</span>Edit Catalog Item</h3>
+      <button class="btn-icon" onclick="closeEditCatalogItemModal()">
+        <span class="material-icons-round">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="editCatalogItemForm" onsubmit="submitEditCatalogItem(event)">
+        <!-- Hidden field for original Item ID -->
+        <input type="hidden" id="editItemOriginalId">
+        
+        <div class="form-group">
+          <label class="form-label">Item ID</label>
+          <input type="text" id="editItemId" class="form-control" readonly 
+                 style="text-transform: uppercase; background: var(--gray-100); cursor: not-allowed;">
+          <small style="color: var(--gray-500);">Item ID cannot be changed</small>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label required">Item Name</label>
+          <input type="text" id="editItemName" class="form-control" placeholder="e.g., Black Polo Shirt" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label required">Category</label>
+          <div style="display: flex; gap: 8px;">
+            <select id="editItemCategory" class="form-control form-select" style="flex: 1;" onchange="handleEditCategoryChange()">
+              <option value="">Select category...</option>
+              <!-- Categories populated dynamically -->
+            </select>
+            <button type="button" class="btn btn-outline" onclick="toggleEditNewCategoryInput()" title="Add new category">
+              <span class="material-icons-round">add</span>
+            </button>
+          </div>
+          <input type="text" id="editNewCategoryInput" class="form-control" placeholder="Enter new category name" 
+                 style="display: none; margin-top: 8px;">
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label required">Price</label>
+          <div style="position: relative;">
+            <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--gray-500);">$</span>
+            <input type="number" id="editItemPrice" class="form-control" placeholder="0.00" step="0.01" min="0" required
+                   style="padding-left: 28px;">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Available Sizes</label>
+          <div style="margin-bottom: 8px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="editNoSizeCheckbox" onchange="toggleEditSizeOptions()">
+              <span style="font-size: 14px; color: var(--gray-600);">No size (one size fits all)</span>
+            </label>
+          </div>
+          <div id="editSizeOptionsContainer" class="size-checkbox-grid">
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="XS">
+              <span>XS</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="S">
+              <span>S</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="M">
+              <span>M</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="L">
+              <span>L</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="XL">
+              <span>XL</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="2XL">
+              <span>2XL</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="3XL">
+              <span>3XL</span>
+            </label>
+            <label class="size-checkbox">
+              <input type="checkbox" name="editSizes" value="4XL">
+              <span>4XL</span>
+            </label>
+          </div>
+          <div id="editCustomSizesSection" style="margin-top: 12px;">
+            <label class="form-label" style="font-size: 13px;">Custom Sizes (comma-separated)</label>
+            <input type="text" id="editCustomSizes" class="form-control" placeholder="e.g., S/M, L/XL">
+            <small style="color: var(--gray-500);">For hat sizes, specialty sizes, etc.</small>
+          </div>
+        </div>
+        
+        <!-- Pants-specific: Gender-Specific Waist and Inseam Overrides -->
+        <div id="editPantsOverrideSection" style="display: none; padding: 16px; background: var(--gray-50); border-radius: 8px; margin-bottom: 16px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 14px; color: var(--gray-700); display: flex; align-items: center; gap: 8px;">
+            <span class="material-icons-round" style="font-size: 18px;">straighten</span>
+            Pants Size Overrides
+          </h4>
+          <p style="font-size: 12px; color: var(--gray-500); margin-bottom: 16px;">
+            Leave blank to use global defaults from Settings. Fill in to override for this specific item.
+          </p>
+          
+          <!-- Male sizes -->
+          <div style="margin-bottom: 14px; padding: 12px; background: white; border-radius: 6px; border: 1px solid var(--gray-200);">
+            <h5 style="margin: 0 0 10px 0; font-size: 13px; color: var(--gray-600); display: flex; align-items: center; gap: 6px;">
+              <span class="material-icons-round" style="font-size: 16px;">male</span> Male Sizes
+            </h5>
+            <div class="form-group" style="margin-bottom: 8px;">
+              <label class="form-label" style="font-size: 12px;">Waist Sizes (comma-separated)</label>
+              <input type="text" id="editMaleWaistSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34, 36">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 12px;">Inseam Sizes (comma-separated)</label>
+              <input type="text" id="editMaleInseamSizes" class="form-control" placeholder="e.g., 28, 30, 32, 34, 36">
+            </div>
+          </div>
+          
+          <!-- Female sizes -->
+          <div style="padding: 12px; background: white; border-radius: 6px; border: 1px solid var(--gray-200);">
+            <h5 style="margin: 0 0 10px 0; font-size: 13px; color: var(--gray-600); display: flex; align-items: center; gap: 6px;">
+              <span class="material-icons-round" style="font-size: 16px;">female</span> Female Sizes
+            </h5>
+            <div class="form-group" style="margin-bottom: 8px;">
+              <label class="form-label" style="font-size: 12px;">Waist Sizes (comma-separated)</label>
+              <input type="text" id="editFemaleWaistSizes" class="form-control" placeholder="e.g., 00, 0, 2, 4, 6, 8, 10">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 12px;">Inseam Sizes (comma-separated)</label>
+              <input type="text" id="editFemaleInseamSizes" class="form-control" placeholder="e.g., 29, 31, 33, 35">
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="editItemActive">
+            <span style="font-size: 14px; color: var(--gray-600);">Item is active (available for ordering)</span>
+          </label>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeEditCatalogItemModal()">Cancel</button>
+      <button type="submit" form="editCatalogItemForm" class="btn btn-primary">
+        <span class="material-icons-round" style="font-size: 18px;">save</span>
+        Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+
+
+</template>
+<template id="pv-SettingsPage">
+<!-- Settings View -->
+<div class="settings-container">
+  
+  <!-- General Settings Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">settings</span> General Settings</h2>
+    </div>
+    <div class="card-body">
+      <form id="settingsForm" onsubmit="saveAllSettings(event)">
+        <div class="settings-grid">
+          <div class="settings-section">
+            <h3><span class="material-icons-round">attach_money</span> Cost Settings</h3>
+            <div class="form-group">
+              <label>Average Hourly Wage ($)</label>
+              <input type="number" id="settingWage" class="form-control" step="0.5" min="0" value="16.5">
+              <small class="form-hint">Used to calculate OT cost estimates</small>
+            </div>
+            <div class="form-group">
+              <label>OT Multiplier</label>
+              <input type="number" id="settingMultiplier" class="form-control" step="0.1" min="1" value="1.5">
+              <small class="form-hint">Overtime pay rate multiplier (1.5 = time and a half)</small>
+            </div>
+          </div>
+          
+          <div class="settings-section">
+            <h3><span class="material-icons-round">store</span> Location Settings</h3>
+            <div class="form-group">
+              <label>Number of Locations</label>
+              <select id="settingNumLocations" class="form-control" onchange="updateLocationFieldsVisibility()">
+                <option value="1">1 Location</option>
+                <option value="2" selected>2 Locations</option>
+                <option value="3">3 Locations</option>
+              </select>
+              <small class="form-hint">How many locations does your operation have? Drives the location dropdowns and labels. Note: OT time-transfer &amp; reconciliation currently support <strong>2 locations</strong>.</small>
+            </div>
+            <div class="form-group" id="location1Group">
+              <label>Location 1 Name</label>
+              <input type="text" id="settingLoc1" class="form-control" value="Cockrell Hill DTO" placeholder="e.g., Main Store">
+            </div>
+            <div class="form-group" id="location2Group">
+              <label>Location 2 Name</label>
+              <input type="text" id="settingLoc2" class="form-control" value="DBU" placeholder="e.g., Second Location">
+            </div>
+            <div class="form-group" id="location3Group" style="display: none;">
+              <label>Location 3 Name</label>
+              <input type="text" id="settingLoc3" class="form-control" value="" placeholder="e.g., Third Location">
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Alert Thresholds Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">tune</span> Alert Thresholds</h2>
+      <span class="badge badge-info">Customize when alerts appear</span>
+    </div>
+    <div class="card-body">
+      <div class="settings-grid">
+        <div class="settings-section">
+          <h3><span class="material-icons-round">schedule</span> Overtime Thresholds</h3>
+          <div class="form-group">
+            <label>Moderate OT (hours)</label>
+            <input type="number" id="settingModerate" class="form-control" step="1" min="1" value="5">
+            <small class="form-hint">Employees with this many OT hours get a yellow flag</small>
+          </div>
+          <div class="form-group">
+            <label>High OT (hours)</label>
+            <input type="number" id="settingHigh" class="form-control" step="1" min="1" value="10">
+            <small class="form-hint">Triggers dashboard alert and optional email notification</small>
+          </div>
+          <div class="form-group">
+            <label>Really High OT (hours)</label>
+            <input type="number" id="settingReallyHigh" class="form-control" step="1" min="1" value="15">
+            <small class="form-hint">Employees with this many OT hours get a red flag</small>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <h3><span class="material-icons-round">notifications_active</span> Dashboard Alerts</h3>
+          <div class="form-group">
+            <label>Pending PTO Alert Threshold</label>
+            <input type="number" id="settingPTOThreshold" class="form-control" step="1" min="1" value="5">
+            <small class="form-hint">Show alert when pending PTO requests exceed this number</small>
+          </div>
+          <div class="form-group">
+            <label>Payroll Urgency (days)</label>
+            <input type="number" id="settingPayrollUrgency" class="form-control" step="1" min="1" max="7" value="2">
+            <small class="form-hint">Show urgent alert when payroll is due within this many days</small>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3><span class="material-icons-round">event</span> Payroll Calendar</h3>
+          <div class="form-group">
+            <label>Payday Reference Date</label>
+            <input type="date" id="settingPaydayReference" class="form-control" value="2024-11-29">
+            <small class="form-hint">⚠️ Anchor date for the entire bi-weekly payday calendar. <strong>Must be a Friday that is/was an actual payday.</strong> Changing this shifts every payday, deduction date, and pay period in the system.</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Email Notifications Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">email</span> Email Notifications</h2>
+      <label class="toggle-switch" style="margin-left: auto;">
+        <input type="checkbox" id="notificationsEnabled">
+        <span class="toggle-slider"></span>
+        <span class="toggle-label" id="notificationsLabel">Disabled</span>
+      </label>
+    </div>
+    <div class="card-body" id="notificationSettings">
+      <div class="form-group">
+        <label>Admin Email Address(es)</label>
+        <input type="text" id="adminEmails" class="form-control" placeholder="admin@example.com, manager@example.com">
+        <small class="form-hint">Comma-separated list of email addresses to receive notifications</small>
+      </div>
+      
+      <!-- Weekly Summary Section -->
+      <div class="weekly-summary-section" style="margin-top: 16px; padding: 16px; background: var(--gray-50); border-radius: 8px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+          <span class="material-icons-round" style="color: var(--cfa-red); font-size: 28px;">summarize</span>
+          <div>
+            <h4 style="margin: 0; font-size: 1rem;">Weekly Summary Email</h4>
+            <small style="color: var(--gray-500);">Consolidates PTO requests and Uniform orders into one weekly email</small>
+          </div>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: white; border-radius: 6px; margin-bottom: 12px;">
+          <span class="material-icons-round" style="color: var(--gray-400);">schedule</span>
+          <div>
+            <strong>Schedule:</strong> <span id="weeklySummaryScheduleText">Every Saturday at 1:00 PM</span>
+          </div>
+          <span id="weeklySummaryStatus" style="margin-left: auto; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; background: var(--gray-200); color: var(--gray-600);">
+            Checking...
+          </span>
+        </div>
+
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;">
+          <div class="form-group" style="min-width: 160px; margin: 0;">
+            <label>Day</label>
+            <select id="weeklySummaryDay" class="form-control" onchange="updateWeeklySummarySchedulePreview()">
+              <option value="Sunday">Sunday</option>
+              <option value="Monday">Monday</option>
+              <option value="Tuesday">Tuesday</option>
+              <option value="Wednesday">Wednesday</option>
+              <option value="Thursday">Thursday</option>
+              <option value="Friday">Friday</option>
+              <option value="Saturday" selected>Saturday</option>
+            </select>
+          </div>
+          
+          <div class="form-group" style="min-width: 140px; margin: 0;">
+            <label>Hour</label>
+            <select id="weeklySummaryHour" class="form-control" onchange="updateWeeklySummarySchedulePreview()">
+              <option value="0">12 AM</option>
+              <option value="1">1 AM</option>
+              <option value="2">2 AM</option>
+              <option value="3">3 AM</option>
+              <option value="4">4 AM</option>
+              <option value="5">5 AM</option>
+              <option value="6">6 AM</option>
+              <option value="7">7 AM</option>
+              <option value="8">8 AM</option>
+              <option value="9">9 AM</option>
+              <option value="10">10 AM</option>
+              <option value="11">11 AM</option>
+              <option value="12">12 PM</option>
+              <option value="13" selected>1 PM</option>
+              <option value="14">2 PM</option>
+              <option value="15">3 PM</option>
+              <option value="16">4 PM</option>
+              <option value="17">5 PM</option>
+              <option value="18">6 PM</option>
+              <option value="19">7 PM</option>
+              <option value="20">8 PM</option>
+              <option value="21">9 PM</option>
+              <option value="22">10 PM</option>
+              <option value="23">11 PM</option>
+            </select>
+          </div>
+          
+          <div class="form-group" style="min-width: 120px; margin: 0;">
+            <label>Minute</label>
+            <select id="weeklySummaryMinute" class="form-control" onchange="updateWeeklySummarySchedulePreview()">
+              <option value="0" selected>:00</option>
+              <option value="15">:15</option>
+              <option value="30">:30</option>
+              <option value="45">:45</option>
+            </select>
+          </div>
+        </div>
+        <small class="form-hint">Save settings to update the schedule, then click “Enable Weekly Summary.”</small>
+        
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="setupWeeklySummary()">
+            <span class="material-icons-round">check_circle</span> Enable Weekly Summary
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="testWeeklySummary()">
+            <span class="material-icons-round">send</span> Send Now (Test)
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="disableWeeklySummary()" style="color: var(--gray-500);">
+            <span class="material-icons-round">cancel</span> Disable
+          </button>
+        </div>
+      </div>
+      
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--gray-200);">
+      
+      <div class="notification-types">
+        <h4>Other Notification Types</h4>
+        <div class="notification-options">
+          <label class="checkbox-option">
+            <input type="checkbox" id="notifyHighOT" checked>
+            <div class="option-content">
+              <span class="material-icons-round">warning</span>
+              <div>
+                <strong>High Overtime Alerts</strong>
+                <small>Get notified when employees exceed the high OT threshold</small>
+              </div>
+            </div>
+          </label>
+          
+          <label class="checkbox-option">
+            <input type="checkbox" id="notifyPayroll" checked>
+            <div class="option-content">
+              <span class="material-icons-round">payments</span>
+              <div>
+                <strong>Payroll Reminders</strong>
+                <small>Get reminded when payroll is approaching</small>
+              </div>
+            </div>
+          </label>
+        </div>
+        <small class="form-hint" style="margin-top: 8px; display: block;">
+          <span class="material-icons-round" style="font-size: 14px; vertical-align: middle;">info</span>
+          PTO and Uniform notifications are now included in the weekly summary email
+        </small>
+      </div>
+      
+      <div class="mt-md">
+        <button type="button" class="btn btn-outline" onclick="sendTestEmail()">
+          <span class="material-icons-round">send</span> Send Test Email
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Manager Receiving Passcode Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">admin_panel_settings</span> Manager Receiving Passcode</h2>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">This passcode is used by managers to access the uniform receiving section on the employee uniform request form.</p>
+      
+      <div class="settings-grid">
+        <div class="settings-section">
+          <div class="form-group">
+            <label>Current Passcode</label>
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <input type="password" id="currentPasscodeDisplay" class="form-control" readonly style="flex: 1; font-family: monospace; letter-spacing: 2px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="togglePasscodeVisibility()" id="togglePasscodeBtn">
+                <span class="material-icons-round" id="togglePasscodeIcon">visibility</span>
+              </button>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>New Passcode</label>
+            <div style="display: flex; gap: 12px;">
+              <input type="text" id="newPasscodeInput" class="form-control" placeholder="Enter new passcode" style="flex: 1; font-family: monospace;" minlength="4" maxlength="10">
+              <button type="button" class="btn btn-primary" onclick="updateManagerPasscode()">
+                <span class="material-icons-round">save</span> Update
+              </button>
+            </div>
+            <small class="form-hint">Passcode must be at least 4 characters</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Access Passcode Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">lock</span> Admin Access Passcode</h2>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">This passcode is required (with a name) to sign in to the admin dashboard. Share it only with managers who should have full access.</p>
+
+      <div class="settings-grid">
+        <div class="settings-section">
+          <div class="form-group">
+            <label>Current Passcode</label>
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <input type="password" id="currentAdminPasscodeDisplay" class="form-control" readonly style="flex: 1; font-family: monospace; letter-spacing: 2px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="toggleAdminPasscodeVisibility()" id="toggleAdminPasscodeBtn">
+                <span class="material-icons-round" id="toggleAdminPasscodeIcon">visibility</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>New Passcode</label>
+            <div style="display: flex; gap: 12px;">
+              <input type="text" id="newAdminPasscodeInput" class="form-control" placeholder="Enter new passcode" style="flex: 1; font-family: monospace;" minlength="4" maxlength="40">
+              <button type="button" class="btn btn-primary" onclick="updateAdminPasscode()">
+                <span class="material-icons-round">save</span> Update
+              </button>
+            </div>
+            <small class="form-hint">Passcode must be at least 4 characters. Changing it does not sign out current sessions.</small>
+          </div>
+
+          <div class="form-group">
+            <label>Login Screen Hint</label>
+            <div style="display: flex; gap: 12px;">
+              <input type="text" id="loginHintInput" class="form-control" placeholder="e.g., DBU #" style="flex: 1;" maxlength="60">
+              <button type="button" class="btn btn-primary" onclick="saveLoginHint()">
+                <span class="material-icons-round">save</span> Save
+              </button>
+            </div>
+            <small class="form-hint">Small hint shown under the access-code box on the login screen, telling staff what the code is. Leave blank to hide it.</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Employee Management Card -->
+  <div class="card employee-mgmt-card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">people</span> Employee Management</h2>
+      <span class="badge badge-info">Review new employees & merge duplicates</span>
+    </div>
+    <div class="card-body">
+      
+      <!-- Potential Duplicates Section -->
+      <div class="mgmt-section">
+        <div class="section-title">
+          <span class="material-icons-round">content_copy</span>
+          <h3>Potential Duplicate Employees</h3>
+          <button type="button" class="btn btn-outline btn-sm" onclick="scanForDuplicates()">
+            <span class="material-icons-round" style="font-size: 16px;">refresh</span>
+            Scan Now
+          </button>
+        </div>
+        <p class="section-desc">Employees with similar names that may be duplicates. Review and merge if needed.</p>
+        <div id="duplicatesList" class="duplicates-list">
+          <div class="empty-state-small">
+            <span class="material-icons-round">hourglass_empty</span>
+            <p>Click "Scan Now" to check for potential duplicates</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Employees Needing Review Section -->
+      <div class="mgmt-section">
+        <div class="section-title">
+          <span class="material-icons-round">rate_review</span>
+          <h3>Created via Uniform Orders</h3>
+          <button type="button" class="btn btn-outline btn-sm" onclick="loadEmployeesNeedingReview()">
+            <span class="material-icons-round" style="font-size: 16px;">refresh</span>
+            Refresh
+          </button>
+        </div>
+        <p class="section-desc">New employees created through uniform orders that should be verified for correct spelling.</p>
+        <div id="employeesNeedingReview" class="review-list">
+          <div class="empty-state-small">
+            <span class="material-icons-round">check_circle</span>
+            <p>No employees pending review</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Recent Employee Additions Log -->
+      <div class="mgmt-section">
+        <div class="section-title">
+          <span class="material-icons-round">history</span>
+          <h3>Recent Employee Additions</h3>
+        </div>
+        <div id="employeeAuditLog" class="audit-log-table">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      
+    </div>
+  </div>
+  
+  <!-- Merge Employee Modal -->
+  <div class="modal-overlay" id="mergeEmployeeModal" style="display: none;">
+    <div class="modal-content" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3><span class="material-icons-round">merge</span> Merge Employees</h3>
+        <button type="button" class="modal-close" onclick="closeMergeModal()">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 16px;">
+          Merge <strong id="mergeSourceName"></strong> into <strong id="mergeTargetName"></strong>?
+        </p>
+        
+        <input type="hidden" id="mergeSourceKey">
+        <input type="hidden" id="mergeTargetKey">
+        
+        <div class="merge-impact">
+          <h4>This will update:</h4>
+          <div id="mergeImpact">
+            <ul>
+              <li>Loading...</li>
+            </ul>
+          </div>
+        </div>
+        
+        <div class="merge-direction">
+          <p><strong>Keep which name?</strong></p>
+          <label class="radio-option">
+            <input type="radio" name="mergeKeepName" value="target" checked>
+            <span id="keepTargetLabel">Target name</span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="mergeKeepName" value="source">
+            <span id="keepSourceLabel">Source name</span>
+          </label>
+        </div>
+        
+        <div class="merge-warning">
+          <span class="material-icons-round">warning</span>
+          <span>This action cannot be undone. The source employee record will be deleted and all their data moved to the target.</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeMergeModal()">Cancel</button>
+        <button type="button" class="btn btn-danger" onclick="executeMerge()">
+          <span class="material-icons-round">merge</span>
+          Merge Employees
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Uniform Size Configuration Card -->
+  <div class="card sizes-card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">straighten</span> Uniform Size Configuration</h2>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">Configure available waist and inseam sizes for pants. These sizes appear in both the admin order form and the employee request form.</p>
+      
+      <div class="size-config-grid">
+        <!-- Female Pants -->
+        <div class="size-config-section">
+          <h4><span class="material-icons-round">female</span> Female Pants</h4>
+          <div class="form-group">
+            <label>Waist Sizes</label>
+            <input type="text" id="sizeFemaleWaist" class="form-control" placeholder="00, 0, 2, 4, 6...">
+            <small class="form-hint">Comma-separated list of waist sizes</small>
+          </div>
+          <div class="form-group">
+            <label>Inseam Sizes</label>
+            <input type="text" id="sizeFemaleInseam" class="form-control" placeholder="29, 31, 33, 35">
+            <small class="form-hint">Comma-separated list of inseam lengths</small>
+          </div>
+        </div>
+        
+        <!-- Male Pants -->
+        <div class="size-config-section">
+          <h4><span class="material-icons-round">male</span> Male Pants</h4>
+          <div class="form-group">
+            <label>Waist Sizes</label>
+            <input type="text" id="sizeMaleWaist" class="form-control" placeholder="28, 30, 32, 34...">
+            <small class="form-hint">Comma-separated list of waist sizes</small>
+          </div>
+          <div class="form-group">
+            <label>Inseam Sizes</label>
+            <input type="text" id="sizeMaleInseam" class="form-control" placeholder="28, 30, 32, 34, 36">
+            <small class="form-hint">Comma-separated list of inseam lengths</small>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Shorts (if needed) -->
+      <div class="size-config-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--gray-200);">
+        <h4><span class="material-icons-round">content_cut</span> Shorts</h4>
+        <div class="size-config-grid">
+          <div class="form-group">
+            <label>Waist Sizes</label>
+            <input type="text" id="sizeShortsWaist" class="form-control" placeholder="XS, S, M, L, XL...">
+            <small class="form-hint">Comma-separated list of waist/overall sizes</small>
+          </div>
+          <div class="form-group">
+            <label>Inseam Sizes</label>
+            <input type="text" id="sizeShortsInseam" class="form-control" placeholder="30, 32, 34">
+            <small class="form-hint">Comma-separated list of inseam lengths</small>
+          </div>
+        </div>
+      </div>
+      
+      <div class="size-config-actions" style="margin-top: 20px; display: flex; gap: 12px; align-items: center;">
+        <button type="button" class="btn btn-primary" onclick="saveSizeConfig()">
+          <span class="material-icons-round">save</span> Save Size Configuration
+        </button>
+        <button type="button" class="btn btn-outline" onclick="resetSizeConfigToDefaults()">
+          <span class="material-icons-round">restart_alt</span> Reset to Defaults
+        </button>
+        <span id="sizeConfigStatus" style="margin-left: auto; font-size: 0.85rem; color: var(--gray-500);"></span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- System Health Card -->
+  <div class="card system-health-card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">monitor_heart</span> System Health
+        <span class="tooltip-icon" tabindex="0">
+          <span class="material-icons-round">help_outline</span>
+          <span class="tooltip-text">Automated checks that detect data issues, missing sheets, stale orders, and other problems. Green = healthy, Yellow = review needed, Red = action required.</span>
+        </span>
+      </h2>
+      <span class="badge badge-success" id="healthBadge">✓ Healthy</span>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">Monitor the health of your payroll system and catch issues early.</p>
+      <div class="health-preview" id="healthPreview">
+        <div class="health-stat">
+          <span class="material-icons-round" style="color: var(--success);">check_circle</span>
+          <span>All sheets present</span>
+        </div>
+        <div class="health-stat">
+          <span class="material-icons-round" style="color: var(--success);">check_circle</span>
+          <span>ID counters active</span>
+        </div>
+      </div>
+      <button type="button" class="btn btn-outline" onclick="navigateTo('system-health')" style="margin-top: 16px;">
+        <span class="material-icons-round">open_in_new</span> View Full Health Check
+      </button>
+    </div>
+  </div>
+  
+  <!-- Data Archive Card -->
+  <div class="card archive-card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">archive</span> Data Archive
+        <span class="tooltip-icon" tabindex="0">
+          <span class="material-icons-round">help_outline</span>
+          <span class="tooltip-text">Moves old completed orders and OT data to separate archive sheets. Keeps your main sheets fast and clean. Archived data is preserved and accessible.</span>
+        </span>
+      </h2>
+      <span class="badge" id="archiveBadge">Loading...</span>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">Automatically archive old completed orders and OT data to keep your system fast.</p>
+      
+      <div class="archive-status" id="archiveStatus">
+        <div class="archive-stat">
+          <span class="material-icons-round" style="color: var(--gray-400);">schedule</span>
+          <span>Checking auto-archive status...</span>
+        </div>
+      </div>
+      
+      <div class="archive-actions" style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-outline" onclick="previewArchive()">
+          <span class="material-icons-round">preview</span> Preview Archive
+        </button>
+        <button type="button" class="btn btn-primary" onclick="runManualArchive()">
+          <span class="material-icons-round">archive</span> Run Archive Now
+        </button>
+      </div>
+      
+      <div class="archive-trigger-section" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--gray-200);">
+        <h4 style="margin-bottom: 8px; font-size: 0.9rem; color: var(--gray-700);">Automatic Archive</h4>
+        <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 12px;">
+          When enabled, old data is automatically archived on January 1st each year.
+        </p>
+        <div id="archiveTriggerControls">
+          <button type="button" class="btn btn-outline btn-sm" onclick="toggleArchiveTrigger()">
+            <span class="material-icons-round">schedule</span> Enable Auto-Archive
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Activity Log Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">history</span> Activity Log</h2>
+      <button type="button" class="btn btn-outline btn-sm" onclick="refreshActivityLog()">
+        <span class="material-icons-round">refresh</span> Refresh
+      </button>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">Recent changes and actions in the system</p>
+      <div id="activityLogContainer" class="activity-log-list">
+        <div class="loading-placeholder">
+          <span class="material-icons-round spin">sync</span>
+          <span>Loading activity...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Data Backup Card (Chunk 20) -->
+  <div class="card backup-card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">backup</span> Data Backup</h2>
+      <span class="badge" id="backupBadge">Loading...</span>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">
+        Automatic monthly backups protect your data. All sheets are exported to Google Drive as CSV files.
+      </p>
+      
+      <!-- Last Backup Status -->
+      <div class="backup-status-card" id="backupStatusCard">
+        <div class="backup-status-icon" id="backupStatusIcon">
+          <span class="material-icons-round">cloud_queue</span>
+        </div>
+        <div class="backup-status-details">
+          <div class="backup-status-title" id="backupStatusTitle">Checking backup status...</div>
+          <div class="backup-status-meta" id="backupStatusMeta"></div>
+        </div>
+        <a href="#" id="backupViewLink" class="btn btn-outline btn-sm" style="display: none;" target="_blank">
+          <span class="material-icons-round">folder_open</span> View
+        </a>
+      </div>
+      
+      <!-- Backup Actions -->
+      <div class="backup-actions" style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary" onclick="runBackupNow()" id="runBackupBtn">
+          <span class="material-icons-round">backup</span> Run Backup Now
+        </button>
+      </div>
+      
+      <!-- Auto-Backup Section -->
+      <div class="backup-auto-section" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--gray-200);">
+        <h4 style="margin-bottom: 8px; font-size: 0.9rem; color: var(--gray-700);">
+          <span class="material-icons-round" style="font-size: 18px; vertical-align: middle;">schedule</span>
+          Automatic Monthly Backup
+        </h4>
+        <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 12px;">
+          When enabled, a full backup runs automatically on the first Sunday of each month at 2:00 AM.
+        </p>
+        <div id="autoBackupControls">
+          <div class="auto-backup-status" id="autoBackupStatus">
+            <span class="material-icons-round spin">sync</span>
+            <span>Checking...</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Backup Contents Info -->
+      <div class="backup-contents" style="margin-top: 24px; padding: 16px; background: var(--gray-50); border-radius: 8px;">
+        <h4 style="margin: 0 0 12px 0; font-size: 0.85rem; color: var(--gray-600);">What Gets Backed Up:</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; font-size: 0.8rem; color: var(--gray-600);">
+          <span>📋 Uniform Orders</span>
+          <span>👥 Employee Roster</span>
+          <span>👔 Uniform Catalog</span>
+          <span>⏱️ Overtime History</span>
+          <span>🏖️ PTO Records</span>
+          <span>📝 Activity Log</span>
+          <span>⚙️ Settings</span>
+          <span>🔢 System Counters</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Time Capsule & Easter Eggs Card -->
+  <div class="card tools-card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">auto_awesome</span> Special</h2>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">Mysteries and hidden features</p>
+      
+      <div class="tools-grid">
+        <div class="tool-item" onclick="openTimeCapsule()">
+          <span class="tool-icon">📦</span>
+          <div class="tool-info">
+            <span class="tool-name">Time Capsule</span>
+            <span class="tool-desc">Locked until 2028</span>
+          </div>
+        </div>
+        
+        <div class="tool-item" onclick="showEasterEggList()">
+          <span class="tool-icon">🥚</span>
+          <div class="tool-info">
+            <span class="tool-name">Easter Eggs</span>
+            <span class="tool-desc" id="toolsEggCount">0/5 found</span>
+          </div>
+        </div>
+      </div>
+      
+      <p class="text-muted" style="font-size: 0.8rem; margin-top: 16px; font-style: italic;">
+        Rumor has it there are hidden tools in this system... 🤫
+      </p>
+    </div>
+  </div>
+  
+  <!-- Save Button -->
+  <div class="settings-actions">
+    <button type="button" class="btn btn-primary btn-lg" onclick="saveAllSettings()">
+      <span class="material-icons-round">save</span> Save All Settings
+    </button>
+  </div>
+  
+</div>
+
+<style>
+.settings-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 32px;
+}
+
+.settings-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--gray-100);
+}
+
+.settings-section h3 .material-icons-round {
+  font-size: 20px;
+  color: var(--primary);
+}
+
+.form-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--gray-500);
+  margin-top: 4px;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  display: none;
+}
+
+.toggle-slider {
+  width: 44px;
+  height: 24px;
+  background: var(--gray-300);
+  border-radius: 24px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: white;
+  border-radius: 50%;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--success);
+}
+
+.toggle-switch input:checked + .toggle-slider::after {
+  transform: translateX(20px);
+}
+
+.toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-600);
+}
+
+/* Notification Options */
+.notification-types h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 12px;
+}
+
+.notification-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.checkbox-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.checkbox-option:hover {
+  border-color: var(--primary);
+  background: white;
+}
+
+.checkbox-option input {
+  margin-top: 4px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
+.checkbox-option .option-content {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+}
+
+.checkbox-option .option-content .material-icons-round {
+  font-size: 24px;
+  color: var(--gray-400);
+}
+
+.checkbox-option input:checked ~ .option-content .material-icons-round {
+  color: var(--primary);
+}
+
+.checkbox-option .option-content strong {
+  display: block;
+  font-size: 14px;
+  color: var(--gray-800);
+  margin-bottom: 2px;
+}
+
+.checkbox-option .option-content small {
+  display: block;
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+/* Activity Log */
+.activity-log-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.activity-icon.pto { background: #DBEAFE; color: #2563EB; }
+.activity-icon.uniform { background: #FEF3C7; color: #D97706; }
+.activity-icon.payroll { background: #D1FAE5; color: #059669; }
+.activity-icon.ot { background: #FEE2E2; color: #DC2626; }
+.activity-icon.settings { background: #E5E7EB; color: #4B5563; }
+
+.activity-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-content strong {
+  display: block;
+  font-size: 14px;
+  color: var(--gray-800);
+  margin-bottom: 2px;
+}
+
+.activity-content p {
+  font-size: 13px;
+  color: var(--gray-600);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-meta {
+  font-size: 12px;
+  color: var(--gray-400);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.activity-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--gray-500);
+}
+
+.activity-empty .material-icons-round {
+  font-size: 48px;
+  color: var(--gray-300);
+  margin-bottom: 12px;
+  display: block;
+}
+
+/* Settings Actions */
+.settings-actions {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(to top, white 70%, transparent);
+  padding: 24px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.btn-lg {
+  padding: 14px 32px;
+  font-size: 16px;
+}
+
+/* Loading */
+.loading-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--gray-500);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* System Health Card */
+.system-health-card .card-header {
+  border-bottom: 2px solid var(--success-light, #DCFCE7);
+}
+
+.health-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.health-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--gray-700);
+}
+
+.health-stat .material-icons-round {
+  font-size: 20px;
+}
+
+/* Archive Card */
+.archive-card .card-header {
+  border-bottom: 2px solid #E0E7FF;
+}
+
+.archive-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.archive-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--gray-700);
+}
+
+.archive-stat .material-icons-round {
+  font-size: 20px;
+}
+
+/* Disabled state for notification settings */
+#notificationSettings.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Dark mode overrides for settings page */
+:root.dark-mode .settings-actions {
+  background: linear-gradient(to top, #0f0f1a 70%, transparent);
+}
+
+:root.dark-mode .backup-info {
+  background: var(--gray-200);
+}
+
+:root.dark-mode .backup-item {
+  background: var(--gray-200);
+}
+
+:root.dark-mode .checkbox-option {
+  background: var(--gray-200);
+  border-color: var(--gray-300);
+}
+
+:root.dark-mode .checkbox-option:hover {
+  background: var(--gray-100);
+  border-color: var(--cfa-red);
+}
+
+:root.dark-mode .comment-input-wrapper {
+  background: var(--gray-200);
+  border-color: var(--gray-300);
+}
+
+:root.dark-mode .activity-log-list {
+  border-color: var(--gray-300);
+}
+
+:root.dark-mode .activity-item {
+  border-color: var(--gray-300);
+}
+
+:root.dark-mode .form-hint {
+  color: var(--gray-500);
+}
+
+/* Backup Card Styles (Chunk 20) */
+.backup-card .card-header {
+  border-bottom: 2px solid #DBEAFE;
+}
+
+.backup-status-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--gray-50);
+  border-radius: 10px;
+  border: 1px solid var(--gray-200);
+}
+
+.backup-status-card.success {
+  background: #D1FAE5;
+  border-color: #10B981;
+}
+
+.backup-status-card.warning {
+  background: #FEF3C7;
+  border-color: #F59E0B;
+}
+
+.backup-status-card.error {
+  background: #FEE2E2;
+  border-color: #EF4444;
+}
+
+.backup-status-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.backup-status-icon .material-icons-round {
+  font-size: 28px;
+  color: var(--gray-400);
+}
+
+.backup-status-card.success .backup-status-icon .material-icons-round {
+  color: #10B981;
+}
+
+.backup-status-card.warning .backup-status-icon .material-icons-round {
+  color: #F59E0B;
+}
+
+.backup-status-card.error .backup-status-icon .material-icons-round {
+  color: #EF4444;
+}
+
+.backup-status-details {
+  flex: 1;
+}
+
+.backup-status-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--gray-800);
+}
+
+.backup-status-meta {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+  margin-top: 2px;
+}
+
+.auto-backup-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--gray-100);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--gray-600);
+}
+
+.auto-backup-status.enabled {
+  background: #D1FAE5;
+  color: #059669;
+}
+
+.auto-backup-status.enabled .material-icons-round {
+  color: #10B981;
+}
+
+.auto-backup-status.disabled {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+/* Tools & Extras Card */
+.tools-card .card-header {
+  border-bottom: 2px solid #E9D5FF;
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.tool-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--gray-50);
+  border-radius: 10px;
+  border: 1px solid var(--gray-200);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tool-item:hover {
+  background: var(--gray-100);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+}
+
+.tool-icon {
+  font-size: 32px;
+}
+
+.tool-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tool-name {
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.tool-desc {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+}
+
+/* Uniform Size Configuration Card */
+.sizes-card .card-header {
+  border-bottom: 2px solid #C7D2FE;
+}
+
+.size-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.size-config-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--gray-100);
+}
+
+.size-config-section h4 .material-icons-round {
+  font-size: 20px;
+  color: var(--primary);
+}
+
+.size-config-section .form-group {
+  margin-bottom: 12px;
+}
+
+.size-config-section .form-control {
+  font-family: 'SF Mono', Monaco, 'Consolas', monospace;
+  font-size: 13px;
+}
+
+/* ===== Employee Management Styles ===== */
+.employee-mgmt-card {
+  margin-bottom: 24px;
+}
+
+.mgmt-section {
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.mgmt-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.section-title h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  flex: 1;
+}
+
+.section-title .material-icons-round {
+  color: var(--primary);
+}
+
+.section-desc {
+  margin: 0 0 14px 0;
+  font-size: 0.85rem;
+  color: var(--gray-500);
+}
+
+.duplicates-list, .review-list {
+  background: var(--gray-50);
+  border-radius: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.empty-state-small {
+  padding: 24px;
+  text-align: center;
+  color: var(--gray-500);
+}
+
+.empty-state-small .material-icons-round {
+  font-size: 32px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.empty-state-small p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.duplicate-pair, .review-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--gray-200);
+  background: white;
+}
+
+.duplicate-pair:first-child, .review-item:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.duplicate-pair:last-child, .review-item:last-child {
+  border-bottom: none;
+  border-radius: 0 0 8px 8px;
+}
+
+.duplicate-pair:only-child, .review-item:only-child {
+  border-radius: 8px;
+}
+
+.duplicate-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.duplicate-info strong {
+  color: var(--gray-800);
+}
+
+.duplicate-info .vs {
+  color: var(--gray-400);
+  font-size: 0.9rem;
+}
+
+.similarity-badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  background: #FEF3C7;
+  color: #92400E;
+  border-radius: 4px;
+}
+
+.review-item-info {
+  flex: 1;
+}
+
+.review-item-name {
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.review-item-meta {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+  margin-top: 2px;
+}
+
+.review-item-warning {
+  font-size: 0.75rem;
+  color: #D97706;
+  background: #FEF3C7;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+.audit-log-table {
+  max-height: 250px;
+  overflow-y: auto;
+  font-size: 0.85rem;
+}
+
+.audit-log-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.audit-log-table th, .audit-log-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.audit-log-table th {
+  background: var(--gray-100);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--gray-600);
+  position: sticky;
+  top: 0;
+}
+
+.audit-log-table tr:hover {
+  background: var(--gray-50);
+}
+
+.method-badge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.method-badge.ot-upload {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.method-badge.uniform-order {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.method-badge.merge {
+  background: #E0E7FF;
+  color: #4338CA;
+}
+
+/* Merge Modal Styles */
+.merge-impact {
+  background: var(--gray-50);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.merge-impact h4 {
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+}
+
+.merge-impact ul {
+  margin: 0;
+  padding: 0 0 0 20px;
+}
+
+.merge-impact li {
+  margin: 4px 0;
+  color: var(--gray-600);
+}
+
+.merge-direction {
+  margin-bottom: 16px;
+}
+
+.merge-direction p {
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 6px 0;
+  background: var(--gray-50);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.radio-option:hover {
+  background: var(--gray-100);
+}
+
+.radio-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
+.merge-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #7F1D1D;
+}
+
+.merge-warning .material-icons-round {
+  color: #DC2626;
+  flex-shrink: 0;
+}
+
+.btn-danger {
+  background: #DC2626;
+  color: white;
+  border: none;
+}
+
+.btn-danger:hover {
+  background: #B91C1C;
+}
+</style>
+
+</template>
 <template id="pv-PayrollProcessing">
 <!-- Payroll Processing View -->
 <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
@@ -23329,6 +26263,23 @@ document.addEventListener('click', function(e) {
 
 </template>
 
+
+<script>
+(function () {
+  function calNote() {
+    var el = document.getElementById('payrollCalendarWidget');
+    if (el) el.innerHTML = '<div class="empty-state" style="padding:32px 16px;text-align:center;">'
+      + '<span class="material-icons-round" style="font-size:40px;color:#cbd5e1;">event_busy</span>'
+      + '<h3 style="margin:8px 0 4px;">Calendar not available in demo</h3>'
+      + '<p style="color:#64748b;font-size:0.9rem;">The live payroll calendar syncs with Google Calendar.</p></div>';
+  }
+  window.loadPayrollCalendar = calNote;
+  window.refreshPayrollCalendar = calNote;
+  // Dashboard quick-buttons open the live demo forms in a new tab
+  window.openPTOForm = function () { window.open('pto-request.html', '_blank'); };
+  window.openUniformForm = function () { window.open('uniform-request.html', '_blank'); };
+})();
+</script>
 </body>
 </html>
 
