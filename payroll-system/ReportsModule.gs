@@ -9,9 +9,9 @@
 
 const PAYROLL_SETTINGS_SHEET = 'Payroll_Settings';
 
-// Reference payday: Friday, November 28, 2025 (also aligns with Nov 29, 2024)
-// Using noon to avoid any timezone edge cases
-const REFERENCE_PAYDAY = new Date(2025, 10, 28, 12, 0, 0); // Month is 0-indexed, Nov 28 2025 is Friday
+// The payday reference date is the operator-editable `paydayReference` setting.
+// All payday math goes through PaydayModule.gs (getPaydayReferenceDate_,
+// generatePaydaySeries_, getPaydayForDate_, getPayPeriodForPayday_).
 
 // =====================================================
 // PAYROLL SETTINGS - INITIALIZATION
@@ -48,7 +48,8 @@ function initializePayrollSettings() {
     ['next_payroll_date', formatDateISO(nextPayday), 'Next Friday payroll date', today],
     ['payroll_day_of_week', 'Friday', 'Day of week employees get paid', today],
     ['last_payroll_processed', '', 'Most recent payroll date that was marked complete', today],
-    ['default_ot_rate', '16.50', 'Default hourly rate for OT cost calculations', today]
+    ['default_ot_rate', '16.50', 'Default hourly rate for OT cost calculations', today],
+    ['admin_access_passcode', '05894', 'Shared passcode for admin dashboard access', today]
   ];
   
   // Add settings
@@ -82,23 +83,19 @@ function initializePayrollSettings() {
 function calculateNextPayday() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
-  // Days since reference payday
-  const daysSinceRef = Math.floor((today - REFERENCE_PAYDAY) / (1000 * 60 * 60 * 24));
-  
-  // Number of complete 14-day periods since reference
-  const periodsSinceRef = Math.floor(daysSinceRef / 14);
-  
-  // Next payday is the next multiple of 14 days from reference
-  let nextPayday = new Date(REFERENCE_PAYDAY);
-  nextPayday.setDate(REFERENCE_PAYDAY.getDate() + ((periodsSinceRef + 1) * 14));
-  
-  // If next payday is today or in the past, get the one after
-  if (nextPayday <= today) {
-    nextPayday.setDate(nextPayday.getDate() + 14);
+
+  // First payday strictly after today, from the canonical series (PaydayModule.gs).
+  const series = generatePaydaySeries_(1, 4);
+  for (let i = 0; i < series.length; i++) {
+    const candidate = new Date(series[i].getTime());
+    candidate.setHours(0, 0, 0, 0);
+    if (candidate > today) return series[i];
   }
-  
-  return nextPayday;
+
+  // Fallback (should never hit): two weeks past the most recent payday
+  const fallback = generatePaydaySeries_(1, 0)[0];
+  fallback.setDate(fallback.getDate() + 14);
+  return fallback;
 }
 
 /**
@@ -364,7 +361,7 @@ function getNextPayrollDate() {
 
 /**
  * Returns payroll dates for dropdowns - includes historical and future dates
- * Uses REFERENCE_PAYDAY (Friday, November 28, 2025) as the calculation base
+ * Uses the canonical payday series (PaydayModule.gs) as the calculation base
  * All paydays are bi-weekly Fridays
  * @param {number} futureCount - How many future dates to return (default 6)
  * @param {number} historyCount - How many past dates to return (default 26 = ~1 year)
@@ -374,54 +371,20 @@ function getUpcomingPayrollDatesFromSettings(futureCount = 6, historyCount = 26)
   try {
     const today = new Date();
     today.setHours(12, 0, 0, 0); // Use noon to avoid timezone edge cases
-    
+
     const dates = [];
-    
-    // Clone REFERENCE_PAYDAY to avoid mutating the constant
-    let mostRecentPayday = new Date(REFERENCE_PAYDAY.getTime());
-    
-    // Move forward until we pass today
-    while (mostRecentPayday < today) {
-      mostRecentPayday.setDate(mostRecentPayday.getDate() + 14);
-    }
-    
-    // If mostRecentPayday is in the future, go back one period
-    if (mostRecentPayday > today) {
-      mostRecentPayday.setDate(mostRecentPayday.getDate() - 14);
-    }
-    
-    // Verify mostRecentPayday is a Friday (day 5)
-    if (mostRecentPayday.getDay() !== 5) {
-      console.error('WARNING: mostRecentPayday is not a Friday! Day of week: ' + mostRecentPayday.getDay() + ', Date: ' + mostRecentPayday);
-    }
-    
-    // Generate historical dates (going backwards from most recent)
-    for (let i = historyCount - 1; i >= 0; i--) {
-      const payDate = new Date(mostRecentPayday.getTime());
-      payDate.setDate(mostRecentPayday.getDate() - (i * 14));
-      
-      // Skip if date is invalid
-      if (isNaN(payDate.getTime())) continue;
-      
+
+    // Canonical series (PaydayModule.gs) — already includes the current payday + history + future.
+    generatePaydaySeries_(historyCount, futureCount).forEach(function(payDate) {
+      if (isNaN(payDate.getTime())) return;
       addPaydayToList(dates, payDate, today);
-    }
-    
-    // Generate future dates (starting from next payday after most recent)
-    for (let i = 1; i <= futureCount; i++) {
-      const payDate = new Date(mostRecentPayday.getTime());
-      payDate.setDate(mostRecentPayday.getDate() + (i * 14));
-      
-      // Skip if date is invalid
-      if (isNaN(payDate.getTime())) continue;
-      
-      addPaydayToList(dates, payDate, today);
-    }
-    
+    });
+
     // Sort by date (oldest first)
     dates.sort((a, b) => new Date(a.date + 'T12:00:00') - new Date(b.date + 'T12:00:00'));
-    
+
     return dates;
-    
+
   } catch (error) {
     console.error('Error getting upcoming payroll dates:', error);
     return [];
@@ -517,26 +480,13 @@ function advancePayrollDate() {
  * @returns {Object} Object with periodStart and periodEnd dates
  */
 function calculatePayPeriodDates(payrollDate) {
-  const payday = new Date(payrollDate);
-  if (typeof payrollDate === 'string') {
-    payday.setTime(new Date(payrollDate + 'T12:00:00').getTime());
-  }
-  
-  // Period end is Saturday, 6 days before Friday payday
-  // Actually, if payday is Friday, period ends the Saturday BEFORE that
-  // Friday Dec 13 payday -> Period ends Saturday Dec 7
-  const periodEnd = new Date(payday);
-  periodEnd.setDate(periodEnd.getDate() - 6); // Go back to Saturday
-  
-  // Period start is 13 days before period end (14 day period)
-  const periodStart = new Date(periodEnd);
-  periodStart.setDate(periodStart.getDate() - 13);
-  
+  // Canonical pay-period math lives in PaydayModule.gs (getPayPeriodForPayday_).
+  const period = getPayPeriodForPayday_(payrollDate);
   return {
-    periodStart: periodStart,
-    periodStartString: formatDateISO(periodStart),
-    periodEnd: periodEnd,
-    periodEndString: formatDateISO(periodEnd)
+    periodStart: period.periodStart,
+    periodStartString: formatDateISO(period.periodStart),
+    periodEnd: period.periodEnd,
+    periodEndString: formatDateISO(period.periodEnd)
   };
 }
 
@@ -708,6 +658,124 @@ function getOvertimeForPayroll(ss, periodEndDate) {
   }
 }
 
+// =====================================================
+// UNIFORM DEDUCTION CORE MATH (single source of truth)
+// -----------------------------------------------------
+// Every uniform-deduction calculation in the system (payroll report, deductions
+// view, dashboard metrics) flows through these two helpers so the dollar amount
+// and the "which payday does this check land on" decision are computed in exactly
+// one place. Do not re-implement this math elsewhere.
+// =====================================================
+
+/**
+ * Normalizes a stored First_Deduction_Date (Date or string) to a 'YYYY-MM-DD' string.
+ * Spreadsheet date cells come back as a Date; we read UTC components because dates are
+ * written either as local-noon (parseLocalDate_) or legacy midnight-UTC, and both resolve
+ * to the correct calendar day under UTC components for US timezones.
+ * @param {Date|string} value
+ * @returns {string|null}
+ */
+function normalizeFirstDeductionStr_(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    const year = value.getUTCFullYear();
+    const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(value.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  const parsed = new Date(String(value).indexOf('T') !== -1 ? value : value + 'T12:00:00');
+  if (isNaN(parsed.getTime())) return null;
+  return formatDateISO(parsed);
+}
+
+/**
+ * Resolves an order's payment context. Honors Needs_Review (stored schedule preserved
+ * until a manager resolves it); otherwise uses the live (non-cancelled) line-item total.
+ * @param {Object} params - { firstDeductionRaw, paymentSchedule, checksCompleted,
+ *                            storedTotal, storedPerCheck, liveTotal, needsReview }
+ * @returns {Object|null} { firstDeductionStr, paymentSchedule, checksCompleted,
+ *                          totalAmount, amountPerCheck } or null if no valid deduction date
+ */
+function buildUniformOrderContext_(params) {
+  const firstDeductionStr = normalizeFirstDeductionStr_(params.firstDeductionRaw);
+  if (!firstDeductionStr) return null;
+
+  const paymentSchedule = parseInt(params.paymentSchedule) || 1;
+  const checksCompleted = parseInt(params.checksCompleted) || 0;
+  const storedTotal = parseFloat(params.storedTotal) || 0;
+  const storedPerCheck = parseFloat(params.storedPerCheck) || 0;
+  const liveTotal = (params.liveTotal !== undefined && params.liveTotal !== null)
+    ? parseFloat(params.liveTotal) || 0
+    : storedTotal;
+
+  let totalAmount;
+  let amountPerCheck;
+  if (params.needsReview) {
+    totalAmount = storedTotal;
+    amountPerCheck = storedPerCheck > 0
+      ? storedPerCheck
+      : (storedTotal > 0 ? Math.round((storedTotal / paymentSchedule) * 100) / 100 : 0);
+  } else {
+    totalAmount = liveTotal;
+    amountPerCheck = totalAmount > 0 ? Math.round((totalAmount / paymentSchedule) * 100) / 100 : 0;
+  }
+
+  return {
+    firstDeductionStr: firstDeductionStr,
+    paymentSchedule: paymentSchedule,
+    checksCompleted: checksCompleted,
+    totalAmount: totalAmount,
+    amountPerCheck: amountPerCheck
+  };
+}
+
+/**
+ * Determines whether a given payday lands on one of an order's deduction dates, and if so
+ * which check it is and how much to deduct (final check absorbs the rounding remainder).
+ * @param {Object} ctx - output of buildUniformOrderContext_
+ * @param {string} paydayStr - target payday 'YYYY-MM-DD'
+ * @returns {Object} { lands, checkNumber, checksRemaining, isFinalPayment, deductionAmount,
+ *                     alreadyRecorded, amountRemaining, deductionDateStrs }
+ */
+function computeUniformDeduction_(ctx, paydayStr) {
+  const result = {
+    lands: false, checkNumber: 0, checksRemaining: 0, isFinalPayment: false,
+    deductionAmount: 0, alreadyRecorded: false, amountRemaining: 0, deductionDateStrs: []
+  };
+  if (!ctx || !ctx.firstDeductionStr) return result;
+
+  // Build the full schedule of deduction date strings (local-noon math, no UTC drift).
+  const baseDate = new Date(ctx.firstDeductionStr + 'T12:00:00');
+  for (let i = 0; i < ctx.paymentSchedule; i++) {
+    const d = new Date(baseDate);
+    d.setDate(d.getDate() + (i * 14));
+    result.deductionDateStrs.push(formatDateISO(d));
+  }
+
+  const checkIndex = result.deductionDateStrs.indexOf(paydayStr);
+  if (checkIndex === -1) return result;
+
+  result.lands = true;
+  const checkNumber = checkIndex + 1;
+  result.checkNumber = checkNumber;
+  result.checksRemaining = ctx.paymentSchedule - checkNumber;
+  result.isFinalPayment = checkNumber === ctx.paymentSchedule;
+  result.alreadyRecorded = checkIndex < ctx.checksCompleted;
+
+  // Use schedule position (not recorded count) so unrecorded prior checks don't inflate this one.
+  let deductionAmount = ctx.amountPerCheck;
+  if (result.isFinalPayment) {
+    const paidSoFar = (checkNumber - 1) * ctx.amountPerCheck;
+    deductionAmount = Math.round((ctx.totalAmount - paidSoFar) * 100) / 100;
+  }
+  result.deductionAmount = deductionAmount;
+
+  const priorPayments = (checkNumber - 1) * ctx.amountPerCheck;
+  result.amountRemaining = Math.max(0, Math.round((ctx.totalAmount - priorPayments - deductionAmount) * 100) / 100);
+
+  return result;
+}
+
 /**
  * Gets uniform deductions for the payroll report
  * Calculates which orders have a deduction on this specific payday
@@ -720,9 +788,13 @@ function getUniformDeductionsForPayroll(ss, payday) {
       return { employeeCount: 0, totalDeductions: 0, orders: [] };
     }
     
-    const paydayStr = formatDateISO(payday);
-    console.log(`getUniformDeductionsForPayroll called with payday: ${payday}, formatted as: ${paydayStr}`);
-    
+    // Accept either a Date or a 'YYYY-MM-DD' string. Parse strings at local noon so
+    // formatDateISO doesn't shift the day backward in negative-UTC-offset timezones.
+    const paydayDate = (payday instanceof Date)
+      ? payday
+      : new Date(String(payday).indexOf('T') !== -1 ? payday : payday + 'T12:00:00');
+    const paydayStr = formatDateISO(paydayDate);
+
     // Read items sheet once — build both totals map and items-by-order map
     // Skip cancelled items (Item_Status === 'Cancelled') so they don't inflate totals
     const lineItemTotals = {};
@@ -761,9 +833,7 @@ function getUniformDeductionsForPayroll(ss, payday) {
     const oReasonCol = oHeaders.indexOf('Review_Reason');
     const oPerCheckCol = oHeaders.indexOf('Amount_Per_Paycheck');
     const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
-    
-    console.log(`Total rows in Uniform_Orders: ${data.length}`);
-    
+
     const orders = [];
     let activeCount = 0;
     let noFirstDeductionCount = 0;
@@ -771,122 +841,56 @@ function getUniformDeductionsForPayroll(ss, payday) {
     data.forEach((row, index) => {
       const orderId = row[0];
       if (!orderId) return;
-      
+
       const status = row[12]; // Status column
-      const firstDeductionDate = row[8]; // First_Deduction_Date
-      
-      // Debug: Log all orders regardless of status (show raw date for troubleshooting)
-      if (index < 10) {
-        console.log(`Row ${index}: OrderID=${orderId}, Status=${status}, FirstDeduction=${firstDeductionDate}`);
-      }
-      
       if (status !== 'Active') return; // Only active orders
       activeCount++;
-      
+
+      const firstDeductionDate = row[8]; // First_Deduction_Date
       if (!firstDeductionDate) {
         noFirstDeductionCount++;
-        console.log(`Order ${orderId} is Active but has NO First_Deduction_Date!`);
         return;
       }
-      
-      // Get the first deduction date as an ISO string for consistent comparison
-      // IMPORTANT: Dates from Google Sheets are stored as midnight UTC, but displayed in local time.
-      // When the spreadsheet stores "2026-01-09", it comes back as midnight UTC Jan 9 = 6PM CST Jan 8
-      // We need to use UTC components to get the actual date that was stored.
-      let firstDeductionStr;
-      if (firstDeductionDate instanceof Date) {
-        // Use UTC components to avoid timezone shift issues with spreadsheet dates
-        const year = firstDeductionDate.getUTCFullYear();
-        const month = String(firstDeductionDate.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(firstDeductionDate.getUTCDate()).padStart(2, '0');
-        firstDeductionStr = `${year}-${month}-${day}`;
-      } else {
-        // It's a string - parse and format to ensure consistency
-        const parsed = new Date(firstDeductionDate + 'T12:00:00'); // Parse as local noon
-        if (isNaN(parsed.getTime())) return;
-        firstDeductionStr = formatDateISO(parsed);
-      }
-      
-      const paymentSchedule = parseInt(row[6]) || 1;
-      const checksCompleted = parseInt(row[9]) || 0;
-      
+
       // Flagged orders (Needs_Review) keep their stored schedule until manager resolves —
       // per-check amount stays as-is so payments continue on the original plan.
       // Unflagged orders recompute from live (non-cancelled) line items.
       const needsReview = oNeedsCol >= 0 ? (row[oNeedsCol] === true || row[oNeedsCol] === 'TRUE') : false;
       const reviewReason = oReasonCol >= 0 ? (row[oReasonCol] || '') : '';
-      const storedTotal = parseFloat(row[5]) || 0;
-      const storedPerCheck = oPerCheckCol >= 0 ? (parseFloat(row[oPerCheckCol]) || 0) : 0;
-      const liveTotal = lineItemTotals[orderId] !== undefined ? lineItemTotals[orderId] : storedTotal;
 
-      let totalAmount;
-      let amountPerCheck;
-      if (needsReview) {
-        // Honor stored schedule — manager must resolve via Credit Forward / Shrink Payments
-        totalAmount = storedTotal;
-        amountPerCheck = storedPerCheck > 0
-          ? storedPerCheck
-          : (storedTotal > 0 ? Math.round((storedTotal / paymentSchedule) * 100) / 100 : 0);
-      } else {
-        totalAmount = liveTotal;
-        amountPerCheck = totalAmount > 0 ? Math.round((totalAmount / paymentSchedule) * 100) / 100 : 0;
-      }
-      
-      // Calculate all deduction date STRINGS for this order (avoids timezone issues)
-      const deductionDateStrs = [];
-      // Parse firstDeductionStr as local noon to avoid any timezone drift when adding days
-      const baseDate = new Date(firstDeductionStr + 'T12:00:00');
-      for (let i = 0; i < paymentSchedule; i++) {
-        const deductionDate = new Date(baseDate);
-        deductionDate.setDate(deductionDate.getDate() + (i * 14));
-        deductionDateStrs.push(formatDateISO(deductionDate));
-      }
-      
-      // Debug log for troubleshooting (now showing corrected date string)
-      console.log(`Order ${orderId}: firstDeduction=${firstDeductionStr}, payday=${paydayStr}, deductionDates=${deductionDateStrs.join(',')}, match=${deductionDateStrs.includes(paydayStr)}`);
-      
-      // Check if this payday matches any of the remaining deduction dates
-      const checkIndex = deductionDateStrs.findIndex(dStr => dStr === paydayStr);
-      
-      if (checkIndex === -1) return; // No deduction on this date
-      
-      const alreadyRecorded = checkIndex < checksCompleted;
-      
-      const checkNumber = checkIndex + 1;
-      const checksRemaining = paymentSchedule - checkNumber;
-      const isFinalPayment = checkNumber === paymentSchedule;
-      
-      // Calculate deduction amount (last check gets rounding remainder)
-      // Use schedule position (checkNumber - 1) not recorded payments (checksCompleted)
-      // to avoid inflated "catch-up" deductions when prior checks haven't been recorded yet
-      let deductionAmount = amountPerCheck;
-      if (isFinalPayment) {
-        const priorCheckCount = checkNumber - 1;
-        const paidSoFar = priorCheckCount * amountPerCheck;
-        deductionAmount = Math.round((totalAmount - paidSoFar) * 100) / 100;
-      }
-      
-      const priorPayments = (checkNumber - 1) * amountPerCheck;
-      const amountRemaining = Math.round((totalAmount - priorPayments - deductionAmount) * 100) / 100;
-      
+      // Single source of truth for the date + dollar math.
+      const ctx = buildUniformOrderContext_({
+        firstDeductionRaw: firstDeductionDate,
+        paymentSchedule: row[6],
+        checksCompleted: row[9],
+        storedTotal: row[5],
+        storedPerCheck: oPerCheckCol >= 0 ? row[oPerCheckCol] : 0,
+        liveTotal: lineItemTotals[orderId],
+        needsReview: needsReview
+      });
+      if (!ctx) return;
+
+      const calc = computeUniformDeduction_(ctx, paydayStr);
+      if (!calc.lands) return; // No deduction on this date
+
       const items = itemsByOrderId[orderId] || [];
-      
+
       orders.push({
         employeeId: row[1],
         employeeName: row[2],
         location: row[3] || 'Unknown',
         orderId: orderId,
         orderDate: row[4] ? formatDateISO(new Date(row[4])) : '',
-        totalOrderCost: totalAmount,
-        paymentSchedule: paymentSchedule,
-        amountPerCheck: amountPerCheck,
-        checkNumber: checkNumber,
-        checksCompleted: checksCompleted,
-        checksRemaining: checksRemaining,
-        deductionAmount: alreadyRecorded ? 0 : deductionAmount,
-        amountRemaining: Math.max(0, amountRemaining),
-        isFinalPayment: isFinalPayment,
-        alreadyRecorded: alreadyRecorded,
+        totalOrderCost: ctx.totalAmount,
+        paymentSchedule: ctx.paymentSchedule,
+        amountPerCheck: ctx.amountPerCheck,
+        checkNumber: calc.checkNumber,
+        checksCompleted: ctx.checksCompleted,
+        checksRemaining: calc.checksRemaining,
+        deductionAmount: calc.alreadyRecorded ? 0 : calc.deductionAmount,
+        amountRemaining: calc.amountRemaining,
+        isFinalPayment: calc.isFinalPayment,
+        alreadyRecorded: calc.alreadyRecorded,
         needsReview: needsReview,
         reviewReason: reviewReason,
         cancelledAmount: Math.round((cancelledByOrderId[orderId] || 0) * 100) / 100,
@@ -948,8 +952,6 @@ function getUniformDeductionsForPayroll(ss, payday) {
     // Sort by name for payroll view
     groupedOrders.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
     
-    console.log(`Summary: ${activeCount} active orders, ${noFirstDeductionCount} missing FirstDeduction, ${orders.length} matched payday ${paydayStr}`);
-    
     return {
       employeeCount: groupedOrders.length,
       totalDeductions: Math.round(totalDeductions * 100) / 100,
@@ -961,6 +963,111 @@ function getUniformDeductionsForPayroll(ss, payday) {
   } catch (error) {
     console.error('Error getting uniform deductions for payroll:', error);
     return { employeeCount: 0, totalDeductions: 0, orders: [] };
+  }
+}
+
+/**
+ * Deduction reconciliation health check (on-demand, surfaced in System Health).
+ * Scans every Active uniform order and flags where the stored Total_Amount,
+ * Amount_Per_Paycheck, or Amount_Remaining have drifted from the live (non-cancelled)
+ * line items — i.e. data corruption or manual sheet edits. Needs_Review orders are
+ * reported as informational only (they intentionally hold their stored schedule).
+ * @returns {Object} { success, checkedCount, discrepancyCount, discrepancies, summary }
+ */
+function runDeductionReconciliationCheck() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ordersSheet = ss.getSheetByName('Uniform_Orders');
+    if (!ordersSheet || ordersSheet.getLastRow() < 2) {
+      return { success: true, checkedCount: 0, discrepancyCount: 0, discrepancies: [], summary: 'No uniform orders to check.' };
+    }
+
+    // Live (non-cancelled) line-item totals per order
+    const lineItemTotals = {};
+    const itemsSheet = ss.getSheetByName('Uniform_Order_Items');
+    if (itemsSheet && itemsSheet.getLastRow() >= 2) {
+      const iHeaders = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
+      const iStatusCol = iHeaders.indexOf('Item_Status');
+      const itemsData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, itemsSheet.getLastColumn()).getValues();
+      for (const row of itemsData) {
+        const orderId = row[1];
+        if (!orderId) continue;
+        if (iStatusCol >= 0 && row[iStatusCol] === 'Cancelled') continue;
+        lineItemTotals[orderId] = (lineItemTotals[orderId] || 0) + (parseFloat(row[7]) || 0);
+      }
+    }
+
+    const oHeaders = ordersSheet.getRange(1, 1, 1, ordersSheet.getLastColumn()).getValues()[0];
+    const needsCol = oHeaders.indexOf('Needs_Review');
+    const orderDiscountCol = oHeaders.indexOf('Order_Discount');
+    const data = ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, ordersSheet.getLastColumn()).getValues();
+
+    const discrepancies = [];
+    let checkedCount = 0;
+    const round2 = v => Math.round(v * 100) / 100;
+
+    data.forEach((row, index) => {
+      const orderId = row[0];
+      if (!orderId) return;
+      if (row[12] !== 'Active') return; // Status column
+      checkedCount++;
+
+      const employeeName = row[2] || '';
+      const storedTotal = round2(parseFloat(row[5]) || 0);
+      const paymentPlan = parseInt(row[6]) || 1;
+      const storedPerCheck = round2(parseFloat(row[7]) || 0);
+      const paymentsMade = parseInt(row[9]) || 0;
+      const amountPaid = round2(parseFloat(row[10]) || 0);
+      const storedRemaining = round2(parseFloat(row[11]) || 0);
+      const needsReview = needsCol >= 0 ? (row[needsCol] === true || row[needsCol] === 'TRUE') : false;
+      const oDiscount = orderDiscountCol >= 0 ? (parseFloat(row[orderDiscountCol]) || 0) : 0;
+      const rowNum = index + 2;
+
+      const flag = (field, stored, expected, severity) => {
+        discrepancies.push({ orderId, employeeName, rowIndex: rowNum, field, stored, expected, severity, needsReview });
+      };
+
+      // Payments-made sanity (applies to every order)
+      if (paymentsMade < 0 || paymentsMade > paymentPlan) {
+        flag('Payments_Made', paymentsMade, '0–' + paymentPlan, 'error');
+      }
+
+      // Needs_Review orders intentionally hold their stored schedule — informational only
+      if (needsReview) {
+        flag('Needs_Review', 'flagged', 'manager to resolve', 'info');
+        return;
+      }
+
+      const liveTotal = lineItemTotals[orderId] !== undefined
+        ? round2(Math.max(0, lineItemTotals[orderId] - oDiscount))
+        : storedTotal;
+      const expectedPerCheck = liveTotal > 0 ? round2(liveTotal / paymentPlan) : 0;
+      const expectedRemaining = round2(liveTotal - amountPaid);
+
+      if (Math.abs(liveTotal - storedTotal) >= 0.01) {
+        flag('Total_Amount', storedTotal, liveTotal, 'warning');
+      }
+      if (Math.abs(expectedPerCheck - storedPerCheck) >= 0.01) {
+        flag('Amount_Per_Paycheck', storedPerCheck, expectedPerCheck, 'warning');
+      }
+      if (Math.abs(expectedRemaining - storedRemaining) >= 0.01) {
+        flag('Amount_Remaining', storedRemaining, expectedRemaining, 'warning');
+      }
+    });
+
+    return {
+      success: true,
+      checkedCount: checkedCount,
+      discrepancyCount: discrepancies.length,
+      discrepancies: discrepancies,
+      summary: discrepancies.length === 0
+        ? `All ${checkedCount} active orders are consistent with their line items.`
+        : `${discrepancies.length} discrepancy(ies) found across ${checkedCount} active orders.`
+    };
+
+  } catch (error) {
+    console.error('Error in runDeductionReconciliationCheck:', error);
+    return { success: false, error: error.message };
   }
 }
 
@@ -1814,7 +1921,7 @@ function generatePayrollReportHTML(reportData) {
   </div>
 
   <div class="footer">
-    Generated by Payroll Review • ${new Date().toLocaleString()}
+    Generated by Payroll System • ${new Date().toLocaleString()}
   </div>
 </body>
 </html>
@@ -1844,33 +1951,18 @@ function generatePayrollReportCSV(reportData) {
     return 'Error,Unable to generate report';
   }
   
-  // Collect all unique employees with their data
+  // Collect all unique employees with their data.
+  // All three sources are keyed by a canonical name match-key (generateMatchKey) so the
+  // same person is never split across rows because OT, uniforms, and PTO stored slightly
+  // different IDs for them.
   const employeeMap = new Map();
-  
-  // Process OT employees
-  reportData.overtime.employees.forEach(emp => {
-    if (!employeeMap.has(emp.employeeId)) {
-      employeeMap.set(emp.employeeId, {
-        name: emp.employeeName,
-        location: emp.location,
-        otHours: 0,
-        uniformDeduction: 0,
-        ptoHours: 0,
-        notes: []
-      });
-    }
-    const e = employeeMap.get(emp.employeeId);
-    e.otHours = emp.otHours;
-    if (emp.isMultiLocation) e.notes.push('Multi-location');
-  });
-  
-  // Process uniform deductions
-  reportData.uniformDeductions.orders.forEach(emp => {
-    const location = emp.locations && emp.locations.length === 1 ? emp.locations[0] : (emp.locationSummary || 'Multiple Locations');
-    const key = emp.employeeKey || normalizeEmployeeName(emp.employeeName || '') || (emp.employeeName || '').trim() || (emp.employeeId || '').toString();
+  const keyOf = (name, fallback) =>
+    generateMatchKey(name || '') || (name || '').toString().trim().toLowerCase() || String(fallback || '');
+
+  const getOrCreate = (key, name, location) => {
     if (!employeeMap.has(key)) {
       employeeMap.set(key, {
-        name: emp.employeeName,
+        name: name,
         location: location,
         otHours: 0,
         uniformDeduction: 0,
@@ -1878,33 +1970,37 @@ function generatePayrollReportCSV(reportData) {
         notes: []
       });
     }
-    const e = employeeMap.get(key);
+    return employeeMap.get(key);
+  };
+
+  // Process OT employees
+  reportData.overtime.employees.forEach(emp => {
+    const e = getOrCreate(keyOf(emp.employeeName, emp.employeeId), emp.employeeName, emp.location);
+    e.otHours = emp.otHours;
+    if (emp.isMultiLocation && !e.notes.includes('Multi-location')) e.notes.push('Multi-location');
+  });
+
+  // Process uniform deductions
+  reportData.uniformDeductions.orders.forEach(emp => {
+    const location = emp.locations && emp.locations.length === 1 ? emp.locations[0] : (emp.locationSummary || 'Multiple Locations');
+    const e = getOrCreate(keyOf(emp.employeeName, emp.employeeKey || emp.employeeId), emp.employeeName, location);
     e.uniformDeduction += emp.totalDeduction || 0;
     if ((emp.orders || []).some(o => o.isFinalPayment)) {
       e.notes.push('Final uniform payment');
     }
   });
-  
+
   // Process PTO
   reportData.ptoPayout.requests.forEach(pto => {
-    if (!employeeMap.has(pto.employeeId)) {
-      employeeMap.set(pto.employeeId, {
-        name: pto.employeeName,
-        location: pto.location,
-        otHours: 0,
-        uniformDeduction: 0,
-        ptoHours: 0,
-        notes: []
-      });
-    }
-    const e = employeeMap.get(pto.employeeId);
+    const e = getOrCreate(keyOf(pto.employeeName, pto.employeeId), pto.employeeName, pto.location);
     e.ptoHours += pto.hoursRequested;
   });
-  
+
   // Process transfers
   reportData.timeTransfers.employees.forEach(emp => {
-    if (employeeMap.has(emp.employeeId)) {
-      const e = employeeMap.get(emp.employeeId);
+    const key = keyOf(emp.employeeName, emp.employeeId);
+    if (employeeMap.has(key)) {
+      const e = employeeMap.get(key);
       if (!e.notes.includes('Multi-location')) {
         e.notes.push(`Transfer from ${emp.transferFrom}`);
       }

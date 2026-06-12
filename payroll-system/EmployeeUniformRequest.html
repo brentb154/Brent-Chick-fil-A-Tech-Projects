@@ -3499,49 +3499,51 @@
     }
 
     /**
-     * Handle click on replacement checkbox or container
-     * REQUIRES MANAGER PASSWORD (3177) TO ENABLE
+     * Handle click on replacement checkbox or container.
+     * Enabling "replacement" requires manager authorization — the passcode is validated
+     * SERVER-SIDE (validateManagerPasscode), never compared in client code.
      */
     function handleReplacementClick(event) {
       const checkbox = document.getElementById('replacementCheck');
       const isDirectClick = event.target === checkbox;
-      
-      // Determine the action: are we trying to check it?
-      // If direct click: if it IS checked now, it WAS unchecked before -> trying to check
-      // If container click: if it is NOT checked now, we want to check it -> trying to check
-      
-      let tryingToCheck = false;
-      if (isDirectClick) {
-        tryingToCheck = checkbox.checked;
-      } else {
-        tryingToCheck = !checkbox.checked;
-      }
-      
-      if (tryingToCheck) {
-        // If clicking directly, the browser already toggled it. We might need to revert.
-        // If clicking container, we haven't toggled it yet.
-        
-        const password = prompt("Manager authorization required. Please enter password:");
-        
-        if (password === '3177') {
-          // Success - ensure it is checked
-          checkbox.checked = true;
-        } else {
-          // Failed
-          if (password !== null) { 
-            alert("Incorrect password. Access denied.");
-          }
-          
-          // Revert/Ensure unchecked
-          checkbox.checked = false;
-          
-          // If it was a direct click, the browser already checked it, so unchecking creates a visual flicker 
-          // but ensures security.
-        }
-      } else {
-        // Trying to uncheck - allow freely
+
+      // Are we trying to CHECK it?
+      // Direct click: browser already toggled, so checked==true means we're enabling.
+      // Container click: not yet toggled, so unchecked means we want to enable.
+      const tryingToCheck = isDirectClick ? checkbox.checked : !checkbox.checked;
+
+      if (!tryingToCheck) {
+        // Unchecking is always allowed
         checkbox.checked = false;
+        return;
       }
+
+      // Keep it unchecked until the server confirms the manager passcode (prevents a
+      // checked flicker and ensures the box only enables on real authorization).
+      checkbox.checked = false;
+
+      const code = prompt("Manager authorization required. Please enter passcode:");
+      if (code === null) {
+        return; // cancelled
+      }
+
+      showLoading(true, 'Verifying... / Verificando...');
+      google.script.run
+        .withSuccessHandler(function(isValid) {
+          showLoading(false);
+          if (isValid) {
+            checkbox.checked = true;
+          } else {
+            checkbox.checked = false;
+            alert("Incorrect passcode. Access denied.");
+          }
+        })
+        .withFailureHandler(function(error) {
+          showLoading(false);
+          checkbox.checked = false;
+          alert("Error verifying passcode: " + (error && error.message ? error.message : error));
+        })
+        .validateManagerPasscode(code);
     }
 
     /**

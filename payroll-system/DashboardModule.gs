@@ -234,60 +234,30 @@ function getUniformMetrics(ss) {
   }
   
   try {
-    // Read all 17 columns (updated for Location and Received_Date columns)
+    // Active orders count (Status is column M = index 12)
     const data = ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, 17).getValues();
-    
-    // Get active orders (Status is now column M = index 12)
-    const activeOrders = data.filter(r => r[12] === 'Active');
-    
-    // Get upcoming paydays
-    const paydays = getUpcomingPaydays(6);
+    const activeOrdersCount = data.filter(r => r[12] === 'Active').length;
+
+    // Deductions for the next 3 FUTURE paydays, computed by the single source of truth
+    // (getUniformDeductionsForPayroll) so the dashboard always matches the deductions
+    // view and payroll processing exactly.
+    const paydays = getUpcomingPaydays(3, 0); // next 3 future paydays as YYYY-MM-DD
     const upcomingPayments = [];
-    
-    // Calculate deductions for each payday
-    // Column positions updated for Location column:
-    // B=1: Employee_ID, C=2: Employee_Name, D=3: Location, E=4: Order_Date
-    // F=5: Total_Amount, G=6: Payment_Plan, H=7: Amount_Per_Paycheck
-    // I=8: First_Deduction_Date, J=9: Payments_Made
-    paydays.slice(0, 3).forEach(payday => {
-      const paydayDate = new Date(payday);
-      let totalAmount = 0;
-      let employeeCount = 0;
-      const employees = new Set();
-      
-      activeOrders.forEach(order => {
-        const firstDeduction = order[8] ? new Date(order[8]) : null; // I: First_Deduction_Date
-        const paymentPlan = parseInt(order[6]) || 1;                  // G: Payment_Plan
-        const amountPerPaycheck = parseFloat(order[7]) || 0;          // H: Amount_Per_Paycheck
-        const paymentsMade = parseInt(order[9]) || 0;                 // J: Payments_Made
-        const employeeName = order[2];                                 // C: Employee_Name
-        
-        if (!firstDeduction || paymentsMade >= paymentPlan) return;
-        
-        // Check if this payday falls within the payment schedule
-        const daysDiff = Math.round((paydayDate - firstDeduction) / (1000 * 60 * 60 * 24));
-        const paymentNumber = Math.floor(daysDiff / 14) + 1;
-        
-        if (daysDiff >= 0 && paymentNumber > paymentsMade && paymentNumber <= paymentPlan) {
-          totalAmount += amountPerPaycheck;
-          employees.add(employeeName);
-        }
-      });
-      
-      employeeCount = employees.size;
-      
-      if (employeeCount > 0) {
+
+    paydays.forEach(paydayStr => {
+      const result = getUniformDeductionsForPayroll(ss, paydayStr);
+      if (result && result.totalDeductions > 0) {
         upcomingPayments.push({
-          date: formatDateForDisplay(paydayDate),
-          employeeCount: employeeCount,
-          amount: Math.round(totalAmount * 100) / 100
+          date: formatDateForDisplay(new Date(paydayStr + 'T12:00:00')),
+          employeeCount: result.employeeCount,
+          amount: Math.round(result.totalDeductions * 100) / 100
         });
       }
     });
-    
+
     return {
       nextPaycheckDeductions: upcomingPayments.length > 0 ? upcomingPayments[0].amount : 0,
-      activeOrdersCount: activeOrders.length,
+      activeOrdersCount: activeOrdersCount,
       upcomingPayments: upcomingPayments
     };
   } catch (error) {

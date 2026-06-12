@@ -6197,9 +6197,12 @@ function initUploadTab() {
       
       // Generate upload cards dynamically
       generateUploadCards(locations);
-      
+
       // Update multi-location table headers
       updateMultiLocationHeaders(locations);
+
+      // Single-location operations have no cross-location concept — hide that UI
+      applyLocationCountToUploadView(locations.length);
       
       // Setup buttons
       var processBtn = document.getElementById('processBtn');
@@ -6230,6 +6233,41 @@ function initUploadTab() {
       generateUploadCards(defaultLocations);
     })
     .getActiveLocations();
+}
+
+/**
+ * Hide cross-location UI on the OT Upload view when there's only one location.
+ * (A single-location shop never has "multi-location" employees or transfers.)
+ */
+function applyLocationCountToUploadView(count) {
+  count = count || 1;
+  const single = count <= 1;
+
+  const multiStat = document.getElementById('procMulti');
+  if (multiStat) {
+    const statCard = multiStat.closest('.stat-card');
+    if (statCard) statCard.style.display = single ? 'none' : '';
+  }
+
+  const multiTable = document.getElementById('multiLocationTable');
+  if (multiTable) {
+    const card = multiTable.closest('.card');
+    if (card) card.style.display = single ? 'none' : '';
+  }
+
+  // Guardrail for 3+ locations: per-employee OT works, but cross-location transfer/
+  // reconciliation is built for two locations. Surface that instead of silently
+  // producing approximate transfer numbers.
+  const container = document.getElementById('uploadCardsContainer');
+  const existingNote = document.getElementById('locCountNote');
+  if (existingNote) existingNote.remove();
+  if (count > 2 && container && container.parentNode) {
+    const note = document.createElement('div');
+    note.id = 'locCountNote';
+    note.style.cssText = 'background:#FEF3C7; color:#92400E; padding:10px 14px; border-radius:8px; font-size:0.85rem; margin-bottom:12px;';
+    note.innerHTML = '⚠️ Per-employee OT totals work for all locations, but cross-location <strong>transfer &amp; reconciliation</strong> currently support 2 locations.';
+    container.parentNode.insertBefore(note, container);
+  }
 }
 
 /**
@@ -6654,6 +6692,7 @@ function initSettingsTab() {
     loadBackupStatus(); // Load backup status (Chunk 20)
     checkWeeklySummaryStatus();
     loadManagerPasscode(); // Load the manager receiving passcode
+    loadAdminPasscode(); // Load the admin access passcode
     loadArchiveStatus(); // Load data archive status
     
     // Load employee management data
@@ -6687,36 +6726,107 @@ function scanForDuplicates() {
 }
 
 /**
- * Render the duplicates list
+ * Render the duplicates list with batch "select-then-merge" controls.
  */
+var EmpDupPairs = [];
+
 function renderDuplicatesList(duplicates) {
   const container = document.getElementById('duplicatesList');
   if (!container) return;
-  
-  if (!duplicates || duplicates.length === 0) {
+
+  EmpDupPairs = duplicates || [];
+
+  if (EmpDupPairs.length === 0) {
     container.innerHTML = '<div class="empty-state-small"><span class="material-icons-round">check_circle</span><p>No potential duplicates found</p></div>';
     return;
   }
-  
-  let html = '';
-  duplicates.forEach(function(pair) {
-    html += 
+
+  // Batch action bar
+  let html =
+    '<div class="dup-batch-bar" style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">' +
+      '<label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">' +
+        '<input type="checkbox" id="dupSelectAll" onclick="toggleAllDuplicateSelections(this.checked)"> Select all' +
+      '</label>' +
+      '<button type="button" class="btn btn-primary btn-sm" id="mergeSelectedBtn" onclick="mergeSelectedDuplicates()" disabled>' +
+        '<span class="material-icons-round" style="font-size:16px;">merge_type</span> Merge selected' +
+      '</button>' +
+    '</div>';
+
+  EmpDupPairs.forEach(function(pair, i) {
+    const n1 = escapeHtml(pair.employee1.fullName);
+    const n2 = escapeHtml(pair.employee2.fullName);
+    html +=
       '<div class="duplicate-pair">' +
-        '<div class="duplicate-info">' +
-          '<strong>' + pair.employee1.fullName + '</strong>' +
+        '<div class="duplicate-info" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">' +
+          '<input type="checkbox" class="dup-select" data-index="' + i + '" onclick="updateMergeSelectedBtn()">' +
+          '<strong>' + n1 + '</strong>' +
           '<span class="vs">↔</span>' +
-          '<strong>' + pair.employee2.fullName + '</strong>' +
+          '<strong>' + n2 + '</strong>' +
           '<span class="similarity-badge">' + pair.similarity + '% similar</span>' +
+          '<label style="font-size:0.78rem; color:var(--gray-500); margin-left:6px;">Keep: ' +
+            '<select class="dup-keep" data-index="' + i + '" style="font-size:0.78rem;">' +
+              '<option value="target">' + n2 + '</option>' +
+              '<option value="source">' + n1 + '</option>' +
+            '</select>' +
+          '</label>' +
         '</div>' +
-        '<button type="button" class="btn btn-outline btn-sm" onclick="showMergeModal(\'' + 
-          pair.employee1.matchKey.replace(/'/g, "\\'") + '\', \'' + 
+        '<button type="button" class="btn btn-outline btn-sm" onclick="showMergeModal(\'' +
+          pair.employee1.matchKey.replace(/'/g, "\\'") + '\', \'' +
           pair.employee2.matchKey.replace(/'/g, "\\'") + '\')">' +
           'Review & Merge' +
         '</button>' +
       '</div>';
   });
-  
+
   container.innerHTML = html;
+}
+
+function toggleAllDuplicateSelections(checked) {
+  document.querySelectorAll('#duplicatesList .dup-select').forEach(function(cb) { cb.checked = checked; });
+  updateMergeSelectedBtn();
+}
+
+function updateMergeSelectedBtn() {
+  const count = document.querySelectorAll('#duplicatesList .dup-select:checked').length;
+  const btn = document.getElementById('mergeSelectedBtn');
+  if (btn) {
+    btn.disabled = count === 0;
+    btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;">merge_type</span> Merge selected' + (count ? ' (' + count + ')' : '');
+  }
+}
+
+function mergeSelectedDuplicates() {
+  const checks = Array.from(document.querySelectorAll('#duplicatesList .dup-select:checked'));
+  if (checks.length === 0) return;
+
+  const selections = checks.map(function(cb) {
+    const i = parseInt(cb.getAttribute('data-index'), 10);
+    const pair = EmpDupPairs[i];
+    const keepEl = document.querySelector('#duplicatesList .dup-keep[data-index="' + i + '"]');
+    const keepName = keepEl ? keepEl.value : 'target';
+    return { sourceKey: pair.employee1.matchKey, targetKey: pair.employee2.matchKey, keepName: keepName };
+  });
+
+  if (!confirm('Merge ' + selections.length + ' selected duplicate pair(s)? This cannot be undone.')) return;
+
+  showLoading(true);
+  google.script.run
+    .withFailureHandler(function(error) {
+      showLoading(false);
+      showToast('Error merging: ' + error.message, 'error');
+    })
+    .withSuccessHandler(function(result) {
+      showLoading(false);
+      if (result && result.success) {
+        let msg = 'Merged ' + result.merged + ' pair(s)';
+        if (result.failed) msg += ', ' + result.failed + ' failed';
+        showToast(msg, result.failed ? 'warning' : 'success');
+        scanForDuplicates(); // re-scan to refresh the list
+      } else {
+        showToast((result && result.error) || 'Merge failed', 'error');
+      }
+    })
+    .mergeEmployeesBatch(selections);
 }
 
 /**
@@ -6793,8 +6903,15 @@ function renderEmployeesNeedingReview(employees) {
     container.innerHTML = '<div class="empty-state-small"><span class="material-icons-round">check_circle</span><p>No employees pending review</p></div>';
     return;
   }
-  
-  let html = '';
+
+  // Batch action bar — clear the whole queue at once
+  let html =
+    '<div style="display:flex; justify-content:flex-end; margin-bottom:10px;">' +
+      '<button type="button" class="btn btn-primary btn-sm" onclick="markAllEmployeesReviewed()">' +
+        '<span class="material-icons-round" style="font-size:16px;">done_all</span> Mark all reviewed (' + employees.length + ')' +
+      '</button>' +
+    '</div>';
+
   employees.forEach(function(emp) {
     const dateStr = emp.timestamp ? new Date(emp.timestamp).toLocaleDateString() : '';
     html += 
@@ -6833,6 +6950,29 @@ function markEmployeeReviewed(rowIndex) {
       showToast('Error: ' + error.message, 'error');
     })
     .markEmployeeReviewed(rowIndex);
+}
+
+/**
+ * Mark ALL pending employee reviews as reviewed in one click
+ */
+function markAllEmployeesReviewed() {
+  showLoading(true);
+  google.script.run
+    .withFailureHandler(function(error) {
+      showLoading(false);
+      showToast('Error: ' + error.message, 'error');
+    })
+    .withSuccessHandler(function(result) {
+      showLoading(false);
+      if (result && result.success) {
+        showToast('Marked ' + (result.count || 0) + ' employee(s) reviewed', 'success');
+        loadEmployeesNeedingReview();
+        loadEmployeeAuditLog();
+      } else {
+        showToast((result && result.error) || 'Failed to mark reviewed', 'error');
+      }
+    })
+    .markAllEmployeesReviewed();
 }
 
 /**
@@ -6999,6 +7139,14 @@ function populateSettingsForm() {
   const payrollUrgency = document.getElementById('settingPayrollUrgency');
   if (ptoThreshold) ptoThreshold.value = s.pendingPTOAlertThreshold || 5;
   if (payrollUrgency) payrollUrgency.value = s.payrollUrgencyDays || 2;
+
+  // Payday reference (anchor date for the entire bi-weekly payday calendar)
+  const paydayRef = document.getElementById('settingPaydayReference');
+  if (paydayRef) paydayRef.value = s.paydayReference || '2024-11-29';
+
+  // Login screen hint (editable per restaurant)
+  const loginHintEl = document.getElementById('loginHintInput');
+  if (loginHintEl) loginHintEl.value = (s.loginHint !== undefined && s.loginHint !== null) ? s.loginHint : 'DBU #';
   
   // Notification Settings
   const notifEnabled = document.getElementById('notificationsEnabled');
@@ -7087,9 +7235,26 @@ function updateLocationFieldsVisibility() {
  */
 function saveAllSettings(event) {
   if (event) event.preventDefault();
-  
+
+  // Validate the payday reference is a Friday before saving — a wrong anchor would
+  // shift every payday/deduction/pay-period in the system.
+  const paydayRefEl = document.getElementById('settingPaydayReference');
+  const paydayRefVal = paydayRefEl ? (paydayRefEl.value || '').trim() : '';
+  if (paydayRefVal) {
+    const parts = paydayRefVal.split('-');
+    const refDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
+    if (isNaN(refDate.getTime())) {
+      showToast('Payday Reference Date is invalid.', 'error');
+      return;
+    }
+    if (refDate.getDay() !== 5) {
+      showToast('Payday Reference Date must be a Friday.', 'error');
+      return;
+    }
+  }
+
   showLoading(true);
-  
+
   const settings = {
     // Cost Settings
     hourlyWage: parseFloat(document.getElementById('settingWage')?.value) || 16.5,
@@ -7109,6 +7274,9 @@ function saveAllSettings(event) {
     // Alert Thresholds
     pendingPTOAlertThreshold: parseInt(document.getElementById('settingPTOThreshold')?.value) || 5,
     payrollUrgencyDays: parseInt(document.getElementById('settingPayrollUrgency')?.value) || 2,
+
+    // Payroll Calendar
+    paydayReference: paydayRefVal || '2024-11-29',
     
     // Notification Settings
     notificationsEnabled: document.getElementById('notificationsEnabled')?.checked || false,
@@ -7626,6 +7794,104 @@ function updateManagerPasscode() {
       showToast('Error updating passcode: ' + error.message, 'error');
     })
     .setManagerReceivingPasscode(newPasscode);
+}
+
+/**
+ * Load the admin access passcode into the settings display
+ */
+function loadAdminPasscode() {
+  const displayInput = document.getElementById('currentAdminPasscodeDisplay');
+  if (!displayInput) return;
+
+  google.script.run
+    .withFailureHandler(handleServerError)
+    .withSuccessHandler(function(passcode) {
+      displayInput.value = passcode || '•••••';
+    })
+    .withFailureHandler(function(error) {
+      console.error('Failed to load admin passcode:', error);
+      displayInput.value = '•••••';
+    })
+    .getAdminAccessPasscode();
+}
+
+/**
+ * Toggle admin passcode visibility
+ */
+function toggleAdminPasscodeVisibility() {
+  const input = document.getElementById('currentAdminPasscodeDisplay');
+  const icon = document.getElementById('toggleAdminPasscodeIcon');
+  if (!input || !icon) return;
+
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.textContent = 'visibility_off';
+  } else {
+    input.type = 'password';
+    icon.textContent = 'visibility';
+  }
+}
+
+/**
+ * Update the admin access passcode
+ */
+function updateAdminPasscode() {
+  const input = document.getElementById('newAdminPasscodeInput');
+  const newPasscode = input.value.trim();
+
+  if (!newPasscode) {
+    showToast('Please enter a new passcode', 'error');
+    return;
+  }
+  if (newPasscode.length < 4) {
+    showToast('Passcode must be at least 4 characters', 'error');
+    return;
+  }
+
+  showLoading(true);
+
+  google.script.run
+    .withFailureHandler(handleServerError)
+    .withSuccessHandler(function(result) {
+      showLoading(false);
+      if (result.success) {
+        showToast('Admin access passcode updated!', 'success');
+        document.getElementById('currentAdminPasscodeDisplay').value = newPasscode;
+        input.value = '';
+      } else {
+        showToast('Error: ' + result.error, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      showLoading(false);
+      showToast('Error updating passcode: ' + error.message, 'error');
+    })
+    .setAdminAccessPasscode(newPasscode);
+}
+
+/**
+ * Save the login-screen hint (shown under the access-code box). Blank hides it.
+ */
+function saveLoginHint() {
+  const input = document.getElementById('loginHintInput');
+  const hint = input ? input.value.trim() : '';
+
+  showLoading(true);
+  google.script.run
+    .withFailureHandler(function(error) {
+      showLoading(false);
+      showToast('Error: ' + error.message, 'error');
+    })
+    .withSuccessHandler(function(result) {
+      showLoading(false);
+      if (result && result.success) {
+        showToast('Login hint saved', 'success');
+        if (AppState && AppState.settings) AppState.settings.loginHint = hint;
+      } else {
+        showToast((result && result.error) || 'Failed to save hint', 'error');
+      }
+    })
+    .saveSettings({ loginHint: hint });
 }
 
 // =====================================================
@@ -9129,9 +9395,89 @@ function initPayrollProcessingView() {
   
   document.getElementById('reportContent').style.display = 'none';
   loadPayrollDates();
-  
+
+  // Wire collapsible section headers (restores saved collapsed state)
+  initCollapsiblePayrollSections();
+
   // Auto-run validation on page load
   runPayrollValidationCheck();
+}
+
+/**
+ * Makes each Payroll Processing section header collapsible. Injects a chevron, toggles the
+ * card body, and remembers each section's collapsed state in localStorage so it persists.
+ * Idempotent — safe to call every time the view loads.
+ */
+var PAYROLL_SECTION_IDS = ['otSection', 'uniformSection', 'ptoSection', 'otReconSection', 'transferSection'];
+
+function initCollapsiblePayrollSections() {
+  PAYROLL_SECTION_IDS.forEach(function(id) {
+    const card = document.getElementById(id);
+    if (!card) return;
+    const header = card.querySelector('.card-header');
+    const body = card.querySelector('.card-body');
+    if (!header || !body) return;
+
+    // Inject the chevron once
+    let chevron = header.querySelector('.collapse-chevron');
+    if (!chevron) {
+      chevron = document.createElement('span');
+      chevron.className = 'material-icons-round collapse-chevron';
+      chevron.textContent = 'expand_more';
+      chevron.style.cssText = 'cursor:pointer; color:var(--gray-500); transition:transform .15s; user-select:none;';
+      // Put the chevron at the start of the header's left (title) group
+      const titleGroup = header.firstElementChild || header;
+      titleGroup.insertBefore(chevron, titleGroup.firstChild);
+      titleGroup.style.cursor = 'pointer';
+      // Click on the title group toggles; buttons in the header keep their own handlers
+      titleGroup.addEventListener('click', function() { togglePayrollSection(id, true); });
+    }
+
+    // Apply saved state
+    const collapsed = localStorage.getItem('payrollCollapse_' + id) === '1';
+    setPayrollSectionCollapsed(id, collapsed);
+  });
+
+  injectPayrollCollapseAllControl();
+}
+
+function setPayrollSectionCollapsed(id, collapsed) {
+  const card = document.getElementById(id);
+  if (!card) return;
+  const body = card.querySelector('.card-body');
+  const chevron = card.querySelector('.collapse-chevron');
+  if (body) body.style.display = collapsed ? 'none' : '';
+  if (chevron) chevron.style.transform = collapsed ? 'rotate(-90deg)' : '';
+}
+
+function togglePayrollSection(id, persist) {
+  const card = document.getElementById(id);
+  if (!card) return;
+  const body = card.querySelector('.card-body');
+  const collapsed = body && body.style.display !== 'none'; // about to collapse?
+  setPayrollSectionCollapsed(id, collapsed);
+  if (persist) localStorage.setItem('payrollCollapse_' + id, collapsed ? '1' : '0');
+}
+
+function injectPayrollCollapseAllControl() {
+  const anchor = document.getElementById('dateSelectionCard');
+  if (!anchor || document.getElementById('payrollCollapseAll')) return;
+  const bar = document.createElement('div');
+  bar.id = 'payrollCollapseAll';
+  bar.style.cssText = 'display:flex; justify-content:flex-end; margin:0 0 12px;';
+  bar.innerHTML = '<button class="btn btn-outline btn-sm" onclick="setAllPayrollSections(true)">'
+    + '<span class="material-icons-round" style="font-size:16px;">unfold_less</span> Collapse all</button>'
+    + '<button class="btn btn-outline btn-sm" style="margin-left:8px;" onclick="setAllPayrollSections(false)">'
+    + '<span class="material-icons-round" style="font-size:16px;">unfold_more</span> Expand all</button>';
+  anchor.parentNode.insertBefore(bar, anchor.nextSibling);
+}
+
+function setAllPayrollSections(collapsed) {
+  PAYROLL_SECTION_IDS.forEach(function(id) {
+    if (!document.getElementById(id)) return;
+    setPayrollSectionCollapsed(id, collapsed);
+    localStorage.setItem('payrollCollapse_' + id, collapsed ? '1' : '0');
+  });
 }
 
 /**
@@ -9698,9 +10044,19 @@ function renderPayrollReport(report) {
   renderPTOSection(report.ptoPayout);
   renderTransferSection(report.timeTransfers);
 
-  // Fetch OT reconciliation from the dedicated sheet (with daily breakdown)
   var reconSection = document.getElementById('otReconSection');
   var reconContent = document.getElementById('otReconContent');
+
+  // Single-location operations have no cross-location transfers or reconciliation —
+  // hide those sections entirely instead of showing empty cards.
+  if (isSingleLocation()) {
+    var transferSection = document.getElementById('transferSection');
+    if (transferSection) transferSection.style.display = 'none';
+    if (reconSection) reconSection.style.display = 'none';
+    return;
+  }
+
+  // Fetch OT reconciliation from the dedicated sheet (with daily breakdown)
   if (reconSection && reconContent) {
     reconContent.innerHTML = '<div style="text-align:center; padding:20px; color:var(--gray-400);"><span class="material-icons-round" style="font-size:24px;">hourglass_top</span><br>Loading reconciliation data...</div>';
     reconSection.style.display = '';
@@ -9718,6 +10074,14 @@ function renderPayrollReport(report) {
       })
       .getOTReconciliationForPayroll(report.payPeriodEnd || report.payrollDate || PayrollState.selectedPayrollDate);
   }
+}
+
+/**
+ * True when the operation is configured for a single location (no cross-location concept).
+ * Safe default: returns false if settings haven't loaded, so nothing is hidden prematurely.
+ */
+function isSingleLocation() {
+  return !!(AppState && AppState.settings && parseInt(AppState.settings.numberOfLocations, 10) === 1);
 }
 
 /**
@@ -11033,6 +11397,72 @@ function runHealthCheck() {
 }
 
 /**
+ * Run the on-demand uniform deduction reconciliation check
+ */
+function runDeductionRecon() {
+  const btn = document.getElementById('reconBtn');
+  const results = document.getElementById('reconResults');
+  if (!results) return;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-icons-round spin">sync</span> Checking...';
+  }
+  results.innerHTML = '<div class="loading-placeholder" style="padding: 24px;"><span class="material-icons-round spin">sync</span><p>Reconciling uniform orders...</p></div>';
+
+  google.script.run
+    .withFailureHandler(function(error) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons-round">play_arrow</span> Run Check'; }
+      results.innerHTML = '<div class="how-to-fix"><span class="material-icons-round">error_outline</span> Error: ' + escapeHtmlHealth(error.message || String(error)) + '</div>';
+    })
+    .withSuccessHandler(function(result) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons-round">play_arrow</span> Run Check'; }
+      renderDeductionRecon(result);
+    })
+    .runDeductionReconciliationCheck();
+}
+
+/**
+ * Render reconciliation results
+ */
+function renderDeductionRecon(result) {
+  const results = document.getElementById('reconResults');
+  if (!results) return;
+
+  if (!result || !result.success) {
+    results.innerHTML = '<div class="how-to-fix"><span class="material-icons-round">error_outline</span> ' + escapeHtmlHealth((result && result.error) || 'Check failed') + '</div>';
+    return;
+  }
+
+  const discs = result.discrepancies || [];
+  if (discs.length === 0) {
+    results.innerHTML = '<div class="check-item success"><div class="check-header" style="cursor: default;">' +
+      '<div class="check-icon"><span class="material-icons-round">check_circle</span></div>' +
+      '<div class="check-content"><div class="check-title">All consistent</div>' +
+      '<div class="check-message">' + escapeHtmlHealth(result.summary || '') + '</div></div></div></div>';
+    return;
+  }
+
+  const sevIcon = { error: 'error', warning: 'warning', info: 'info' };
+  const sevClass = { error: 'error', warning: 'warning', info: 'success' };
+
+  let html = '<div class="last-run" style="margin-bottom: 12px;">' + escapeHtmlHealth(result.summary || '') + '</div>';
+  html += discs.map(function(d) {
+    const cls = sevClass[d.severity] || 'warning';
+    const icon = sevIcon[d.severity] || 'warning';
+    return '<div class="check-item ' + cls + '" style="margin-bottom: 8px;">' +
+      '<div class="check-header" style="cursor: default;">' +
+      '<div class="check-icon"><span class="material-icons-round">' + icon + '</span></div>' +
+      '<div class="check-content">' +
+      '<div class="check-title">' + escapeHtmlHealth(d.orderId) + ' — ' + escapeHtmlHealth(d.employeeName || '') + (d.needsReview ? ' (Needs Review)' : '') + '</div>' +
+      '<div class="check-message">' + escapeHtmlHealth(d.field) + ': stored <strong>' + escapeHtmlHealth(String(d.stored)) + '</strong>, expected <strong>' + escapeHtmlHealth(String(d.expected)) + '</strong></div>' +
+      '</div></div></div>';
+  }).join('');
+
+  results.innerHTML = html;
+}
+
+/**
  * Render health check results
  */
 function renderHealthResults(result) {
@@ -11153,7 +11583,7 @@ const HELP_CONTENT = {
         heading: 'How to get the data',
         content: `<ol>
           <li>Go to <strong>CFA Home</strong></li>
-          <li>Navigate to <strong>Analytics Hub</strong></li>
+          <li>Navigate to <strong>HotSchedules</strong></li>
           <li>Select <strong>DataFeeds</strong></li>
           <li>Choose <strong>Time Punches Included Open Punches</strong></li>
           <li>Set the correct pay period date range</li>

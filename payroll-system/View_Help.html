@@ -49,12 +49,110 @@
       <div class="help-card-body">
         <p>New to this system? Here's what you need to know:</p>
         <ol class="help-steps">
+          <li><strong>Sign in</strong> - Enter your name and the access code (the DBU #)</li>
+          <li><strong>Take the guided tour</strong> - Click the <strong>?</strong> button in the top-right of any page to be walked through it step-by-step</li>
           <li><strong>Check the Dashboard daily</strong> - See OT metrics and pending items</li>
           <li><strong>Upload OT data bi-weekly</strong> - After each pay period closes</li>
           <li><strong>Process uniform orders</strong> - When items arrive, mark them received</li>
           <li><strong>Run payroll deductions</strong> - Generate reports for each pay period</li>
           <li><strong>Check System Health weekly</strong> - Catch issues before they cause problems</li>
         </ol>
+      </div>
+    </div>
+
+    <!-- Signing In & Access Code -->
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">lock</span>
+        <h3>Signing In & Access Code</h3>
+      </div>
+      <div class="help-card-body">
+        <p>The admin app is protected by a shared <strong>access code</strong> (the hint on the login screen is <strong>DBU #</strong>). Enter your name plus the code to get in.</p>
+        <ul>
+          <li>Your name is used to attribute every change in the <strong>Activity Log</strong>, so sign in as yourself.</li>
+          <li>To change the access code: <strong>Settings → Admin Access Passcode</strong>.</li>
+          <li>The separate <strong>Manager Receiving Passcode</strong> is only for the uniform request form's receiving section.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Guided Walkthrough -->
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">help_outline</span>
+        <h3>Guided Walkthrough</h3>
+      </div>
+      <div class="help-card-body">
+        <p>Click the <strong>?</strong> button in the top-right header on any page. The screen dims and spotlights the exact buttons to use, walking you through that page step-by-step. Use <strong>Next/Back</strong> to move, or the <strong>×</strong> to close.</p>
+      </div>
+    </div>
+
+    <!-- PTO Requests & Payouts -->
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">beach_access</span>
+        <h3>PTO Requests &amp; Payouts</h3>
+      </div>
+      <div class="help-card-body">
+        <p>Employees submit time off on the public PTO form (they confirm they also requested it in <strong>HotSchedules</strong>). To pay out:</p>
+        <ol class="help-steps">
+          <li>Open <strong>PTO Records</strong> to review pending requests</li>
+          <li>PTO due on a payday appears in <strong>Payroll Processing</strong> for that date</li>
+          <li>Mark requests paid as part of completing payroll</li>
+        </ol>
+        <p class="help-note">Duplicate submissions are blocked, and overlapping date ranges for the same employee are flagged so you don't pay twice.</p>
+      </div>
+    </div>
+
+    <!-- Activity Log -->
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">history</span>
+        <h3>Activity Log — Who Changed What</h3>
+      </div>
+      <div class="help-card-body">
+        <p>Every change (orders, PTO, payroll, settings, merges) is recorded in <strong>Settings → Activity Log</strong> under the <strong>name you signed in with</strong>. If you make a change while signed in as Kyla, the log shows Kyla made it.</p>
+      </div>
+    </div>
+
+    <!-- System Health & Reconciliation -->
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">monitor_heart</span>
+        <h3>System Health &amp; Reconciliation</h3>
+      </div>
+      <div class="help-card-body">
+        <p>Open <strong>System Health</strong> and click <strong>Refresh</strong> to run automated checks. Use <strong>Run Check</strong> under <strong>Uniform Deduction Reconciliation</strong> if deduction dollar amounts ever look off — it verifies each active order's stored amounts still match its live line items.</p>
+      </div>
+    </div>
+
+    <!-- Employee Management -->
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">people</span>
+        <h3>Employee Cleanup (Review &amp; Merge)</h3>
+      </div>
+      <div class="help-card-body">
+        <p>In <strong>Settings → Employee Management</strong>:</p>
+        <ul>
+          <li><strong>Mark all reviewed</strong> clears the new-employee review queue in one click.</li>
+          <li><strong>Potential Duplicates</strong>: check the real matches, choose which name to keep, and <strong>Merge selected</strong> to merge them in a batch. Merging can't be undone, so confirm the matches first.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Settings & Payday Calendar -->
+    <div class="help-card">
+      <div class="help-card-header">
+        <span class="material-icons-round">settings</span>
+        <h3>Settings &amp; Payday Calendar</h3>
+      </div>
+      <div class="help-card-body">
+        <ul>
+          <li><strong>Payday Reference Date</strong> - the anchor Friday the entire bi-weekly payday/deduction calendar is built from. It <strong>must be a Friday</strong> that was a real payday. Changing it shifts every payday in the system.</li>
+          <li><strong>Number of Locations &amp; names</strong> - drives the location dropdowns. <em>Note:</em> OT time-transfer/reconciliation supports <strong>two</strong> locations.</li>
+          <li><strong>OT thresholds, alerts, passcodes, weekly summary</strong> - all configurable here.</li>
+        </ul>
       </div>
     </div>
     
@@ -144,6 +242,7 @@
           <li>Export to CSV for your payroll system</li>
           <li>Mark payments as made after processing</li>
         </ol>
+        <p class="help-note">Tip: click any section header (Overtime, Uniform Deductions, PTO, Transfers) to <strong>collapse</strong> it once you're done — it stays collapsed next time. Use <strong>Reconcile</strong> to double-check deduction math before finalizing.</p>
       </div>
     </div>
   </div>

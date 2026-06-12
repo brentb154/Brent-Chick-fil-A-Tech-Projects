@@ -47,6 +47,24 @@
       <p>Running health checks...</p>
     </div>
   </div>
+
+  <!-- Uniform Deduction Reconciliation -->
+  <div class="recon-card" style="margin-top: 32px;">
+    <div class="health-header" style="margin-bottom: 12px;">
+      <div style="font-weight: 600; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+        <span class="material-icons-round">fact_check</span>
+        Uniform Deduction Reconciliation
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="runDeductionRecon()" id="reconBtn" style="margin-left: auto;">
+        <span class="material-icons-round">play_arrow</span>
+        Run Check
+      </button>
+    </div>
+    <p style="color: var(--gray-500, #6B7280); font-size: 0.85rem; margin-bottom: 12px;">
+      Verifies each active uniform order's stored amounts still match its live line items. Run this if deduction numbers ever look off.
+    </p>
+    <div id="reconResults"></div>
+  </div>
 </div>
 
 <style>

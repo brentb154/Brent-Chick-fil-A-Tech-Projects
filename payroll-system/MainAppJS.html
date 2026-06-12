@@ -51,9 +51,12 @@ const VIEW_CONFIG = {
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', function() {
   verifyAuthSession(function() {
+    // Register who's using the app so the Activity Log attributes changes by name
+    registerActiveActor();
+
     // Initialize navigation
     initNavigation();
-    
+
     // Check if Year-End Wizard button should be shown
     checkYearEndWizardButton();
     
@@ -74,6 +77,22 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
+
+/**
+ * Tells the server who is currently using the app (self-identified name) so logActivity
+ * attributes changes by name. Cheap fire-and-forget; refreshed on view changes to keep the
+ * server-side cache slot warm.
+ */
+function registerActiveActor() {
+  const token = window.PAYROLL_SESSION_TOKEN;
+  if (!token || typeof google === 'undefined' || !google.script || !google.script.run) return;
+  try {
+    google.script.run
+      .withFailureHandler(function() {})
+      .withSuccessHandler(function() {})
+      .setActiveActor(token);
+  } catch (e) { /* non-fatal */ }
+}
 
 function verifyAuthSession(onSuccess) {
   if (typeof showLoading === 'function') {
@@ -230,6 +249,9 @@ function executeInjectedScripts(container) {
  * @param {string} viewName - Name of the view to load
  */
 function loadView(viewName) {
+  // Keep the server-side "active actor" warm so Activity Log attribution stays accurate
+  registerActiveActor();
+
   // Validate view exists
   const config = VIEW_CONFIG[viewName];
   if (!config) {
@@ -551,7 +573,7 @@ document.addEventListener('DOMContentLoaded', initDarkMode);
 
 // ==================== AUTH ====================
 function logoutUser() {
-  if (!confirm('Sign out of Payroll Review?')) return;
+  if (!confirm('Sign out of Payroll System?')) return;
 
   localStorage.removeItem('payroll_auth');
   const baseUrl = (window.PAYROLL_BASE_URL || window.location.href.split('?')[0].split('#')[0]);
@@ -1620,7 +1642,7 @@ var CONSOLE_MESSAGES = {
     '%c👋 Hey there!',
     'font-size: 16px; font-weight: bold; color: #E51636;',
     "If you're reading this, you're probably debugging.",
-    "This system was built by Brent in 2024-2025. Good luck!",
+    "This system was built by Brent in 2025-2026. Good luck!",
     "P.S. Try the Konami code... ↑↑↓↓←→←→BA"
   ],
   'ot-upload': [
@@ -1950,7 +1972,7 @@ var logoClickTimeout = 3000; // 3 seconds to complete 10 clicks
  * Initialize logo click listener
  */
 function initLogoClickEasterEgg() {
-  // Find the sidebar header (the "Payroll Review" title area)
+  // Find the sidebar header (the "Payroll System" title area)
   var logo = document.querySelector('.sidebar-header');
   if (!logo) return;
   
@@ -2247,7 +2269,7 @@ function downloadMilestoneCertificate() {
     '',
     '═══════════════════════════════════════',
     '',
-    '  Built by: Brent, 2024-2025',
+    '  Built by: Brent, 2025-2026',
     '  Maintained by: You!',
     '',
     '  Keep up the great work! 🎊',
@@ -2328,7 +2350,7 @@ function renderTimeCapsuleMessage() {
     '    Sealed: December 2024<br>Opened: ' + today,
     '  </p>',
     '  <h3 style="color: #F59E0B; margin: 24px 0 16px;">To whoever is reading this in 2028 (or beyond),</h3>',
-    '  <p>I built this system in 2024-2025 to make payroll less painful for the teams at Cockrell Hill DTO and Dallas Baptist University.</p>',
+    '  <p>I built this system in 2025-2026 to make payroll less painful for the teams at Cockrell Hill DTO and Dallas Baptist University.</p>',
     '  <p>If you\'re reading this, it means the system is still running! That makes me really happy. That was always the goal - to build something that would last.</p>',
     '  <h4 style="color: white; margin: 24px 0 12px;">A few things I hope you know:</h4>',
     '  <ul style="text-align: left; line-height: 2;">',

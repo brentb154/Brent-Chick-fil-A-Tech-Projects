@@ -1,0 +1,208 @@
+<!-- Guided walkthrough engine (dependency-free). Spotlights real elements and walks the
+     operator through a page step-by-step. Launched from the header "?" button (startViewTour)
+     or programmatically via startTour(steps). -->
+<style>
+  #wtOverlay { position: fixed; inset: 0; z-index: 100000; display: none; }
+  #wtOverlay.active { display: block; }
+  /* The spotlight is a transparent box with a giant shadow that dims everything else. */
+  #wtSpot {
+    position: fixed; border-radius: 10px; pointer-events: none;
+    box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.62);
+    border: 3px solid #E51636; transition: all 0.25s ease; opacity: 0;
+  }
+  #wtSpot.visible { opacity: 1; }
+  #wtBubble {
+    position: fixed; max-width: 320px; background: #fff; color: #1e293b;
+    border-radius: 12px; box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+    padding: 18px 18px 14px; z-index: 100001; font-family: inherit;
+  }
+  #wtBubble h4 { margin: 0 0 6px; font-size: 15px; color: #E51636; }
+  #wtBubble p { margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: #334155; }
+  #wtBubble .wt-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  #wtBubble .wt-count { font-size: 12px; color: #94a3b8; }
+  #wtBubble .wt-btns { display: flex; gap: 8px; }
+  #wtBubble button {
+    border: none; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+  #wtBubble .wt-next { background: #E51636; color: #fff; }
+  #wtBubble .wt-back { background: #f1f5f9; color: #475569; }
+  #wtBubble .wt-skip {
+    position: absolute; top: 8px; right: 10px; background: none; padding: 2px 6px;
+    color: #94a3b8; font-size: 18px; line-height: 1;
+  }
+</style>
+<script>
+(function() {
+  var Tour = { steps: [], index: 0, isNewUser: false };
+
+  function el(id) { return document.getElementById(id); }
+
+  function ensureDom() {
+    if (el('wtOverlay')) return;
+    var ov = document.createElement('div');
+    ov.id = 'wtOverlay';
+    ov.innerHTML =
+      '<div id="wtSpot"></div>' +
+      '<div id="wtBubble">' +
+        '<button class="wt-skip" onclick="window.__wtEnd(false)" title="Close">&times;</button>' +
+        '<h4 id="wtTitle"></h4><p id="wtBody"></p>' +
+        '<div class="wt-row">' +
+          '<span class="wt-count" id="wtCount"></span>' +
+          '<div class="wt-btns">' +
+            '<button class="wt-back" id="wtBack" onclick="window.__wtPrev()">Back</button>' +
+            '<button class="wt-next" id="wtNext" onclick="window.__wtNext()">Next</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+  }
+
+  function currentView() {
+    return (window.location.hash || '').replace('#', '') || 'home';
+  }
+
+  function waitForEl(selector, onFound, onTimeout, tries) {
+    tries = tries || 0;
+    var node = document.querySelector(selector);
+    if (node) { onFound(node); return; }
+    if (tries > 25) { onTimeout(); return; }
+    setTimeout(function() { waitForEl(selector, onFound, onTimeout, tries + 1); }, 120);
+  }
+
+  var activeTarget = null;
+
+  function render(step, target) {
+    activeTarget = target;
+    el('wtTitle').textContent = step.title || '';
+    el('wtBody').textContent = step.body || '';
+    el('wtCount').textContent = (Tour.index + 1) + ' of ' + Tour.steps.length;
+    el('wtBack').style.visibility = Tour.index === 0 ? 'hidden' : 'visible';
+    el('wtNext').textContent = (Tour.index === Tour.steps.length - 1) ? 'Done' : 'Next';
+    reposition();
+  }
+
+  function reposition() {
+    var ov = el('wtOverlay');
+    if (!ov || !ov.classList.contains('active')) return;
+    var spot = el('wtSpot');
+    var bubble = el('wtBubble');
+    var pad = 6;
+
+    var r = activeTarget && document.body.contains(activeTarget) ? activeTarget.getBoundingClientRect() : null;
+    if (r && (r.width > 0 || r.height > 0)) {
+      spot.classList.add('visible');
+      spot.style.top = (r.top - pad) + 'px';
+      spot.style.left = (r.left - pad) + 'px';
+      spot.style.width = (r.width + pad * 2) + 'px';
+      spot.style.height = (r.height + pad * 2) + 'px';
+
+      var bw = bubble.offsetWidth || 320, bh = bubble.offsetHeight || 140, gap = 14;
+      var top, left;
+      // Prefer right of left-sidebar targets; else below; else above
+      if (r.left < window.innerWidth * 0.28 && (r.right + gap + bw) < window.innerWidth) {
+        left = r.right + gap; top = Math.max(12, r.top);
+      } else if (r.bottom + gap + bh < window.innerHeight) {
+        top = r.bottom + gap; left = r.left;
+      } else {
+        top = Math.max(12, r.top - gap - bh); left = r.left;
+      }
+      left = Math.min(Math.max(12, left), window.innerWidth - bw - 12);
+      top = Math.min(Math.max(12, top), window.innerHeight - bh - 12);
+      bubble.style.top = top + 'px';
+      bubble.style.left = left + 'px';
+    } else {
+      // No target — center the bubble, hide the spotlight
+      spot.classList.remove('visible');
+      bubble.style.top = '50%'; bubble.style.left = '50%';
+      bubble.style.transform = 'translate(-50%, -50%)';
+      return;
+    }
+    bubble.style.transform = 'none';
+  }
+
+  function showStep(i) {
+    Tour.index = i;
+    var step = Tour.steps[i];
+    if (!step) { endTour(true); return; }
+    var existing = step.selector ? document.querySelector(step.selector) : null;
+    if (step.view && !existing && typeof loadView === 'function') {
+      loadView(step.view);
+      waitForEl(step.selector, function(node) {
+        node.scrollIntoView({ block: 'center' });
+        setTimeout(function() { render(step, node); }, 320);
+      }, function() { render(step, null); });
+    } else if (existing) {
+      existing.scrollIntoView({ block: 'center' });
+      setTimeout(function() { render(step, existing); }, 300);
+    } else {
+      render(step, null);
+    }
+  }
+
+  function startTour(steps, opts) {
+    if (!steps || !steps.length) return;
+    opts = opts || {};
+    ensureDom();
+    Tour.steps = steps;
+    Tour.index = 0;
+    Tour.isNewUser = !!opts.isNewUser;
+    el('wtOverlay').classList.add('active');
+    showStep(0);
+  }
+
+  function endTour(completed) {
+    var ov = el('wtOverlay');
+    if (ov) ov.classList.remove('active');
+    activeTarget = null;
+    if (completed && Tour.isNewUser && typeof google !== 'undefined' && google.script && google.script.run) {
+      try { google.script.run.withFailureHandler(function(){}).markTourComplete(); } catch (e) {}
+    }
+  }
+
+  window.__wtNext = function() {
+    if (Tour.index >= Tour.steps.length - 1) { endTour(true); return; }
+    showStep(Tour.index + 1);
+  };
+  window.__wtPrev = function() { if (Tour.index > 0) showStep(Tour.index - 1); };
+  window.__wtEnd = function(completed) { endTour(completed); };
+  window.startTour = startTour;
+
+  // ---- Step configs (target stable selectors that exist in the DOM) ----
+  var NAV = function(view) { return '[data-view="' + view + '"]'; };
+  var TOURS = {
+    main: [
+      { selector: NAV('home'), title: 'Dashboard', body: 'Your home base — overtime, uniform deductions, PTO, and action items at a glance.' },
+      { selector: NAV('ot-upload'), title: '1. Upload OT', body: 'Each pay period, import the Analytics Hub time export here first.' },
+      { selector: NAV('payroll-processing'), title: '2. Process payroll', body: 'Review OT, uniform deductions, PTO payouts and transfers, then mark the payroll complete.' },
+      { selector: NAV('uniforms-orders'), title: 'Uniforms', body: 'Create uniform orders and manage paycheck deductions.' },
+      { selector: NAV('pto-records'), title: 'PTO', body: 'Review and pay out time-off requests.' },
+      { selector: NAV('settings'), title: 'Settings', body: 'Locations, thresholds, the access code, and the payday calendar live here.' },
+      { selector: NAV('help'), title: 'Help & Docs', body: 'The full written guide is always here if you get stuck.' }
+    ],
+    'payroll-processing': [
+      { view: 'payroll-processing', selector: '#payrollDateSelect', title: 'Pick the payday', body: 'Choose the pay date you are processing. Everything below updates for that date.' },
+      { view: 'payroll-processing', selector: '#validationCard', title: 'Pre-checks', body: 'These checks flag problems (missing schedules, stale OT, etc.) before you process. Fix or dismiss them.' },
+      { view: 'payroll-processing', selector: '#uniformSection', title: 'Collapse sections', body: 'Click any section header to collapse it once you are done — makes the page easier to scroll.' },
+      { view: 'payroll-processing', selector: '#reconcileBtn', title: 'Reconcile', body: 'Cross-checks deduction math against live line items before you finalize.' }
+    ],
+    settings: [
+      { view: 'settings', selector: '#settingPaydayReference', title: 'Payday calendar', body: 'The anchor Friday for every payday and deduction date. Must be a real past/known payday.' },
+      { view: 'settings', selector: '#settingNumLocations', title: 'Locations', body: 'Number of locations and their names. (OT transfer/reconciliation supports two locations.)' },
+      { view: 'settings', selector: '#currentAdminPasscodeDisplay', title: 'Access code', body: 'The login passcode (the DBU #). Change it here anytime.' }
+    ]
+  };
+
+  // Launch the tour for the current view (or the main overview if none defined).
+  window.startViewTour = function(viewName) {
+    var view = viewName || currentView();
+    var steps = TOURS[view] || TOURS.main;
+    startTour(steps, {});
+  };
+
+  // Expose so onboarding can offer the overview tour to brand-new users.
+  window.startMainTour = function(isNewUser) { startTour(TOURS.main, { isNewUser: !!isNewUser }); };
+})();
+</script>

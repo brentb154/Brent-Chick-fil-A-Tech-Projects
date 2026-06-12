@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payroll Review</title>
+  <title>Payroll System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
@@ -28,7 +28,7 @@
       <!-- Logo/Title -->
       <div class="sidebar-header">
         <span class="material-icons-round sidebar-logo">restaurant</span>
-        <span class="sidebar-title">Payroll Review</span>
+        <span class="sidebar-title">Payroll System</span>
       </div>
 
       <!-- Navigation Menu -->
@@ -217,6 +217,10 @@
           <!-- Theme Toggle -->
           <button class="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">
             <span class="material-icons-round" id="themeIcon">dark_mode</span>
+          </button>
+          <!-- Guided Tour -->
+          <button class="theme-toggle" onclick="startViewTour()" title="Show me how — guided walkthrough of this page">
+            <span class="material-icons-round">help_outline</span>
           </button>
           <!-- View-specific actions -->
           <div id="viewActions"></div>
@@ -474,7 +478,7 @@
         <h3>ABOUT THIS SYSTEM</h3>
         <p>
           This payroll management system was built with care by <strong>Brent</strong> 
-          during 2024-2025 as Chief of Staff at Cockrell Hill DTO and 
+          during 2025-2026 as Chief of Staff at Cockrell Hill DTO and 
           Dallas Baptist University OCV. He saw the need for a more centralized 
           system for payroll processing and wanted to leave a lasting system for Jeff.
         </p>
@@ -570,7 +574,7 @@
         <div class="history-celebration">
           <p>Look how far we've come! 🎉</p>
           <div class="history-stats">
-            <div class="stat"><span class="stat-value">2024-2025</span><span class="stat-label">Built</span></div>
+            <div class="stat"><span class="stat-value">2025-2026</span><span class="stat-label">Built</span></div>
             <div class="stat"><span class="stat-value">22,000+</span><span class="stat-label">Lines of Code</span></div>
             <div class="stat"><span class="stat-value">A Lot</span><span class="stat-label">Hours Invested</span></div>
           </div>
@@ -694,7 +698,7 @@
         </div>
         
         <div class="milestone-footer-text">
-          <p>Built by: Brent, 2024-2025</p>
+          <p>Built by: Brent, 2025-2026</p>
           <p>Maintained by: <strong>You!</strong></p>
         </div>
       </div>
@@ -803,7 +807,7 @@
           <div class="credits-divider">═══════════════════════════</div>
           
           <div class="credits-footer">
-            <p>© 2024-2025 | Built by Brent</p>
+            <p>© 2025-2026 | Built by Brent</p>
             <p>For Cockrell Hill DTO &amp; Dallas Baptist University OCV</p>
             <p class="credits-eggs">🎮 Easter Eggs: <span id="creditsEggCount">0</span>/5 Found</p>
           </div>
@@ -819,7 +823,7 @@
 
   <!-- Footer with Easter Egg Hint -->
   <footer class="app-footer">
-    <span>© 2024-2025 Payroll System | Built by Brent | </span>
+    <span>© 2025-2026 Payroll System | Built by Brent | </span>
     <span class="footer-game-hint" title="For those who remember the classics...">🎮</span>
     <span class="easter-egg-counter" id="easterEggCounter" onclick="showEasterEggList()">
       🥚 <span id="eggCountDisplay">0</span>/6
@@ -828,6 +832,7 @@
 
   <?!= include('JavaScript'); ?>
   <?!= include('MainAppJS'); ?>
+  <?!= include('Walkthrough'); ?>
 </body>
 </html>
 

@@ -4,7 +4,7 @@
   <base target="_top">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign In Required - Payroll Review</title>
+  <title>Sign In Required - Payroll System</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -126,6 +126,15 @@
       background: white;
     }
 
+    .login-hint {
+      margin: -10px auto 16px;
+      max-width: 320px;
+      text-align: left;
+      padding-left: 4px;
+      color: #94a3b8;
+      font-size: 12px;
+    }
+
     .login-error {
       margin-top: 14px;
       color: #c41230;
@@ -233,7 +242,7 @@
       <div class="logo-icon">
         <span class="material-icons-round">payments</span>
       </div>
-      <h1>Payroll Review</h1>
+      <h1>Payroll System</h1>
       <p>Overtime & Payroll Management System</p>
     </div>
     
@@ -243,11 +252,18 @@
       </div>
       <h2>Sign In Required</h2>
       <p class="description">
-        Enter your name to access Payroll Review.
+        Enter your name and the access code to open Payroll System.
       </p>
 
       <input type="text" id="userName" class="name-input" placeholder="Your name"
-             autocomplete="name" maxlength="80" onkeydown="if(event.key==='Enter'){submitLogin();}">
+             autocomplete="name" maxlength="80" onkeydown="if(event.key==='Enter'){document.getElementById('accessCode').focus();}">
+
+      <input type="password" id="accessCode" class="name-input" placeholder="Access code"
+             autocomplete="off" inputmode="numeric" maxlength="40"
+             onkeydown="if(event.key==='Enter'){submitLogin();}">
+      <? if (loginHint) { ?>
+      <div class="login-hint"><?= loginHint ?></div>
+      <? } ?>
 
       <button class="sign-in-btn" id="continueBtn" onclick="submitLogin()">
         <span class="material-icons-round">login</span>
@@ -300,11 +316,18 @@
 
     function submitLogin() {
       const input = document.getElementById('userName');
+      const codeInput = document.getElementById('accessCode');
       const name = (input && input.value || '').trim();
+      const code = (codeInput && codeInput.value || '').trim();
       showError('');
       if (!name) {
         showError('Please enter your name.');
         if (input) input.focus();
+        return;
+      }
+      if (!code) {
+        showError('Please enter the access code.');
+        if (codeInput) codeInput.focus();
         return;
       }
       setBusy(true);
@@ -316,13 +339,14 @@
           } else {
             setBusy(false);
             showError((result && result.error) || 'Could not sign in. Please try again.');
+            if (codeInput) { codeInput.value = ''; codeInput.focus(); }
           }
         })
         .withFailureHandler(function(err) {
           setBusy(false);
           showError('Sign in failed. Please try again.');
         })
-        .createSelfSession(name);
+        .createSelfSession(name, code);
     }
   </script>
 </body>

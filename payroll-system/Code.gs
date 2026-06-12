@@ -1,5 +1,5 @@
 /**
- * Payroll Review - Google Apps Script Backend
+ * Payroll System - Google Apps Script Backend
  * 
  * This file handles all server-side logic:
  * - Serving the web app
@@ -54,6 +54,8 @@ const DEFAULT_SETTINGS = {
   notifyOnUniformOrder: false,
   // Uniform settings
   paydayReference: '2024-11-29',  // Friday - bi-weekly pay dates
+  // Hint shown under the access-code box on the login screen (customizable per restaurant)
+  loginHint: 'DBU #',
   weeklyEmailRecipients: '',
   // Weekly summary schedule
   weeklySummaryDay: 'Saturday',
@@ -131,7 +133,7 @@ function doGet(e) {
         }
       }
       return template.evaluate()
-        .setTitle('Access - Payroll Review')
+        .setTitle('Access - Payroll System')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
         .addMetaTag('viewport', 'width=device-width, initial-scale=1');
     }
@@ -163,8 +165,17 @@ function doGet(e) {
       // No valid token - show login prompt (asks for name)
       const loginTemplate = HtmlService.createTemplateFromFile('LoginPrompt');
       loginTemplate.baseUrl = ScriptApp.getService().getUrl();
+      // Customizable hint shown under the access-code box (per-restaurant). Never throw here.
+      let loginHint = 'DBU #';
+      try {
+        const s = getSettings();
+        loginHint = (s && s.loginHint !== undefined && s.loginHint !== null) ? s.loginHint : '';
+      } catch (hintErr) {
+        loginHint = '';
+      }
+      loginTemplate.loginHint = loginHint;
       return loginTemplate.evaluate()
-        .setTitle('Sign In - Payroll Review')
+        .setTitle('Sign In - Payroll System')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
         .addMetaTag('viewport', 'width=device-width, initial-scale=1');
     }
@@ -175,7 +186,7 @@ function doGet(e) {
     mainTemplate.currentUser = session.name || 'User';
     mainTemplate.baseUrl = ScriptApp.getService().getUrl();
     return mainTemplate.evaluate()
-      .setTitle('Payroll Review')
+      .setTitle('Payroll System')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 
@@ -252,11 +263,14 @@ var SESSION_KEY_PREFIX = 'session_';
 var SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 /**
- * Creates a self-identified session for the given name.
+ * Creates a self-identified session for the given name, gated by the shared admin
+ * access passcode. The name is captured for activity logging; the passcode is what
+ * actually authorizes access.
  * @param {string} name - Name the user typed at the login prompt
+ * @param {string} passcode - Shared admin access passcode
  * @returns {Object} { token, name } or { error }
  */
-function createSelfSession(name) {
+function createSelfSession(name, passcode) {
   try {
     var clean = (name || '').toString().trim();
     if (!clean) {
@@ -265,6 +279,14 @@ function createSelfSession(name) {
     if (clean.length > 80) {
       clean = clean.substring(0, 80);
     }
+
+    // Validate the shared access passcode before issuing any session.
+    if (!validateAdminPasscode(passcode)) {
+      Utilities.sleep(1000); // brute-force speed bump
+      try { logAuthEvent('LOGIN_DENIED', '', 'Bad access code for name: ' + clean); } catch (_) {}
+      return { error: 'Incorrect access code' };
+    }
+
     pruneExpiredSessions_();
     var token = Utilities.getUuid();
     var sessionData = {
@@ -553,6 +575,8 @@ function initializeSheets() {
       ['location3Name', DEFAULT_SETTINGS.location3Name],
       ['consecutiveAlertPeriods', DEFAULT_SETTINGS.consecutiveAlertPeriods],
       ['monthlyIncreaseAlertPercent', DEFAULT_SETTINGS.monthlyIncreaseAlertPercent],
+      ['paydayReference', DEFAULT_SETTINGS.paydayReference],
+      ['loginHint', DEFAULT_SETTINGS.loginHint],
       ['notificationsEnabled', DEFAULT_SETTINGS.notificationsEnabled],
       ['adminEmails', DEFAULT_SETTINGS.adminEmails],
       ['weeklySummaryDay', DEFAULT_SETTINGS.weeklySummaryDay],
@@ -1055,7 +1079,7 @@ function migrateUniformItemsForDiscount() {
     Logger.log('  Sheet ' + i + ': "' + allSheets[i].getName() + '"');
   }
 
-  // Use getSheets() loop instead of getSheetByName() — works around GAS bug
+  // Use getSheets() loop instead of getSheetByName() — works around a GAS quirk
   // where getSheetByName throws "Sheet <GID> not found" on stale internal refs
   var itemsSheet = null;
   for (var i = 0; i < allSheets.length; i++) {
@@ -1253,11 +1277,85 @@ function setManagerReceivingPasscode(newPasscode) {
   }
   
   const result = updatePayrollSetting('manager_receiving_passcode', newPasscode);
-  
+
   if (result.success) {
     logActivity('UPDATE', 'SETTINGS', 'Updated manager receiving passcode');
   }
-  
+
+  return result;
+}
+
+// ============================================================================
+// ADMIN ACCESS PASSCODE
+// ----------------------------------------------------------------------------
+// The web app runs as "Execute as: Me (owner)" and is shared by link, so there is
+// no per-user Google auth to gate on. The admin dashboard is therefore protected by
+// a shared access passcode (separate from the manager receiving passcode). Operators
+// change it on the Settings page.
+// ============================================================================
+
+const DEFAULT_ADMIN_ACCESS_PASSCODE = '05894';
+
+/**
+ * Gets the admin access passcode (falls back to the seeded default).
+ * @returns {string}
+ */
+function getAdminAccessPasscode() {
+  const passcode = getPayrollSetting('admin_access_passcode');
+  return passcode || DEFAULT_ADMIN_ACCESS_PASSCODE;
+}
+
+/**
+ * Validates an admin access passcode (tolerant of leading-zero/number storage).
+ * @param {string} inputCode
+ * @returns {boolean}
+ */
+function validateAdminPasscode(inputCode) {
+  const correctCode = getAdminAccessPasscode();
+  const normalizedInput = String(inputCode || '').trim();
+  const normalizedCorrect = String(correctCode || '').trim();
+
+  if (normalizedInput && normalizedInput === normalizedCorrect) {
+    return true;
+  }
+
+  // Spreadsheet may store the code as a number, dropping a leading zero.
+  const inputNum = parseInt(normalizedInput, 10);
+  const correctNum = parseInt(normalizedCorrect, 10);
+  if (normalizedInput && !isNaN(inputNum) && !isNaN(correctNum) && inputNum === correctNum) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Updates the admin access passcode (admin only).
+ * @param {string} newPasscode
+ * @returns {Object} Result
+ */
+function setAdminAccessPasscode(newPasscode) {
+  const clean = String(newPasscode || '').trim();
+  if (clean.length < 4) {
+    return { success: false, error: 'Passcode must be at least 4 characters' };
+  }
+
+  let result = updatePayrollSetting('admin_access_passcode', clean);
+
+  // The setting row may not exist yet on older deployments — append it.
+  if (!result.success && result.error && result.error.indexOf('not found') !== -1) {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Payroll_Settings');
+    if (sheet) {
+      sheet.appendRow(['admin_access_passcode', clean, 'Shared passcode for admin dashboard access', new Date()]);
+      result = { success: true };
+    }
+  }
+
+  if (result.success) {
+    logActivity('UPDATE', 'SETTINGS', 'Updated admin access passcode');
+  }
+
   return result;
 }
 
@@ -2719,11 +2817,91 @@ function markEmployeeReviewed(rowIndex) {
     logSheet.getRange(rowIndex, 9).setValue(true);  // Reviewed
     logSheet.getRange(rowIndex, 10).setValue(Session.getActiveUser().getEmail() || 'Unknown');  // Reviewed_By
     logSheet.getRange(rowIndex, 11).setValue(new Date());  // Review_Date
-    
+
     return { success: true };
-    
+
   } catch (error) {
     console.error('Error marking employee reviewed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Marks ALL pending new-employee reviews as reviewed in one pass.
+ * @returns {Object} { success, count }
+ */
+function markAllEmployeesReviewed() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const logSheet = ss.getSheetByName('Employee_Audit_Log');
+    if (!logSheet) {
+      return { success: false, error: 'Audit log not found' };
+    }
+
+    const pending = getEmployeesNeedingReview();
+    if (!pending || pending.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    const reviewer = CacheService.getScriptCache().get('active_actor_name')
+      || Session.getActiveUser().getEmail() || 'Unknown';
+    const now = new Date();
+
+    pending.forEach(function(item) {
+      logSheet.getRange(item.rowIndex, 9, 1, 3).setValues([[true, reviewer, now]]); // Reviewed, Reviewed_By, Review_Date
+    });
+    SpreadsheetApp.flush();
+
+    logActivity('REVIEW', 'EMPLOYEE', 'Marked all ' + pending.length + ' new employee(s) reviewed');
+    return { success: true, count: pending.length };
+
+  } catch (error) {
+    console.error('Error marking all employees reviewed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Merges a selected batch of duplicate pairs. Each selection is { sourceKey, targetKey, keepName }.
+ * Wraps the existing mergeEmployees() per pair so the merge logic stays in one place.
+ * @param {Array} selections
+ * @returns {Object} { success, merged, failed, errors }
+ */
+function mergeEmployeesBatch(selections) {
+  try {
+    if (!Array.isArray(selections) || selections.length === 0) {
+      return { success: false, error: 'No pairs selected' };
+    }
+
+    let merged = 0;
+    const errors = [];
+
+    selections.forEach(function(sel) {
+      if (!sel || !sel.sourceKey || !sel.targetKey) {
+        errors.push('Invalid selection (missing keys)');
+        return;
+      }
+      try {
+        const res = mergeEmployees(sel.sourceKey, sel.targetKey, sel.keepName || 'target');
+        if (res && res.success) {
+          merged++;
+        } else {
+          errors.push((sel.sourceKey + '→' + sel.targetKey) + ': ' + ((res && res.error) || 'merge failed'));
+        }
+      } catch (e) {
+        errors.push((sel.sourceKey + '→' + sel.targetKey) + ': ' + e.message);
+      }
+    });
+
+    return {
+      success: true,
+      merged: merged,
+      failed: errors.length,
+      errors: errors.length ? errors : null
+    };
+
+  } catch (error) {
+    console.error('Error in mergeEmployeesBatch:', error);
     return { success: false, error: error.message };
   }
 }
@@ -3446,26 +3624,28 @@ function getOrCreateCountersSheet() {
     // Scan existing data to seed counters with current max values
     const orderMax = scanExistingOrderIds();
     const lineMax = scanExistingLineIds();
-    
+    const ptoMax = scanExistingPtoIds();
+
     // Add counter rows
     const now = new Date();
-    sheet.getRange('A2:C3').setValues([
+    sheet.getRange('A2:C4').setValues([
       ['Order_ID_Counter', orderMax, now],
-      ['Line_ID_Counter', lineMax, now]
+      ['Line_ID_Counter', lineMax, now],
+      ['Pto_ID_Counter', ptoMax, now]
     ]);
-    
+
     // Format
     sheet.setColumnWidth(1, 150);
     sheet.setColumnWidth(2, 120);
     sheet.setColumnWidth(3, 180);
-    sheet.getRange('C2:C3').setNumberFormat('yyyy-mm-dd hh:mm:ss');
-    
+    sheet.getRange('C2:C4').setNumberFormat('yyyy-mm-dd hh:mm:ss');
+
     // Protect the sheet (optional warning)
     sheet.protect().setWarningOnly(true);
-    
-    Logger.log(`System_Counters sheet created. Order counter: ${orderMax}, Line counter: ${lineMax}`);
+
+    Logger.log(`System_Counters sheet created. Order counter: ${orderMax}, Line counter: ${lineMax}, PTO counter: ${ptoMax}`);
   }
-  
+
   return sheet;
 }
 
@@ -3515,7 +3695,7 @@ function scanExistingLineIds() {
   
   const lineIds = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
   let maxNum = 0;
-  
+
   for (const row of lineIds) {
     const lineId = row[0];
     if (lineId && typeof lineId === 'string' && lineId.startsWith('LINE-')) {
@@ -3523,8 +3703,84 @@ function scanExistingLineIds() {
       if (num > maxNum) maxNum = num;
     }
   }
-  
+
   return maxNum;
+}
+
+/**
+ * Scans existing PTO records to find the highest PTO number.
+ * Used when initializing/seeding the Pto_ID_Counter.
+ * @returns {number} The highest PTO number found
+ */
+function scanExistingPtoIds() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('PTO');
+
+  if (!sheet || sheet.getLastRow() < 2) {
+    return 0;
+  }
+
+  const ptoIds = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  let maxNum = 0;
+
+  for (const row of ptoIds) {
+    const ptoId = row[0];
+    if (ptoId && typeof ptoId === 'string' && ptoId.startsWith('PTO-')) {
+      const num = parseInt(ptoId.replace('PTO-', '')) || 0;
+      if (num > maxNum) maxNum = num;
+    }
+  }
+
+  return maxNum;
+}
+
+/**
+ * Atomically generates the next PTO ID using lock service.
+ * Prevents duplicate IDs when multiple PTO requests are submitted simultaneously.
+ * Self-healing: seeds the Pto_ID_Counter row from existing data if it doesn't exist
+ * (older deployments whose System_Counters sheet predates this counter).
+ * @returns {string} New PTO ID in format PTO-NNNNN
+ */
+function generatePtoId() {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(10000);
+
+    const sheet = getOrCreateCountersSheet();
+    const data = sheet.getRange(2, 1, Math.max(1, sheet.getLastRow() - 1), 2).getValues();
+
+    let counterRow = -1;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === 'Pto_ID_Counter') {
+        counterRow = i + 2;
+        break;
+      }
+    }
+
+    // Seed the counter row if missing (existing deployments)
+    if (counterRow === -1) {
+      counterRow = sheet.getLastRow() + 1;
+      sheet.getRange(counterRow, 1, 1, 3).setValues([['Pto_ID_Counter', scanExistingPtoIds(), new Date()]]);
+      sheet.getRange(counterRow, 3).setNumberFormat('yyyy-mm-dd hh:mm:ss');
+    }
+
+    const currentValue = parseInt(sheet.getRange(counterRow, 2).getValue()) || 0;
+    const newValue = currentValue + 1;
+
+    sheet.getRange(counterRow, 2).setValue(newValue);
+    sheet.getRange(counterRow, 3).setValue(new Date());
+
+    SpreadsheetApp.flush();
+
+    return 'PTO-' + String(newValue).padStart(5, '0');
+
+  } catch (e) {
+    Logger.log('Error in generatePtoId: ' + e.message);
+    throw new Error('Failed to generate PTO ID. Please try again.');
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /**
@@ -3647,60 +3903,8 @@ function initializeSystemCounters() {
  * @returns {Array} Array of payday dates (Fridays) sorted chronologically as YYYY-MM-DD strings
  */
 function getUpcomingPaydays(futureCount = 8, historyCount = 26) {
-  // CRITICAL: Use explicit year, month (0-indexed), day to avoid timezone issues
-  // November 29, 2024 is a Friday - this is our reference payday
-  const REFERENCE_YEAR = 2024;
-  const REFERENCE_MONTH = 10; // 0-indexed: 10 = November
-  const REFERENCE_DAY = 29;
-  
-  // Create reference date in LOCAL time (not UTC)
-  const referenceDate = new Date(REFERENCE_YEAR, REFERENCE_MONTH, REFERENCE_DAY, 12, 0, 0);
-  
-  const today = new Date();
-  today.setHours(12, 0, 0, 0); // Use noon to avoid any edge cases
-  
-  const paydays = [];
-  
-  // Calculate the most recent payday (on or before today)
-  let mostRecentPayday = new Date(referenceDate.getTime());
-  while (mostRecentPayday < today) {
-    mostRecentPayday.setDate(mostRecentPayday.getDate() + 14);
-  }
-  // If we went past today, go back one period
-  if (mostRecentPayday > today) {
-    mostRecentPayday.setDate(mostRecentPayday.getDate() - 14);
-  }
-  
-  // Verify mostRecentPayday is a Friday (day 5)
-  // If not, something is wrong - log it
-  if (mostRecentPayday.getDay() !== 5) {
-    console.error('WARNING: mostRecentPayday is not a Friday! Day of week: ' + mostRecentPayday.getDay());
-  }
-  
-  // Generate historical paydays (going backwards)
-  for (let i = historyCount - 1; i >= 0; i--) {
-    const payday = new Date(mostRecentPayday.getTime());
-    payday.setDate(mostRecentPayday.getDate() - (i * 14));
-    paydays.push(payday);
-  }
-  
-  // Generate future paydays (starting from next payday after most recent)
-  for (let i = 1; i <= futureCount; i++) {
-    const payday = new Date(mostRecentPayday.getTime());
-    payday.setDate(mostRecentPayday.getDate() + (i * 14));
-    paydays.push(payday);
-  }
-  
-  // Sort chronologically
-  paydays.sort((a, b) => a - b);
-  
-  // Convert to YYYY-MM-DD strings using LOCAL date (not UTC)
-  return paydays.map(d => {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  });
+  // Canonical payday math lives in PaydayModule.gs (generatePaydaySeries_).
+  return generatePaydaySeries_(historyCount, futureCount).map(d => formatDateISO(d));
 }
 
 /**
@@ -4396,7 +4600,7 @@ function sendBulkActivationEmail(activatedOrders, totalAmount, cashTotal, deduct
           <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee; text-align: center;">
             <a href="${ScriptApp.getService().getUrl()}" 
                style="background: #E51636; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">
-              Open Payroll Review
+              Open Payroll System
             </a>
           </div>
           
@@ -4413,7 +4617,7 @@ function sendBulkActivationEmail(activatedOrders, totalAmount, cashTotal, deduct
     
     MailApp.sendEmail({
       to: emailList.join(','),
-      subject: `[Payroll Review] Bulk Activation: ${activatedOrders.length} orders - $${totalAmount.toFixed(2)}`,
+      subject: `[Payroll System] Bulk Activation: ${activatedOrders.length} orders - $${totalAmount.toFixed(2)}`,
       htmlBody: htmlBody
     });
     
@@ -4431,33 +4635,7 @@ function sendBulkActivationEmail(activatedOrders, totalAmount, cashTotal, deduct
  * @returns {string} ISO date string for the payday
  */
 /**
- * OLD FUNCTION - kept for backward compatibility
- * Gets the next payday that is at least minDays away
- * @param {number} minDays - Minimum days buffer (default 7)
- * @returns {string} Date string YYYY-MM-DD
- */
-function getNextPaydayWithBuffer(minDays = 7) {
-  const settings = getSettings();
-  const referenceDate = new Date(settings.paydayReference || '2024-11-29');
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  // Calculate the minimum acceptable date
-  const minDate = new Date(today);
-  minDate.setDate(minDate.getDate() + minDays);
-  
-  let currentPayday = new Date(referenceDate);
-  
-  // Find the next payday on or after the minimum date
-  while (currentPayday < minDate) {
-    currentPayday.setDate(currentPayday.getDate() + 14);
-  }
-  
-  return currentPayday.toISOString().split('T')[0];
-}
-
-/**
- * NEW FUNCTION - Gets the payday for a given received date based on pay period
+ * Gets the payday for a given received date based on pay period
  * 
  * Logic: Find which pay period the received date falls into, return that period's pay date
  * 
@@ -4473,70 +4651,13 @@ function getNextPaydayWithBuffer(minDays = 7) {
  * @returns {string} Date string YYYY-MM-DD for the payday
  */
 function getPaydayForReceivedDate(receivedDate) {
-  // CRITICAL: Use explicit date construction to avoid timezone issues
-  // Reference: Friday, November 29, 2024 (a known Friday payday)
-  const REFERENCE_YEAR = 2024;
-  const REFERENCE_MONTH = 10; // 0-indexed: 10 = November  
-  const REFERENCE_DAY = 29;
-  
-  // Create reference payday in LOCAL time (not UTC)
-  const referencePayday = new Date(REFERENCE_YEAR, REFERENCE_MONTH, REFERENCE_DAY, 12, 0, 0);
-  
-  const received = new Date(receivedDate);
-  received.setHours(12, 0, 0, 0); // Use noon to avoid edge cases
-  
-  // Pay structure for FRIDAY paydays:
-  // - Period ends on Saturday (6 days before Friday pay date)
-  // - Period starts on Sunday (13 days before period end = 19 days before pay date)
-  // - Pay date is FRIDAY
-  // Example: Period 12/7(Sun)-12/20(Sat), Pay date 12/26(Fri)
-  
-  const DAYS_BEFORE_PAY = 6; // Period ends 6 days before payday (Saturday before Friday)
-  const PERIOD_LENGTH = 14; // 14 day pay periods
-  
-  // Find which pay period the received date falls into
-  let currentPayday = new Date(referencePayday.getTime());
-  
-  // Calculate period boundaries for reference payday
-  let periodEnd = new Date(currentPayday.getTime());
-  periodEnd.setDate(periodEnd.getDate() - DAYS_BEFORE_PAY);
-  
-  let periodStart = new Date(periodEnd.getTime());
-  periodStart.setDate(periodStart.getDate() - (PERIOD_LENGTH - 1)); // -13 days to get 14 day period
-  
-  // Go backward if received date is before our reference period
-  while (received < periodStart) {
-    currentPayday.setDate(currentPayday.getDate() - 14);
-    periodEnd.setDate(periodEnd.getDate() - 14);
-    periodStart.setDate(periodStart.getDate() - 14);
-  }
-  
-  // Go forward until we find the period containing the received date
-  while (received > periodEnd) {
-    currentPayday.setDate(currentPayday.getDate() + 14);
-    periodEnd.setDate(periodEnd.getDate() + 14);
-    periodStart.setDate(periodStart.getDate() + 14);
-  }
-  
-  // At this point, periodStart <= received <= periodEnd
-  // The payday for this period is currentPayday
-  
-  // Format dates using LOCAL components (not UTC)
-  const formatLocal = (d) => {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-  
-  console.log(`Received: ${formatLocal(received)}, Period: ${formatLocal(periodStart)} to ${formatLocal(periodEnd)}, Payday: ${formatLocal(currentPayday)}`);
-  
-  return formatLocal(currentPayday);
+  // Canonical pay-period math lives in PaydayModule.gs (getPaydayForDate_).
+  return formatDateISO(getPaydayForDate_(receivedDate));
 }
 
 /**
  * REPAIR FUNCTION: Fixes First_Deduction_Date for all orders that have a Received_Date
- * This corrects dates that were saved with the timezone bug
+ * This corrects dates that were saved with the old timezone offset issue
  * Run this once after deploying the timezone fix
  * @returns {Object} Summary of repairs made
  */
@@ -6124,62 +6245,58 @@ function cancelUniformOrder(orderId) {
  */
 function getPayrollDeductions(payday) {
   try {
-    // Use noon to avoid timezone issues
-    const paydayDate = new Date(payday + 'T12:00:00');
-    
+    // Normalize to the canonical payday string used by the shared deduction math.
+    const paydayStr = formatDateISO(new Date(payday + 'T12:00:00'));
+
     // Get BOTH Active AND Completed orders for historical viewing
     // Exclude: Pending, Cancelled, Store Paid (these never have deductions)
     const allOrders = getUniformOrders();
-    const relevantOrders = allOrders.filter(o => 
+    const relevantOrders = allOrders.filter(o =>
       o.status === 'Active' || o.status === 'Completed'
     );
-    
+
     const deductions = [];
-    
+
     for (const order of relevantOrders) {
       if (!order.firstDeductionDate) continue;
-      
-      // Use noon to avoid timezone issues
-      const firstDeduction = new Date(order.firstDeductionDate);
-      if (typeof order.firstDeductionDate === 'string' && !order.firstDeductionDate.includes('T')) {
-        firstDeduction.setTime(new Date(order.firstDeductionDate + 'T12:00:00').getTime());
-      }
-      firstDeduction.setHours(12, 0, 0, 0);
-      
-      // Calculate which payment number this payday represents
-      const daysDiff = Math.round((paydayDate - firstDeduction) / (1000 * 60 * 60 * 24));
-      
-      // Check if this payday is a valid deduction date (every 14 days from first deduction)
-      // Allow for small rounding errors (within 1 day)
-      const periodsFromFirst = daysDiff / 14;
-      const isValidPayday = daysDiff >= 0 && Math.abs(periodsFromFirst - Math.round(periodsFromFirst)) < 0.1;
-      
-      if (!isValidPayday) continue;
-      
-      const paymentNumber = Math.round(periodsFromFirst) + 1;
-      
-      // Check if this payment number is valid for this order's payment plan
-      if (paymentNumber < 1 || paymentNumber > order.paymentPlan) continue;
-      
-      // Determine if this payment was already made or is still due
-      const isPaid = paymentNumber <= order.paymentsMade;
-      const isDue = paymentNumber > order.paymentsMade && order.status === 'Active';
-      
+
+      // getUniformOrders already resolved totalAmount against live (non-cancelled) line
+      // items and Needs_Review, so feed that as the canonical total. The shared helpers
+      // (PaydayModule / ReportsModule) own all date + dollar math so this view always
+      // agrees with the payroll-processing and dashboard numbers.
+      const ctx = buildUniformOrderContext_({
+        firstDeductionRaw: order.firstDeductionDate,
+        paymentSchedule: order.paymentPlan,
+        checksCompleted: order.paymentsMade,
+        storedTotal: order.totalAmount,
+        storedPerCheck: 0,
+        liveTotal: order.totalAmount,
+        needsReview: false
+      });
+      if (!ctx) continue;
+
+      const calc = computeUniformDeduction_(ctx, paydayStr);
+      if (!calc.lands) continue;
+
+      const paymentNumber = calc.checkNumber;
+      const isPaid = calc.alreadyRecorded;
+      const isDue = !calc.alreadyRecorded && order.status === 'Active';
+
       deductions.push({
         orderId: order.orderId,
         employeeId: order.employeeId,
         employeeName: order.employeeName,
         paymentNumber: paymentNumber,
-        totalPayments: order.paymentPlan,
-        amount: order.amountPerPaycheck,
-        totalAmount: order.totalAmount,
-        amountRemaining: order.amountRemaining,
+        totalPayments: ctx.paymentSchedule,
+        amount: calc.deductionAmount,
+        totalAmount: ctx.totalAmount,
+        amountRemaining: calc.amountRemaining,
         status: order.status,
         isPaid: isPaid,    // Was this payment already recorded?
         isDue: isDue       // Is this payment still due?
       });
     }
-    
+
     // Group by employee for payroll processing (payroll side only)
     const grouped = {};
     for (const d of deductions) {
@@ -6468,7 +6585,7 @@ function sendWeeklyOrderSummary() {
     
     html += `
         <div style="background: #333; color: #999; padding: 15px; text-align: center; font-size: 12px;">
-          This is an automated email from Payroll Review
+          This is an automated email from Payroll System
         </div>
       </div>
     `;
@@ -8601,19 +8718,46 @@ function initializeActivityLog() {
 }
 
 /**
+ * Records who is currently using the admin app, so logActivity can attribute changes by name.
+ * Called by the client on app load with its session token (the name lives only client-side
+ * because the web app runs as the owner). Stored in CacheService as a single script-wide slot.
+ * @param {string} token - The caller's self-identification session token
+ * @returns {Object} { success, name }
+ */
+function setActiveActor(token) {
+  try {
+    const session = token ? getTokenSession(token) : null;
+    if (session && session.name) {
+      CacheService.getScriptCache().put('active_actor_name', session.name, 3600); // 1 hour
+      return { success: true, name: session.name };
+    }
+    return { success: false };
+  } catch (e) {
+    return { success: false };
+  }
+}
+
+/**
  * Logs an activity to the Activity_Log sheet
  * @param {string} action - The action type (e.g., 'CREATE', 'UPDATE', 'DELETE', 'STATUS_CHANGE')
  * @param {string} category - The category (e.g., 'PTO', 'UNIFORM', 'PAYROLL', 'OT', 'SETTINGS')
  * @param {string} description - Human-readable description of what happened
  * @param {string} relatedId - Optional ID of the related record
+ * @param {string} actor - Optional explicit actor name (overrides the cached active actor)
  */
-function logActivity(action, category, description, relatedId = '') {
+function logActivity(action, category, description, relatedId = '', actor = '') {
   try {
     const sheet = initializeActivityLog();
-    
+
     // Try multiple methods to get the user email
     let user = 'Unknown';
     try {
+      // Preferred: the self-identified name of whoever is using the admin app right now
+      // (explicit actor arg first, then the cached active actor set by setActiveActor).
+      const activeActor = actor || CacheService.getScriptCache().get('active_actor_name');
+      if (activeActor) {
+        user = activeActor;
+      } else {
       // First try session email (from authentication flow)
       const sessionEmail = getSessionEmail();
       if (sessionEmail && sessionEmail !== '') {
@@ -8633,7 +8777,8 @@ function logActivity(action, category, description, relatedId = '') {
           }
         }
       }
-      
+      } // end: no active actor, fell back to email/session resolution
+
       // Final fallback
       if (!user || user === '') {
         user = 'System';
@@ -8755,13 +8900,13 @@ function sendNotificationEmail(subject, body, notificationType) {
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #E51636; color: white; padding: 16px 24px; border-radius: 8px 8px 0 0;">
-          <h2 style="margin: 0; font-size: 18px;">📋 Payroll Review Notification</h2>
+          <h2 style="margin: 0; font-size: 18px;">📋 Payroll System Notification</h2>
         </div>
         <div style="background: #f9f9f9; padding: 24px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
           ${body}
           <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 24px 0;">
           <p style="color: #666; font-size: 12px; margin: 0;">
-            This is an automated notification from Payroll Review. 
+            This is an automated notification from Payroll System. 
             <a href="${ScriptApp.getService().getUrl()}" style="color: #E51636;">Open App</a>
           </p>
         </div>
@@ -8770,7 +8915,7 @@ function sendNotificationEmail(subject, body, notificationType) {
     
     MailApp.sendEmail({
       to: emailList.join(','),
-      subject: '[Payroll Review] ' + subject,
+      subject: '[Payroll System] ' + subject,
       htmlBody: htmlBody
     });
     
@@ -8942,7 +9087,7 @@ function sendTestNotification() {
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #E51636; color: white; padding: 16px 24px; border-radius: 8px 8px 0 0;">
-          <h2 style="margin: 0; font-size: 18px;">📋 Payroll Review Notification</h2>
+          <h2 style="margin: 0; font-size: 18px;">📋 Payroll System Notification</h2>
         </div>
         <div style="background: #f9f9f9; padding: 24px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
           ${body}
@@ -8952,7 +9097,7 @@ function sendTestNotification() {
     
     MailApp.sendEmail({
       to: emailList.join(','),
-      subject: '[Payroll Review] ' + subject,
+      subject: '[Payroll System] ' + subject,
       htmlBody: htmlBody
     });
     
@@ -8984,14 +9129,14 @@ function sendWeeklySummaryEmail() {
     
     // Check if notifications are enabled
     if (!settings.notificationsEnabled) {
-      console.log('Notifications disabled, skipping weekly summary');
+      Logger.log('Notifications disabled, skipping weekly summary');
       return { success: false, reason: 'Notifications disabled' };
     }
     
     // Get admin emails
     const adminEmails = settings.adminEmails;
     if (!adminEmails || adminEmails.trim() === '') {
-      console.log('No admin emails configured');
+      Logger.log('No admin emails configured');
       return { success: false, reason: 'No admin emails configured' };
     }
     
@@ -9250,7 +9395,7 @@ function sendWeeklySummaryEmail() {
     
     MailApp.sendEmail({
       to: emailList.join(','),
-      subject: '[Payroll Review] ' + subject,
+      subject: '[Payroll System] ' + subject,
       htmlBody: htmlBody
     });
     
@@ -10113,7 +10258,7 @@ function generatePDFReport(reportType, options = {}) {
           </div>
           ${htmlContent}
           <div class="footer">
-            Generated by Payroll Review System
+            Generated by Payroll System System
           </div>
         </body>
         </html>
@@ -10499,7 +10644,7 @@ function runSystemHealthCheck() {
           title: 'OT Data May Be Stale',
           message: `Last OT data uploaded ${daysSinceUpload} days ago.`,
           details: [`Latest period end: ${latestUpload.toLocaleDateString()}`],
-          howToFix: 'Upload new OT data from HotSchedules. Go to Overtime → Upload Data.'
+          howToFix: 'Upload new OT data from Analytics Hub. Go to Overtime → Upload Data.'
         });
       } else {
         errorCount++;
@@ -10521,7 +10666,7 @@ function runSystemHealthCheck() {
       title: 'No OT Data',
       message: 'No overtime data has been uploaded yet.',
       details: null,
-      howToFix: 'Upload OT data from HotSchedules. Go to Overtime → Upload Data.'
+      howToFix: 'Upload OT data from Analytics Hub. Go to Overtime → Upload Data.'
     });
   }
   
@@ -11027,14 +11172,8 @@ function scanDateIntegrityAllSheets(ss, options = {}) {
  * @returns {Date|null}
  */
 function getReferencePayday_() {
-  if (typeof REFERENCE_PAYDAY !== 'undefined' && REFERENCE_PAYDAY instanceof Date) {
-    return new Date(REFERENCE_PAYDAY.getFullYear(), REFERENCE_PAYDAY.getMonth(), REFERENCE_PAYDAY.getDate(), 12, 0, 0);
-  }
-  if (DEFAULT_SETTINGS && DEFAULT_SETTINGS.paydayReference) {
-    const parsed = new Date(DEFAULT_SETTINGS.paydayReference + 'T12:00:00');
-    if (!isNaN(parsed.getTime())) return parsed;
-  }
-  return null;
+  // Delegates to the single source of truth (PaydayModule.gs).
+  return getPaydayReferenceDate_();
 }
 
 /**
@@ -11700,11 +11839,11 @@ function runScheduledAnnualArchive() {
   // Only run in January
   const now = new Date();
   if (now.getMonth() !== 0) { // 0 = January
-    console.log('Not January, skipping annual archive');
+    Logger.log('Not January, skipping annual archive');
     return;
   }
   
-  console.log('Running scheduled annual archive');
+  Logger.log('Running scheduled annual archive');
   const result = runAnnualArchive(false);
   
   // Send summary email
@@ -11927,7 +12066,7 @@ function runPayrollValidation() {
               message: `OT data is ${daysSinceUpload} days old. Consider uploading fresh data.`,
               details: [`Last upload: ${uploadDateStr}`],
               action: 'ot-upload',
-              howToFix: 'Go to Overtime → Upload Data and upload the latest export from HotSchedules to ensure overtime calculations are accurate.'
+              howToFix: 'Go to Overtime → Upload Data and upload the latest export from Analytics Hub to ensure overtime calculations are accurate.'
             });
           } else {
             errorCount++;
@@ -11938,7 +12077,7 @@ function runPayrollValidation() {
               message: `OT data is ${daysSinceUpload} days old! Upload current data before processing payroll.`,
               details: [`Last upload: ${uploadDateStr}`],
               action: 'ot-upload',
-              howToFix: 'Upload current OT data from HotSchedules immediately. Payroll should not be processed with data this old — overtime amounts may be wrong.'
+              howToFix: 'Upload current OT data from Analytics Hub immediately. Payroll should not be processed with data this old — overtime amounts may be wrong.'
             });
           }
         }
@@ -11952,7 +12091,7 @@ function runPayrollValidation() {
         message: 'No overtime data found. Upload OT data if needed.',
         details: null,
         action: 'ot-upload',
-        howToFix: 'Go to Overtime → Upload Data and upload a HotSchedules export. If this location does not track overtime, you can dismiss this warning.'
+        howToFix: 'Go to Overtime → Upload Data and upload an Analytics Hub export. If this location does not track overtime, you can dismiss this warning.'
       });
     }
     
@@ -13390,10 +13529,10 @@ function runScheduledBackup() {
   
   // Only run on the first Sunday (day 1-7 of the month)
   if (dayOfMonth <= 7) {
-    console.log('Running scheduled monthly backup...');
+    Logger.log('Running scheduled monthly backup...');
     monthlyBackup(false);
   } else {
-    console.log('Skipping backup - not first Sunday of month (day ' + dayOfMonth + ')');
+    Logger.log('Skipping backup - not first Sunday of month (day ' + dayOfMonth + ')');
   }
 }
 

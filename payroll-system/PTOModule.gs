@@ -177,7 +177,7 @@ function getUpcomingPayrollDates(minDateStr) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const minDaysAway = 3; // Minimum 3 days until payday to include it
-    
+
     // If a minimum date is provided (PTO end date), use it as the baseline
     let effectiveMinDate = today;
     if (minDateStr) {
@@ -186,66 +186,44 @@ function getUpcomingPayrollDates(minDateStr) {
         effectiveMinDate = providedMin;
       }
     }
-    
-    // Reference payday: Friday, November 28, 2025
-    const referencePayday = new Date(2025, 10, 28); // Month is 0-indexed (10 = November)
-    
-    // Calculate days since reference from the effective minimum date
-    const daysSinceRef = Math.floor((effectiveMinDate - referencePayday) / (1000 * 60 * 60 * 24));
-    
-    // Find next payday (bi-weekly from reference)
-    // Number of complete 14-day periods since reference
-    const periodsSinceRef = Math.floor(daysSinceRef / 14);
-    
-    // Next payday is the next multiple of 14 days from reference
-    let nextPayday = new Date(referencePayday);
-    nextPayday.setDate(referencePayday.getDate() + ((periodsSinceRef + 1) * 14));
-    
-    // Make sure nextPayday is after the effectiveMinDate
-    while (nextPayday <= effectiveMinDate) {
-      nextPayday.setDate(nextPayday.getDate() + 14);
-    }
-    
-    // Also ensure it's at least minDaysAway from today
-    const daysToFirst = Math.floor((nextPayday - today) / (1000 * 60 * 60 * 24));
-    if (daysToFirst < minDaysAway) {
-      nextPayday.setDate(nextPayday.getDate() + 14);
-    }
-    
-    // Generate next 6 paydays (bi-weekly)
-    for (let i = 0; i < 6; i++) {
-      const payDate = new Date(nextPayday);
-      payDate.setDate(payDate.getDate() + (i * 14));
-      
-      const dateStr = payDate.toISOString().split('T')[0];
-      
-      // English format
+
+    // Canonical bi-weekly Friday series (PaydayModule.gs). Generous future window so a
+    // far-out PTO end date still yields 6 eligible paydays. Local formatting only (no UTC).
+    const candidates = generatePaydaySeries_(1, 30);
+    for (let i = 0; i < candidates.length && dates.length < 6; i++) {
+      const payDate = candidates[i];
+
+      // Must be strictly after the PTO end date (and after today)
+      if (payDate <= effectiveMinDate) continue;
+
+      // Must be at least minDaysAway from today
+      const daysToFirst = Math.floor((payDate - today) / (1000 * 60 * 60 * 24));
+      if (daysToFirst < minDaysAway) continue;
+
       const englishDisplay = payDate.toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
         day: 'numeric'
       });
-      
-      // Spanish format
+
       const spanishDisplay = payDate.toLocaleDateString('es-ES', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
         day: 'numeric'
       });
-      // Capitalize first letter
       const spanishCapitalized = spanishDisplay.charAt(0).toUpperCase() + spanishDisplay.slice(1);
-      
+
       dates.push({
-        date: dateStr,
+        date: formatDateISO(payDate),
         displayEnglish: englishDisplay,
         displaySpanish: spanishCapitalized
       });
     }
-    
+
     return dates;
-    
+
   } catch (error) {
     console.error('Error getting upcoming payroll dates:', error);
     return [];
@@ -366,23 +344,59 @@ function submitPTORequest(requestData) {
     
     // Initialize PTO tab if needed
     initializePTOTab();
-    
-    // Generate PTO_ID
+
     const ptoSheet = ss.getSheetByName('PTO');
-    const lastRow = ptoSheet.getLastRow();
-    let ptoNumber = 1;
-    
-    if (lastRow > 1) {
-      const lastId = ptoSheet.getRange(lastRow, 1).getValue();
-      if (lastId && typeof lastId === 'string' && lastId.startsWith('PTO-')) {
-        ptoNumber = parseInt(lastId.replace('PTO-', '')) + 1;
-      } else {
-        ptoNumber = lastRow;
+
+    // Duplicate / overlap detection for the same employee.
+    // - Exact duplicate (same dates + hours, still Pending) is blocked to stop double-taps.
+    // - Overlapping (but not identical) dates are allowed but flagged in the notes so the
+    //   admin sees it on the PTO records view.
+    const newStartStr = formatDateISO(startDate);
+    const newEndStr = formatDateISO(endDate);
+    const newMatchKey = generateMatchKey(employeeName || requestData.employeeId || '');
+    const overlapWarnings = [];
+
+    if (ptoSheet.getLastRow() >= 2) {
+      const existing = ptoSheet.getRange(2, 1, ptoSheet.getLastRow() - 1, 13).getValues();
+      for (const exRow of existing) {
+        const exId = exRow[0];
+        if (!exId) continue;
+        const exStatus = exRow[11];
+        if (exStatus === 'Cancelled' || exStatus === 'Denied') continue;
+
+        // Match the same employee by normalized name or by stored Employee_ID
+        const exMatchKey = generateMatchKey(exRow[2] || '');
+        const sameEmployee = (newMatchKey && exMatchKey === newMatchKey) ||
+          (requestData.employeeId && String(exRow[1]).toLowerCase().trim() === String(requestData.employeeId).toLowerCase().trim());
+        if (!sameEmployee) continue;
+
+        const exStartStr = exRow[5] ? formatDateISO(new Date(exRow[5])) : null;
+        const exEndStr = exRow[6] ? formatDateISO(new Date(exRow[6])) : null;
+        if (!exStartStr || !exEndStr) continue;
+
+        const exHours = parseFloat(exRow[4]) || 0;
+        const newHours = parseFloat(requestData.hoursRequested) || 0;
+
+        // Exact duplicate of a still-pending request → block
+        if (exStatus === 'Pending' && exStartStr === newStartStr && exEndStr === newEndStr && exHours === newHours) {
+          return {
+            success: false,
+            duplicate: true,
+            error: 'A matching pending request already exists (' + exId + '). It was not submitted again. / Ya existe una solicitud pendiente idéntica (' + exId + ').'
+          };
+        }
+
+        // Date overlap (inclusive) → allow but flag
+        if (newStartStr <= exEndStr && exStartStr <= newEndStr) {
+          overlapWarnings.push(exId);
+        }
       }
     }
-    
-    const ptoId = 'PTO-' + String(ptoNumber).padStart(5, '0');
-    
+
+    // Generate PTO_ID atomically (lock + System_Counters) to prevent duplicate IDs
+    // when two employees submit at the same moment.
+    const ptoId = generatePtoId();
+
     // Build PTO record (13 columns)
     const ptoRecord = [
       ptoId,                                          // A: PTO_ID
@@ -397,7 +411,9 @@ function submitPTORequest(requestData) {
       new Date(),                                     // J: Submission_Date
       false,                                          // K: Paid_Out
       'Pending',                                      // L: Status
-      requestData.notes || ''                         // M: Notes
+      overlapWarnings.length > 0                      // M: Notes
+        ? ('⚠️ Overlaps ' + overlapWarnings.join(', ') + (requestData.notes ? '. ' + requestData.notes : ''))
+        : (requestData.notes || '')
     ];
     
     // Append to PTO sheet
@@ -437,7 +453,10 @@ function submitPTORequest(requestData) {
       payoutPeriod: payoutDateStr,
       payoutPeriodSpanish: new Date(requestData.payoutPeriod + 'T12:00:00').toLocaleDateString('es-ES', {
         weekday: 'long', month: 'short', day: 'numeric', year: 'numeric'
-      })
+      }),
+      overlapWarning: overlapWarnings.length > 0
+        ? ('Note: these dates overlap an existing request (' + overlapWarnings.join(', ') + '). It was still submitted. / Nota: estas fechas se superponen con una solicitud existente (' + overlapWarnings.join(', ') + ').')
+        : null
     };
     
   } catch (error) {
@@ -589,9 +608,9 @@ function getPTORecords(filters = {}) {
           employeeName: row[2],
           location: row[3],
           hoursRequested: parseFloat(row[4]) || 0,
-          ptoStartDate: startDate ? startDate.toISOString().split('T')[0] : null,
-          ptoEndDate: endDate ? endDate.toISOString().split('T')[0] : null,
-          payoutPeriod: payoutDate ? payoutDate.toISOString().split('T')[0] : null,
+          ptoStartDate: startDate ? formatDateISO(startDate) : null,
+          ptoEndDate: endDate ? formatDateISO(endDate) : null,
+          payoutPeriod: payoutDate ? formatDateISO(payoutDate) : null,
           hotSchedulesConfirmed: row[8] === true,
           submissionDate: submissionDate ? submissionDate.toISOString() : null,
           paidOut: row[10] === true,
@@ -761,13 +780,17 @@ function batchMarkPTOPaid(ptoIds, payrollDate) {
     }
     
     const records = getPTORecords();
+    // Index by PTO_ID once so the loop below is O(n+m) instead of O(n·m)
+    const recordById = {};
+    records.forEach(function(r) { recordById[r.ptoId] = r; });
+
     let updatedCount = 0;
     let totalHours = 0;
     const errors = [];
-    
+
     ptoIds.forEach(ptoId => {
-      const record = records.find(r => r.ptoId === ptoId);
-      
+      const record = recordById[ptoId];
+
       if (!record) {
         errors.push(`${ptoId}: Not found`);
         return;
@@ -779,19 +802,13 @@ function batchMarkPTOPaid(ptoIds, payrollDate) {
       }
       
       const row = record.rowIndex;
-      
-      // Update Paid_Out
-      sheet.getRange(row, 11).setValue(true);
-      
-      // Update Status
-      sheet.getRange(row, 12).setValue('Paid');
-      
-      // Update Notes
+
+      // Paid_Out (K), Status (L), Notes (M) are adjacent — write them in one setValues call
       const existingNotes = sheet.getRange(row, 13).getValue() || '';
       const newNote = `Paid in payroll ${payrollDate}`;
       const updatedNotes = existingNotes ? `${existingNotes}; ${newNote}` : newNote;
-      sheet.getRange(row, 13).setValue(updatedNotes);
-      
+      sheet.getRange(row, 11, 1, 3).setValues([[true, 'Paid', updatedNotes]]);
+
       updatedCount++;
       totalHours += record.hoursRequested;
     });

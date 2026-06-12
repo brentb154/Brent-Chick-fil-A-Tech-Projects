@@ -32,7 +32,7 @@
                 <option value="2" selected>2 Locations</option>
                 <option value="3">3 Locations</option>
               </select>
-              <small class="form-hint">How many locations does your operation have?</small>
+              <small class="form-hint">How many locations does your operation have? Drives the location dropdowns and labels. Note: OT time-transfer &amp; reconciliation currently support <strong>2 locations</strong>.</small>
             </div>
             <div class="form-group" id="location1Group">
               <label>Location 1 Name</label>
@@ -90,6 +90,15 @@
             <label>Payroll Urgency (days)</label>
             <input type="number" id="settingPayrollUrgency" class="form-control" step="1" min="1" max="7" value="2">
             <small class="form-hint">Show urgent alert when payroll is due within this many days</small>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3><span class="material-icons-round">event</span> Payroll Calendar</h3>
+          <div class="form-group">
+            <label>Payday Reference Date</label>
+            <input type="date" id="settingPaydayReference" class="form-control" value="2024-11-29">
+            <small class="form-hint">⚠️ Anchor date for the entire bi-weekly payday calendar. <strong>Must be a Friday that is/was an actual payday.</strong> Changing this shifts every payday, deduction date, and pay period in the system.</small>
           </div>
         </div>
       </div>
@@ -277,7 +286,53 @@
       </div>
     </div>
   </div>
-  
+
+  <!-- Admin Access Passcode Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">lock</span> Admin Access Passcode</h2>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-md">This passcode is required (with a name) to sign in to the admin dashboard. Share it only with managers who should have full access.</p>
+
+      <div class="settings-grid">
+        <div class="settings-section">
+          <div class="form-group">
+            <label>Current Passcode</label>
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <input type="password" id="currentAdminPasscodeDisplay" class="form-control" readonly style="flex: 1; font-family: monospace; letter-spacing: 2px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="toggleAdminPasscodeVisibility()" id="toggleAdminPasscodeBtn">
+                <span class="material-icons-round" id="toggleAdminPasscodeIcon">visibility</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>New Passcode</label>
+            <div style="display: flex; gap: 12px;">
+              <input type="text" id="newAdminPasscodeInput" class="form-control" placeholder="Enter new passcode" style="flex: 1; font-family: monospace;" minlength="4" maxlength="40">
+              <button type="button" class="btn btn-primary" onclick="updateAdminPasscode()">
+                <span class="material-icons-round">save</span> Update
+              </button>
+            </div>
+            <small class="form-hint">Passcode must be at least 4 characters. Changing it does not sign out current sessions.</small>
+          </div>
+
+          <div class="form-group">
+            <label>Login Screen Hint</label>
+            <div style="display: flex; gap: 12px;">
+              <input type="text" id="loginHintInput" class="form-control" placeholder="e.g., DBU #" style="flex: 1;" maxlength="60">
+              <button type="button" class="btn btn-primary" onclick="saveLoginHint()">
+                <span class="material-icons-round">save</span> Save
+              </button>
+            </div>
+            <small class="form-hint">Small hint shown under the access-code box on the login screen, telling staff what the code is. Leave blank to hide it.</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Employee Management Card -->
   <div class="card employee-mgmt-card">
     <div class="card-header">
