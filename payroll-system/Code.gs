@@ -9871,7 +9871,8 @@ function setupWeeklySummaryTrigger() {
 /**
  * Sets up the weekly summary trigger using provided schedule (and saves it)
  */
-function setupWeeklySummaryTriggerWithSchedule(day, hour, minute) {
+function setupWeeklySummaryTriggerWithSchedule(token, day, hour, minute) {
+  requireValidSession_(token);
   const schedule = {
     day: (day || DEFAULT_SETTINGS.weeklySummaryDay || 'Saturday').toString(),
     hour: Math.min(Math.max(parseInt(hour, 10) || 13, 0), 23),
@@ -9890,7 +9891,8 @@ function setupWeeklySummaryTriggerWithSchedule(day, hour, minute) {
 /**
  * Removes the weekly summary trigger
  */
-function removeWeeklySummaryTrigger() {
+function removeWeeklySummaryTrigger(token) {
+  requireValidSession_(token);
   const triggers = ScriptApp.getProjectTriggers();
   let removed = 0;
   
@@ -9999,7 +10001,8 @@ function getComments(recordType, recordId) {
 /**
  * Add a new comment
  */
-function addComment(recordType, recordId, commentText) {
+function addComment(token, recordType, recordId, commentText) {
+  requireValidSession_(token);
   try {
     const sheet = initializeCommentsSheet();
     
@@ -10048,7 +10051,8 @@ function addComment(recordType, recordId, commentText) {
 /**
  * Delete a comment
  */
-function deleteComment(commentId) {
+function deleteComment(token, commentId) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Comments');
@@ -10093,7 +10097,8 @@ function getCommentCount(recordType, recordId) {
 /**
  * Create a full backup of all data
  */
-function createBackup() {
+function createBackup(token) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd_HH-mm');
@@ -11852,7 +11857,8 @@ function runAnnualArchive(dryRun = false) {
  * - Annual archive on January 1st
  * - Daily health check (optional)
  */
-function setupAutoArchiveTriggers() {
+function setupAutoArchiveTriggers(token) {
+  requireValidSession_(token);
   // Remove existing archive triggers first
   const triggers = ScriptApp.getProjectTriggers();
   for (const trigger of triggers) {
@@ -11936,7 +11942,8 @@ function getArchiveTriggerStatus() {
 /**
  * Remove all archive triggers
  */
-function removeArchiveTriggers() {
+function removeArchiveTriggers(token) {
+  requireValidSession_(token);
   const triggers = ScriptApp.getProjectTriggers();
   let removed = 0;
   
@@ -11959,7 +11966,8 @@ function removeArchiveTriggers() {
  * Run pre-payroll validation checks
  * @returns {Object} Validation results with errors, warnings, and passes
  */
-function runPayrollValidation() {
+function runPayrollValidation(token) {
+  requireValidSession_(token);
   try {
     console.log('Running payroll validation...');
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -13531,7 +13539,8 @@ function getBackupStatus() {
 /**
  * Run a manual backup (called from UI)
  */
-function runManualBackup() {
+function runManualBackup(token) {
+  requireValidSession_(token);
   return monthlyBackup(true);
 }
 
@@ -13987,7 +13996,8 @@ function getYearEndWizardStatus() {
 /**
  * Save Year-End Wizard progress
  */
-function saveYearEndWizardProgress(progress) {
+function saveYearEndWizardProgress(token, progress) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const settingsSheet = ss.getSheetByName('Settings');
@@ -14333,7 +14343,8 @@ function runYearEndArchive() {
 /**
  * Step 4: Create Year-End Backup
  */
-function createYearEndBackup() {
+function createYearEndBackup(token) {
+  requireValidSession_(token);
   try {
     const year = new Date().getFullYear();
     

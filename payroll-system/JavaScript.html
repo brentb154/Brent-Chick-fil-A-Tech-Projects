@@ -7556,7 +7556,7 @@ function setupWeeklySummary() {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .setupWeeklySummaryTriggerWithSchedule(day, hour, minute);
+    .setupWeeklySummaryTriggerWithSchedule(window.PAYROLL_SESSION_TOKEN, day, hour, minute);
 }
 
 /**
@@ -7580,7 +7580,7 @@ function disableWeeklySummary() {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .removeWeeklySummaryTrigger();
+    .removeWeeklySummaryTrigger(window.PAYROLL_SESSION_TOKEN);
 }
 
 /**
@@ -7924,7 +7924,7 @@ function createBackup() {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .createBackup();
+    .createBackup(window.PAYROLL_SESSION_TOKEN);
 }
 
 /**
@@ -8086,7 +8086,7 @@ function runBackupNow() {
       }
       showToast('❌ Backup failed: ' + error, 'error');
     })
-    .runManualBackup();
+    .runManualBackup(window.PAYROLL_SESSION_TOKEN);
 }
 
 /**
@@ -8313,7 +8313,7 @@ function toggleArchiveTrigger() {
             showLoading(false);
             showToast('Error: ' + error.message, 'error');
           })
-          .removeArchiveTriggers();
+          .removeArchiveTriggers(window.PAYROLL_SESSION_TOKEN);
       } else {
         // Add trigger
         google.script.run
@@ -8327,7 +8327,7 @@ function toggleArchiveTrigger() {
             showLoading(false);
             showToast('Error: ' + error.message, 'error');
           })
-          .setupAutoArchiveTriggers();
+          .setupAutoArchiveTriggers(window.PAYROLL_SESSION_TOKEN);
       }
     })
     .withFailureHandler(function(error) {
@@ -9521,7 +9521,7 @@ function runPayrollValidationCheck() {
         badge.innerHTML = '<span class="material-icons-round" style="font-size: 14px;">error</span> Error';
         content.innerHTML = '<div class="validation-loading"><span class="material-icons-round">error_outline</span><span>Validation failed: ' + (error.message || 'Unknown error') + '</span></div>';
       })
-      .runPayrollValidation();
+      .runPayrollValidation(window.PAYROLL_SESSION_TOKEN);
   }, 100);
 }
 
@@ -11419,7 +11419,7 @@ function runDeductionRecon() {
       if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons-round">play_arrow</span> Run Check'; }
       renderDeductionRecon(result);
     })
-    .runDeductionReconciliationCheck();
+    .runDeductionReconciliationCheck(window.PAYROLL_SESSION_TOKEN);
 }
 
 /**
@@ -12508,7 +12508,7 @@ function saveWizardProgress() {
     .withFailureHandler(function(error) {
       console.error('Error saving wizard progress:', error);
     })
-    .saveYearEndWizardProgress(wizardState);
+    .saveYearEndWizardProgress(window.PAYROLL_SESSION_TOKEN, wizardState);
 }
 
 /**
@@ -12993,7 +12993,7 @@ function runYearEndBackup() {
         btn.textContent = 'Create Backup and Continue';
       }
     })
-    .createYearEndBackup();
+    .createYearEndBackup(window.PAYROLL_SESSION_TOKEN);
 }
 
 /**

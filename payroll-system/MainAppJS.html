@@ -1249,7 +1249,7 @@ function addComment() {
     .withFailureHandler(function(error) {
       showToast('Error: ' + error.message, 'error');
     })
-    .addComment(CommentsState.currentRecordType, CommentsState.currentRecordId, text);
+    .addComment(window.PAYROLL_SESSION_TOKEN, CommentsState.currentRecordType, CommentsState.currentRecordId, text);
 }
 
 /**
@@ -1271,7 +1271,7 @@ function deleteComment(commentId) {
     .withFailureHandler(function(error) {
       showToast('Error: ' + error.message, 'error');
     })
-    .deleteComment(commentId);
+    .deleteComment(window.PAYROLL_SESSION_TOKEN, commentId);
 }
 
 /**

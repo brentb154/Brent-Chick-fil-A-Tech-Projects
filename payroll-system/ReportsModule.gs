@@ -974,7 +974,8 @@ function getUniformDeductionsForPayroll(ss, payday) {
  * reported as informational only (they intentionally hold their stored schedule).
  * @returns {Object} { success, checkedCount, discrepancyCount, discrepancies, summary }
  */
-function runDeductionReconciliationCheck() {
+function runDeductionReconciliationCheck(token) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const ordersSheet = ss.getSheetByName('Uniform_Orders');
