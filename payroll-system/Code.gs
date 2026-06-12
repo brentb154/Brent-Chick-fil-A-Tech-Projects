@@ -9196,7 +9196,7 @@ function sendWeeklySummaryEmail() {
     // Get all the data we need
     const ptoRequests = getRecentPTORequests(weekAgo);
     const uniformOrders = getRecentUniformOrders(weekAgo);
-    const healthCheck = runSystemHealthCheck();
+    const healthCheck = runSystemHealthCheck_();
     const payrollPreview = getPayrollPreview();
     const quickStats = getQuickStats();
     const actionItems = getActionItems();
@@ -10563,7 +10563,12 @@ function generatePTOReportHTML(options) {
  * Runs comprehensive system health checks
  * @returns {Object} Health check results
  */
-function runSystemHealthCheck() {
+function runSystemHealthCheck(token) {
+  requireValidSession_(token);
+  return runSystemHealthCheck_();
+}
+
+function runSystemHealthCheck_() {
   try {
     console.log('Starting system health check...');
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -11836,7 +11841,12 @@ function setEmployeeActiveStatus(employeeId, isActive) {
  * @param {boolean} dryRun - If true, only preview what would happen
  * @returns {Object} Combined results
  */
-function runAnnualArchive(dryRun = false) {
+function runAnnualArchive(token, dryRun = false) {
+  requireValidSession_(token);
+  return runAnnualArchive_(dryRun);
+}
+
+function runAnnualArchive_(dryRun = false) {
   console.log('Running annual archive...' + (dryRun ? ' (DRY RUN)' : ''));
   
   const ordersResult = archiveCompletedOrders(dryRun);
@@ -11892,7 +11902,7 @@ function runScheduledAnnualArchive() {
   }
   
   Logger.log('Running scheduled annual archive');
-  const result = runAnnualArchive(false);
+  const result = runAnnualArchive_(false);
   
   // Send summary email
   try {
@@ -14330,10 +14340,11 @@ function exportAnnualReportsToDrive(year) {
 /**
  * Step 3: Run Archive (wrapper around existing function)
  */
-function runYearEndArchive() {
+function runYearEndArchive(token) {
+  requireValidSession_(token);
   try {
     // Use existing archive function
-    const result = runAnnualArchive(false); // Not a dry run
+    const result = runAnnualArchive_(false); // Not a dry run
     return result;
   } catch (error) {
     return { success: false, error: error.message };

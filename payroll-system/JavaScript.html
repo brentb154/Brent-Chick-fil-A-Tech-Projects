@@ -8256,7 +8256,7 @@ function previewArchive() {
       showLoading(false);
       showToast('Error previewing archive: ' + error.message, 'error');
     })
-    .runAnnualArchive(true); // true = dry run
+    .runAnnualArchive(window.PAYROLL_SESSION_TOKEN, true); // true = dry run
 }
 
 /**
@@ -8287,7 +8287,7 @@ function runManualArchive() {
       showLoading(false);
       showToast('Error running archive: ' + error.message, 'error');
     })
-    .runAnnualArchive(false); // false = real run
+    .runAnnualArchive(window.PAYROLL_SESSION_TOKEN, false); // false = real run
 }
 
 /**
@@ -11393,7 +11393,7 @@ function runHealthCheck() {
       const errorMsg = error.message || String(error);
       checksList.innerHTML = '<div class="loading-placeholder"><span class="material-icons-round">error_outline</span><p>Error: ' + escapeHtmlHealth(errorMsg) + '</p><button class="btn btn-outline btn-sm" onclick="runHealthCheck()" style="margin-top: 12px;">Try Again</button></div>';
     })
-    .runSystemHealthCheck();
+    .runSystemHealthCheck(window.PAYROLL_SESSION_TOKEN);
 }
 
 /**
@@ -12940,7 +12940,7 @@ function runArchive() {
         btn.textContent = 'Run Archive and Continue';
       }
     })
-    .runYearEndArchive();
+    .runYearEndArchive(window.PAYROLL_SESSION_TOKEN);
 }
 
 /**
