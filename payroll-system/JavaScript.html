@@ -7793,7 +7793,7 @@ function updateManagerPasscode() {
       showLoading(false);
       showToast('Error updating passcode: ' + error.message, 'error');
     })
-    .setManagerReceivingPasscode(newPasscode);
+    .setManagerReceivingPasscode(window.PAYROLL_SESSION_TOKEN, newPasscode);
 }
 
 /**
@@ -7866,7 +7866,7 @@ function updateAdminPasscode() {
       showLoading(false);
       showToast('Error updating passcode: ' + error.message, 'error');
     })
-    .setAdminAccessPasscode(newPasscode);
+    .setAdminAccessPasscode(window.PAYROLL_SESSION_TOKEN, newPasscode);
 }
 
 /**

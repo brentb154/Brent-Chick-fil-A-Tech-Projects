@@ -349,6 +349,19 @@ function getTokenSession(token) {
 }
 
 /**
+ * Auth guard for sensitive server functions. Throws if the caller's token doesn't map to a
+ * live session. Call this as the FIRST line of any function that mutates data or returns
+ * employee PII. Public / QR-form functions intentionally do NOT call this so the employee
+ * forms keep working without a login.
+ * @param {string} token - The caller's self-identification session token (window.PAYROLL_SESSION_TOKEN)
+ */
+function requireValidSession_(token) {
+  if (!getTokenSession(token)) {
+    throw new Error('AUTH: Your session has expired. Please sign in again.');
+  }
+}
+
+/**
  * Internal helper: deletes any expired session_* keys from ScriptProperties.
  */
 function pruneExpiredSessions_() {
@@ -1271,7 +1284,8 @@ function validateManagerPasscode(inputCode) {
  * @param {string} newPasscode - The new passcode
  * @returns {Object} Result
  */
-function setManagerReceivingPasscode(newPasscode) {
+function setManagerReceivingPasscode(token, newPasscode) {
+  requireValidSession_(token);
   if (!newPasscode || newPasscode.length < 4) {
     return { success: false, error: 'Passcode must be at least 4 characters' };
   }
@@ -1334,7 +1348,8 @@ function validateAdminPasscode(inputCode) {
  * @param {string} newPasscode
  * @returns {Object} Result
  */
-function setAdminAccessPasscode(newPasscode) {
+function setAdminAccessPasscode(token, newPasscode) {
+  requireValidSession_(token);
   const clean = String(newPasscode || '').trim();
   if (clean.length < 4) {
     return { success: false, error: 'Passcode must be at least 4 characters' };
