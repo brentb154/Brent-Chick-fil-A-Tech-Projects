@@ -1514,7 +1514,16 @@ function getLocationNames() {
  * @param {Object} newSettings - Object with setting keys and values to update
  * @returns {Object} Result object
  */
-function updateSettings(newSettings) {
+function updateSettings(token, newSettings) {
+  requireValidSession_(token);
+  return applySettingsUpdate_(newSettings);
+}
+
+/**
+ * Internal settings-update helper (no auth gate) — used by updateSettings (client-facing,
+ * guarded) and by trusted server callers that run without a session token.
+ */
+function applySettingsUpdate_(newSettings) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName(SHEET_NAMES.SETTINGS);
@@ -1547,7 +1556,8 @@ function updateSettings(newSettings) {
  * @param {Object} newSettings - Object with all setting keys and values
  * @returns {Object} Result object
  */
-function saveSettings(newSettings) {
+function saveSettings(token, newSettings) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName(SHEET_NAMES.SETTINGS);
@@ -1663,7 +1673,8 @@ function getSizeConfiguration() {
  * @param {Object} config - Size configuration object with arrays of sizes
  * @returns {Object} Result object
  */
-function saveSizeConfiguration(config) {
+function saveSizeConfiguration(token, config) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName(SHEET_NAMES.SETTINGS);
@@ -9851,7 +9862,7 @@ function setupWeeklySummaryTriggerWithSchedule(day, hour, minute) {
     minute: Math.min(Math.max(parseInt(minute, 10) || 0, 0), 59)
   };
 
-  updateSettings({
+  applySettingsUpdate_({
     weeklySummaryDay: schedule.day,
     weeklySummaryHour: schedule.hour,
     weeklySummaryMinute: schedule.minute

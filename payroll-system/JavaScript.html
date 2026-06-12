@@ -1714,7 +1714,7 @@ function saveSettings(e) {
       showLoading(false);
       showToast('Failed to save settings', 'error');
     })
-    .updateSettings(newSettings);
+    .updateSettings(window.PAYROLL_SESSION_TOKEN, newSettings);
 }
 
 // ============================================================================
@@ -7310,7 +7310,7 @@ function saveAllSettings(event) {
       showLoading(false);
       showToast('Error saving settings: ' + error.message, 'error');
     })
-    .saveSettings(settings);
+    .saveSettings(window.PAYROLL_SESSION_TOKEN, settings);
 }
 
 // =====================================================
@@ -7406,7 +7406,7 @@ function saveSizeConfig() {
       showToast('Error saving sizes: ' + error.message, 'error');
       if (statusEl) statusEl.textContent = 'Error';
     })
-    .saveSizeConfiguration(config);
+    .saveSizeConfiguration(window.PAYROLL_SESSION_TOKEN, config);
 }
 
 /**
@@ -7891,7 +7891,7 @@ function saveLoginHint() {
         showToast((result && result.error) || 'Failed to save hint', 'error');
       }
     })
-    .saveSettings({ loginHint: hint });
+    .saveSettings(window.PAYROLL_SESSION_TOKEN, { loginHint: hint });
 }
 
 // =====================================================
