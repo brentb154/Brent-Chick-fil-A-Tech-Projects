@@ -3496,7 +3496,8 @@ function getCatalogCategories() {
  * @param {Object} item - Item object with itemId, itemName, category, availableSizes, price
  * @returns {Object} Result
  */
-function addCatalogItem(item) {
+function addCatalogItem(token, item) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_CATALOG);
@@ -3566,7 +3567,8 @@ function ensureCatalogHeaders(sheet) {
  * @param {Object} updates - Object with fields to update
  * @returns {Object} Result
  */
-function updateCatalogItem(itemId, updates) {
+function updateCatalogItem(token, itemId, updates) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_CATALOG);
@@ -3627,8 +3629,9 @@ function updateCatalogItem(itemId, updates) {
  * @param {string} itemId - The Item_ID to deactivate
  * @returns {Object} Result
  */
-function deactivateCatalogItem(itemId) {
-  return updateCatalogItem(itemId, { active: false });
+function deactivateCatalogItem(token, itemId) {
+  requireValidSession_(token);
+  return updateCatalogItem(token, itemId, { active: false });
 }
 
 // ============================================================================
@@ -3944,7 +3947,8 @@ function getUpcomingPaydays(futureCount = 8, historyCount = 26) {
  * @param {Object} orderData - Order data including employeeId, employeeName, location, items, paymentPlan, notes
  * @returns {Object} Result with order ID
  */
-function createUniformOrder(orderData) {
+function createUniformOrder(token, orderData) {
+  requireValidSession_(token);
   const lock = LockService.getDocumentLock();
   try {
     lock.waitLock(10000);
@@ -4340,7 +4344,8 @@ function updateUniformPaymentPlan(token, orderId, newPlan) {
  * @param {string|Date} receivedDateOverride - Optional received date (YYYY-MM-DD)
  * @returns {Object} Result
  */
-function markOrderReceived(orderId, receivedDateOverride = null) {
+function markOrderReceived(token, orderId, receivedDateOverride = null) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
@@ -5252,7 +5257,8 @@ function updateItemsReceivedStatus(updates, receivedBy) {
 /**
  * Updates the discount on an existing order item and recalculates order totals
  */
-function updateItemDiscount(lineId, orderId, newDiscount) {
+function updateItemDiscount(token, lineId, orderId, newDiscount) {
+  requireValidSession_(token);
   var lock = LockService.getDocumentLock();
   try {
     lock.waitLock(10000);
@@ -5367,7 +5373,8 @@ function updateItemDiscount(lineId, orderId, newDiscount) {
 /**
  * Updates the order-level discount and recalculates totals
  */
-function updateOrderDiscount(orderId, newDiscount) {
+function updateOrderDiscount(token, orderId, newDiscount) {
+  requireValidSession_(token);
   var lock = LockService.getDocumentLock();
   try {
     lock.waitLock(10000);

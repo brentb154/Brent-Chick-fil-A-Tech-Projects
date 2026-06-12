@@ -3799,7 +3799,7 @@ function submitUniformOrder() {
       showLoading(false);
       showToast('Error creating order: ' + error.message, 'error');
     })
-    .createUniformOrder(orderData);
+    .createUniformOrder(window.PAYROLL_SESSION_TOKEN, orderData);
 }
 
 /**
@@ -4126,7 +4126,7 @@ function markOrderReceived(orderId, receivedDateOverride = null) {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .markOrderReceived(orderId, receivedDate);
+    .markOrderReceived(window.PAYROLL_SESSION_TOKEN, orderId, receivedDate);
 }
 
 /**
@@ -4712,7 +4712,7 @@ function submitItemDiscount(lineId, orderId, newDiscount) {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .updateItemDiscount(lineId, orderId, newDiscount);
+    .updateItemDiscount(window.PAYROLL_SESSION_TOKEN, lineId, orderId, newDiscount);
 }
 
 /**
@@ -4751,7 +4751,7 @@ function submitOrderDiscount(orderId, newDiscount) {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .updateOrderDiscount(orderId, newDiscount);
+    .updateOrderDiscount(window.PAYROLL_SESSION_TOKEN, orderId, newDiscount);
 }
 
 /**
@@ -5160,7 +5160,7 @@ function toggleCatalogItemActive(itemId, active) {
     .withFailureHandler(function(error) {
       showToast('Error: ' + error.message, 'error');
     })
-    .updateCatalogItem(itemId, { active: active });
+    .updateCatalogItem(window.PAYROLL_SESSION_TOKEN, itemId, { active: active });
 }
 
 /**
@@ -5391,7 +5391,7 @@ function submitAddCatalogItem(event) {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .addCatalogItem({
+    .addCatalogItem(window.PAYROLL_SESSION_TOKEN, {
       itemId: itemId,
       itemName: itemName,
       category: category,
@@ -5672,7 +5672,7 @@ function submitEditCatalogItem(event) {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .updateCatalogItem(itemId, {
+    .updateCatalogItem(window.PAYROLL_SESSION_TOKEN, itemId, {
       itemName: itemName,
       category: category,
       availableSizes: sizes,
