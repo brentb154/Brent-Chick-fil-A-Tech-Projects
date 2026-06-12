@@ -2,3 +2,5 @@
 *.zip
 .claude/
 manager-hub/dashboard-debug-*.json
+__pycache__/
+*.pyc
