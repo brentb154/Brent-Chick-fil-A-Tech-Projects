@@ -707,7 +707,8 @@ function getPTORecordsLite(filters = {}) {
  * @param {string} notes - Optional note to add
  * @returns {Object} Success/error response
  */
-function markPTOPaid(ptoId, notes = '') {
+function markPTOPaid(token, ptoId, notes = '') {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('PTO');
@@ -770,7 +771,16 @@ function markPTOPaid(ptoId, notes = '') {
  * @param {string} payrollDate - The payroll date (for notes)
  * @returns {Object} Success/error response with counts
  */
-function batchMarkPTOPaid(ptoIds, payrollDate) {
+function batchMarkPTOPaid(token, ptoIds, payrollDate) {
+  requireValidSession_(token);
+  return batchMarkPTOPaid_(ptoIds, payrollDate);
+}
+
+/**
+ * Internal batch PTO-paid helper (no auth gate) — used by batchMarkPTOPaid (client-facing,
+ * guarded) and by markPTOPaymentsComplete (trusted server caller via markPayrollComplete).
+ */
+function batchMarkPTOPaid_(ptoIds, payrollDate) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('PTO');
@@ -969,7 +979,8 @@ function getPTOSummaryStats(filters = {}) {
  * @param {Object} updates - Fields to update
  * @returns {Object} Success/error response
  */
-function updatePTORecord(ptoId, updates) {
+function updatePTORecord(token, ptoId, updates) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('PTO');
@@ -1027,7 +1038,8 @@ function updatePTORecord(ptoId, updates) {
  * @param {string} ptoId - The PTO_ID to delete
  * @returns {Object} Success/error response
  */
-function deletePTORecord(ptoId) {
+function deletePTORecord(token, ptoId) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('PTO');

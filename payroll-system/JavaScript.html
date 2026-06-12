@@ -8722,7 +8722,7 @@ function markSinglePTOPaid(ptoId) {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .markPTOPaid(ptoId);
+    .markPTOPaid(window.PAYROLL_SESSION_TOKEN, ptoId);
 }
 
 /**
@@ -8817,7 +8817,7 @@ function executeBatchPay() {
           showLoading(false);
           showToast('Error: ' + error.message, 'error');
         })
-        .batchMarkPTOPaid(ptoIds, payPeriod);
+        .batchMarkPTOPaid(window.PAYROLL_SESSION_TOKEN, ptoIds, payPeriod);
     })
     .withFailureHandler(console.error)
     .getPTORecords({ payoutPeriod: payPeriod, status: 'Pending' });
@@ -8880,7 +8880,7 @@ function saveEditPTO() {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .updatePTORecord(ptoId, updates);
+    .updatePTORecord(window.PAYROLL_SESSION_TOKEN, ptoId, updates);
 }
 
 /**
@@ -8911,7 +8911,7 @@ function deletePTO(ptoId) {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .deletePTORecord(ptoId);
+    .deletePTORecord(window.PAYROLL_SESSION_TOKEN, ptoId);
 }
 
 /**
@@ -10816,7 +10816,7 @@ function processPTOPaymentCheck(ptoId) {
       showToast('Error: ' + error.message, 'error');
       if (cb) { cb.checked = false; cb.disabled = false; }
     })
-    .markPTOPaid(ptoId, 'Recorded from payroll processing');
+    .markPTOPaid(window.PAYROLL_SESSION_TOKEN, ptoId, 'Recorded from payroll processing');
 }
 
 /**
@@ -10967,7 +10967,7 @@ function batchProcessPTOPayments() {
       showToast('Error: ' + error.message, 'error');
       checkboxes.forEach(function(cb) { cb.disabled = false; });
     })
-    .batchMarkPTOPaid(ptoIds, payrollDate);
+    .batchMarkPTOPaid(window.PAYROLL_SESSION_TOKEN, ptoIds, payrollDate);
 }
 
 /**

@@ -1527,7 +1527,7 @@ function markPTOPaymentsComplete(payday) {
     const paydayStr = formatDateISO(payday);
     
     // Call existing batch function from PTOModule.gs
-    const result = batchMarkPTOPaid(ptoIds, paydayStr);
+    const result = batchMarkPTOPaid_(ptoIds, paydayStr);
     
     return {
       marked: result.updatedCount || 0,
