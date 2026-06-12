@@ -2529,7 +2529,8 @@ function scanForDuplicateEmployees() {
  * @param {string} targetKey - Match key of employee to merge INTO
  * @returns {Object} Preview data
  */
-function getMergePreview(sourceKey, targetKey) {
+function getMergePreview(token, sourceKey, targetKey) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sourceKeyLower = sourceKey.toLowerCase();
@@ -2597,7 +2598,8 @@ function getMergePreview(sourceKey, targetKey) {
  * @param {string} keepName - 'source' or 'target' - which name to keep
  * @returns {Object} Result with counts
  */
-function mergeEmployees(sourceKey, targetKey, keepName) {
+function mergeEmployees(token, sourceKey, targetKey, keepName) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sourceKeyLower = sourceKey.toLowerCase();
@@ -2831,7 +2833,8 @@ function debugEmployeesNeedingReview() {
  * @param {number} rowIndex - Row in audit log
  * @returns {Object} Result
  */
-function markEmployeeReviewed(rowIndex) {
+function markEmployeeReviewed(token, rowIndex) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const logSheet = ss.getSheetByName('Employee_Audit_Log');
@@ -2856,7 +2859,8 @@ function markEmployeeReviewed(rowIndex) {
  * Marks ALL pending new-employee reviews as reviewed in one pass.
  * @returns {Object} { success, count }
  */
-function markAllEmployeesReviewed() {
+function markAllEmployeesReviewed(token) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const logSheet = ss.getSheetByName('Employee_Audit_Log');
@@ -2893,7 +2897,8 @@ function markAllEmployeesReviewed() {
  * @param {Array} selections
  * @returns {Object} { success, merged, failed, errors }
  */
-function mergeEmployeesBatch(selections) {
+function mergeEmployeesBatch(token, selections) {
+  requireValidSession_(token);
   try {
     if (!Array.isArray(selections) || selections.length === 0) {
       return { success: false, error: 'No pairs selected' };
@@ -2908,7 +2913,7 @@ function mergeEmployeesBatch(selections) {
         return;
       }
       try {
-        const res = mergeEmployees(sel.sourceKey, sel.targetKey, sel.keepName || 'target');
+        const res = mergeEmployees(token, sel.sourceKey, sel.targetKey, sel.keepName || 'target');
         if (res && res.success) {
           merged++;
         } else {
@@ -14481,7 +14486,8 @@ function markEmployeeInactive(employeeId) {
 /**
  * Mark multiple employees as inactive (bulk operation)
  */
-function markEmployeesInactive(employeeIds) {
+function markEmployeesInactive(token, employeeIds) {
+  requireValidSession_(token);
   try {
     if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
       return { success: false, error: 'No employees provided' };

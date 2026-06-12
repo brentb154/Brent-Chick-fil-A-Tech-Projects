@@ -6826,7 +6826,7 @@ function mergeSelectedDuplicates() {
         showToast((result && result.error) || 'Merge failed', 'error');
       }
     })
-    .mergeEmployeesBatch(selections);
+    .mergeEmployeesBatch(window.PAYROLL_SESSION_TOKEN, selections);
 }
 
 /**
@@ -6949,7 +6949,7 @@ function markEmployeeReviewed(rowIndex) {
     .withFailureHandler(function(error) {
       showToast('Error: ' + error.message, 'error');
     })
-    .markEmployeeReviewed(rowIndex);
+    .markEmployeeReviewed(window.PAYROLL_SESSION_TOKEN, rowIndex);
 }
 
 /**
@@ -6972,7 +6972,7 @@ function markAllEmployeesReviewed() {
         showToast((result && result.error) || 'Failed to mark reviewed', 'error');
       }
     })
-    .markAllEmployeesReviewed();
+    .markAllEmployeesReviewed(window.PAYROLL_SESSION_TOKEN);
 }
 
 /**
@@ -7060,7 +7060,7 @@ function showMergeModal(sourceKey, targetKey) {
     .withFailureHandler(function(error) {
       showToast('Error loading merge preview: ' + error.message, 'error');
     })
-    .getMergePreview(sourceKey, targetKey);
+    .getMergePreview(window.PAYROLL_SESSION_TOKEN, sourceKey, targetKey);
 }
 
 /**
@@ -7098,7 +7098,7 @@ function executeMerge() {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .mergeEmployees(sourceKey, targetKey, keepName);
+    .mergeEmployees(window.PAYROLL_SESSION_TOKEN, sourceKey, targetKey, keepName);
 }
 
 /**
@@ -12707,7 +12707,7 @@ function markSelectedEmployeesInactive() {
         updateStaleEmployeeSelection();
       }
     })
-    .markEmployeesInactive(employeeIds);
+    .markEmployeesInactive(window.PAYROLL_SESSION_TOKEN, employeeIds);
 }
 
 /**
