@@ -1244,7 +1244,12 @@ function addManagerReceivingPasscode() {
  * Gets the manager receiving passcode
  * @returns {string} The passcode
  */
-function getManagerReceivingPasscode() {
+function getManagerReceivingPasscode(token) {
+  requireValidSession_(token);
+  return getManagerReceivingPasscode_();
+}
+
+function getManagerReceivingPasscode_() {
   const passcode = getPayrollSetting('manager_receiving_passcode');
   return passcode || '03177'; // Default fallback
 }
@@ -1255,7 +1260,7 @@ function getManagerReceivingPasscode() {
  * @returns {boolean} True if valid
  */
 function validateManagerPasscode(inputCode) {
-  const correctCode = getManagerReceivingPasscode();
+  const correctCode = getManagerReceivingPasscode_();
   
   // Normalize both values: trim whitespace and convert to string for comparison
   const normalizedInput = String(inputCode || '').trim();
@@ -1314,7 +1319,12 @@ const DEFAULT_ADMIN_ACCESS_PASSCODE = '05894';
  * Gets the admin access passcode (falls back to the seeded default).
  * @returns {string}
  */
-function getAdminAccessPasscode() {
+function getAdminAccessPasscode(token) {
+  requireValidSession_(token);
+  return getAdminAccessPasscode_();
+}
+
+function getAdminAccessPasscode_() {
   const passcode = getPayrollSetting('admin_access_passcode');
   return passcode || DEFAULT_ADMIN_ACCESS_PASSCODE;
 }
@@ -1325,7 +1335,7 @@ function getAdminAccessPasscode() {
  * @returns {boolean}
  */
 function validateAdminPasscode(inputCode) {
-  const correctCode = getAdminAccessPasscode();
+  const correctCode = getAdminAccessPasscode_();
   const normalizedInput = String(inputCode || '').trim();
   const normalizedCorrect = String(correctCode || '').trim();
 

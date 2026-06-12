@@ -7739,7 +7739,7 @@ function loadManagerPasscode() {
       console.error('Failed to load passcode:', error);
       displayInput.value = '•••••';
     })
-    .getManagerReceivingPasscode();
+    .getManagerReceivingPasscode(window.PAYROLL_SESSION_TOKEN);
 }
 
 /**
@@ -7812,7 +7812,7 @@ function loadAdminPasscode() {
       console.error('Failed to load admin passcode:', error);
       displayInput.value = '•••••';
     })
-    .getAdminAccessPasscode();
+    .getAdminAccessPasscode(window.PAYROLL_SESSION_TOKEN);
 }
 
 /**
