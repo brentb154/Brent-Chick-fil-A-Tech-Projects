@@ -1129,7 +1129,7 @@ function saveSinglePeriod(overwrite) {
               clearUploadedData();
               loadDashboardData();
             })
-            .saveOTReconciliation(reconRecords, AppState.processedData.periodEnd);
+            .saveOTReconciliation(window.PAYROLL_SESSION_TOKEN, reconRecords, AppState.processedData.periodEnd);
         } else {
           showLoading(false);
           showToast(result.message, 'success');
@@ -1150,7 +1150,7 @@ function saveSinglePeriod(overwrite) {
       showLoading(false);
       showToast('Failed to save: ' + error.message, 'error');
     })
-    .saveOTData(AppState.processedData.allEmployees, AppState.processedData.periodEnd, overwrite);
+    .saveOTData(window.PAYROLL_SESSION_TOKEN, AppState.processedData.allEmployees, AppState.processedData.periodEnd, overwrite);
 }
 
 function saveBulkPeriods(overwrite) {
@@ -1199,7 +1199,7 @@ function saveBulkPeriods(overwrite) {
                 console.error('Recon save failed for period', period.periodEnd, reconErr);
                 setTimeout(function() { saveNextPeriod(index + 1); }, 100);
               })
-              .saveOTReconciliation(periodRecon, period.periodEnd);
+              .saveOTReconciliation(window.PAYROLL_SESSION_TOKEN, periodRecon, period.periodEnd);
           } else {
             var progress = Math.round(((index + 1) / totalPeriods) * 100);
             console.log('Progress: ' + progress + '% (' + (index + 1) + '/' + totalPeriods + ')');
@@ -1216,7 +1216,7 @@ function saveBulkPeriods(overwrite) {
         console.error('Failed to save period', period.periodEnd, error);
         setTimeout(function() { saveNextPeriod(index + 1); }, 100);
       })
-      .saveOTData(period.employees, period.periodEnd, overwrite);
+      .saveOTData(window.PAYROLL_SESSION_TOKEN, period.employees, period.periodEnd, overwrite);
   }
   
   // Start saving
@@ -4005,7 +4005,7 @@ function confirmPaymentPlanChange() {
       showLoading(false);
       showToast('Error updating payment plan: ' + error.message, 'error');
     })
-    .updateUniformPaymentPlan(orderId, newPlan);
+    .updateUniformPaymentPlan(window.PAYROLL_SESSION_TOKEN, orderId, newPlan);
 }
 
 /**
@@ -5044,7 +5044,7 @@ function markAllDeductionsPaid() {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .markAllDeductionsPaid(paydaySelect.value);
+    .markAllDeductionsPaid(window.PAYROLL_SESSION_TOKEN, paydaySelect.value);
 }
 
 /**
@@ -11083,7 +11083,7 @@ function executeSkipPayment(orderId) {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .skipUniformPayment(orderId, PayrollState.selectedPayrollDate);
+    .skipUniformPayment(window.PAYROLL_SESSION_TOKEN, orderId, PayrollState.selectedPayrollDate);
 }
 
 /**
@@ -11232,7 +11232,7 @@ function executeMarkComplete() {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .markPayrollComplete(PayrollState.selectedPayrollDate, allSkipIds);
+    .markPayrollComplete(window.PAYROLL_SESSION_TOKEN, PayrollState.selectedPayrollDate, allSkipIds);
 }
 
 /**

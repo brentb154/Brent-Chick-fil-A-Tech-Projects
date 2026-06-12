@@ -4245,7 +4245,8 @@ function getUniformOrders(filters = {}) {
  * @param {number} newPlan
  * @returns {Object} Result with updated amounts
  */
-function updateUniformPaymentPlan(orderId, newPlan) {
+function updateUniformPaymentPlan(token, orderId, newPlan) {
+  requireValidSession_(token);
   const lock = LockService.getDocumentLock();
   try {
     lock.waitLock(10000);
@@ -6446,7 +6447,8 @@ function recordUniformPayments(orderIds) {
  * @param {string} payday - The payday date (YYYY-MM-DD)
  * @returns {Object} Result
  */
-function markAllDeductionsPaid(payday) {
+function markAllDeductionsPaid(token, payday) {
+  requireValidSession_(token);
   try {
     const result = getPayrollDeductions(payday);
     
@@ -6649,7 +6651,8 @@ function sendWeeklyOrderSummary() {
  * @param {boolean} overwrite - Whether to overwrite existing period data
  * @returns {Object} Result object
  */
-function saveOTData(employees, periodEnd, overwrite) {
+function saveOTData(token, employees, periodEnd, overwrite) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName(SHEET_NAMES.OT_HISTORY);
@@ -6808,7 +6811,8 @@ function saveOTData(employees, periodEnd, overwrite) {
  * Save OT reconciliation records for multi-location employees.
  * Called from the client after processOTData completes.
  */
-function saveOTReconciliation(reconRecords, periodEnd) {
+function saveOTReconciliation(token, reconRecords, periodEnd) {
+  requireValidSession_(token);
   try {
     if (!reconRecords || reconRecords.length === 0) {
       return { success: true, message: 'No reconciliation records to save', count: 0 };

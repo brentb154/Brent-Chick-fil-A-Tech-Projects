@@ -1374,7 +1374,8 @@ function getReconciliationForPeriod(periodEndStr) {
  * @param {Array} skippedOrderIds - Order IDs to exclude from marking complete
  * @returns {Object} Summary of what was processed
  */
-function markPayrollComplete(payrollDate, skippedOrderIds = []) {
+function markPayrollComplete(token, payrollDate, skippedOrderIds = []) {
+  requireValidSession_(token);
   try {
     const payday = typeof payrollDate === 'string' 
       ? new Date(payrollDate + 'T12:00:00') 
@@ -1547,7 +1548,8 @@ function markPTOPaymentsComplete(payday) {
  * @param {string|Date} currentPayrollDate - The payroll date being skipped
  * @returns {Object} Result with new schedule
  */
-function skipUniformPayment(orderId, currentPayrollDate) {
+function skipUniformPayment(token, orderId, currentPayrollDate) {
+  requireValidSession_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Uniform_Orders');
