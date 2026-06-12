@@ -1,0 +1,9 @@
+{
+  "acks": [
+    {
+      "fingerprint": "2ca852408b9e",
+      "reason": "Documented default seed; operator changes it on the Settings page. Not a real secret.",
+      "added": "2026-05-29T09:57:23"
+    }
+  ]
+}
