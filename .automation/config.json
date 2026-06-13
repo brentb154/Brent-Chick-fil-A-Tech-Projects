@@ -1,8 +1,8 @@
 {
   "repo_root": "/Users/brentjustworking/Desktop/Brent-CFA-Tech-Hub",
   "memory_dirs": [
-    "/Users/brentjustworking/.claude/projects/-Users-brentjustworking/memory",
-    "/Users/brentjustworking/.claude/projects/-Users-brentjustworking-Desktop-Cockrell-Hill-Tech-Project-Files-Manager-Hub-Project-copy/memory"
+    "/Users/brentjustworking/.claude/projects/-Users-brentjustworking-Desktop-Brent-CFA-Tech-Hub/memory",
+    "/Users/brentjustworking/.claude/projects/-Users-brentjustworking/memory"
   ],
   "log_file": "/Users/brentjustworking/Desktop/Brent-CFA-Tech-Hub/.automation/nightly.log",
   "alert_email": "brentb.lawncare@gmail.com",

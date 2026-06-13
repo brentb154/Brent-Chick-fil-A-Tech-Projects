@@ -207,6 +207,18 @@ INNERHTML_RE = re.compile(r'(?:innerHTML|outerHTML|insertAdjacentHTML)\b')
 ESCAPE_HINT_RE = re.compile(r'escapeHtml|escapeHtmlHealth|encodeURI|DOMPurify|sanitize', re.IGNORECASE)
 TZ_RE = re.compile(r'toISOString\(\)\s*\.\s*(?:split\(\s*[\'"]T[\'"]\s*\)|slice\(\s*0\s*,\s*10\s*\)|substr(?:ing)?\(\s*0\s*,\s*10\s*\))')
 
+# --- Hardened checks (added 2026-06-13 to cover blind spots the original rules missed) ---
+# Concatenation XSS: a variable concatenated into an HTML-tag string literal, unescaped. The
+# ${}-template rule above missed the employee-name stored XSS, which used + concatenation.
+HTML_TAG_STRING_RE = re.compile(r"""['"`]\s*<\s*\w""")
+# Concatenation of a USER-DATA-ish field (name/notes/comment/...) into HTML — targets the real
+# XSS class without flagging every safe HTML concatenation (dates, counts, class names).
+USER_DATA_CONCAT_RE = re.compile(r"""\+\s*[\w.$\[\]']*(?:employeeName|fullName|displayName|firstName|lastName|\.notes?\b|\.reason\b|\.comments?\b|commentText|\.description\b|\.message\b|guestName|\.email\b)[\w.$\[\]']*""", re.IGNORECASE)
+# Secret/token embedded in a URL query string (also used when scanning .json/.sh configs).
+URL_SECRET_RE = re.compile(r'[?&](?:token|key|secret|passcode|auth[_-]?token)=[\w\-]{8,}', re.IGNORECASE)
+# UTC date extraction beyond toISOString (getUTC* / toDateString) — same day-shift hazard.
+TZ_UTC_EXTRACT_RE = re.compile(r'\.getUTC(?:FullYear|Month|Date)\(\)|new Date\([^)]*\)\s*\.\s*toDateString\(\)')
+
 
 def scan_lines(project, relpath, orig_lines, san_lines):
     """Line-based security + correctness-smell checks. Returns list of findings.
@@ -252,6 +264,29 @@ def scan_lines(project, relpath, orig_lines, san_lines):
                                 'Date derived from toISOString() (UTC) — can shift a day in negative-offset timezones; format with local components',
                                 line))
 
+        # --- XSS: a variable concatenated into an HTML string without an escape helper. This is
+        # the blind spot that missed the employee-name stored XSS (it used + concatenation, not ${}). ---
+        if (is_client and '${' not in line and HTML_TAG_STRING_RE.search(line)
+                and USER_DATA_CONCAT_RE.search(line) and not ESCAPE_HINT_RE.search(line)):
+            findings.append(_mk(project, relpath, idx, 'security', 'medium',
+                                'xss-concat',
+                                'Variable concatenated into an HTML string without an escape helper — stored XSS if the value can contain HTML (e.g. a user-typed name)',
+                                line))
+
+        # --- Secret/token embedded in a URL (caught in code, .json and .sh alike) ---
+        if URL_SECRET_RE.search(line):
+            findings.append(_mk(project, relpath, idx, 'security', 'high',
+                                'url-secret',
+                                'Secret/token embedded in a URL — anyone with this file can use it; move it out of source/config',
+                                line))
+
+        # --- Timezone: UTC component extraction (getUTC* / toDateString) ---
+        if TZ_UTC_EXTRACT_RE.search(line):
+            findings.append(_mk(project, relpath, idx, 'correctness', 'low',
+                                'tz-utc-extract',
+                                'Date built from UTC components (getUTC*/toDateString) — can shift a day in negative-offset timezones; verify against local components',
+                                line))
+
     return findings
 
 
@@ -276,6 +311,36 @@ def scan_functions(project, files):
                                     'deep-nesting',
                                     f"Function {fn['name']}() nests {fn['max_depth']} levels deep — hard to follow/verify",
                                     f"func:{fn['name']}"))
+
+    # --- Exact duplicate function NAMES within the same runtime. All .gs files share ONE global
+    #     namespace in GAS (server), so a name defined 2+ times across .gs means the last wins and
+    #     the rest are dead/load-order-dependent (the cancelUniformOrder / formatDate class). For
+    #     client .html we only flag a name defined twice in the SAME file (a real same-page
+    #     redefinition); cross-file client dups are normally per-page and a client wrapper sharing a
+    #     name with its server function is intentional, so neither is flagged. ---
+    gs_by_name = {}
+    html_by_file_name = {}
+    for fn in all_funcs:
+        if fn['file'].endswith('.gs'):
+            gs_by_name.setdefault(fn['name'], []).append(fn)
+        else:
+            html_by_file_name.setdefault((fn['file'], fn['name']), []).append(fn)
+    for name, defs in sorted(gs_by_name.items()):
+        if len(defs) < 2:
+            continue
+        locs = ', '.join('%s:%d' % (d['file'], d['start']) for d in defs)
+        findings.append(_mk(project, defs[0]['file'], defs[0]['start'], 'correctness', 'high',
+                            'duplicate-function',
+                            '%s() defined %d times across .gs files (%s) — GAS runs only the last; the rest are dead and load-order dependent' % (name, len(defs), locs),
+                            'dupfn:%s' % name))
+    for (fname, name), defs in sorted(html_by_file_name.items()):
+        if len(defs) < 2:
+            continue
+        lines_str = ', '.join('%d' % d['start'] for d in defs)
+        findings.append(_mk(project, fname, defs[0]['start'], 'correctness', 'medium',
+                            'duplicate-function',
+                            '%s() defined %d times in the same file (lines %s) — the earlier copies are dead code' % (name, len(defs), lines_str),
+                            'dupfn:%s:%s' % (fname, name)))
 
     # --- Duplication: near-identical function bodies (the '3 implementations' smell) ---
     candidates = [fn for fn in all_funcs if fn['length'] >= DUP_MIN_LINES and len(fn['tokens']) >= DUP_SHINGLE]
@@ -359,6 +424,17 @@ def audit_project(project):
                                 'large-file',
                                 f"{f} is {non_blank} lines — large single file; consider splitting by responsibility",
                                 f"file:{f}"))
+
+    # Secret-only scan of config/shell files: not code-analyzed, but they leak tokens/keys.
+    for f in sorted(os.listdir(project_path)):
+        if not f.endswith(('.json', '.sh')):
+            continue
+        try:
+            with open(os.path.join(project_path, f), 'r', encoding='utf-8', errors='replace') as fh:
+                text = fh.read()
+        except Exception:
+            continue
+        findings.extend(scan_lines(project['name'], f, text.split('\n'), sanitize(text).split('\n')))
 
     findings.extend(scan_functions(project['name'], file_bundles))
     return {'name': project['name'], 'findings': findings}
