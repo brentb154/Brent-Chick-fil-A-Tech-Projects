@@ -2682,6 +2682,12 @@ function getMergePreview(token, sourceKey, targetKey) {
  */
 function mergeEmployees(token, sourceKey, targetKey, keepName) {
   requireValidSession_(token);
+  const lock = LockService.getDocumentLock();
+  try {
+    lock.waitLock(10000);
+  } catch (lockErr) {
+    return { success: false, error: 'System busy — another merge is in progress. Please try again.' };
+  }
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sourceKeyLower = sourceKey.toLowerCase();
@@ -2706,14 +2712,19 @@ function mergeEmployees(token, sourceKey, targetKey, keepName) {
     let uniformOrdersUpdated = 0;
     let ptoRecordsUpdated = 0;
     let otHistoryUpdated = 0;
-    
+
+    // Canonical match key for the source. Compare via generateMatchKey() on both sides
+    // (the same normalization the rest of the system uses) so names stored as
+    // "Last, First" or with odd spacing still match — otherwise their records get
+    // orphaned on the now-deleted source employee.
+    const sourceMatchKey = generateMatchKey(sourceEmp.fullName);
+
     // Update Uniform_Orders (Column C = Employee_Name)
     const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
     if (ordersSheet && ordersSheet.getLastRow() >= 2) {
       const ordersData = ordersSheet.getRange(2, 3, ordersSheet.getLastRow() - 1, 1).getValues();
       for (let i = 0; i < ordersData.length; i++) {
-        const empName = (ordersData[i][0] || '').toLowerCase().replace(/\s+/g, ' ');
-        if (empName === sourceKeyLower) {
+        if (generateMatchKey(ordersData[i][0] || '') === sourceMatchKey) {
           ordersSheet.getRange(i + 2, 3).setValue(finalName);
           uniformOrdersUpdated++;
         }
@@ -2725,8 +2736,7 @@ function mergeEmployees(token, sourceKey, targetKey, keepName) {
     if (ptoSheet && ptoSheet.getLastRow() >= 2) {
       const ptoData = ptoSheet.getRange(2, 2, ptoSheet.getLastRow() - 1, 1).getValues();
       for (let i = 0; i < ptoData.length; i++) {
-        const empName = (ptoData[i][0] || '').toLowerCase().replace(/\s+/g, ' ');
-        if (empName === sourceKeyLower) {
+        if (generateMatchKey(ptoData[i][0] || '') === sourceMatchKey) {
           ptoSheet.getRange(i + 2, 2).setValue(finalName);
           ptoRecordsUpdated++;
         }
@@ -2798,6 +2808,8 @@ function mergeEmployees(token, sourceKey, targetKey, keepName) {
   } catch (error) {
     console.error('Error merging employees:', error);
     return { success: false, error: error.message };
+  } finally {
+    lock.releaseLock();
   }
 }
 
