@@ -7072,6 +7072,7 @@ function getOTHistory(filters = {}) {
       
       const record = {
         periodEnd: periodEndDate ? periodEndDate.toISOString() : null,
+        payday: periodEndDate ? getPaydayForPeriodEnd_(periodEndDate).toISOString() : null,
         employeeName: row[1] || '',
         matchKey: row[2] || '',
         location: row[3] || '',
@@ -8253,6 +8254,7 @@ function generateEmployeeReportHTML(data, settings) {
   let tableRows = data.records.map(r => `
     <tr>
       <td>${formatDateForDisplay(r.periodEnd)}</td>
+      <td>${r.payday ? formatDateForDisplay(r.payday) : ''}</td>
       <td>${r.location}</td>
       <td style="text-align: right;">${formatHoursDisplay(r.totalHours)}</td>
       <td style="text-align: right;">${formatHoursDisplay(r.totalOT)}</td>
@@ -8321,6 +8323,7 @@ function generateEmployeeReportHTML(data, settings) {
         <thead>
           <tr>
             <th>Period End</th>
+            <th>Payday</th>
             <th>Location</th>
             <th style="text-align: right;">Total Hours</th>
             <th style="text-align: right;">OT Hours</th>

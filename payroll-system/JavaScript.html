@@ -1413,6 +1413,7 @@ function renderEmployeeData(data) {
     tbody.innerHTML = data.records.map(r => `
       <tr ${r.isMultiLocation ? 'class="highlight"' : ''}>
         <td>${formatDate(r.periodEnd)}</td>
+        <td>${r.payday ? formatDate(r.payday) : ''}</td>
         <td>${r.location}</td>
         <td class="numeric">${formatHours(r.totalHours)}</td>
         <td class="numeric font-bold ${r.totalOT > 0 ? 'text-danger' : ''}">${formatHours(r.totalOT)}</td>

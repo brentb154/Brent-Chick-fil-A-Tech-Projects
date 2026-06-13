@@ -161,3 +161,23 @@ function getPayPeriodForPayday_(payday) {
 
   return { periodStart: periodStart, periodEnd: periodEnd };
 }
+
+/**
+ * Returns the payday (Friday) for a given pay-period end (Saturday).
+ * The exact inverse of getPayPeriodForPayday_: payday is 6 days after the period end.
+ * @param {Date|string} periodEnd - The Saturday period-end (Date or 'YYYY-MM-DD')
+ * @returns {Date} Local-noon payday Date
+ */
+function getPaydayForPeriodEnd_(periodEnd) {
+  let pe;
+  if (periodEnd instanceof Date) {
+    pe = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), periodEnd.getDate(), 12, 0, 0);
+  } else {
+    const s = String(periodEnd);
+    pe = new Date(s.indexOf('T') !== -1 ? s : s + 'T12:00:00');
+  }
+  pe.setHours(12, 0, 0, 0);
+  const payday = new Date(pe);
+  payday.setDate(payday.getDate() + 6);
+  return payday;
+}
