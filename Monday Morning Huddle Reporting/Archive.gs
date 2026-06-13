@@ -62,7 +62,9 @@ function archiveWeeklySnapshot_() {
   var maxCols = getMaxCols_(chTabs);
   if (maxCols < 5) maxCols = 5;
 
-  archive.getRange(startRow, 1, 1, maxCols).merge()
+  var masterBanner = archive.getRange(startRow, 1, 1, maxCols);
+  try { masterBanner.breakApart(); } catch (e) {}
+  masterBanner.merge()
     .setValue('SNAPSHOT — ' + dateStr)
     .setFontSize(14).setFontWeight('bold').setFontColor('#FFFFFF')
     .setBackground('#1a1a2e').setHorizontalAlignment('center');
@@ -75,7 +77,9 @@ function archiveWeeklySnapshot_() {
     var lastCol = tab.getLastColumn();
 
     // Tab sub-banner
-    archive.getRange(startRow, 1, 1, maxCols).merge()
+    var subBanner = archive.getRange(startRow, 1, 1, maxCols);
+    try { subBanner.breakApart(); } catch (e) {}
+    subBanner.merge()
       .setValue(tabName)
       .setFontSize(12).setFontWeight('bold').setFontColor('#FFFFFF')
       .setBackground('#374151').setHorizontalAlignment('center');
@@ -167,6 +171,42 @@ function removeWeeklyArchiveTrigger() {
       ? 'Archive trigger removed.'
       : 'No archive trigger was found.'
   );
+}
+
+/* ── Diagnostic: inspect archive size ── */
+
+function diagnoseArchive() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var archive = ss.getSheetByName(ARCHIVE_TAB);
+  var lines = [];
+
+  if (!archive) {
+    lines.push(ARCHIVE_TAB + ' tab does not exist yet.');
+  } else {
+    var rows = archive.getLastRow();
+    var cols = archive.getLastColumn();
+    var maxRows = archive.getMaxRows();
+    var maxCols = archive.getMaxColumns();
+    var merges = archive.getRange(1, 1, Math.max(maxRows,1), Math.max(maxCols,1)).getMergedRanges().length;
+    lines.push(ARCHIVE_TAB + ':');
+    lines.push('  Used:   ' + rows + ' rows × ' + cols + ' cols  (' + (rows*cols).toLocaleString() + ' cells)');
+    lines.push('  Total:  ' + maxRows + ' rows × ' + maxCols + ' cols  (' + (maxRows*maxCols).toLocaleString() + ' cells)');
+    lines.push('  Merges: ' + merges);
+  }
+
+  // Whole-spreadsheet cell count (10M is the hard limit)
+  var totalCells = 0;
+  ss.getSheets().forEach(function(s) {
+    totalCells += s.getMaxRows() * s.getMaxColumns();
+  });
+  lines.push('');
+  lines.push('Spreadsheet total cells: ' + totalCells.toLocaleString() + ' / 10,000,000');
+  lines.push('Sheet count: ' + ss.getSheets().length);
+
+  var msg = lines.join('\n');
+  Logger.log(msg);
+  try { SpreadsheetApp.getUi().alert('Archive Diagnostic', msg, SpreadsheetApp.getUi().ButtonSet.OK); } catch (e) {}
+  return msg;
 }
 
 /* ── Helper: widest column count across tabs ── */

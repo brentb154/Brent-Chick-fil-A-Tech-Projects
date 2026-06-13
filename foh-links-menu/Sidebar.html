@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Google Sans', Roboto, Arial, sans-serif;
+      font-size: 13px;
+      color: #202124;
+      background: #f8f9fa;
+      overflow-x: hidden;
+    }
+
+    /* --- Header --- */
+    .header {
+      background: #1a73e8;
+      color: white;
+      padding: 14px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h2 {
+      font-size: 16px;
+      font-weight: 500;
+      margin-bottom: 10px;
+    }
+
+    /* --- Search & Filter Row --- */
+    .controls {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 0;
+    }
+    .search-box {
+      flex: 1;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      outline: none;
+    }
+    .search-box::placeholder { color: #999; }
+    .cat-filter {
+      padding: 6px 8px;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      background: white;
+      cursor: pointer;
+      max-width: 110px;
+    }
+
+    /* --- Content --- */
+    .content {
+      padding: 12px;
+    }
+
+    /* --- Section Headers --- */
+    .section-header {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #5f6368;
+      padding: 8px 0 4px 4px;
+      border-bottom: 1px solid #e0e0e0;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .section-header:first-child { margin-top: 0; }
+    .section-header .pin-icon { color: #e8710a; font-size: 13px; }
+
+    /* --- Link Cards --- */
+    .link-card {
+      display: flex;
+      align-items: center;
+      padding: 8px 10px;
+      margin: 3px 0;
+      background: white;
+      border-radius: 6px;
+      border: 1px solid #e8eaed;
+      cursor: pointer;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .link-card:hover {
+      border-color: #1a73e8;
+      box-shadow: 0 1px 4px rgba(26,115,232,0.15);
+    }
+    .link-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .link-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: #1a73e8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .link-url {
+      font-size: 11px;
+      color: #80868b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+    .link-actions {
+      display: flex;
+      gap: 2px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .link-card:hover .link-actions { opacity: 1; }
+    .link-actions button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #5f6368;
+      line-height: 1;
+    }
+    .link-actions button:hover { background: #e8eaed; }
+    .link-actions .pin-btn.active { color: #e8710a; }
+    .link-actions .delete-btn:hover { color: #d93025; background: #fce8e6; }
+
+    /* --- Empty State --- */
+    .empty-state {
+      text-align: center;
+      padding: 30px 16px;
+      color: #80868b;
+    }
+    .empty-state .icon { font-size: 32px; margin-bottom: 8px; }
+
+    /* --- Add Button --- */
+    .add-btn {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #1a73e8;
+      color: white;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(26,115,232,0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+      z-index: 100;
+    }
+    .add-btn:hover { background: #1557b0; }
+
+    /* --- Modal Overlay --- */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: white;
+      border-radius: 8px;
+      width: 92%;
+      max-width: 340px;
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+    .modal h3 {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 14px;
+    }
+    .form-group {
+      margin-bottom: 10px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: #5f6368;
+      margin-bottom: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: #1a73e8;
+    }
+    .form-group .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-top: 4px;
+    }
+    .form-group .checkbox-row input {
+      width: auto;
+    }
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .modal-buttons button {
+      padding: 8px 18px;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .btn-cancel {
+      background: none;
+      border: 1px solid #dadce0;
+      color: #5f6368;
+    }
+    .btn-cancel:hover { background: #f1f3f4; }
+    .btn-save {
+      background: #1a73e8;
+      color: white;
+      border: none;
+    }
+    .btn-save:hover { background: #1557b0; }
+    .btn-save:disabled { background: #a8c7fa; cursor: not-allowed; }
+
+    /* --- Loading --- */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #80868b;
+    }
+    .spinner {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 3px solid #e8eaed;
+      border-top-color: #1a73e8;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* --- Toast --- */
+    .toast {
+      position: fixed;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #323232;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 300;
+      pointer-events: none;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <h2>FOH Links</h2>
+    <div class="controls">
+      <input type="text" class="search-box" id="searchBox" placeholder="Search links...">
+      <select class="cat-filter" id="catFilter">
+        <option value="all">All</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Links Container -->
+  <div class="content" id="linksContainer">
+    <div class="loading">
+      <div class="spinner"></div>
+      <div style="margin-top: 8px;">Loading links...</div>
+    </div>
+  </div>
+
+  <!-- Add Button -->
+  <button class="add-btn" id="addBtn" title="Add Link">+</button>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <h3 id="modalTitle">Add Link</h3>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="formCategory"></select>
+      </div>
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="formName" placeholder="e.g. HotSchedules">
+      </div>
+      <div class="form-group">
+        <label>URL</label>
+        <input type="url" id="formUrl" placeholder="https://...">
+      </div>
+      <div class="form-group">
+        <label>Sort Order</label>
+        <input type="number" id="formSort" value="0" min="0">
+      </div>
+      <div class="form-group">
+        <div class="checkbox-row">
+          <input type="checkbox" id="formPinned">
+          <label for="formPinned" style="text-transform: none; font-size: 13px; margin: 0;">Pin to top</label>
+        </div>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn-cancel" id="btnCancel">Cancel</button>
+        <button class="btn-save" id="btnSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+<script>
+  // State
+  var allLinks = [];
+  var allCategories = [];
+  var editingRow = null; // null = adding, number = editing
+
+  // DOM refs
+  var container = document.getElementById('linksContainer');
+  var searchBox = document.getElementById('searchBox');
+  var catFilter = document.getElementById('catFilter');
+  var modalOverlay = document.getElementById('modalOverlay');
+  var addBtn = document.getElementById('addBtn');
+  var btnCancel = document.getElementById('btnCancel');
+  var btnSave = document.getElementById('btnSave');
+
+  // --- Load links from server ---
+  function loadLinks() {
+    container.innerHTML = '<div class="loading"><div class="spinner"></div><div style="margin-top:8px;">Loading links...</div></div>';
+    google.script.run
+      .withSuccessHandler(onLinksLoaded)
+      .withFailureHandler(onError)
+      .getLinksData();
+  }
+
+  function onLinksLoaded(result) {
+    allLinks = result.links;
+    allCategories = result.categories;
+    populateCategoryFilter();
+    populateCategoryDropdown();
+    renderLinks();
+  }
+
+  function onError(err) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">!</div><div>' + err.message + '</div></div>';
+  }
+
+  // --- Populate category filter ---
+  function populateCategoryFilter() {
+    var current = catFilter.value;
+    catFilter.innerHTML = '<option value="all">All</option>';
+    allCategories.forEach(function(cat) {
+      var opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      catFilter.appendChild(opt);
+    });
+    catFilter.value = current || 'all';
+  }
+
+  function populateCategoryDropdown() {
+    var formCat = document.getElementById('formCategory');
+    formCat.innerHTML = '';
+    allCategories.forEach(function(cat) {
+      var opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      formCat.appendChild(opt);
+    });
+  }
+
+  // --- Render links ---
+  function renderLinks() {
+    var query = searchBox.value.toLowerCase().trim();
+    var filterCat = catFilter.value;
+
+    var filtered = allLinks.filter(function(link) {
+      if (filterCat !== 'all' && link.category !== filterCat) return false;
+      if (query && link.name.toLowerCase().indexOf(query) === -1 &&
+          link.url.toLowerCase().indexOf(query) === -1 &&
+          link.category.toLowerCase().indexOf(query) === -1) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="icon">&#128279;</div><div>No links found.<br>Click + to add one.</div></div>';
+      return;
+    }
+
+    var html = '';
+    var pinnedLinks = filtered.filter(function(l) { return l.pinned; });
+    var unpinnedLinks = filtered.filter(function(l) { return !l.pinned; });
+
+    // Pinned section
+    if (pinnedLinks.length > 0) {
+      html += '<div class="section-header"><span class="pin-icon">&#9733;</span> Pinned</div>';
+      pinnedLinks.forEach(function(link) {
+        html += buildLinkCard(link);
+      });
+    }
+
+    // Group unpinned by category
+    var catOrder = ['Training', 'Communication', 'Operations', 'HR', 'Finance',
+                    'Scheduling', 'Safety', 'Marketing', 'General', 'Other'];
+    var grouped = {};
+    unpinnedLinks.forEach(function(link) {
+      if (!grouped[link.category]) grouped[link.category] = [];
+      grouped[link.category].push(link);
+    });
+
+    // Render in order
+    var rendered = {};
+    catOrder.forEach(function(cat) {
+      if (grouped[cat]) {
+        html += buildCategorySection(cat, grouped[cat]);
+        rendered[cat] = true;
+      }
+    });
+    Object.keys(grouped).forEach(function(cat) {
+      if (!rendered[cat]) {
+        html += buildCategorySection(cat, grouped[cat]);
+      }
+    });
+
+    container.innerHTML = html;
+    attachCardListeners();
+  }
+
+  function buildCategorySection(cat, links) {
+    var html = '<div class="section-header">' + escapeHtml(cat) + '</div>';
+    links.forEach(function(link) {
+      html += buildLinkCard(link);
+    });
+    return html;
+  }
+
+  function buildLinkCard(link) {
+    var domain = '';
+    try {
+      domain = link.url.replace(/https?:\/\//, '').split('/')[0];
+    } catch(e) { domain = link.url; }
+
+    return '<div class="link-card" data-row="' + link.row + '" data-url="' + escapeAttr(link.url) + '">' +
+      '<div class="link-info">' +
+        '<div class="link-name">' + escapeHtml(link.name) + '</div>' +
+        '<div class="link-url">' + escapeHtml(domain) + '</div>' +
+      '</div>' +
+      '<div class="link-actions">' +
+        '<button class="pin-btn' + (link.pinned ? ' active' : '') + '" data-row="' + link.row + '" title="' + (link.pinned ? 'Unpin' : 'Pin') + '">&#9733;</button>' +
+        '<button class="edit-btn" data-row="' + link.row + '" title="Edit">&#9998;</button>' +
+        '<button class="delete-btn" data-row="' + link.row + '" title="Delete">&#10005;</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  // --- Card event listeners ---
+  function attachCardListeners() {
+    // Open link on card click
+    var cards = document.querySelectorAll('.link-card');
+    for (var i = 0; i < cards.length; i++) {
+      cards[i].addEventListener('click', function(e) {
+        // Don't open if clicking action buttons
+        if (e.target.closest('.link-actions')) return;
+        var url = this.getAttribute('data-url');
+        window.open(url, '_blank');
+      });
+    }
+
+    // Pin buttons
+    var pinBtns = document.querySelectorAll('.pin-btn');
+    for (var i = 0; i < pinBtns.length; i++) {
+      pinBtns[i].addEventListener('click', function(e) {
+        e.stopPropagation();
+        var row = parseInt(this.getAttribute('data-row'));
+        togglePinLink(row);
+      });
+    }
+
+    // Edit buttons
+    var editBtns = document.querySelectorAll('.edit-btn');
+    for (var i = 0; i < editBtns.length; i++) {
+      editBtns[i].addEventListener('click', function(e) {
+        e.stopPropagation();
+        var row = parseInt(this.getAttribute('data-row'));
+        openEditModal(row);
+      });
+    }
+
+    // Delete buttons
+    var delBtns = document.querySelectorAll('.delete-btn');
+    for (var i = 0; i < delBtns.length; i++) {
+      delBtns[i].addEventListener('click', function(e) {
+        e.stopPropagation();
+        var row = parseInt(this.getAttribute('data-row'));
+        if (confirm('Delete this link?')) {
+          deleteThisLink(row);
+        }
+      });
+    }
+  }
+
+  // --- CRUD operations ---
+  function togglePinLink(row) {
+    showToast('Updating...');
+    google.script.run
+      .withSuccessHandler(function() { showToast('Updated'); loadLinks(); })
+      .withFailureHandler(function(err) { showToast('Error: ' + err.message); })
+      .togglePin(row);
+  }
+
+  function deleteThisLink(row) {
+    showToast('Deleting...');
+    google.script.run
+      .withSuccessHandler(function() { showToast('Deleted'); loadLinks(); })
+      .withFailureHandler(function(err) { showToast('Error: ' + err.message); })
+      .deleteLink(row);
+  }
+
+  // --- Modal ---
+  function openAddModal() {
+    editingRow = null;
+    document.getElementById('modalTitle').textContent = 'Add Link';
+    document.getElementById('formCategory').value = catFilter.value !== 'all' ? catFilter.value : 'General';
+    document.getElementById('formName').value = '';
+    document.getElementById('formUrl').value = '';
+    document.getElementById('formSort').value = '0';
+    document.getElementById('formPinned').checked = false;
+    btnSave.disabled = false;
+    modalOverlay.classList.add('active');
+    setTimeout(function() { document.getElementById('formName').focus(); }, 100);
+  }
+
+  function openEditModal(row) {
+    var link = allLinks.filter(function(l) { return l.row === row; })[0];
+    if (!link) return;
+    editingRow = row;
+    document.getElementById('modalTitle').textContent = 'Edit Link';
+    document.getElementById('formCategory').value = link.category;
+    document.getElementById('formName').value = link.name;
+    document.getElementById('formUrl').value = link.url;
+    document.getElementById('formSort').value = link.sortOrder;
+    document.getElementById('formPinned').checked = link.pinned;
+    btnSave.disabled = false;
+    modalOverlay.classList.add('active');
+    setTimeout(function() { document.getElementById('formName').focus(); }, 100);
+  }
+
+  function closeModal() {
+    modalOverlay.classList.remove('active');
+    editingRow = null;
+  }
+
+  function saveLink() {
+    var name = document.getElementById('formName').value.trim();
+    var url = document.getElementById('formUrl').value.trim();
+    if (!name || !url) {
+      showToast('Name and URL are required');
+      return;
+    }
+    // Auto-add https if missing
+    if (url.indexOf('http') !== 0) {
+      url = 'https://' + url;
+    }
+
+    var data = {
+      category: document.getElementById('formCategory').value,
+      name: name,
+      url: url,
+      sortOrder: parseInt(document.getElementById('formSort').value) || 0,
+      pinned: document.getElementById('formPinned').checked
+    };
+
+    btnSave.disabled = true;
+    btnSave.textContent = 'Saving...';
+
+    if (editingRow) {
+      google.script.run
+        .withSuccessHandler(onSaveSuccess)
+        .withFailureHandler(onSaveError)
+        .updateLink(editingRow, data);
+    } else {
+      google.script.run
+        .withSuccessHandler(onSaveSuccess)
+        .withFailureHandler(onSaveError)
+        .addLink(data);
+    }
+  }
+
+  function onSaveSuccess() {
+    btnSave.textContent = 'Save';
+    closeModal();
+    showToast(editingRow ? 'Link updated' : 'Link added');
+    loadLinks();
+  }
+
+  function onSaveError(err) {
+    btnSave.disabled = false;
+    btnSave.textContent = 'Save';
+    showToast('Error: ' + err.message);
+  }
+
+  // --- Toast ---
+  function showToast(msg) {
+    var toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(function() { toast.classList.remove('show'); }, 2000);
+  }
+
+  // --- Utility ---
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function escapeAttr(str) {
+    return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // --- Event Listeners ---
+  searchBox.addEventListener('input', renderLinks);
+  catFilter.addEventListener('change', renderLinks);
+  addBtn.addEventListener('click', openAddModal);
+  btnCancel.addEventListener('click', closeModal);
+  btnSave.addEventListener('click', saveLink);
+  modalOverlay.addEventListener('click', function(e) {
+    if (e.target === modalOverlay) closeModal();
+  });
+
+  // Enter key in form fields saves
+  document.getElementById('formUrl').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') saveLink();
+  });
+  document.getElementById('formName').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('formUrl').focus();
+  });
+
+  // --- Init ---
+  loadLinks();
+</script>
+
+</body>
+</html>

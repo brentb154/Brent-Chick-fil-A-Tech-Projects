@@ -30,6 +30,10 @@ todo_spec = importlib.util.spec_from_file_location('todo_scanner', os.path.join(
 todo_scanner = importlib.util.module_from_spec(todo_spec)
 todo_spec.loader.exec_module(todo_scanner)
 
+risk_spec = importlib.util.spec_from_file_location('risk_audit', os.path.join(SCRIPT_DIR, 'risk-audit.py'))
+risk_audit = importlib.util.module_from_spec(risk_spec)
+risk_spec.loader.exec_module(risk_audit)
+
 
 def get_last_commit_date(project_path):
     """Get date of last git commit touching this project folder."""
@@ -170,6 +174,10 @@ def run_health_check():
     for t in all_todos:
         todos_by_project.setdefault(t['project'], []).append(t)
 
+    # Get RISK results (separate axis — never folded into the hygiene score)
+    risk_results = risk_audit.run_risk_audit()
+    risk_by_project = {r['name']: r for r in risk_results}
+
     results = []
 
     for project in CONFIG['projects']:
@@ -203,6 +211,11 @@ def run_health_check():
             audit['violation_count'], len(todos), days_since, readiness
         )
 
+        # Risk axis (security / correctness / duplication / complexity) — kept SEPARATE
+        # from the hygiene score so cosmetic fixes can't paper over real risk.
+        risk = risk_by_project.get(project['name'], {'counts': {'critical': 0, 'high': 0, 'medium': 0, 'low': 0},
+                                                      'at_risk': False, 'acknowledged_count': 0, 'findings': []})
+
         # Staleness flag
         staleness = 'active'
         if days_since is not None:
@@ -227,25 +240,45 @@ def run_health_check():
             'readiness': readiness,
             'readiness_score': sum(1 for v in readiness.values() if v),
             'readiness_total': len(readiness),
-            'last_change': last_change.strftime('%Y-%m-%d') if last_change else 'unknown'
+            'last_change': last_change.strftime('%Y-%m-%d') if last_change else 'unknown',
+            'risk': risk['counts'],
+            'at_risk': risk['at_risk'],
+            'risk_acknowledged': risk['acknowledged_count'],
         })
 
     return results
 
 
 def print_report(results):
-    """Print health report."""
-    print("[project-health] Project Health Scorecard\n")
+    """Print health report. TWO axes:
+      - Hygiene score (0-100): conventions + handoff readiness. Cosmetic; NOT a quality grade.
+      - Risk: security/correctness/duplication findings. A project can score 98 hygiene and still
+        be AT RISK. Run `risk-audit.py --list` for details and fingerprints to acknowledge."""
+    print("[project-health] Project Scorecard")
+    print("  Hygiene = conventions + handoff readiness (cosmetic). Risk = security/correctness (what hurts you).\n")
 
-    for r in sorted(results, key=lambda x: x['score']):
+    # Sort: at-risk projects first, then by hygiene score
+    for r in sorted(results, key=lambda x: (not x['at_risk'], x['score'])):
         icon = {'GREEN': 'OK', 'YELLOW': 'WARN', 'RED': 'ALERT'}[r['color']]
-        print(f"  [{icon}] {r['name']}: {r['score']}/100")
+        risk_flag = '  ** AT RISK **' if r['at_risk'] else ''
+        print(f"  [{icon}] {r['name']}: Hygiene {r['score']}/100{risk_flag}")
+        rc = r['risk']
+        ack = f" (+{r['risk_acknowledged']} ack'd)" if r['risk_acknowledged'] else ''
+        print(f"       Risk: {rc['critical']} critical, {rc['high']} high, {rc['medium']} medium, {rc['low']} low{ack}")
         print(f"       Violations: {r['violations']} | TODOs: {r['todos']} ({r['old_todos']} old) | Functions: {r['functions']} | Lines: {r['lines']}")
         print(f"       Last change: {r['last_change']} ({r['staleness']})")
         print(f"       Readiness: {r['readiness_score']}/{r['readiness_total']} checks passing")
         for check, passed in r['readiness'].items():
             status = 'pass' if passed else 'MISSING'
             print(f"         {'  ' if passed else '! '}{check}: {status}")
+        print()
+
+    # At-risk summary
+    at_risk = [r for r in results if r['at_risk']]
+    if at_risk:
+        print(f"  ** {len(at_risk)} project(s) AT RISK (unacknowledged critical/high findings):")
+        for r in at_risk:
+            print(f"    - {r['name']}: {r['risk']['critical']} critical, {r['risk']['high']} high  → run: risk-audit.py --project {r['name']} --list")
         print()
 
     # Stale projects warning

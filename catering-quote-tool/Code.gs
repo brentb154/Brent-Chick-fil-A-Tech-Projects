@@ -19,6 +19,7 @@ function getSpreadsheet() {
 const TAB_SETTINGS       = 'Settings';
 const TAB_MENU           = 'Menu';
 const TAB_QUOTES         = 'Quotes';
+const TAB_QUOTES_ARCHIVE = 'Quotes_Archive';
 const TAB_QUOTE_SEQUENCE = 'Quote_Sequence';
 
 
@@ -53,14 +54,17 @@ function getSettings() {
 
 function updateSetting(label, value) {
   var sheet = getSpreadsheet().getSheetByName(TAB_SETTINGS);
-  var data  = sheet.getRange('A1:A30').getValues();
+  var lastRow = Math.max(sheet.getLastRow(), 1);
+  var data = sheet.getRange(1, 1, lastRow, 1).getValues();
   for (var i = 0; i < data.length; i++) {
     if (data[i][0].toString().trim() === label) {
       sheet.getRange(i + 1, 2).setValue(value);
       return true;
     }
   }
-  return false;
+  // Label not found — append a new row instead of silently dropping the save
+  sheet.getRange(lastRow + 1, 1, 1, 2).setValues([[label, value]]);
+  return true;
 }
 
 
@@ -123,6 +127,7 @@ function getQuotes() {
   var lastCol = sheet.getLastColumn();
   var width = Math.max(19, Math.min(22, lastCol));
   var data = sheet.getRange(2, 1, lastRow - 1, width).getValues();
+  var tz = Session.getScriptTimeZone();
   var quotes = [];
   data.forEach(function(row, index) {
     if (row[0] && row[0].toString().trim() !== '') {
@@ -133,10 +138,10 @@ function getQuotes() {
         taxRateUsed: row[8], taxAmount: row[9], total: row[10],
         taxExempt: row[11], locationName: row[12], customerEmail: row[13] || '',
         poNumber: row[14] ? row[14].toString().trim() : '',
-        eventDate: row[15] ? row[15].toString().trim() : '',
+        eventDate: normalizeEventDate_(row[15], tz),
         calendarEventId: row[16] ? row[16].toString().trim() : '',
         lastModified: row[17] ? new Date(row[17]).toISOString() : '',
-        eventTime: row[18] ? row[18].toString().trim() : '',
+        eventTime: normalizeEventTime_(row[18], tz),
         orderDiscountValue: row[19] != null ? row[19] : 0,
         orderDiscountType: row[20] ? row[20].toString().trim() : 'percent',
         quoteNotes: row[21] ? row[21].toString() : '',
@@ -146,6 +151,33 @@ function getQuotes() {
   });
   quotes.sort(function(a, b) { return new Date(b.createdDate) - new Date(a.createdDate); });
   return quotes;
+}
+
+// Sheets often auto-converts the date/time inputs into Date objects.
+// Normalize both back to simple round-trippable strings so the UI inputs
+// accept them and the display layer can format them cleanly.
+function normalizeEventDate_(val, tz) {
+  if (val === '' || val == null) return '';
+  if (Object.prototype.toString.call(val) === '[object Date]') {
+    return Utilities.formatDate(val, tz, 'yyyy-MM-dd');
+  }
+  return val.toString().trim();
+}
+function normalizeEventTime_(val, tz) {
+  if (val === '' || val == null) return '';
+  if (Object.prototype.toString.call(val) === '[object Date]') {
+    return Utilities.formatDate(val, tz, 'HH:mm');
+  }
+  return val.toString().trim();
+}
+
+// Reads the Settings tab "Calendar Lead Time (Minutes)" — clamps to a sane
+// range and falls back to 30 if blank or non-numeric.
+function getCalendarLeadMinutes_(settings) {
+  var n = parseInt(settings['Calendar Lead Time (Minutes)'], 10);
+  if (isNaN(n) || n < 0) return 30;
+  if (n > 480) return 480; // hard cap at 8 hours
+  return n;
 }
 
 function getNextQuoteId() {
@@ -229,20 +261,58 @@ function deleteQuote(sheetRow) {
 
 function updateQuotePO(sheetRow, poNumber, calendarEventId) {
   getSpreadsheet().getSheetByName(TAB_QUOTES).getRange(sheetRow, 15).setValue(poNumber || '');
-  if (calendarEventId) {
-    try { updateCalendarEventPO(sheetRow, poNumber, calendarEventId); } catch(e) {}
+  var status = { poSaved: true, calendarUpdated: false, calendarReason: '' };
+  if (!calendarEventId) {
+    status.calendarReason = 'No calendar event linked to this quote';
+    return status;
   }
-  return true;
+  try {
+    var result = updateCalendarEventPO(sheetRow, poNumber, calendarEventId);
+    if (result === true) { status.calendarUpdated = true; }
+    else { status.calendarReason = (typeof result === 'string') ? result : 'Event not found on calendar'; }
+  } catch(e) {
+    status.calendarReason = e.message || String(e);
+  }
+  return status;
 }
 
+// Move quotes older than 120 days to a hidden archive sheet instead of deleting.
+// Nothing is lost — the archive keeps the full row so old quotes can always be reviewed.
 function cleanOldQuotes() {
-  var sheet = getSpreadsheet().getSheetByName(TAB_QUOTES);
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(TAB_QUOTES);
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
-  var data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+
+  var lastCol = sheet.getLastColumn();
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
   var cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 120);
+
+  var toArchive = [];   // full rows to copy into the archive
+  var rowsToDelete = []; // sheet row numbers, deleted bottom-up
   for (var i = data.length - 1; i >= 0; i--) {
-    if (new Date(data[i][1]) < cutoff) sheet.deleteRow(i + 2);
+    if (new Date(data[i][1]) < cutoff) {
+      toArchive.push(data[i]);
+      rowsToDelete.push(i + 2);
+    }
+  }
+  if (!toArchive.length) return;
+
+  // Archive sheet mirrors the Quotes header and stays hidden.
+  var archive = ss.getSheetByName(TAB_QUOTES_ARCHIVE);
+  if (!archive) {
+    archive = ss.insertSheet(TAB_QUOTES_ARCHIVE);
+    var header = sheet.getRange(1, 1, 1, lastCol).getValues();
+    archive.getRange(1, 1, 1, lastCol).setValues(header).setFontWeight('bold');
+    archive.setFrozenRows(1);
+    archive.hideSheet();
+  }
+
+  archive.getRange(archive.getLastRow() + 1, 1, toArchive.length, lastCol).setValues(toArchive);
+  SpreadsheetApp.flush();
+
+  for (var j = 0; j < rowsToDelete.length; j++) {
+    sheet.deleteRow(rowsToDelete[j]); // already sorted descending, safe to delete in order
   }
 }
 
@@ -255,24 +325,36 @@ function initializeSheet() {
   // Settings
   var sSheet = ss.getSheetByName(TAB_SETTINGS);
   if (!sSheet) sSheet = ss.insertSheet(TAB_SETTINGS);
+  var seedSettings = [
+    ['Store Name (Active)',         'Cockrell Hill DTO'],
+    ['Location 1 Name',             'Cockrell Hill DTO'],
+    ['Location 1 Address',          '1535 N Cockrell Hill Rd., Dallas, Texas 75211'],
+    ['Location 1 Phone',            '214-331-2400'],
+    ['Location 2 Name',             'Dallas Baptist University OCV'],
+    ['Location 2 Address',          ''],
+    ['Location 2 Phone',            ''],
+    ['Quote Contact Name',          ''],
+    ['Default Tax Rate (%)',         8.25],
+    ['Calendar Lead Time (Minutes)', 30],
+    ['Logo (Base64)',                ''],
+    ['Email Subject',               'Your Catering Quote from Chick-fil-A {{location}}'],
+    ['Email Body',                  'Hi {{customer}},\n\nThank you for considering Chick-fil-A {{location}} for your catering needs! We appreciate you reaching out and would love to help make your event something special.\n\nPlease find your catering quote attached. If you have any questions or would like to make any changes, don\'t hesitate to reach out — we\'re happy to help.\n\nWe look forward to serving you!\n\nWarm regards,\n{{contact}}\nChick-fil-A {{location}}\n{{phone}}'],
+    ['BCC Email',                   '']
+  ];
   if (!sSheet.getRange('A1').getValue()) {
-    sSheet.getRange(1, 1, 13, 2).setValues([
-      ['Store Name (Active)',    'Cockrell Hill DTO'],
-      ['Location 1 Name',       'Cockrell Hill DTO'],
-      ['Location 1 Address',    '1535 N Cockrell Hill Rd., Dallas, Texas 75211'],
-      ['Location 1 Phone',      '214-331-2400'],
-      ['Location 2 Name',       'Dallas Baptist University OCV'],
-      ['Location 2 Address',    ''],
-      ['Location 2 Phone',      ''],
-      ['Quote Contact Name',    ''],
-      ['Default Tax Rate (%)',   8.25],
-      ['Logo (Base64)',          ''],
-      ['Email Subject',         'Your Catering Quote from Chick-fil-A {{location}}'],
-      ['Email Body',            'Hi {{customer}},\n\nThank you for considering Chick-fil-A {{location}} for your catering needs! We appreciate you reaching out and would love to help make your event something special.\n\nPlease find your catering quote attached. If you have any questions or would like to make any changes, don\'t hesitate to reach out — we\'re happy to help.\n\nWe look forward to serving you!\n\nWarm regards,\n{{contact}}\nChick-fil-A {{location}}\n{{phone}}'],
-      ['BCC Email',             '']
-    ]);
+    sSheet.getRange(1, 1, seedSettings.length, 2).setValues(seedSettings);
     sSheet.setColumnWidth(1, 220);
     sSheet.setColumnWidth(2, 500);
+  } else {
+    // Migrate: append any seed keys that don't already exist (preserves user edits)
+    var existingKeys = {};
+    var existing = sSheet.getRange('A1:A' + Math.max(sSheet.getLastRow(), 1)).getValues();
+    existing.forEach(function(r) { if (r[0]) existingKeys[r[0].toString().trim()] = true; });
+    seedSettings.forEach(function(pair) {
+      if (!existingKeys[pair[0]]) {
+        sSheet.getRange(sSheet.getLastRow() + 1, 1, 1, 2).setValues([pair]);
+      }
+    });
   }
 
   // Menu — now 4 columns: Category, Item Name, Pickup Price, Delivery Price
@@ -453,6 +535,7 @@ function buildCalendarTitle(customerName, dateStr, poNumber) {
 function createCalendarEvent(quoteData, quoteId) {
   if (!quoteData.date) return '';
   if (!quoteData.time) return ''; // Need a time to create a timed event
+  if (quoteData.eventColor === 'skip') return ''; // User opted out via the calendar prompt
 
   var settings = getSettings();
   var calId = (settings['Calendar ID'] || '').toString().trim();
@@ -462,9 +545,10 @@ function createCalendarEvent(quoteData, quoteId) {
   var storeName = quoteData.locationName || settings['Store Name (Active)'] || '';
   var customerName = quoteData.customerName || 'Unknown';
 
-  // Parse order time (HH:MM from input[type=time]) and create event 30 min before
+  // Parse order time (HH:MM from input[type=time]) and create event N min before order time
+  var leadMin = getCalendarLeadMinutes_(settings);
   var orderTime = new Date(quoteData.date + 'T' + quoteData.time + ':00');
-  var startTime = new Date(orderTime.getTime() - 30 * 60 * 1000);
+  var startTime = new Date(orderTime.getTime() - leadMin * 60 * 1000);
 
   var dateStr = orderTime.toLocaleDateString('en-US');
   var title = buildCalendarTitle(customerName, dateStr, quoteData.poNumber);
@@ -510,6 +594,9 @@ function createCalendarEvent(quoteData, quoteId) {
     + '\n\nQuote submitted: ' + new Date().toLocaleString();
 
   var event = cal.createEvent(title, startTime, orderTime, { description: desc });
+  if (quoteData.eventColor && CalendarApp.EventColor[quoteData.eventColor]) {
+    try { event.setColor(CalendarApp.EventColor[quoteData.eventColor]); } catch(e) {}
+  }
   return event.getId();
 }
 
@@ -534,8 +621,9 @@ function updateCalendarEvent(quoteData, quoteId, calendarEventId) {
 
     // Update time if date and time are present
     if (quoteData.date && quoteData.time) {
+      var leadMin = getCalendarLeadMinutes_(settings);
       var orderTime = new Date(quoteData.date + 'T' + quoteData.time + ':00');
-      var startTime = new Date(orderTime.getTime() - 30 * 60 * 1000);
+      var startTime = new Date(orderTime.getTime() - leadMin * 60 * 1000);
       event.setTime(startTime, orderTime);
       var dateStr = orderTime.toLocaleDateString('en-US');
       event.setTitle(buildCalendarTitle(customerName, dateStr, quoteData.poNumber));
@@ -592,27 +680,35 @@ function updateCalendarEvent(quoteData, quoteId, calendarEventId) {
 }
 
 // Update calendar event title when PO changes
+// Returns true on success, or a string reason on failure
 function updateCalendarEventPO(sheetRow, poNumber, calendarEventId) {
-  if (!calendarEventId) return false;
+  if (!calendarEventId) return 'Empty event ID';
 
   var settings = getSettings();
   var calId = (settings['Calendar ID'] || '').toString().trim();
-  var cal = calId ? CalendarApp.getCalendarById(calId) : CalendarApp.getDefaultCalendar();
-  if (!cal) return false;
+
+  // Try the configured calendar first, then fall back to the default \u2014
+  // covers the case where Settings was changed after the event was created.
+  var event = null;
+  var triedCalendars = [];
+  function tryCal(c, label) {
+    if (!c) return;
+    triedCalendars.push(label);
+    try { var e = c.getEventById(calendarEventId); if (e) event = e; } catch(_) {}
+  }
+  if (calId) tryCal(CalendarApp.getCalendarById(calId), 'configured (' + calId + ')');
+  if (!event) tryCal(CalendarApp.getDefaultCalendar(), 'default');
+  if (!event) return 'Event ID not found in: ' + triedCalendars.join(', ');
 
   try {
-    var event = cal.getEventById(calendarEventId);
-    if (!event) return false;
-
     var oldTitle = event.getTitle();
     var parts = oldTitle.split(' \u2014 ');
     var customerName = parts.length >= 2 ? parts[1] : '';
     var dateStr = parts.length >= 3 ? parts[2] : '';
-
     event.setTitle(buildCalendarTitle(customerName, dateStr, poNumber));
     return true;
   } catch(e) {
-    return false;
+    return 'setTitle failed: ' + (e.message || String(e));
   }
 }
 

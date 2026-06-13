@@ -1,0 +1,25 @@
+Hey team!
+
+We made some updates to the FOH position sheet that should make your life easier. Here's what's new:
+
+FOH LINKS MENU
+There's now a "FOH Links" menu in the menu bar at the top of the spreadsheet (next to File, Edit, View, etc.). It has all the links you'll need organized by category — Training, Communication, Operations, Scheduling, and more. Click any link and it opens right up in a new tab.
+
+LINKS PANEL (SIDEBAR)
+If you want a bigger view, click FOH Links > Open Links Panel. A panel opens on the right side of the screen that stays open while you work. You can search for links, filter by category, and pin your most-used links to the top. You can also add, edit, or delete links right from the panel — no need to dig into the sheet.
+
+DONATION REQUEST EMAILS
+When someone asks about a donation, you don't need to draft an email from scratch anymore. Go to FOH Links > Send Donation Request. It opens a form where you enter the person's name and email, and it auto-fills a professional message with our giving request form link. You can edit the message before sending. Every email sent gets logged automatically so we have a record.
+
+AUTOMATIC SHEET RESET
+The day sheets (Monday through Saturday) will now automatically reset every Sunday morning at 9:00 AM. The Reset tabs copy over the regular tabs so everything is clean and ready for Monday — no more manual clearing. The tabs also get put back in the correct order automatically.
+
+If you ever need to reset the sheets manually (like mid-week), you can do that from FOH Links > Sheet Reset > Reset All Days Now. There's also a "Test Reset Monday Only" option if you just want to see how it works without touching everything.
+
+SETTINGS TAB
+There's a new Settings tab at the end of the spreadsheet. This is where you can change things like the donation email subject line, the default message, the reset day and time, and the alert email address — all without touching any code. The day and time settings use dropdowns so you can't accidentally type something wrong.
+
+LINKS TAB
+There's also a Links tab where all the menu links live. If you ever need to add or change a link and don't want to use the sidebar, you can edit them directly in that sheet.
+
+Questions? Let me know!

@@ -41,6 +41,12 @@ echo "--- Project health ---" >> "$LOG"
 python3 "$DIR/project-health.py" >> "$LOG" 2>&1
 HEALTH_SCORE_STATUS=$?
 
+# 5b. Risk audit (security / correctness / duplication) — exits non-zero if anything is AT RISK
+echo "" >> "$LOG"
+echo "--- Risk audit ---" >> "$LOG"
+python3 "$DIR/risk-audit.py" >> "$LOG" 2>&1
+RISK_STATUS=$?
+
 # 6. Health checks — ping deployed web apps
 echo "" >> "$LOG"
 echo "--- Web app health checks ---" >> "$LOG"
@@ -71,6 +77,7 @@ echo "  Memory:      $([ $MEM_STATUS -eq 0 ] && echo 'OK' || echo 'STALE ENTRIES
 echo "  Code audit:  $([ $AUDIT_STATUS -eq 0 ] && echo 'OK' || echo 'VIOLATIONS')" >> "$LOG"
 echo "  TODOs:       $([ $TODO_STATUS -eq 0 ] && echo 'OK' || echo 'ITEMS FOUND')" >> "$LOG"
 echo "  Proj health: $([ $HEALTH_SCORE_STATUS -eq 0 ] && echo 'OK' || echo 'ISSUES')" >> "$LOG"
+echo "  Risk audit:  $([ $RISK_STATUS -eq 0 ] && echo 'OK' || echo 'AT RISK')" >> "$LOG"
 echo "  Web apps:    $([ $HEALTH_STATUS -eq 0 ] && echo 'OK' || echo 'FAILURES')" >> "$LOG"
 echo "  Digest:      $( [ "$DIGEST_STATUS" = "-" ] && echo 'SKIPPED (not Sunday)' || ([ $DIGEST_STATUS -eq 0 ] && echo 'SENT' || echo 'FAILED'))" >> "$LOG"
 echo "  Git:         $([ $GIT_STATUS -eq 0 ] && echo 'OK' || echo 'FAILED')" >> "$LOG"
