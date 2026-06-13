@@ -121,9 +121,9 @@ function getCurrentPeriodInfo(ss) {
   }
   
   return {
-    periodEnd: periodEnd ? formatDateForDisplay(periodEnd) : null,
-    periodStart: periodStart ? formatDateForDisplay(periodStart) : null,
-    nextPayrollDate: nextPayrollDate ? formatDateForDisplay(nextPayrollDate) : null,
+    periodEnd: periodEnd ? formatDashDate(periodEnd) : null,
+    periodStart: periodStart ? formatDashDate(periodStart) : null,
+    nextPayrollDate: nextPayrollDate ? formatDashDate(nextPayrollDate) : null,
     daysUntilPayroll: daysUntilPayroll
   };
 }
@@ -248,7 +248,7 @@ function getUniformMetrics(ss) {
       const result = getUniformDeductionsForPayroll(ss, paydayStr);
       if (result && result.totalDeductions > 0) {
         upcomingPayments.push({
-          date: formatDateForDisplay(new Date(paydayStr + 'T12:00:00')),
+          date: formatDashDate(new Date(paydayStr + 'T12:00:00')),
           employeeCount: result.employeeCount,
           amount: Math.round(result.totalDeductions * 100) / 100
         });
@@ -432,7 +432,7 @@ function generateActionItems(otMetrics, uniformMetrics, ptoMetrics, alerts, curr
       items.push({
         id: 'upload_ot',
         type: 'upload_ot',
-        description: `Upload next period OT data (Due: ${formatDateShort(uploadDueDate)})`,
+        description: `Upload next period OT data (Due: ${formatDashDateShort(uploadDueDate)})`,
         urgent: daysUntil <= payrollUrgencyDays,
         action: 'ot-upload'
       });
@@ -510,7 +510,7 @@ function getNextOTUploadDueDate(currentPeriod) {
 /**
  * Format date as short string (M/D)
  */
-function formatDateShort(date) {
+function formatDashDateShort(date) {
   if (!date) return '';
   const d = new Date(date);
   return `${d.getMonth() + 1}/${d.getDate()}`;
@@ -519,7 +519,7 @@ function formatDateShort(date) {
 /**
  * Helper: Format date for display
  */
-function formatDateForDisplay(date) {
+function formatDashDate(date) {
   if (!date) return null;
   const d = new Date(date);
   return (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
