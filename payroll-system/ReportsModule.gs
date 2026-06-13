@@ -1453,13 +1453,37 @@ function markUniformPaymentsComplete(payday, skippedOrderIds = []) {
       ? report.rawOrders
       : report.orders.flatMap(entry => entry.orders || []).filter(o => o && o.orderId);
 
+    if (sheet.getLastRow() < 2) {
+      return { marked: 0, skipped: 0, totalAmount: 0, errors: null };
+    }
+
+    // Resolve columns by header so a future column insert/reorder can't make us
+    // write payment data to the wrong cells. Fail safe if a required column is gone.
+    const lastCol = sheet.getLastColumn();
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    const col = {};
+    headers.forEach(function(h, i) { col[h] = i; });
+    const required = ['Order_ID', 'Total_Amount', 'Payment_Plan', 'Amount_Per_Paycheck', 'Payments_Made', 'Amount_Paid', 'Amount_Remaining', 'Status'];
+    const missing = required.filter(function(h) { return col[h] === undefined; });
+    if (missing.length) {
+      return { marked: 0, skipped: 0, totalAmount: 0, errors: ['Uniform_Orders missing columns: ' + missing.join(', ')] };
+    }
+
     // Read orders sheet once for current payment state
-    const ordersData = sheet.getLastRow() >= 2
-      ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 17).getValues()
-      : [];
+    const ordersData = sheet.getRange(2, 1, sheet.getLastRow() - 1, lastCol).getValues();
     const orderRowMap = {};
     ordersData.forEach(function(row, idx) {
-      if (row[0]) orderRowMap[row[0]] = { rowIndex: idx + 2, paymentsMade: parseInt(row[9]) || 0, amountPaid: parseFloat(row[10]) || 0, totalAmount: parseFloat(row[5]) || 0, paymentPlan: parseInt(row[6]) || 1, amountPerCheck: parseFloat(row[7]) || 0, status: row[12] };
+      if (row[col['Order_ID']]) {
+        orderRowMap[row[col['Order_ID']]] = {
+          rowIndex: idx + 2,
+          paymentsMade: parseInt(row[col['Payments_Made']]) || 0,
+          amountPaid: parseFloat(row[col['Amount_Paid']]) || 0,
+          totalAmount: parseFloat(row[col['Total_Amount']]) || 0,
+          paymentPlan: parseInt(row[col['Payment_Plan']]) || 1,
+          amountPerCheck: parseFloat(row[col['Amount_Per_Paycheck']]) || 0,
+          status: row[col['Status']]
+        };
+      }
     });
 
     ordersToProcess.forEach(order => {
@@ -1484,10 +1508,10 @@ function markUniformPaymentsComplete(payday, skippedOrderIds = []) {
         let newStatus = current.status;
         if (newPaymentsMade >= current.paymentPlan) { newStatus = 'Completed'; newRemaining = 0; }
 
-        sheet.getRange(current.rowIndex, 10).setValue(newPaymentsMade);
-        sheet.getRange(current.rowIndex, 11).setValue(newAmountPaid);
-        sheet.getRange(current.rowIndex, 12).setValue(newRemaining);
-        sheet.getRange(current.rowIndex, 13).setValue(newStatus);
+        sheet.getRange(current.rowIndex, col['Payments_Made'] + 1).setValue(newPaymentsMade);
+        sheet.getRange(current.rowIndex, col['Amount_Paid'] + 1).setValue(newAmountPaid);
+        sheet.getRange(current.rowIndex, col['Amount_Remaining'] + 1).setValue(newRemaining);
+        sheet.getRange(current.rowIndex, col['Status'] + 1).setValue(newStatus);
 
         marked++;
         totalAmount += order.deductionAmount;
