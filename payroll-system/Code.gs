@@ -3938,18 +3938,24 @@ function generateOrderId() {
     
     const sheet = getOrCreateCountersSheet();
     const year = new Date().getFullYear();
-    
-    // Find the Order_ID_Counter row (should be row 2)
-    const data = sheet.getRange('A2:C3').getValues();
-    let counterRow = 2;
-    
+
+    // Find the Order_ID_Counter row by name (scan all rows, don't assume position)
+    const data = sheet.getRange(2, 1, Math.max(1, sheet.getLastRow() - 1), 2).getValues();
+    let counterRow = -1;
     for (let i = 0; i < data.length; i++) {
       if (data[i][0] === 'Order_ID_Counter') {
         counterRow = i + 2;
         break;
       }
     }
-    
+
+    // Seed the counter row if missing (existing deployments / reordered sheet)
+    if (counterRow === -1) {
+      counterRow = sheet.getLastRow() + 1;
+      sheet.getRange(counterRow, 1, 1, 3).setValues([['Order_ID_Counter', scanExistingOrderIds(), new Date()]]);
+      sheet.getRange(counterRow, 3).setNumberFormat('yyyy-mm-dd hh:mm:ss');
+    }
+
     // Get current value and increment
     const currentValue = parseInt(sheet.getRange(counterRow, 2).getValue()) || 0;
     const newValue = currentValue + 1;
@@ -3984,18 +3990,24 @@ function generateLineId() {
     lock.waitLock(10000);
     
     const sheet = getOrCreateCountersSheet();
-    
-    // Find the Line_ID_Counter row (should be row 3)
-    const data = sheet.getRange('A2:C3').getValues();
-    let counterRow = 3;
-    
+
+    // Find the Line_ID_Counter row by name (scan all rows, don't assume position)
+    const data = sheet.getRange(2, 1, Math.max(1, sheet.getLastRow() - 1), 2).getValues();
+    let counterRow = -1;
     for (let i = 0; i < data.length; i++) {
       if (data[i][0] === 'Line_ID_Counter') {
         counterRow = i + 2;
         break;
       }
     }
-    
+
+    // Seed the counter row if missing (existing deployments / reordered sheet)
+    if (counterRow === -1) {
+      counterRow = sheet.getLastRow() + 1;
+      sheet.getRange(counterRow, 1, 1, 3).setValues([['Line_ID_Counter', scanExistingLineIds(), new Date()]]);
+      sheet.getRange(counterRow, 3).setNumberFormat('yyyy-mm-dd hh:mm:ss');
+    }
+
     // Get current value and increment
     const currentValue = parseInt(sheet.getRange(counterRow, 2).getValue()) || 0;
     const newValue = currentValue + 1;

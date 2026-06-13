@@ -1377,8 +1377,14 @@ function getReconciliationForPeriod(periodEndStr) {
  */
 function markPayrollComplete(token, payrollDate, skippedOrderIds = []) {
   requireValidSession_(token);
+  const lock = LockService.getDocumentLock();
   try {
-    const payday = typeof payrollDate === 'string' 
+    lock.waitLock(15000);
+  } catch (lockErr) {
+    return { success: false, error: 'Payroll is already being processed. Please wait a moment and refresh before trying again.' };
+  }
+  try {
+    const payday = typeof payrollDate === 'string'
       ? new Date(payrollDate + 'T12:00:00') 
       : new Date(payrollDate);
     
@@ -1430,6 +1436,8 @@ function markPayrollComplete(token, payrollDate, skippedOrderIds = []) {
   } catch (error) {
     console.error('Error marking payroll complete:', error);
     return { success: false, error: error.message };
+  } finally {
+    lock.releaseLock();
   }
 }
 
