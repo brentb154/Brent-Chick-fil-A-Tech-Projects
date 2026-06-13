@@ -1341,7 +1341,7 @@ function loadEmployeeList() {
       AppState.employees = names || [];
       const datalist = document.getElementById('employeeList');
       if (datalist) {
-        datalist.innerHTML = names.map(n => `<option value="${n}">`).join('');
+        datalist.innerHTML = names.map(n => `<option value="${escapeHtml(n)}">`).join('');
       }
     })
     .withFailureHandler(console.error)
@@ -9876,9 +9876,12 @@ function closeReconcileModal() {
  * Escape HTML for safe display
  */
 function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /**
@@ -10248,7 +10251,7 @@ function renderPTOSection(data) {
         <div class="payroll-item-location">${pto.location} • ${pto.ptoId}</div>
         <div class="payroll-item-details">
           <div><strong>${pto.hoursRequested} hrs</strong> • ${pto.ptoStartDate}${pto.ptoStartDate !== pto.ptoEndDate ? ' - ' + pto.ptoEndDate : ''} (${pto.durationDays} day${pto.durationDays > 1 ? 's' : ''})</div>
-          ${pto.notes ? `<div>Notes: ${pto.notes}</div>` : ''}
+          ${pto.notes ? `<div>Notes: ${escapeHtml(pto.notes)}</div>` : ''}
         </div>
       </div>
     </div>
@@ -10588,7 +10591,7 @@ function renderOTReconciliationSection(reconData) {
   reconData.adjustments.forEach(function(emp) {
     html += '<div style="background:white; border:1px solid var(--gray-200); border-radius:10px; padding:16px; margin-bottom:14px;">';
     html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">';
-    html += '<span style="font-weight:700; font-size:1.05rem;">' + emp.employeeName + '</span>';
+    html += '<span style="font-weight:700; font-size:1.05rem;">' + escapeHtml(emp.employeeName) + '</span>';
     html += '<span style="font-size:0.8rem; padding:3px 10px; border-radius:12px; background:var(--warning-100, #fef3c7); color:var(--warning-700, #b45309); font-weight:600;">' + toHHMM(emp.totalNetNewOT) + ' (' + emp.totalNetNewOT.toFixed(2) + ' hrs) OT to add</span>';
     html += '</div>';
 
@@ -12556,7 +12559,7 @@ function renderReviewIssues(result) {
     html += '<div class="issue-list">';
     issues.pendingOrders.forEach(function(order) {
       html += '<div class="issue-item">';
-      html += '<span><strong>' + order.employeeName + '</strong> - $' + (order.amount || 0).toFixed(2) + ' (' + order.orderDate + ')</span>';
+      html += '<span><strong>' + escapeHtml(order.employeeName) + '</strong> - $' + (order.amount || 0).toFixed(2) + ' (' + order.orderDate + ')</span>';
       html += '<span class="status-badge">' + order.status + '</span>';
       html += '</div>';
     });
@@ -12579,8 +12582,8 @@ function renderReviewIssues(result) {
     issues.staleEmployees.forEach(function(emp) {
       html += '<div class="issue-item">';
       html += '<label class="employee-checkbox-label">';
-      html += '<input type="checkbox" class="stale-employee-checkbox" data-employee-id="' + emp.employeeId + '" data-employee-name="' + emp.employeeName + '" onchange="updateStaleEmployeeSelection()">';
-      html += '<span>' + emp.employeeName + '</span>';
+      html += '<input type="checkbox" class="stale-employee-checkbox" data-employee-id="' + escapeHtml(emp.employeeId) + '" data-employee-name="' + escapeHtml(emp.employeeName) + '" onchange="updateStaleEmployeeSelection()">';
+      html += '<span>' + escapeHtml(emp.employeeName) + '</span>';
       html += '</label>';
       html += '</div>';
     });
@@ -12599,7 +12602,7 @@ function renderReviewIssues(result) {
     html += '<div class="issue-list">';
     issues.inactiveWithDeductions.forEach(function(order) {
       html += '<div class="issue-item">';
-      html += '<span><strong>' + order.employeeName + '</strong> - $' + (order.amount || 0).toFixed(2) + ' remaining</span>';
+      html += '<span><strong>' + escapeHtml(order.employeeName) + '</strong> - $' + (order.amount || 0).toFixed(2) + ' remaining</span>';
       html += '<span class="status-badge error">Needs Resolution</span>';
       html += '</div>';
     });
@@ -12792,7 +12795,7 @@ function renderAnnualReports(result) {
   html += '<h5>Top Spenders:</h5>';
   var topEmp = reports.uniformSummary.byEmployee.slice(0, 5);
   topEmp.forEach(function(emp) {
-    html += '<div class="stat-row sub"><span>' + emp.name + ':</span><span>$' + emp.amount.toFixed(2) + '</span></div>';
+    html += '<div class="stat-row sub"><span>' + escapeHtml(emp.name) + ':</span><span>$' + emp.amount.toFixed(2) + '</span></div>';
   });
   html += '</div>';
   
@@ -12864,7 +12867,7 @@ function showExportSuccessModal(result) {
   if (filesList && result.files) {
     var filesHtml = '';
     result.files.forEach(function(file) {
-      filesHtml += '<div style="margin: 4px 0;"><strong>' + file.type + ':</strong> ' + file.name + '</div>';
+      filesHtml += '<div style="margin: 4px 0;"><strong>' + escapeHtml(file.type) + ':</strong> ' + escapeHtml(file.name) + '</div>';
     });
     filesList.innerHTML = filesHtml;
   }

@@ -1127,7 +1127,7 @@ function openCommentsModal(recordType, recordId, recordTitle) {
   const modalTitle = modal?.querySelector('.modal-header h3');
   
   if (modalTitle) {
-    modalTitle.innerHTML = `<span class="material-icons-round" style="vertical-align: middle; margin-right: 8px;">chat</span>Comments - ${recordTitle || recordId}`;
+    modalTitle.innerHTML = `<span class="material-icons-round" style="vertical-align: middle; margin-right: 8px;">chat</span>Comments - ${escapeHtml(recordTitle || recordId)}`;
   }
   
   if (modal) {
@@ -1296,9 +1296,12 @@ function formatTimeAgo(date) {
  * Helper: Escape HTML
  */
 function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // ============================================================
@@ -2226,7 +2229,7 @@ function triggerMilestoneCelebration(milestone, orderDetails) {
   // Fill order details
   var detailsHtml = '';
   if (orderDetails) {
-    detailsHtml += '<p><strong>Employee:</strong> ' + (orderDetails.employeeName || 'Unknown') + '</p>';
+    detailsHtml += '<p><strong>Employee:</strong> ' + escapeHtml(orderDetails.employeeName || 'Unknown') + '</p>';
     if (orderDetails.items) {
       detailsHtml += '<p><strong>Items:</strong> ' + orderDetails.items.join(', ') + '</p>';
     }
