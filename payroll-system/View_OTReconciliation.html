@@ -251,7 +251,7 @@ function renderReconciliationResults(data) {
 
     html += '<div class="recon-emp-card" style="' + (hasAdj ? 'border-left:3px solid #d97706;' : '') + '">';
     html += '<div class="recon-emp-header">';
-    html += '<span class="recon-emp-name">' + emp.employeeName + '</span>';
+    html += '<span class="recon-emp-name">' + escapeHtml(emp.employeeName) + '</span>';
     if (hasAdj) {
       html += '<span class="recon-emp-badge" style="background:#fef3c7; color:#b45309;">' + fmtDecHours(emp.totalNetNewOT) + ' OT to add</span>';
     } else {

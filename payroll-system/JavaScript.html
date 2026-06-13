@@ -247,7 +247,7 @@ function renderDashboardAlerts(alerts, totalCount) {
     
     switch(a.type) {
       case 'consecutive_high':
-        detailsLeft = '<p><strong>Employee:</strong> ' + a.employeeName + '</p><p><strong>Consecutive Periods:</strong> ' + a.value + '</p>';
+        detailsLeft = '<p><strong>Employee:</strong> ' + escapeHtml(a.employeeName) + '</p><p><strong>Consecutive Periods:</strong> ' + a.value + '</p>';
         detailsRight = 'This employee has had 10+ hours of overtime for ' + a.value + ' pay periods in a row. Consider reviewing their workload or schedule to prevent burnout.';
         break;
         
@@ -585,7 +585,7 @@ function renderMultiTable(employees) {
   tbody.innerHTML = employees.map(function(e) {
     var payout = getPayoutLocation(e);
     return '<tr class="highlight">' +
-      '<td class="name">' + e.employeeName + ' <span class="payout-badge ' + payout.loc.toLowerCase() + '">' + payout.icon + '</span></td>' +
+      '<td class="name">' + escapeHtml(e.employeeName) + ' <span class="payout-badge ' + payout.loc.toLowerCase() + '">' + payout.icon + '</span></td>' +
       '<td class="numeric">' + formatHours(e.chHours) + '</td>' +
       '<td class="numeric">' + formatHours(e.dbuHours) + '</td>' +
       '<td class="numeric font-bold">' + formatHours(e.totalHours) + '</td>' +
@@ -1661,7 +1661,7 @@ function renderMonthlyTransfers(data) {
     var transferred = (e.chHours > e.dbuHours) ? e.dbuHours : e.chHours;
     
     return '<tr>' +
-      '<td class="name">' + e.employeeName + ' <span class="payout-badge ' + payoutShort.toLowerCase() + '">📍 ' + payoutShort + '</span></td>' +
+      '<td class="name">' + escapeHtml(e.employeeName) + ' <span class="payout-badge ' + payoutShort.toLowerCase() + '">📍 ' + payoutShort + '</span></td>' +
       '<td>' + payoutLoc + '</td>' +
       '<td class="numeric">' + formatHours(e.chHours) + '</td>' +
       '<td class="numeric">' + formatHours(e.dbuHours) + '</td>' +
@@ -3011,7 +3011,7 @@ function renderSimilarWarning(results) {
     results.similar.forEach(function(emp) {
       html += 
         '<li>' +
-          '<strong>' + emp.fullName + '</strong> (' + emp.similarity + '% similar) ' +
+          '<strong>' + escapeHtml(emp.fullName) + '</strong> (' + emp.similarity + '% similar) ' +
           '<button type="button" class="btn btn-outline btn-sm" ' +
             'onclick="selectSearchResult(\'' + emp.matchKey.replace(/'/g, "\\'") + 
             '\', \'' + emp.fullName.replace(/'/g, "\\'") + '\')">' +
@@ -6919,7 +6919,7 @@ function renderEmployeesNeedingReview(employees) {
     html += 
       '<div class="review-item">' +
         '<div class="review-item-info">' +
-          '<div class="review-item-name">' + emp.fullName + '</div>' +
+          '<div class="review-item-name">' + escapeHtml(emp.fullName) + '</div>' +
           '<div class="review-item-meta">' + emp.location + ' • Created by ' + emp.createdBy + ' on ' + dateStr + '</div>' +
           (emp.similarWarnings ? '<div class="review-item-warning">Similar to: ' + emp.similarWarnings + '</div>' : '') +
         '</div>' +
@@ -7018,7 +7018,7 @@ function renderEmployeeAuditLog(entries) {
     html += 
       '<tr>' +
         '<td>' + dateStr + '</td>' +
-        '<td><strong>' + entry.fullName + '</strong></td>' +
+        '<td><strong>' + escapeHtml(entry.fullName) + '</strong></td>' +
         '<td><span class="method-badge ' + methodClass + '">' + entry.creationMethod + '</span></td>' +
         '<td>' + (entry.createdBy || '-') + '</td>' +
       '</tr>';

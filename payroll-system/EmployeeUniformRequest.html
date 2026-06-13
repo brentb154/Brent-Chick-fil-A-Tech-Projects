@@ -3071,7 +3071,7 @@
       if (results.similar && results.similar.length > 0) {
         let html = '<h4>⚠️ Similar names / Nombres similares:</h4><ul>';
         results.similar.forEach(function(emp) {
-          html += '<li><strong>' + emp.fullName + '</strong> (' + emp.similarity + '%) ' +
+          html += '<li><strong>' + escapeHtml(emp.fullName) + '</strong> (' + emp.similarity + '%) ' +
             '<button type="button" class="btn-use-instead" onclick="selectSearchResult(\'' + 
             emp.matchKey.replace(/'/g, "\\'") + '\', \'' + emp.fullName.replace(/'/g, "\\'") + '\')">Use / Usar</button></li>';
         });
