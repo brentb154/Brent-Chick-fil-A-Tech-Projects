@@ -361,8 +361,80 @@ function requireValidSession_(token) {
   }
 }
 
+// ============================================================================
+// RECEIVING SESSIONS (public uniform page)
+// ----------------------------------------------------------------------------
+// The uniform-receiving panel lives on the PUBLIC (no-login) uniform page. A
+// manager unlocks it with the receiving passcode; we then issue a short-lived
+// token so every receiving action is re-validated server-side (never trust the
+// client's "panel is open" state). Stored in ScriptProperties like admin
+// sessions but kept separate so receiving access can't reach the admin app.
+// ============================================================================
+var RECEIVING_SESSION_PREFIX = 'recv_';
+var RECEIVING_SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+
 /**
- * Internal helper: deletes any expired session_* keys from ScriptProperties.
+ * Validates the manager receiving passcode and, if correct, issues a short-lived
+ * receiving-session token. Called from the public uniform page when a manager unlocks
+ * the receiving panel.
+ * @param {string} passcode
+ * @returns {Object} { token } or { error }
+ */
+function createReceivingSession(passcode) {
+  try {
+    if (!validateManagerPasscode(passcode)) {
+      Utilities.sleep(800); // brute-force speed bump
+      return { error: 'Incorrect passcode' };
+    }
+    pruneExpiredSessions_();
+    var token = Utilities.getUuid();
+    PropertiesService.getScriptProperties().setProperty(
+      RECEIVING_SESSION_PREFIX + token,
+      JSON.stringify({ created: Date.now(), expires: Date.now() + RECEIVING_SESSION_TTL_MS })
+    );
+    return { token: token };
+  } catch (e) {
+    console.error('Error creating receiving session:', e);
+    return { error: 'Could not start receiving session' };
+  }
+}
+
+/**
+ * Returns a live receiving session for the token, or null (deletes it if expired).
+ * @param {string} token
+ * @returns {Object|null}
+ */
+function getReceivingSession_(token) {
+  try {
+    if (!token) return null;
+    var props = PropertiesService.getScriptProperties();
+    var str = props.getProperty(RECEIVING_SESSION_PREFIX + token);
+    if (!str) return null;
+    var s = JSON.parse(str);
+    if (!s || Date.now() > s.expires) {
+      props.deleteProperty(RECEIVING_SESSION_PREFIX + token);
+      return null;
+    }
+    return s;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Guard for uniform-receiving functions reachable from BOTH the admin app and the
+ * public uniform page. Passes if the caller has a valid admin session OR a valid
+ * receiving session; otherwise throws. Fails closed.
+ * @param {string} token - admin session token OR receiving session token
+ */
+function requireManagerAccess_(token) {
+  if (token && getTokenSession(token)) return;
+  if (token && getReceivingSession_(token)) return;
+  throw new Error('AUTH: Manager access required. Enter the receiving passcode.');
+}
+
+/**
+ * Internal helper: deletes any expired session_* / recv_* keys from ScriptProperties.
  */
 function pruneExpiredSessions_() {
   try {
@@ -370,7 +442,7 @@ function pruneExpiredSessions_() {
     var all = props.getProperties();
     var now = Date.now();
     for (var key in all) {
-      if (key.indexOf(SESSION_KEY_PREFIX) !== 0) continue;
+      if (key.indexOf(SESSION_KEY_PREFIX) !== 0 && key.indexOf(RECEIVING_SESSION_PREFIX) !== 0) continue;
       try {
         var session = JSON.parse(all[key]);
         if (!session || now > session.expires) {
@@ -3402,7 +3474,7 @@ function submitEmployeeUniformRequest(orderData) {
  * @param {string} orderId - The Order_ID to cancel
  * @returns {Object} Result
  */
-function cancelUniformOrder(orderId) {
+function cancelUniformOrder(token, orderId) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
@@ -3416,7 +3488,8 @@ function cancelUniformOrder(orderId) {
     const ordersData = ordersSheet.getDataRange().getValues();
     const headers = ordersData[0];
     const statusColIdx = headers.indexOf('Status');
-    
+    const createdColIdx = headers.indexOf('Created_Date');
+
     let orderRow = null;
     let orderRowNum = -1;
     
@@ -3438,7 +3511,19 @@ function cancelUniformOrder(orderId) {
     if (currentStatus !== 'Pending' && currentStatus !== 'Pending - Cash') {
       return { success: false, error: `Cannot cancel - order status is "${currentStatus}". Only pending orders can be cancelled.` };
     }
-    
+
+    // A manager/admin (valid session OR receiving token) can cancel any pending order.
+    // The public employee "undo" path has no session, so it is limited to the brief
+    // window right after the order was created (stops Order-ID guessing on the public page).
+    const hasManagerAccess = !!(token && (getTokenSession(token) || getReceivingSession_(token)));
+    if (!hasManagerAccess) {
+      const created = createdColIdx >= 0 ? new Date(orderRow[createdColIdx]) : null;
+      const ageMs = (created && !isNaN(created.getTime())) ? (Date.now() - created.getTime()) : Infinity;
+      if (!(ageMs >= 0 && ageMs <= 15 * 60 * 1000)) {
+        return { success: false, error: 'This order can no longer be undone. Please ask a manager.' };
+      }
+    }
+
     // Update order status to Cancelled
     ordersSheet.getRange(orderRowNum, statusColIdx + 1).setValue('Cancelled');
     
@@ -3458,7 +3543,7 @@ function cancelUniformOrder(orderId) {
     }
     
     // Log the activity
-    logActivity('CANCEL', 'UNIFORM', `Order ${orderId} cancelled by employee (undo)`, orderId);
+    logActivity('CANCEL', 'UNIFORM', `Order ${orderId} cancelled${hasManagerAccess ? '' : ' (employee undo)'}`, orderId);
     
     return {
       success: true,
@@ -4414,7 +4499,8 @@ function markOrderReceived(token, orderId, receivedDateOverride = null) {
  * @param {Array} orderIds - Array of Order_IDs to activate
  * @returns {Object} Result with summary
  */
-function bulkActivateOrders(orderIds) {
+function bulkActivateOrders(token, orderIds) {
+  requireManagerAccess_(token);
   try {
     if (!orderIds || orderIds.length === 0) {
       return { success: false, error: 'No orders provided' };
@@ -5184,7 +5270,8 @@ function getPendingOrdersForReceiving(location) {
  * @param {string} receivedBy - Who is marking items (name or identifier)
  * @returns {Object} Result
  */
-function updateItemsReceivedStatus(updates, receivedBy) {
+function updateItemsReceivedStatus(token, updates, receivedBy) {
+  requireManagerAccess_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
@@ -5466,7 +5553,8 @@ function updateOrderDiscount(token, orderId, newDiscount) {
  * @param {string} lineId - The Line_ID to cancel
  * @returns {Object} Result
  */
-function cancelUniformItem(lineId) {
+function cancelUniformItem(token, lineId) {
+  requireManagerAccess_(token);
   var lock = LockService.getDocumentLock();
   try {
     lock.waitLock(10000);
@@ -5712,7 +5800,8 @@ function resolveUniformItemCancellation(orderId, method) {
  * @param {string} orderId - The Order_ID to activate
  * @returns {Object} Result with optional newOrderId for split items
  */
-function activateOrderWithReceivedItems(orderId) {
+function activateOrderWithReceivedItems(token, orderId) {
+  requireManagerAccess_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
@@ -5999,7 +6088,8 @@ function activateOrderWithReceivedItems(orderId) {
  * @param {Array} receivedData - Array of {lineId, receivedQuantity} for items received
  * @returns {Object} Result
  */
-function activateOrderAsCashPayment(orderId, receivedData) {
+function activateOrderAsCashPayment(token, orderId, receivedData) {
+  requireManagerAccess_(token);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
@@ -6256,36 +6346,10 @@ function recordUniformPayment(orderId) {
   }
 }
 
-/**
- * Cancels an order
- * @param {string} orderId - The Order_ID
- * @returns {Object} Result
- */
-function cancelUniformOrder(orderId) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
-    
-    if (!sheet) {
-      return { success: false, error: 'Orders sheet not found' };
-    }
-    
-    const orders = getUniformOrders();
-    const order = orders.find(o => o.orderId === orderId);
-    
-    if (!order) {
-      return { success: false, error: 'Order not found' };
-    }
-    
-    sheet.getRange(order.rowIndex, 13).setValue('Cancelled');  // M: Status column
-    
-    return { success: true, message: 'Order cancelled successfully' };
-    
-  } catch (error) {
-    console.error('Error cancelling order:', error);
-    return { success: false, error: error.message };
-  }
-}
+// NOTE: A duplicate cancelUniformOrder() used to live here and silently overrode the
+// guarded version above (GAS runs the LAST definition of a name). Removed during the
+// security pass — the canonical version (status guard + manager/undo-window check) is
+// defined earlier in this file.
 
 /**
  * Gets payroll deductions due for a specific payday

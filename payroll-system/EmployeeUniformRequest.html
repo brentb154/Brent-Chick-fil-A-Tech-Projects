@@ -4089,9 +4089,10 @@
       
       google.script.run
         .withFailureHandler(handleServerError)
-        .withSuccessHandler(function(isValid) {
+        .withSuccessHandler(function(result) {
           showLoading(false);
-          if (isValid) {
+          if (result && result.token) {
+            receivingToken = result.token;
             errorEl.classList.remove('show');
             input.value = '';
             document.getElementById('passcodeSection').classList.remove('show');
@@ -4108,7 +4109,7 @@
           errorEl.textContent = '⚠️ Could not verify passcode. Check your connection.';
           errorEl.classList.add('show');
         })
-        .validateManagerPasscode(code);
+        .createReceivingSession(code);
     }
 
     /**
@@ -4131,6 +4132,9 @@
     // BULK MODE FUNCTIONS
     // ========================================
     
+    // Receiving-session token issued by the server after a valid manager passcode.
+    // Sent with every receiving action so the server re-validates manager access.
+    let receivingToken = null;
     let currentReceivingMode = 'standard';
     let bulkSelectedOrders = new Set();
 
@@ -4409,7 +4413,7 @@
           document.getElementById('bulkProgressModal').classList.remove('show');
           showError(getUserFriendlyError(error, 'activate orders'));
         })
-        .bulkActivateOrders(orderIds);
+        .bulkActivateOrders(receivingToken, orderIds);
     }
 
     /**
@@ -4862,7 +4866,7 @@
         google.script.run
           .withSuccessHandler(resolve)
           .withFailureHandler(reject)
-          .updateItemsReceivedStatus(updates, 'Manager');
+          .updateItemsReceivedStatus(receivingToken, updates, 'Manager');
       });
     }
 
@@ -4996,7 +5000,7 @@
           showLoading(false);
           showToast(getUserFriendlyError(error, 'process cash payment'), 'error');
         })
-        .activateOrderAsCashPayment(orderId, receivedData);
+        .activateOrderAsCashPayment(receivingToken, orderId, receivedData);
     }
 
     /**
@@ -5054,7 +5058,7 @@
           showLoading(false);
           showToast(getUserFriendlyError(error, 'cancel this item'), 'error');
         })
-        .cancelUniformItem(lineId);
+        .cancelUniformItem(receivingToken, lineId);
     }
 
     /**
@@ -5192,7 +5196,7 @@
             google.script.run
               .withSuccessHandler(resolve)
               .withFailureHandler(reject)
-              .activateOrderWithReceivedItems(orderId);
+              .activateOrderWithReceivedItems(receivingToken, orderId);
           });
         })
         .then(function(result) {
@@ -5506,7 +5510,7 @@
         google.script.run
           .withSuccessHandler(handleSubmissionUndoResult)
           .withFailureHandler(handleSubmissionUndoError)
-          .cancelUniformOrder(submissionId);
+          .cancelUniformOrder('', submissionId);
       } else if (type === 'pto') {
         google.script.run
           .withSuccessHandler(handleSubmissionUndoResult)

@@ -4033,7 +4033,7 @@ function cancelOrder(orderId) {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .cancelUniformOrder(orderId);
+    .cancelUniformOrder(window.PAYROLL_SESSION_TOKEN, orderId);
 }
 
 /**
@@ -4567,7 +4567,7 @@ function cancelItemFromModal(lineId, itemName) {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .cancelUniformItem(lineId);
+    .cancelUniformItem(window.PAYROLL_SESSION_TOKEN, lineId);
 }
 
 /**
@@ -4841,13 +4841,13 @@ ${unreceivedItems.length} unreceived item(s) will be moved to a new pending orde
           showLoading(false);
           showToast('Error: ' + error.message, 'error');
         })
-        .activateOrderWithReceivedItems(currentModalOrder.orderId);
+        .activateOrderWithReceivedItems(window.PAYROLL_SESSION_TOKEN, currentModalOrder.orderId);
     })
     .withFailureHandler(function(error) {
       showLoading(false);
       showToast('Error: ' + error.message, 'error');
     })
-    .updateItemsReceivedStatus(updates, 'Admin');
+    .updateItemsReceivedStatus(window.PAYROLL_SESSION_TOKEN, updates, 'Admin');
 }
 
 /**
