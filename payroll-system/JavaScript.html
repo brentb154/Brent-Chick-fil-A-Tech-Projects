@@ -1431,14 +1431,15 @@ function renderEmployeeChart(records) {
     data.addColumn('number', 'OT Hours');
     
     records.slice().reverse().slice(-12).forEach(r => {
-      data.addRow([formatDate(r.periodEnd), r.totalOT]);
+      data.addRow([formatDate(r.payday || r.periodEnd), r.totalOT]);
     });
     
     const options = {
       legend: { position: 'none' },
       colors: ['#E51636'],
       chartArea: { width: '85%', height: '75%' },
-      vAxis: { title: 'OT Hours', minValue: 0 }
+      vAxis: { title: 'OT Hours', minValue: 0 },
+      hAxis: { title: 'Payday' }
     };
     
     const chart = new google.visualization.ColumnChart(document.getElementById('employeeChart'));
