@@ -248,6 +248,7 @@ function createTimeline(params) {
     }
   } catch (e) {
     Logger.log('Auto-populate Training Needs failed: ' + e.message);
+    populatedMsg = '\n⚠ Training Needs auto-populate failed: ' + e.message;
   }
 
   // -- Refresh dashboard ------------------------------------
@@ -292,6 +293,49 @@ function setupTrainingScheduleSheet(ss) {
   sheet.setColumnWidth(2, 60);
   sheet.setColumnWidth(3, 100);
   sheet.setColumnWidth(6, 130);
+  return sheet;
+}
+
+/**
+ * Builds the Training Needs weekly grid in a layout that loadTrainingNeedsLayout()
+ * can detect: each day (Mon-Sat) has two "FOH Training" header blocks (Breakfast/
+ * Afternoon on the left, Lunch/Dinner on the right), each with 5 data rows.
+ * Idempotent — skips if the sheet already has data (operator may have built their own).
+ */
+function setupTrainingNeedsSheet(ss) {
+  var sheet = ss.getSheetByName('Training Needs');
+  if (!sheet) sheet = ss.insertSheet('Training Needs');
+  if (sheet.getLastRow() > 1) return sheet; // already built / has data
+
+  var days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+
+  function blank() { return ['', '', '', '', '', '', '', '', '', '', '', '', '', '']; }
+  function header() {
+    var r = blank();
+    r[0] = 'FOH Training'; r[1] = 'Shift'; r[2] = 'Position'; r[3] = 'Trainer'; r[4] = 'Date';
+    r[8] = 'FOH Training'; r[9] = 'Shift'; r[10] = 'Position'; r[11] = 'Trainer'; r[12] = 'Date';
+    return r;
+  }
+  function mealLabel(left, right) { var r = blank(); r[0] = left; r[8] = right; return r; }
+
+  var rows = [];
+  var headerRowNums = [];
+  days.forEach(function (day) {
+    var d = blank(); d[0] = day; rows.push(d);                 // day header
+    rows.push(mealLabel('BREAKFAST', 'AFTERNOON'));            // meal labels
+    headerRowNums.push(rows.length + 1); rows.push(header());  // FOH Training header
+    for (var i = 0; i < 5; i++) rows.push(blank());           // 5 data rows
+    rows.push(mealLabel('LUNCH', 'DINNER'));
+    headerRowNums.push(rows.length + 1); rows.push(header());
+    for (var j = 0; j < 5; j++) rows.push(blank());
+    rows.push(blank());                                        // spacer between days
+  });
+
+  sheet.getRange(1, 1, rows.length, 14).setValues(rows);
+  sheet.setFrozenColumns(0);
+  headerRowNums.forEach(function (rn) {
+    sheet.getRange(rn, 1, 1, 14).setFontWeight('bold').setBackground('#D9E2F3');
+  });
   return sheet;
 }
 
@@ -354,8 +398,19 @@ function loadNextWeeksTraining() {
 
 /** Trigger-callable: auto-populates on Monday mornings. */
 function mondayAutoPopulate() {
-  populateWeeklyTraining(0, false);
-  Logger.log('Monday auto-populate completed: ' + new Date());
+  try {
+    var count = populateWeeklyTraining(0, false);
+    Logger.log('Monday auto-populate completed: ' + count + ' entries at ' + new Date());
+  } catch (err) {
+    Logger.log('mondayAutoPopulate FAILED: ' + err.message);
+    try {
+      MailApp.sendEmail({
+        to: Session.getEffectiveUser().getEmail(),
+        subject: 'Training Tracker: Monday Auto-Populate FAILED',
+        body: 'Error: ' + err.message + '\n\nStack: ' + err.stack
+      });
+    } catch (mailErr) { Logger.log('Could not send failure alert: ' + mailErr.message); }
+  }
 }
 
 /** Quiet version called from createTimeline. Returns count. */
@@ -415,6 +470,19 @@ function populateWeeklyTraining(weekOffset, showAlerts, ssOverride, targetMonday
   var mondayStr   = Utilities.formatDate(monday, tz, 'yyyy-MM-dd');
   var saturdayStr = Utilities.formatDate(saturday, tz, 'yyyy-MM-dd');
 
+  // -- Build certified-trainee exclusion set -----------------
+  // Certified trainees stay in Training Schedule but must NOT be
+  // re-populated into Training Needs each week.
+  var certifiedSet = {};
+  var certSheet = ss.getSheetByName('Certification Log');
+  if (certSheet && certSheet.getLastRow() > 1) {
+    certSheet.getRange(2, 1, certSheet.getLastRow() - 1, 1)
+      .getValues().forEach(function(r) {
+        var key = normalizeNameKey(r[0]);
+        if (key) certifiedSet[key] = true;
+      });
+  }
+
   // -- Read Training Schedule and filter ---------------------
   // Columns: A=Trainee, B=House, C=Date, D=Day, E=Shift, F=Position, G=Hours, H=Week#, I=Created
   var schedData = schedSheet.getRange(2, 1, schedSheet.getLastRow() - 1, 9).getValues();
@@ -425,6 +493,9 @@ function populateWeeklyTraining(weekOffset, showAlerts, ssOverride, targetMonday
 
     // FOH ONLY - Training Needs sheet is for FOH trainees
     if (house !== 'FOH') return;
+
+    // Skip anyone already certified
+    if (certifiedSet[normalizeNameKey(row[0])]) return;
 
     var entryDate = new Date(row[2]);
     var entryStr = Utilities.formatDate(entryDate, tz, 'yyyy-MM-dd');
@@ -442,15 +513,6 @@ function populateWeeklyTraining(weekOffset, showAlerts, ssOverride, targetMonday
     }
   });
 
-  if (weekEntries.length === 0) {
-    if (showAlerts) {
-      SpreadsheetApp.getUi().alert(
-        'No training scheduled for week of ' +
-        Utilities.formatDate(monday, tz, 'MMM d, yyyy') + '.');
-    }
-    return 0;
-  }
-
   // -- Detect Training Needs sheet layout --------------------
   var layout = loadTrainingNeedsLayout(needsSheet);
   if (!layout || Object.keys(layout).length === 0) {
@@ -464,7 +526,19 @@ function populateWeeklyTraining(weekOffset, showAlerts, ssOverride, targetMonday
   }
 
   // -- Clear existing Training Needs data --------------------
+  // Always wipe last week's entries, even if this week has nothing
+  // scheduled — otherwise stale rows linger on the wrong week.
   clearTrainingNeedsData(needsSheet, layout);
+
+  if (weekEntries.length === 0) {
+    if (showAlerts) {
+      SpreadsheetApp.getUi().alert(
+        'No training scheduled for week of ' +
+        Utilities.formatDate(monday, tz, 'MMM d, yyyy') + '.\n\n' +
+        'Training Needs has been cleared.');
+    }
+    return 0;
+  }
 
   // -- Get logged hours for position priority ----------------
   var loggedHours = getAllTraineeLoggedHours(ss);
@@ -485,7 +559,25 @@ function populateWeeklyTraining(weekOffset, showAlerts, ssOverride, targetMonday
     grouped[key].positions.push({ name: entry.position, hours: entry.hours });
   });
 
+  // -- Pre-read name columns for empty row detection ----------
+  // Build a map of section -> current name column values (batch read)
+  var sectionNameData = {};
+  Object.keys(layout).forEach(function(dayName) {
+    var sections = layout[dayName].sections;
+    Object.keys(sections).forEach(function(shiftName) {
+      var section = sections[shiftName];
+      var cols = section.cols;
+      if (cols && cols.nameCol) {
+        var numRows = section.dataEnd - section.dataStart + 1;
+        var key = dayName + '|' + shiftName;
+        sectionNameData[key] = needsSheet.getRange(section.dataStart, cols.nameCol, numRows, 1).getValues();
+      }
+    });
+  });
+
   // -- Write to Training Needs -------------------------------
+  // Collect all writes, then batch them at the end
+  var writes = []; // { row, col, value }
   var populated = 0;
 
   Object.keys(grouped).forEach(function(key) {
@@ -528,13 +620,20 @@ function populateWeeklyTraining(weekOffset, showAlerts, ssOverride, targetMonday
         return;
       }
 
-      // Find empty row
+      // Find empty row using pre-read data
+      var sectionKey = entry.dayOfWeek + '|' + daypartName;
+      var nameData = sectionNameData[sectionKey];
       var emptyRow = -1;
-      for (var r = section.dataStart; r <= section.dataEnd; r++) {
-        var cellVal = needsSheet.getRange(r, cols.nameCol).getValue();
-        if (!cellVal || String(cellVal).trim() === '') {
-          emptyRow = r;
-          break;
+
+      if (nameData) {
+        for (var ri = 0; ri < nameData.length; ri++) {
+          var cellVal = nameData[ri][0];
+          if (!cellVal || String(cellVal).trim() === '') {
+            emptyRow = section.dataStart + ri;
+            // Mark as taken so the next entry finds the next empty row
+            nameData[ri][0] = '(pending)';
+            break;
+          }
         }
       }
 
@@ -543,16 +642,31 @@ function populateWeeklyTraining(weekOffset, showAlerts, ssOverride, targetMonday
         return;
       }
 
-      needsSheet.getRange(emptyRow, cols.nameCol).setValue(entry.trainee);
-      if (cols.shiftCol) needsSheet.getRange(emptyRow, cols.shiftCol).setValue(entry.shift);
-      needsSheet.getRange(emptyRow, cols.posCol).setValue(posStr);
+      writes.push({ row: emptyRow, col: cols.nameCol, value: entry.trainee });
+      if (cols.shiftCol) writes.push({ row: emptyRow, col: cols.shiftCol, value: entry.shift });
+      writes.push({ row: emptyRow, col: cols.posCol, value: posStr });
       if (cols.dateCol) {
-        needsSheet.getRange(emptyRow, cols.dateCol).setValue(
-          Utilities.formatDate(entry.date, tz, 'M/d/yyyy'));
+        writes.push({ row: emptyRow, col: cols.dateCol, value: Utilities.formatDate(entry.date, tz, 'M/d/yyyy') });
       }
       populated++;
     });
   });
+
+  // Flush all writes — one read + one write instead of a setValue() per cell.
+  // Reading the region back means every cell we DON'T write is preserved as-is,
+  // including the manually-assigned Trainer column.
+  if (writes.length > 0) {
+    var maxRow = needsSheet.getLastRow();
+    var maxCol = 14; // layout spans columns A-N
+    writes.forEach(function(w) {
+      if (w.row > maxRow) maxRow = w.row;
+      if (w.col > maxCol) maxCol = w.col;
+    });
+    var grid = needsSheet.getRange(1, 1, maxRow, maxCol).getValues();
+    writes.forEach(function(w) { grid[w.row - 1][w.col - 1] = w.value; });
+    needsSheet.getRange(1, 1, maxRow, maxCol).setValues(grid);
+    SpreadsheetApp.flush();
+  }
 
   if (showAlerts) {
     SpreadsheetApp.getUi().alert(
@@ -688,21 +802,26 @@ function loadTrainingNeedsLayout(sheet) {
 /**
  * Reads header cells in a row range to auto-detect column purposes.
  * Looks for: FOH Training/name, Shift, Position, Trainer, Date.
+ * Uses batch read and fuzzy matching (indexOf) to tolerate header variations.
  */
 function detectSectionColumns(sheet, headerRow, startCol, endCol) {
   var cols = {};
-  for (var c = startCol; c <= endCol; c++) {
-    var val = String(sheet.getRange(headerRow, c).getValue()).trim().toLowerCase();
+  var numCols = endCol - startCol + 1;
+  var headerVals = sheet.getRange(headerRow, startCol, 1, numCols).getValues()[0];
+
+  for (var i = 0; i < headerVals.length; i++) {
+    var val = String(headerVals[i]).trim().toLowerCase();
     if (!val) continue;
+    var c = startCol + i;
 
     if ((val.indexOf('training') > -1 || val.indexOf('foh') > -1 ||
          val.indexOf('boh') > -1 || val === 'name' || val === 'trainee') && !cols.nameCol) {
       cols.nameCol = c;
-    } else if (val === 'shift' && !cols.shiftCol) {
+    } else if (val.indexOf('shift') > -1 && !cols.shiftCol) {
       cols.shiftCol = c;
-    } else if (val === 'position' && !cols.posCol) {
+    } else if (val.indexOf('position') > -1 && !cols.posCol) {
       cols.posCol = c;
-    } else if (val === 'trainer' && !cols.trainerCol) {
+    } else if (val.indexOf('trainer') > -1 && !cols.trainerCol) {
       cols.trainerCol = c;
     } else if (val.indexOf('date') > -1 && !cols.dateCol) {
       cols.dateCol = c;
@@ -719,23 +838,28 @@ function detectSectionColumns(sheet, headerRow, startCol, endCol) {
 /**
  * Clears Name, Shift, Position, Date cells in Training Needs
  * data rows. Preserves dropdowns, trainer assignments, and formatting.
+ * Uses batch operations to avoid individual cell API calls.
  */
 function clearTrainingNeedsData(sheet, layout) {
+  // Collect all cells to clear, then clear by column ranges
+  var rangesToClear = [];
+
   Object.keys(layout).forEach(function(dayName) {
     var sections = layout[dayName].sections;
     Object.keys(sections).forEach(function(shiftName) {
       var section = sections[shiftName];
       var cols = section.cols;
+      var numRows = section.dataEnd - section.dataStart + 1;
 
-      for (var r = section.dataStart; r <= section.dataEnd; r++) {
-        if (cols.nameCol) sheet.getRange(r, cols.nameCol).clearContent();
-        if (cols.shiftCol) sheet.getRange(r, cols.shiftCol).clearContent();
-        if (cols.posCol) sheet.getRange(r, cols.posCol).clearContent();
-        // Trainer column intentionally NOT cleared (manually assigned)
-        if (cols.dateCol) sheet.getRange(r, cols.dateCol).clearContent();
-      }
+      if (cols.nameCol) rangesToClear.push(sheet.getRange(section.dataStart, cols.nameCol, numRows, 1));
+      if (cols.shiftCol) rangesToClear.push(sheet.getRange(section.dataStart, cols.shiftCol, numRows, 1));
+      if (cols.posCol) rangesToClear.push(sheet.getRange(section.dataStart, cols.posCol, numRows, 1));
+      // Trainer column intentionally NOT cleared (manually assigned)
+      if (cols.dateCol) rangesToClear.push(sheet.getRange(section.dataStart, cols.dateCol, numRows, 1));
     });
   });
+
+  rangesToClear.forEach(function(range) { range.clearContent(); });
 }
 
 /**
@@ -835,11 +959,11 @@ function setupMondayTrigger() {
 }
 
 /**
- * Removes all project triggers. Safe to re-run.
+ * Removes every project trigger. Cleanup utility for re-deploys / handoff.
  */
 function deleteAllTriggers() {
   var triggers = ScriptApp.getProjectTriggers();
-  triggers.forEach(function(trigger) {
+  triggers.forEach(function (trigger) {
     ScriptApp.deleteTrigger(trigger);
   });
   SpreadsheetApp.getUi().alert('All triggers removed (' + triggers.length + ' deleted).');

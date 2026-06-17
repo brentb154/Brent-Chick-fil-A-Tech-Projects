@@ -52,7 +52,8 @@ function applyDedupAction(rowIndex, action) {
 
   if (action === 'Merge') {
     var count = mergeDuplicateNames(canonicalName, variantName);
-    return 'Merged "' + variantName + '" -> "' + canonicalName + '" (' + count + ' entries updated)';
+    return 'Merged "' + variantName + '" -> "' + canonicalName + '" (' +
+      count + ' log entries updated; timeline & schedule reconciled)';
   } else if (action === 'Ignore') {
     dedupSheet.getRange(rowIndex, 4).setValue('Ignore');
     dedupSheet.getRange(rowIndex, 5).setValue('Completed');
@@ -84,19 +85,20 @@ function getAlertSettings() {
     settingsSheet = ss.insertSheet('Alert Settings');
   }
 
-  // Check if there is actual data in row 2, column A (not just formatting)
+  // Check if there is actual data — look for ANY alert type text in column A
   var hasData = false;
   if (settingsSheet.getLastRow() >= 2) {
-    var checkVal = settingsSheet.getRange('A2').getValue();
-    if (checkVal && String(checkVal).trim() !== '') {
-      hasData = true;
+    var colA = settingsSheet.getRange(2, 1, settingsSheet.getLastRow() - 1, 1).getValues();
+    for (var ci = 0; ci < colA.length; ci++) {
+      if (colA[ci][0] && String(colA[ci][0]).trim() !== '') {
+        hasData = true;
+        break;
+      }
     }
   }
 
-  // Populate defaults if no real data
+  // Populate defaults ONLY if truly empty — never clear a sheet that has email configs
   if (!hasData) {
-    settingsSheet.clear();
-
     var headers = [['Alert Type', 'Enabled', 'Recipient 1 Email', 'Recipient 2 Email', 'Recipient 3 Email', 'Send Time']];
     var defaults = [
       ['Daily Training Log Reminder',    true, '', '', '', '20:00'],
@@ -111,7 +113,7 @@ function getAlertSettings() {
     settingsSheet.getRange(2, 2, defaults.length, 1).insertCheckboxes();
     settingsSheet.autoResizeColumns(1, 6);
 
-    SpreadsheetApp.flush(); // Force write before reading back
+    SpreadsheetApp.flush();
   }
 
   var data     = settingsSheet.getDataRange().getValues();

@@ -79,6 +79,13 @@ function onCertificationFormSubmit(e) {
 
   } catch (err) {
     Logger.log('onCertificationFormSubmit error: ' + err.message);
+    try {
+      MailApp.sendEmail({
+        to: Session.getEffectiveUser().getEmail(),
+        subject: 'Training Tracker: Certification Form Submit FAILED',
+        body: 'Error: ' + err.message + '\n\nStack: ' + err.stack
+      });
+    } catch (mailErr) { Logger.log('Could not send failure alert: ' + mailErr.message); }
   }
 }
 

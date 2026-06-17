@@ -40,19 +40,6 @@
   <div class="status" id="status"></div>
 
   <script>
-  // Generic server error handler
-  function handleServerError(error) {
-    var msg = error && error.message ? error.message : 'An unexpected error occurred';
-    console.error('Server error:', msg);
-    if (typeof showToast === 'function') {
-      showToast('Error: ' + msg, 'error');
-    } else if (typeof showStatus === 'function') {
-      showStatus('error', 'Error: ' + msg);
-    } else {
-      alert('Error: ' + msg);
-    }
-  }
-
     var currentSettings = [];
 
     window.onload = function () {
@@ -114,7 +101,6 @@
       document.getElementById('status').textContent  = 'Saving...';
 
       google.script.run
-        .withFailureHandler(handleServerError)
         .withSuccessHandler(function (msg) {
           document.getElementById('status').textContent = '✅ ' + msg;
           setTimeout(function () { google.script.host.close(); }, 1000);

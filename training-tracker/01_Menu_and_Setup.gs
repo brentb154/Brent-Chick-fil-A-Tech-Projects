@@ -24,7 +24,10 @@ function onOpen() {
     .addItem('Refresh Dashboard', 'updateDashboard')
     .addItem('Sync Form Data', 'syncFormData')
     .addItem('Manually Certify Trainee', 'manuallyCertifyTrainee')
+    .addItem('Setup All Triggers', 'setupAllTriggers')
+    .addItem('Setup Daily Alert Triggers', 'setupDailyTriggers')
     .addItem('Setup Monday Auto-Populate', 'setupMondayTrigger')
+    .addItem('Remove All Triggers', 'deleteAllTriggers')
     .addItem('Initial Setup (Run Once)', 'runInitialSetup')
     .addToUi();
 }
@@ -48,7 +51,8 @@ function runInitialSetup() {
     'Certification Log',
     'Name Deduplication',
     'Alert Settings',
-    'Training Schedule'
+    'Training Schedule',
+    'Training Needs'
   ];
 
   sheetsToCreate.forEach(function (name) {
@@ -77,6 +81,9 @@ function runInitialSetup() {
 
   // 8. Set up Training Schedule headers
   setupTrainingScheduleSheet(ss);
+
+  // 9. Build the Training Needs weekly grid (detector-compatible layout)
+  setupTrainingNeedsSheet(ss);
 
   ui.alert(
     'Setup Complete',
@@ -145,7 +152,7 @@ function setupMasterDashboard(ss) {
   sheet.getRange('A3').setValue('-- QUICK STATS --').setFontWeight('bold').setBackground('#E2EFDA');
   sheet.getRange('A4').setValue('Total Active Trainees:');
   sheet.getRange('A5').setValue('Total Hours This Week:');
-  sheet.getRange('A6').setValue('Trainees Ready for Certification:');
+  sheet.getRange('A6').setValue('Trainees Ready to Certify:');
   sheet.getRange('A7').setValue('Last Updated:');
 
   // Active Trainees header

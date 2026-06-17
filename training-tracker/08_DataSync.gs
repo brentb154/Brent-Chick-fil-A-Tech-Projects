@@ -56,6 +56,11 @@ function syncFormData() {
   var imported = 0;
   var skipped = 0;
 
+  var newRows = [];
+
+  // Build canonical map once instead of per-row sheet reads
+  var canonicalMap = buildCanonicalMap();
+
   formData.forEach(function (row) {
     var timestamp = String(row[0]);
     if (!timestamp || timestamp === 'undefined') return;
@@ -76,9 +81,7 @@ function syncFormData() {
 
     if (!traineeName) return;
 
-    // Handle multi-position entries (e.g., "iPOS, Register")
-    // Store as-is but note it
-    var canonicalName = getCanonicalName(traineeName);
+    var canonicalName = getCanonicalName(traineeName, canonicalMap);
 
     // If getCanonicalName didn't resolve to a different name,
     // apply basic title-case to normalize "bald" -> "Bald"
@@ -89,7 +92,7 @@ function syncFormData() {
       }).join(' ');
     }
 
-    var newRow = [
+    newRows.push([
       row[0],         // A: Timestamp
       row[1],         // B: Date
       traineeName,    // C: Trainee Name
@@ -99,11 +102,16 @@ function syncFormData() {
       notes,          // G: Notes
       canonicalName,  // H: Canonical Name
       false           // I: Synced to Dashboard
-    ];
-
-    logSheet.appendRow(newRow);
+    ]);
     imported++;
   });
+
+  // Batch write all new rows at once
+  if (newRows.length > 0) {
+    var startRow = logSheet.getLastRow() + 1;
+    logSheet.getRange(startRow, 1, newRows.length, 9).setValues(newRows);
+    SpreadsheetApp.flush();
+  }
 
   // Now backfill any rows in Daily Training Log that are missing canonical names
   backfillCanonicalNames();
@@ -135,21 +143,27 @@ function backfillCanonicalNames() {
 
   if (!logSheet || logSheet.getLastRow() < 2) return;
 
-  var data = logSheet.getRange(2, 1, logSheet.getLastRow() - 1, 9).getValues();
+  var numRows = logSheet.getLastRow() - 1;
+  var data = logSheet.getRange(2, 1, numRows, 9).getValues();
+  var colH = logSheet.getRange(2, 8, numRows, 1).getValues();
   var updates = 0;
+
+  // Build canonical map once instead of per-row sheet reads
+  var canonicalMap = buildCanonicalMap();
 
   for (var i = 0; i < data.length; i++) {
     var traineeName   = String(data[i][2] || '').trim();  // Col C
     var canonicalName = String(data[i][7] || '').trim();  // Col H
 
     if (traineeName && !canonicalName) {
-      var resolved = getCanonicalName(traineeName);
-      logSheet.getRange(i + 2, 8).setValue(resolved);  // Write to Col H
+      colH[i][0] = getCanonicalName(traineeName, canonicalMap);
       updates++;
     }
   }
 
   if (updates > 0) {
+    logSheet.getRange(2, 8, numRows, 1).setValues(colH);
+    SpreadsheetApp.flush();
     Logger.log('Backfilled ' + updates + ' canonical names');
   }
 

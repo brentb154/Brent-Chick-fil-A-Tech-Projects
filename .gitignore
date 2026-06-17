@@ -4,3 +4,6 @@
 manager-hub/dashboard-debug-*.json
 __pycache__/
 *.pyc
+.automation/.venv/
+.automation/.anthropic_key
+.env

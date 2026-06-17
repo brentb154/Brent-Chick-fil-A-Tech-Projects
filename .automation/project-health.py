@@ -112,9 +112,11 @@ def check_operator_readiness(project_path, all_code):
     ))
 
     # Has config in sheet (not hardcoded)?
+    # Credit any operator-editable config tab — 'Settings', 'Alert Settings',
+    # 'Position Requirements', 'Config', etc. — not only a tab named exactly "Settings".
     checks['config_in_sheet'] = bool(re.search(
-        r"getSheetByName\(['\"](?:Settings|Config|config)['\"]",
-        all_code
+        r"getSheetByName\(['\"][\w ]*(?:Settings|Config|Requirements|Preferences)['\"]",
+        all_code, re.IGNORECASE
     ))
 
     # Has error alerting?

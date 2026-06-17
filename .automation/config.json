@@ -6,6 +6,9 @@
   ],
   "log_file": "/Users/brentjustworking/Desktop/Brent-CFA-Tech-Hub/.automation/nightly.log",
   "alert_email": "brentb.lawncare@gmail.com",
+  "quality": {
+    "llm_model": "claude-opus-4-8"
+  },
   "web_apps": {
     "payroll-system": "https://script.google.com/macros/s/AKfycbx0q-TUhgXBm64vfZDtNYtBD2bfrTsU7iXA4hfAqwShNzSfyj4xi4bgh0InfZh-KI04/exec",
     "catering-quote-tool": "https://script.google.com/macros/s/AKfycbygIPt07mAdW0zI1suEtdh8VMhBSRlvQeA_0n4tyRquqr91H0fzruaBLcIDeo1U9icX/exec",

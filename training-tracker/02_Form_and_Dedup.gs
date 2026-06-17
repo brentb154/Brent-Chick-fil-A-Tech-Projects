@@ -19,32 +19,50 @@ function onFormSubmit(e) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('Daily Training Log');
-    var lastRow = sheet.getLastRow();
+    if (!sheet) return;
 
-    // Get form response values
-    // Indices depend on your form question order - adjust if needed
+    // Form responses land in the form's OWN "Form Responses" sheet, not here.
+    // So append a normalized row to the Daily Training Log (our canonical store)
+    // instead of stamping the log's last (unrelated) row.
+    // Form question order: Timestamp, Date, Name, Position, Hours, On Track?, Notes
     var timestamp   = e.values[0];
     var date        = e.values[1];
-    var traineeName = e.values[2];
+    var traineeName = String(e.values[2] || '').trim();
     var position    = e.values[3];
     var hours       = e.values[4];
     var onTrack     = e.values[5];
     var notes       = e.values[6] || '';
 
-    // Resolve canonical name
+    if (!traineeName) return;
+
+    // Skip if this timestamp was already imported (avoids double-entry with syncFormData)
+    if (timestamp && sheet.getLastRow() > 1) {
+      var stamps = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+      for (var i = 0; i < stamps.length; i++) {
+        if (String(stamps[i][0]) === String(timestamp)) return;
+      }
+    }
+
+    // Resolve canonical name and append a proper new row
     var canonicalName = getCanonicalName(traineeName);
-    sheet.getRange(lastRow, 8).setValue(canonicalName);   // Column H
-    sheet.getRange(lastRow, 9).insertCheckboxes();
-    sheet.getRange(lastRow, 9).setValue(false);            // Column I - not yet synced
+    var newRow = sheet.getLastRow() + 1;
+    sheet.getRange(newRow, 1, 1, 9).setValues([[
+      timestamp, date, traineeName, position, hours, onTrack, notes, canonicalName, false
+    ]]);
 
-    // Check for milestone alerts
+    // Check for milestone alerts, then refresh dashboard
     checkMilestoneAlerts(canonicalName, position, parseFloat(hours));
-
-    // Refresh dashboard
     updateDashboard();
 
   } catch (err) {
     Logger.log('onFormSubmit error: ' + err.message);
+    try {
+      MailApp.sendEmail({
+        to: Session.getEffectiveUser().getEmail(),
+        subject: 'Training Tracker: onFormSubmit FAILED',
+        body: 'Error: ' + err.message + '\n\nStack: ' + err.stack
+      });
+    } catch (mailErr) { Logger.log('Could not send failure alert: ' + mailErr.message); }
   }
 }
 
@@ -52,37 +70,44 @@ function onFormSubmit(e) {
 // -- Canonical Name Resolution --------------------------------
 
 /**
- * Returns the canonical (standardized) name for a trainee.
- * Checks completed merges in the Name Deduplication sheet.
- * If no match, returns the original name trimmed.
+ * Builds a hash map of variant -> canonical name from the
+ * Name Deduplication sheet. One sheet read, O(1) lookups.
+ * Call once, pass to getCanonicalName() in loops.
  */
-function getCanonicalName(inputName) {
+function buildCanonicalMap() {
   var dedupSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Name Deduplication');
-  if (!dedupSheet || dedupSheet.getLastRow() < 2) return inputName.trim();
+  if (!dedupSheet || dedupSheet.getLastRow() < 2) return {};
 
   var data = dedupSheet.getDataRange().getValues();
+  var map = {};
 
   for (var i = 1; i < data.length; i++) {
-    var canonicalName = data[i][0];
-    var variants      = String(data[i][1]).split(',').map(function (v) { return v.trim(); });
-    var action        = data[i][3];
-    var status        = data[i][4];
+    if (data[i][3] !== 'Merge' || data[i][4] !== 'Completed') continue;
 
-    // Only use approved merges
-    if (action === 'Merge' && status === 'Completed') {
-      for (var j = 0; j < variants.length; j++) {
-        if (inputName.trim().toLowerCase() === variants[j].toLowerCase()) {
-          return canonicalName;
-        }
-      }
-      // Also match canonical itself
-      if (inputName.trim().toLowerCase() === canonicalName.toLowerCase()) {
-        return canonicalName;
-      }
+    var canonical = data[i][0];
+    map[canonical.toLowerCase()] = canonical;
+
+    var variants = String(data[i][1]).split(',');
+    for (var j = 0; j < variants.length; j++) {
+      var key = variants[j].trim().toLowerCase();
+      if (key) map[key] = canonical;
     }
   }
 
-  return inputName.trim();
+  return map;
+}
+
+/**
+ * Returns the canonical (standardized) name for a trainee.
+ * Pass a pre-built canonicalMap for batch operations (avoids repeated sheet reads).
+ * If no map provided, builds one on the fly (fine for single calls).
+ */
+function getCanonicalName(inputName, canonicalMap) {
+  var trimmed = inputName.trim();
+  if (!canonicalMap) canonicalMap = buildCanonicalMap();
+
+  var result = canonicalMap[trimmed.toLowerCase()];
+  return result || trimmed;
 }
 
 
@@ -117,8 +142,6 @@ function checkForDuplicates() {
     }
   }
 
-  if (nameValues.length === 0) return;
-
   // Collect unique names and counts
   var uniqueNames = {};
 
@@ -129,8 +152,46 @@ function checkForDuplicates() {
     }
   });
 
-  var nameList    = Object.keys(uniqueNames);
+  // Also fold in scheduled-only trainees the dashboard shows but the log
+  // doesn't contain yet: Timeline sheet names + Training Schedule trainees.
+  // Without this, a scheduled duplicate (e.g. "jada tadros" with a timeline
+  // but no log entries) is invisible to the scanner.
+  ss.getSheets().forEach(function (sheet) {
+    var sName = sheet.getName();
+    if (sName.indexOf('Timeline - ') === 0) {
+      var tName = sName.replace('Timeline - ', '').trim();
+      if (tName) uniqueNames[tName] = uniqueNames[tName] || 1;
+    }
+  });
+
+  var schedSheet = ss.getSheetByName('Training Schedule');
+  if (schedSheet && schedSheet.getLastRow() > 1) {
+    schedSheet.getRange(2, 1, schedSheet.getLastRow() - 1, 1).getValues().forEach(function (row) {
+      var name = String(row[0]).trim();
+      if (name) uniqueNames[name] = uniqueNames[name] || 1;
+    });
+  }
+
+  var nameList = Object.keys(uniqueNames);
+  if (nameList.length === 0) return;
   var suggestions = [];
+
+  // Build hash set of existing dedup pairs (one read instead of per-pair)
+  var existingPairs = {};
+  if (dedupSheet.getLastRow() >= 2) {
+    var dedupData = dedupSheet.getDataRange().getValues();
+    for (var d = 1; d < dedupData.length; d++) {
+      var canonical = String(dedupData[d][0]).toLowerCase();
+      var variants  = String(dedupData[d][1]).split(',');
+      for (var v = 0; v < variants.length; v++) {
+        var variant = variants[v].trim().toLowerCase();
+        if (variant) {
+          existingPairs[canonical + '|' + variant] = true;
+          existingPairs[variant + '|' + canonical] = true;
+        }
+      }
+    }
+  }
 
   // Compare every pair
   for (var i = 0; i < nameList.length; i++) {
@@ -139,7 +200,8 @@ function checkForDuplicates() {
       var name2 = nameList[j];
 
       if (areSimilar(name1, name2)) {
-        if (!isDuplicateSuggestionExists(name1, name2, dedupSheet)) {
+        var pairKey = name1.toLowerCase() + '|' + name2.toLowerCase();
+        if (!existingPairs[pairKey]) {
           suggestions.push({
             canonical: name1,
             variants:  name2,
@@ -194,8 +256,18 @@ function areSimilar(name1, name2) {
   var n2 = name2.toLowerCase().trim();
 
   if (n1 === n2) return true;
-  if (levenshteinDistance(n1, n2) <= 2) return true;
-  if (n1.includes(n2) || n2.includes(n1)) return true;
+
+  // Length-aware edit distance: short names must match almost exactly (distance 1);
+  // only longer names tolerate distance 2. Avoids flagging Maria/Mario, Ben/Ken, Sara/Cara.
+  var maxLen = Math.max(n1.length, n2.length);
+  var dist   = levenshteinDistance(n1, n2);
+  if (maxLen >= 6 ? dist <= 2 : dist <= 1) return true;
+
+  // Same person logged by first name vs. full name ("Sam" vs "Sam Smith"):
+  // the shorter must be a whole LEADING word of the longer, min 3 chars.
+  var shortN = n1.length <= n2.length ? n1 : n2;
+  var longN  = n1.length <= n2.length ? n2 : n1;
+  if (shortN.length >= 3 && longN.indexOf(shortN + ' ') === 0) return true;
 
   // Common nickname -> full name pairs
   var nicknames = {
@@ -266,31 +338,6 @@ function levenshteinDistance(str1, str2) {
   return matrix[str2.length][str1.length];
 }
 
-/**
- * Returns true if this pair already exists in the dedup sheet.
- */
-function isDuplicateSuggestionExists(name1, name2, dedupSheet) {
-  if (dedupSheet.getLastRow() < 2) return false;
-
-  var data = dedupSheet.getDataRange().getValues();
-
-  for (var i = 1; i < data.length; i++) {
-    var canonical = String(data[i][0]).toLowerCase();
-    var variants  = String(data[i][1]).split(',').map(function (v) { return v.trim().toLowerCase(); });
-
-    var n1 = name1.toLowerCase();
-    var n2 = name2.toLowerCase();
-
-    if ((canonical === n1 && variants.indexOf(n2) > -1) ||
-        (canonical === n2 && variants.indexOf(n1) > -1)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-
 // -- Merge Duplicates -----------------------------------------
 
 /**
@@ -299,18 +346,73 @@ function isDuplicateSuggestionExists(name1, name2, dedupSheet) {
  */
 function mergeDuplicateNames(canonicalName, variantName) {
   var logSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Daily Training Log');
-  if (logSheet.getLastRow() < 2) return 0;
-
-  var data = logSheet.getDataRange().getValues();
   var updateCount = 0;
 
-  for (var i = 1; i < data.length; i++) {
-    var currentName = String(data[i][2]).trim(); // Column C
+  // Merge log entries (skip if the log is empty — a scheduled-only trainee
+  // still needs the Timeline/Schedule reconciliation below).
+  if (logSheet && logSheet.getLastRow() >= 2) {
+    var data = logSheet.getDataRange().getValues();
 
-    if (currentName.toLowerCase() === variantName.toLowerCase()) {
-      logSheet.getRange(i + 1, 3).setValue(canonicalName); // Col C
-      logSheet.getRange(i + 1, 8).setValue(canonicalName); // Col H
-      updateCount++;
+    // Batch: update the in-memory arrays, then write columns C and H back
+    var colC = logSheet.getRange(2, 3, data.length - 1, 1).getValues();
+    var colH = logSheet.getRange(2, 8, data.length - 1, 1).getValues();
+
+    for (var i = 0; i < colC.length; i++) {
+      var currentName = String(colC[i][0]).trim();
+      if (currentName.toLowerCase() === variantName.toLowerCase()) {
+        colC[i][0] = canonicalName;
+        colH[i][0] = canonicalName;
+        updateCount++;
+      }
+    }
+
+    if (updateCount > 0) {
+      logSheet.getRange(2, 3, colC.length, 1).setValues(colC);
+      logSheet.getRange(2, 8, colH.length, 1).setValues(colH);
+      SpreadsheetApp.flush();
+    }
+  }
+
+  // -- Reconcile scheduled-only sources -----------------------
+  // The log merge above doesn't touch scheduled trainees (no log rows).
+  // Rename their Timeline sheet and Training Schedule rows to canonical so
+  // the dashboard collapses to a single row per person.
+  // variantName may be a comma-separated list of variants.
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var variants = String(variantName).split(',').map(function (v) { return v.trim(); })
+    .filter(function (v) { return v; });
+
+  variants.forEach(function (variant) {
+    // -- Timeline sheet: rename to canonical, or delete if canonical exists --
+    var variantSheet  = ss.getSheetByName('Timeline - ' + variant);
+    if (variantSheet) {
+      var canonSheet = ss.getSheetByName('Timeline - ' + canonicalName);
+      if (canonSheet) {
+        ss.deleteSheet(variantSheet); // canonical timeline already there; drop the dup
+      } else {
+        variantSheet.setName('Timeline - ' + canonicalName);
+      }
+    }
+  });
+
+  // -- Training Schedule col A: variant -> canonical (batch) --
+  var schedSheet = ss.getSheetByName('Training Schedule');
+  if (schedSheet && schedSheet.getLastRow() > 1) {
+    var colA = schedSheet.getRange(2, 1, schedSheet.getLastRow() - 1, 1).getValues();
+    var schedChanged = false;
+    for (var s = 0; s < colA.length; s++) {
+      var schedName = String(colA[s][0]).trim().toLowerCase();
+      for (var vi = 0; vi < variants.length; vi++) {
+        if (schedName === variants[vi].toLowerCase()) {
+          colA[s][0] = canonicalName;
+          schedChanged = true;
+          break;
+        }
+      }
+    }
+    if (schedChanged) {
+      schedSheet.getRange(2, 1, colA.length, 1).setValues(colA);
+      SpreadsheetApp.flush();
     }
   }
 

@@ -8,8 +8,12 @@ Returns structured results for the weekly digest.
 import os
 import re
 import json
+import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, SCRIPT_DIR)
+import analysis_common as ac  # shared, string/comment-aware sanitizer
+
 with open(os.path.join(SCRIPT_DIR, 'config.json')) as f:
     CONFIG = json.load(f)
 
@@ -71,8 +75,9 @@ def audit_file(filepath, filename):
                         add(i, 'console-in-trigger', 'console.log inside a trigger/event function — use Logger.log or Logs sheet')
 
             # Cell-by-cell read/write in a loop — require getRange AND a loop keyword on the same line.
-            # Strip line comments first so prose like "paid in full" / "// for cash" doesn't match.
-            code_part = re.sub(r'//.*$', '', line)
+            # Blank out string AND comment content first, so the word "for" inside a label like
+            # 'Trainees Ready for Certification:' can't masquerade as a for-loop (real false positive).
+            code_part = ac.sanitize(line)
             if re.search(r'\b(?:for|forEach|while)\b.*getRange\(', code_part) or \
                re.search(r'getRange\(.*\b(?:for|forEach|while)\b', code_part):
                 add(i, 'cell-loop', 'Possible cell-by-cell read in a loop — batch with getValues()')

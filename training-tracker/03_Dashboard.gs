@@ -80,10 +80,13 @@ function updateDashboard() {
 
   Logger.log('updateDashboard: using ' + dataSource + ' (' + logData.length + ' rows)');
 
-  var certifiedNames = [];
+  var certifiedSet = {};
   if (certSheet.getLastRow() > 1) {
-    certifiedNames = certSheet.getRange(2, 1, certSheet.getLastRow() - 1, 1)
-      .getValues().map(function (r) { return String(r[0]).trim(); });
+    certSheet.getRange(2, 1, certSheet.getLastRow() - 1, 1)
+      .getValues().forEach(function (r) {
+        var key = normalizeNameKey(r[0]);
+        if (key) certifiedSet[key] = true;
+      });
   }
 
   // -- Build trainee map ------------------------------------
@@ -97,7 +100,7 @@ function updateDashboard() {
     if (name.indexOf('Timeline - ') === 0) {
       var traineeName = name.replace('Timeline - ', '').trim();
       if (!traineeName) return;
-      if (certifiedNames.indexOf(traineeName) > -1) return;
+      if (certifiedSet[normalizeNameKey(traineeName)]) return;
 
       // Read the timeline sheet to get house info (row with "House:")
       var timelineData = sheet.getRange('A1:A10').getValues();
@@ -145,7 +148,7 @@ function updateDashboard() {
     var hoursPerPos = positionList.length > 0 ? hours / positionList.length : hours;
 
     // Skip certified trainees
-    if (certifiedNames.indexOf(canonicalName) > -1) return;
+    if (certifiedSet[normalizeNameKey(canonicalName)]) return;
 
     if (!trainees[canonicalName]) {
       trainees[canonicalName] = {
@@ -188,6 +191,15 @@ function updateDashboard() {
   // -- Write Active Trainees Summary (rows 14+) -------------
   var traineeNames = Object.keys(trainees).sort();
   var summaryData  = [];
+  var cachedReqData = reqSheet.getDataRange().getValues();
+
+  // Pre-group requirements by house for O(1) house lookup
+  var reqByHouse = {};
+  for (var r = 1; r < cachedReqData.length; r++) {
+    var rHouse = cachedReqData[r][0];
+    if (!reqByHouse[rHouse]) reqByHouse[rHouse] = [];
+    reqByHouse[rHouse].push({ position: cachedReqData[r][1], min: cachedReqData[r][2] });
+  }
 
   traineeNames.forEach(function (name) {
     var t = trainees[name];
@@ -209,7 +221,7 @@ function updateDashboard() {
 
     var daysSinceLast = Math.max(0, Math.round((new Date() - t.lastDate) / (1000 * 60 * 60 * 24)));
     var onTrackPct    = t.totalEntries > 0 ? (t.onTrackCount / t.totalEntries) * 100 : 0;
-    var certStatus    = isCertificationReady(name, t.house, t.positions) ? '✅ READY' : 'In Progress';
+    var certStatus    = isCertificationReady(name, t.house, t.positions, reqByHouse) ? '✅ READY' : 'In Progress';
 
     summaryData.push([
       name,
@@ -223,8 +235,12 @@ function updateDashboard() {
     ]);
   });
 
+  // Position Progress starts below the trainee summary (1 blank spacer),
+  // never above row 31 — prevents collision when there are many trainees.
+  var posStart = Math.max(31, 15 + summaryData.length);
+
   // Clear old trainee data AND formatting (rows 14 through buffer)
-  var traineeEndRow = Math.max(dashSheet.getLastRow(), 30);
+  var traineeEndRow = Math.max(dashSheet.getLastRow(), posStart - 1);
   if (traineeEndRow >= 14) {
     dashSheet.getRange(14, 1, traineeEndRow - 13, 8).clear();
   }
@@ -254,17 +270,18 @@ function updateDashboard() {
     }
   }
 
-  // -- Write Position Progress Detail (rows 33+) ------------
-  updatePositionProgress(trainees, dashSheet, reqSheet);
+  // -- Write Position Progress Detail (below the summary) ---
+  updatePositionProgress(trainees, dashSheet, reqSheet, posStart);
 
   // -- Write Quick Stats ------------------------------------
-  updateQuickStats(trainees, logData, dashSheet);
+  updateQuickStats(trainees, logData, dashSheet, reqByHouse);
 }
 
 
 // -- Position Progress (Matrix Grid) --------------------------
 
-function updatePositionProgress(trainees, dashSheet, reqSheet) {
+function updatePositionProgress(trainees, dashSheet, reqSheet, startRow) {
+  startRow = startRow || 31;
   var reqData = reqSheet.getDataRange().getValues();
 
   // Get positions grouped by house
@@ -285,13 +302,13 @@ function updatePositionProgress(trainees, dashSheet, reqSheet) {
     traineesByHouse[house].push({ name: name, data: trainees[name] });
   });
 
-  // Clear everything below row 31 (old position data + formatting)
-  var clearEndRow = Math.max(dashSheet.getLastRow(), 60);
-  if (clearEndRow >= 31) {
-    dashSheet.getRange(31, 1, clearEndRow - 30, 20).clear();
+  // Clear everything from startRow down (old position data + formatting)
+  var clearEndRow = Math.max(dashSheet.getLastRow(), startRow + 69);
+  if (clearEndRow >= startRow) {
+    dashSheet.getRange(startRow, 1, clearEndRow - startRow + 1, 20).clear();
   }
 
-  var currentRow = 31;
+  var currentRow = startRow;
 
   // Section header
   dashSheet.getRange(currentRow, 1).setValue('-- POSITION PROGRESS --')
@@ -383,7 +400,7 @@ function updatePositionProgress(trainees, dashSheet, reqSheet) {
 
 // -- Quick Stats ----------------------------------------------
 
-function updateQuickStats(trainees, logData, dashSheet) {
+function updateQuickStats(trainees, logData, dashSheet, reqByHouse) {
   var traineeCount = Object.keys(trainees).length;
 
   // Total hours this week
@@ -406,7 +423,7 @@ function updateQuickStats(trainees, logData, dashSheet) {
     var t = trainees[name];
     if (t.isScheduledOnly) return;  // Don't count scheduled trainees
     activeTraineeCount++;
-    if (isCertificationReady(name, t.house, t.positions)) {
+    if (isCertificationReady(name, t.house, t.positions, reqByHouse)) {
       certReady++;
     }
   });
@@ -425,15 +442,15 @@ function updateQuickStats(trainees, logData, dashSheet) {
 /**
  * Infer FOH or BOH from the position name.
  */
-function inferHouse(position) {
-  // Normalize first so abbreviations are caught
-  var normalized = normalizePositionName(position);
-  var fohPositions = [
-    'iPOS', 'Register/POS', 'Cash Cart', 'Server', 'FC Drinks',
-    'Desserts', 'DT Drinks', 'DT Stuffer', 'FC Bagger', 'DT Bagger', 'Window'
-  ];
+var FOH_SET = {
+  'iPOS': true, 'Register/POS': true, 'Cash Cart': true, 'Server': true,
+  'FC Drinks': true, 'Desserts': true, 'DT Drinks': true, 'DT Stuffer': true,
+  'FC Bagger': true, 'DT Bagger': true, 'Window': true
+};
 
-  return fohPositions.indexOf(normalized) > -1 ? 'FOH' : 'BOH';
+function inferHouse(position) {
+  var normalized = normalizePositionName(position);
+  return FOH_SET[normalized] ? 'FOH' : 'BOH';
 }
 
 
@@ -475,22 +492,30 @@ function normalizePositionName(position) {
 /**
  * Returns true if a trainee has met the minimum hours
  * for EVERY position required in their house.
+ * Accepts reqByHouse map (pre-grouped) for fast lookup.
+ * Falls back to reading Position Requirements if not provided.
  */
-function isCertificationReady(traineeName, house, positionsMap) {
+function isCertificationReady(traineeName, house, positionsMap, reqByHouse) {
   if (!house || house === 'TBD') return false;
 
-  var reqSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Position Requirements');
-  var reqData  = reqSheet.getDataRange().getValues();
+  // Build reqByHouse on the fly if not passed (standalone calls)
+  if (!reqByHouse) {
+    var reqSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Position Requirements');
+    var reqData = reqSheet.getDataRange().getValues();
+    reqByHouse = {};
+    for (var i = 1; i < reqData.length; i++) {
+      var h = reqData[i][0];
+      if (!reqByHouse[h]) reqByHouse[h] = [];
+      reqByHouse[h].push({ position: reqData[i][1], min: reqData[i][2] });
+    }
+  }
 
-  for (var i = 1; i < reqData.length; i++) {
-    var reqHouse    = reqData[i][0];
-    var reqPosition = reqData[i][1];
-    var minHours    = reqData[i][2];
+  var reqs = reqByHouse[house];
+  if (!reqs) return false;
 
-    if (reqHouse !== house) continue;
-
-    var logged = positionsMap[reqPosition] || 0;
-    if (logged < minHours) return false;
+  for (var i = 0; i < reqs.length; i++) {
+    var logged = positionsMap[reqs[i].position] || 0;
+    if (logged < reqs[i].min) return false;
   }
 
   return true;
@@ -513,10 +538,27 @@ function getTraineePositions(traineeName, logSheet) {
     var position = String(row[3]).trim();
     var hours    = parseFloat(row[4]) || 0;
 
-    if (!positions[position]) positions[position] = 0;
-    positions[position] += hours;
+    // Normalize + split multi-position entries so keys match Position Requirements
+    // (same logic the dashboard uses), otherwise milestone/cert checks miss.
+    var posList = position.indexOf(',') > -1
+      ? position.split(',').map(function (p) { return normalizePositionName(p); }).filter(function (p) { return p; })
+      : [normalizePositionName(position)];
+    var hoursPerPos = posList.length > 0 ? hours / posList.length : hours;
+
+    posList.forEach(function (pos) {
+      if (!positions[pos]) positions[pos] = 0;
+      positions[pos] += hoursPerPos;
+    });
   });
 
   return positions;
+}
+
+/**
+ * Normalizes a trainee name to a comparison key (trim + lowercase) so the same
+ * person matches regardless of casing/spacing across sheets.
+ */
+function normalizeNameKey(name) {
+  return String(name == null ? '' : name).trim().toLowerCase();
 }
 

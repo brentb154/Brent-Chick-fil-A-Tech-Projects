@@ -214,6 +214,10 @@ HTML_TAG_STRING_RE = re.compile(r"""['"`]\s*<\s*\w""")
 # Concatenation of a USER-DATA-ish field (name/notes/comment/...) into HTML — targets the real
 # XSS class without flagging every safe HTML concatenation (dates, counts, class names).
 USER_DATA_CONCAT_RE = re.compile(r"""\+\s*[\w.$\[\]']*(?:employeeName|fullName|displayName|firstName|lastName|\.notes?\b|\.reason\b|\.comments?\b|commentText|\.description\b|\.message\b|guestName|\.email\b)[\w.$\[\]']*""", re.IGNORECASE)
+# Broader XSS net: any identifier concatenated into a string; paired with HTML_TAG_STRING_RE
+# + a safe-variable excluder to catch vectors the field-name allowlist above misses.
+HTML_VAR_CONCAT_RE = re.compile(r"""\+\s*[A-Za-z_$][\w.$\[\]']*""")
+SAFE_VAR_RE = re.compile(r'(count|index|idx|total|len|length|num|rowindex|^i$|^n$|date|time|width|height|size|color|hex|url|href|class|^id$)', re.IGNORECASE)
 # Secret/token embedded in a URL query string (also used when scanning .json/.sh configs).
 URL_SECRET_RE = re.compile(r'[?&](?:token|key|secret|passcode|auth[_-]?token)=[\w\-]{8,}', re.IGNORECASE)
 # UTC date extraction beyond toISOString (getUTC* / toDateString) — same day-shift hazard.
@@ -271,6 +275,16 @@ def scan_lines(project, relpath, orig_lines, san_lines):
             findings.append(_mk(project, relpath, idx, 'security', 'medium',
                                 'xss-concat',
                                 'Variable concatenated into an HTML string without an escape helper — stored XSS if the value can contain HTML (e.g. a user-typed name)',
+                                line))
+        # Broader, lower-severity net: ANY identifier concatenated into an HTML-tag string
+        # literal without an escape helper — catches the vectors the field-name allowlist above
+        # misses, while excluding obviously-safe numeric/date/count variables to limit noise.
+        elif (is_client and '${' not in line and HTML_TAG_STRING_RE.search(line)
+                and HTML_VAR_CONCAT_RE.search(line) and not ESCAPE_HINT_RE.search(line)
+                and not SAFE_VAR_RE.search(HTML_VAR_CONCAT_RE.search(line).group(0))):
+            findings.append(_mk(project, relpath, idx, 'security', 'low',
+                                'xss-concat-broad',
+                                'Variable concatenated into an HTML string without an escape helper — verify it cannot contain user-controlled HTML',
                                 line))
 
         # --- Secret/token embedded in a URL (caught in code, .json and .sh alike) ---

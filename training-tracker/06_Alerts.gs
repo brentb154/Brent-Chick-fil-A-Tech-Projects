@@ -31,13 +31,16 @@ function sendAlert(alertType, message) {
       var recipient2 = String(data[i][3] || '').trim();
       var recipient3 = String(data[i][4] || '').trim();
 
-      if (enabled !== true && enabled !== 'TRUE' && enabled !== true) return;
+      if (enabled !== true && enabled !== 'TRUE') return;
 
       var recipients = [recipient1, recipient2, recipient3]
         .filter(function (r) { return r && r.indexOf('@') > -1; })
         .join(',');
 
-      if (!recipients) return;
+      if (!recipients) {
+        Logger.log('sendAlert: "' + alertType + '" is enabled but has no recipient emails configured. Add emails in Alert Settings.');
+        return;
+      }
 
       var subject = ' Training Alert: ' + alertType;
       var body    = message + '\n\n' +
@@ -108,6 +111,28 @@ function checkMilestoneAlerts(traineeName, position, newHours) {
 // -- Daily Triggers -------------------------------------------
 
 /**
+ * Returns training rows from Daily Training Log, or Form_Responses as a
+ * fallback, so alerts see the SAME data the dashboard does.
+ * Each row: [timestamp, date, rawName, position, hours, onTrack, notes, name].
+ */
+function getActiveLogRows(ss) {
+  var log = ss.getSheetByName('Daily Training Log');
+  if (log && log.getLastRow() > 1) {
+    return log.getRange(2, 1, log.getLastRow() - 1, 8).getValues();
+  }
+  var names = ['Form_Responses', 'Form Responses 1', 'Form responses 1', 'Form_Responses_1'];
+  for (var i = 0; i < names.length; i++) {
+    var fs = ss.getSheetByName(names[i]);
+    if (fs && fs.getLastRow() > 1) {
+      return fs.getRange(2, 1, fs.getLastRow() - 1, 7).getValues().map(function (r) {
+        return [r[0], r[1], r[2], r[3], r[4], r[5], r[6], String(r[2] || '').trim()];
+      });
+    }
+  }
+  return [];
+}
+
+/**
  * Sends a reminder if no training was logged today.
  * TRIGGER: Time-driven -> Day timer -> 8-9 PM
  */
@@ -115,7 +140,6 @@ function dailyReminderCheck() {
   try {
     var ss           = SpreadsheetApp.getActiveSpreadsheet();
     var settingsSheet = ss.getSheetByName('Alert Settings');
-    var logSheet      = ss.getSheetByName('Daily Training Log');
 
     // Check if alert is enabled
     var data = settingsSheet.getDataRange().getValues();
@@ -129,7 +153,10 @@ function dailyReminderCheck() {
     }
 
     if (enabled !== true && enabled !== 'TRUE') return;
-    if (logSheet.getLastRow() < 2) {
+
+    // Use the same data source the dashboard does (log, or Form_Responses fallback)
+    var rows = getActiveLogRows(ss);
+    if (rows.length === 0) {
       sendAlert('Daily Training Log Reminder',
         'No training has been logged today. Please ensure all training activities are recorded.');
       return;
@@ -139,10 +166,9 @@ function dailyReminderCheck() {
     var today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    var logData        = logSheet.getDataRange().getValues();
     var hasEntriesToday = false;
 
-    logData.slice(1).forEach(function (row) {
+    rows.forEach(function (row) {
       var entryDate = new Date(row[1]);
       entryDate.setHours(0, 0, 0, 0);
 
@@ -169,28 +195,31 @@ function dailyReminderCheck() {
 function checkInactiveTrainees() {
   try {
     var ss        = SpreadsheetApp.getActiveSpreadsheet();
-    var logSheet  = ss.getSheetByName('Daily Training Log');
     var certSheet = ss.getSheetByName('Certification Log');
 
-    if (logSheet.getLastRow() < 2) return;
+    // Same data source as the dashboard (log, or Form_Responses fallback)
+    var rows = getActiveLogRows(ss);
+    if (rows.length === 0) return;
 
-    // Certified names to exclude
-    var certifiedNames = [];
-    if (certSheet.getLastRow() > 1) {
-      certifiedNames = certSheet.getRange(2, 1, certSheet.getLastRow() - 1, 1)
-        .getValues().map(function (r) { return String(r[0]).trim(); });
+    // Certified names to exclude (normalized for case/spacing)
+    var certifiedKeys = {};
+    if (certSheet && certSheet.getLastRow() > 1) {
+      certSheet.getRange(2, 1, certSheet.getLastRow() - 1, 1)
+        .getValues().forEach(function (r) {
+          var k = String(r[0]).trim().toLowerCase();
+          if (k) certifiedKeys[k] = true;
+        });
     }
 
     // Build last-training-date map
     var lastDates = {};
-    var logData   = logSheet.getDataRange().getValues();
 
-    logData.slice(1).forEach(function (row) {
+    rows.forEach(function (row) {
       var name = String(row[7]).trim();
       if (!name) name = String(row[2]).trim();
       if (!name) return;
 
-      if (certifiedNames.indexOf(name) > -1) return;
+      if (certifiedKeys[name.toLowerCase()]) return;
 
       var date = new Date(row[1]);
       if (!lastDates[name] || date > lastDates[name]) {
@@ -218,5 +247,94 @@ function checkInactiveTrainees() {
     }
   } catch (err) {
     Logger.log('checkInactiveTrainees error: ' + err.message);
+    try {
+      MailApp.sendEmail({
+        to: Session.getEffectiveUser().getEmail(),
+        subject: 'Training Tracker: checkInactiveTrainees FAILED',
+        body: 'Error: ' + err.message + '\n\nStack: ' + err.stack
+      });
+    } catch (mailErr) { Logger.log('Could not send failure alert: ' + mailErr.message); }
   }
+}
+
+
+// -- Trigger Setup ------------------------------------------------
+
+/**
+ * Sets up daily time-driven triggers for reminder and inactive checks.
+ * Safe to re-run — removes existing triggers before creating new ones.
+ */
+function setupDailyTriggers() {
+  var functions = ['dailyReminderCheck', 'checkInactiveTrainees'];
+
+  // Remove existing triggers for these functions
+  ScriptApp.getProjectTriggers().forEach(function(trigger) {
+    if (functions.indexOf(trigger.getHandlerFunction()) > -1) {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+
+  // Daily reminder at 8-9 PM
+  ScriptApp.newTrigger('dailyReminderCheck')
+    .timeBased()
+    .everyDays(1)
+    .atHour(20)
+    .create();
+
+  // Inactive check at 6-7 AM
+  ScriptApp.newTrigger('checkInactiveTrainees')
+    .timeBased()
+    .everyDays(1)
+    .atHour(6)
+    .create();
+
+  SpreadsheetApp.getUi().alert(
+    'Daily alert triggers set!\n\n' +
+    '• Daily Reminder Check: ~8 PM each day\n' +
+    '• Inactive Trainee Check: ~6 AM each day\n\n' +
+    'Make sure recipient emails are configured in\n' +
+    'Training Tools -> Alert Settings.');
+}
+
+/**
+ * Sets up ALL automation triggers (daily alerts + Monday populate).
+ * Safe to re-run.
+ */
+function setupAllTriggers() {
+  var functions = ['dailyReminderCheck', 'checkInactiveTrainees', 'mondayAutoPopulate'];
+
+  ScriptApp.getProjectTriggers().forEach(function(trigger) {
+    if (functions.indexOf(trigger.getHandlerFunction()) > -1) {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+
+  // Daily reminder at 8-9 PM
+  ScriptApp.newTrigger('dailyReminderCheck')
+    .timeBased()
+    .everyDays(1)
+    .atHour(20)
+    .create();
+
+  // Inactive check at 6-7 AM
+  ScriptApp.newTrigger('checkInactiveTrainees')
+    .timeBased()
+    .everyDays(1)
+    .atHour(6)
+    .create();
+
+  // Monday auto-populate at 5 AM
+  ScriptApp.newTrigger('mondayAutoPopulate')
+    .timeBased()
+    .onWeekDay(ScriptApp.WeekDay.MONDAY)
+    .atHour(5)
+    .create();
+
+  SpreadsheetApp.getUi().alert(
+    'All triggers set!\n\n' +
+    '• Daily Reminder Check: ~8 PM\n' +
+    '• Inactive Trainee Check: ~6 AM\n' +
+    '• Monday Training Needs: ~5 AM Monday\n\n' +
+    'Make sure recipient emails are configured in\n' +
+    'Training Tools -> Alert Settings.');
 }
