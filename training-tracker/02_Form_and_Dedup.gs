@@ -338,6 +338,59 @@ function levenshteinDistance(str1, str2) {
   return matrix[str2.length][str1.length];
 }
 
+// -- Manual Merge (menu) --------------------------------------
+
+/**
+ * Operator-driven merge for names the scanner never flagged as similar
+ * (e.g. a nickname with no overlap: "JJ" -> "Jada Tadros").
+ * Prompts for the wrong name and the correct name, records the alias in
+ * Name Deduplication so future form entries auto-resolve, then runs the
+ * same merge used by the review sidebar.
+ */
+function manuallyMergeNames() {
+  var ui = SpreadsheetApp.getUi();
+
+  var variantResp = ui.prompt('Merge Names (1 of 2)',
+    'Enter the WRONG / duplicate name exactly as it appears:', ui.ButtonSet.OK_CANCEL);
+  if (variantResp.getSelectedButton() !== ui.Button.OK) return;
+  var variantName = variantResp.getResponseText().trim();
+  if (!variantName) { ui.alert('No name entered.'); return; }
+
+  var canonResp = ui.prompt('Merge Names (2 of 2)',
+    'Enter the CORRECT name to keep (everything above merges into this):', ui.ButtonSet.OK_CANCEL);
+  if (canonResp.getSelectedButton() !== ui.Button.OK) return;
+  var canonicalName = canonResp.getResponseText().trim();
+  if (!canonicalName) { ui.alert('No name entered.'); return; }
+
+  // Reject only an exact-string match. Case-only differences (Carmen / carmen)
+  // are distinct dashboard rows and ARE a valid merge.
+  if (variantName === canonicalName) {
+    ui.alert('Those are identical. Enter the names with the casing/spelling you want to merge.');
+    return;
+  }
+
+  var confirm = ui.alert('Confirm Merge',
+    'Merge "' + variantName + '"  ->  "' + canonicalName + '"?\n\n' +
+    'This rewrites log entries, renames/removes the duplicate Timeline sheet,\n' +
+    'and updates the Training Schedule. It cannot be undone.',
+    ui.ButtonSet.YES_NO);
+  if (confirm !== ui.Button.YES) return;
+
+  // Record the alias as a completed dedup row so buildCanonicalMap() picks it up.
+  // mergeDuplicateNames() will find this row and stamp Merge/Completed.
+  var dedupSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Name Deduplication');
+  dedupSheet.getRange(dedupSheet.getLastRow() + 1, 1, 1, 5)
+    .setValues([[canonicalName, variantName, '', 'Pending', 'Pending']]);
+
+  var count = mergeDuplicateNames(canonicalName, variantName);
+
+  ui.alert('Merge Complete',
+    '"' + variantName + '" merged into "' + canonicalName + '".\n\n' +
+    count + ' log entries updated; timeline & schedule reconciled.',
+    ui.ButtonSet.OK);
+}
+
+
 // -- Merge Duplicates -----------------------------------------
 
 /**

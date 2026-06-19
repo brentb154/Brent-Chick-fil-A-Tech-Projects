@@ -18,6 +18,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Review Duplicate Names', 'showDeduplicationSidebar')
     .addItem('Check for Duplicates Now', 'checkForDuplicates')
+    .addItem('Merge Two Names Manually', 'manuallyMergeNames')
     .addSeparator()
     .addItem('Alert Settings', 'showAlertSettings')
     .addSeparator()
