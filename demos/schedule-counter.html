@@ -698,6 +698,21 @@ table.curve-table { width:100%; border-collapse:collapse; }
          TAB 1: FILE CONVERTER
     ════════════════════════════════════════════════════════ -->
     <div id="converterTabPanel" class="tab-panel converter-panel" style="display:block;">
+
+      <!-- Guided sample-file demo bar (lives on the landing tab) -->
+      <div id="scheduleGuideBar" style="display:flex; align-items:center; gap:18px; flex-wrap:wrap; background:linear-gradient(135deg,#eef2ff,#f0f9ff); border:1px solid #c7d2fe; border-radius:12px; padding:14px 18px; margin-bottom:20px;">
+        <div style="flex:1; min-width:220px; font-size:14px; color:#334155;">
+          <strong>New here?</strong> Walk through the whole thing with a sample file &mdash; convert a schedule, then analyze it. No setup, nothing saved.
+        </div>
+        <button id="scheduleGuideStartBtn" type="button" class="btn-primary" onclick="startScheduleGuide()">&#9654; Try with a Sample File</button>
+        <div id="scheduleGuideChip1" class="guide-chip" draggable="true" style="display:none;">
+          <div class="gc-icon">&#128202;</div>
+          <div class="gc-name">HotSchedules_Export.xlsx</div>
+          <div class="gc-sub">Schedule Report &middot; 1 week</div>
+          <div class="gc-cue">&#8595; Drag me into the box</div>
+        </div>
+      </div>
+
       <div class="converter-layout">
 
         <!-- LEFT: Upload & Action -->
@@ -767,6 +782,21 @@ table.curve-table { width:100%; border-collapse:collapse; }
          TAB 2: SCHEDULE ANALYSIS
     ════════════════════════════════════════════════════════ -->
     <div id="counterTabPanel" class="tab-panel" style="display:none;">
+
+      <!-- Step 2 draggable chip (revealed by the guided demo after "convert") -->
+      <div id="scheduleGuideStep2" style="display:none; margin-bottom:20px; background:linear-gradient(135deg,#eef2ff,#f0f9ff); border:1px solid #c7d2fe; border-radius:12px; padding:14px 18px;">
+        <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:220px; font-size:14px; color:#334155;">
+            <strong>Step 2 of 2.</strong> Drag your converted CSV into the highlighted FOH box, then Generate Analysis.
+          </div>
+          <div id="scheduleGuideChip2" class="guide-chip" draggable="true">
+            <div class="gc-icon">&#128196;</div>
+            <div class="gc-name">Schedule_Week.csv</div>
+            <div class="gc-sub">FOH &middot; 1 week &middot; 14 KB</div>
+            <div class="gc-cue">&#8595; Drag me into the box</div>
+          </div>
+        </div>
+      </div>
 
       <!-- Bias Flag Banner (populated by applyBiasBanner() in JavaScript.html) -->
       <div id="biasBanner" class="bias-banner" style="display:none;">
@@ -1763,8 +1793,8 @@ table.curve-table { width:100%; border-collapse:collapse; }
   // Pre-seed projected daily sales (read by loadSalesInputs into #sales-* fields).
   try {
     localStorage.setItem('scheduleCounter_salesInputs_v1', JSON.stringify({
-      Monday: '11800', Tuesday: '12400', Wednesday: '13100',
-      Thursday: '14500', Friday: '18200', Saturday: '19500'
+      Monday: '34000', Tuesday: '34000', Wednesday: '35000',
+      Thursday: '39000', Friday: '49000', Saturday: '52000'
     }));
   } catch (e) {}
 
@@ -3856,12 +3886,12 @@ function initMetricTooltips() {
 
 function loadDemoData() {
   if (!confirm('This will overwrite any current schedule and sales data. Continue?')) return;
-  var demoSales = { Monday:3500, Tuesday:3200, Wednesday:3800, Thursday:4200, Friday:5800, Saturday:6200 };
+  var demoSales = { Monday:34000, Tuesday:33000, Wednesday:35000, Thursday:38000, Friday:48000, Saturday:52000 };
   Object.keys(demoSales).forEach(function(day) { var el = document.getElementById('sales-'+day); if(el) el.value = demoSales[day]; });
   saveSalesInputs();
   var days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  var fohEmp = ['Sarah Johnson','Mike Chen','Emily Davis','Chris Wilson','Amanda Brown','David Martinez','Jessica Lee','Tyler Scott','Rachel Kim','Brandon Taylor'];
-  var bohEmp = ['Carlos Garcia','Maria Santos','Kevin O\'Brien','Lisa Wang','James Miller','Ana Rodriguez','Derek Thompson','Priya Patel'];
+  var fohEmp = ['Sarah Johnson','Mike Chen','Emily Davis','Chris Wilson','Amanda Brown','David Martinez','Jessica Lee','Tyler Scott','Rachel Kim','Brandon Taylor','Nicole Adams','Justin Reed','Hannah Price','Marcus Bell','Olivia Ward','Ethan Cruz','Sophia Nguyen','Caleb Foster','Mia Patel','Logan Hayes','Ava Morgan','Noah Bennett','Grace Lin','Dylan Ross','Chloe Evans','Aiden Cole'];
+  var bohEmp = ['Carlos Garcia','Maria Santos','Kevin O\'Brien','Lisa Wang','James Miller','Ana Rodriguez','Derek Thompson','Priya Patel','Victor Diaz','Sofia Ramirez','Andre Brooks','Nina Castillo','Omar Haddad','Bianca Flores','Eli Carter','Tara Singh'];
   fohScheduleData = {}; bohScheduleData = {}; fohStaffNames = {}; bohStaffNames = {};
   days.forEach(function(d) { fohScheduleData[d]={}; bohScheduleData[d]={}; fohStaffNames[d]={}; bohStaffNames[d]={}; });
   var fillHours = function(so, no, employees, day, startIdx, endIdx, count) {
@@ -3873,16 +3903,16 @@ function loadDemoData() {
     }
   };
   days.forEach(function(day) {
-    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 0,5,2);
-    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 5,9,6);
-    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 9,12,3);
-    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 12,16,8);
-    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 16,19,4);
-    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 0,4,2);
-    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 4,9,5);
-    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 9,12,3);
-    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 12,16,6);
-    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 16,19,2);
+    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 0,5,6);
+    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 5,9,18);
+    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 9,12,10);
+    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 12,16,24);
+    fillHours(fohScheduleData, fohStaffNames, fohEmp, day, 16,19,12);
+    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 0,4,5);
+    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 4,9,12);
+    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 9,12,7);
+    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 12,16,14);
+    fillHours(bohScheduleData, bohStaffNames, bohEmp, day, 16,19,5);
   });
   showToast('Demo data loaded! Try switching views (FOH/BOH) or editing the sales curve in Settings.', 'success');
   combineScheduleData();
@@ -3918,6 +3948,164 @@ function setupDragAndDrop() {
       }
     }, false);
   });
+}
+
+// ── Guided "drop a sample file" demo ──────────────────────────
+// Theatrical only. Walks the real 2-step flow: Convert (landing tab) then
+// Analyze. It fakes the conversion, stages the existing demo data, and lets
+// the real Generate Analysis button render the grid. No file is ever parsed.
+
+var guideActive = false;
+
+function injectGuideStyles() {
+  if (document.getElementById('guideStyles')) return;
+  var css = ''
+    + '@keyframes guidePulse{0%,100%{box-shadow:0 0 0 0 rgba(102,126,234,0.55);}50%{box-shadow:0 0 0 9px rgba(102,126,234,0);}}'
+    + '@keyframes guideFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}'
+    + '.guide-highlight{outline:3px dashed #667eea !important;outline-offset:4px;animation:guidePulse 1.4s infinite;border-radius:14px;}'
+    + '.control-group.guide-highlight{background:#f0f9ff;}'
+    + '.guide-chip{display:inline-flex;flex-direction:column;align-items:center;text-align:center;width:190px;background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 8px 24px rgba(15,23,42,0.18);padding:12px;cursor:grab;animation:guideFloat 2s infinite;user-select:none;}'
+    + '.guide-chip:active{cursor:grabbing;}'
+    + '.guide-chip .gc-icon{font-size:30px;line-height:1;}'
+    + '.guide-chip .gc-name{font-weight:700;font-size:13px;color:#1e293b;margin-top:6px;word-break:break-all;}'
+    + '.guide-chip .gc-sub{font-size:11px;color:#64748b;margin-top:2px;}'
+    + '.guide-chip .gc-cue{margin-top:8px;font-size:11px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:0.5px;}'
+    + '.guide-loaded{margin-top:6px;font-size:12px;font-weight:600;color:#059669;}'
+    + '.guide-pulse-btn{animation:guidePulse 1.4s infinite;}';
+  var s = document.createElement('style'); s.id = 'guideStyles'; s.textContent = css;
+  document.head.appendChild(s);
+}
+
+function getGenerateBtn() {
+  return document.querySelector('#counterTabPanel button[onclick="generateReport()"]');
+}
+
+// Make a chip draggable + click-to-trigger (forgiving for trackpads in a live demo)
+function wireGuideChip(chip, onActivate) {
+  if (!chip) return;
+  chip.ondragstart = function(e) { e.dataTransfer.setData('text/guide', '1'); e.dataTransfer.effectAllowed = 'copy'; };
+  chip.onclick = onActivate;
+}
+
+// ── Step 1: Convert (landing tab) ──
+function startScheduleGuide() {
+  injectGuideStyles();
+  guideActive = true;
+  switchMainPanel('converter');
+
+  var startBtn = document.getElementById('scheduleGuideStartBtn');
+  var chip1 = document.getElementById('scheduleGuideChip1');
+  var fileInput = document.getElementById('fileInput');
+  var dropzone = fileInput ? fileInput.closest('.dropzone') : null;
+  var processBtn = document.getElementById('processBtn');
+  if (!chip1 || !dropzone) return;
+
+  if (startBtn) startBtn.style.display = 'none';
+  chip1.style.display = 'inline-flex';
+  dropzone.classList.add('guide-highlight');
+
+  wireGuideChip(chip1, guideStep1Convert);
+  dropzone.addEventListener('drop', guideStep1Convert);
+  // Intercept the real Convert click while the guide runs (it needs a real file)
+  if (processBtn) processBtn.addEventListener('click', guideConvertIntercept, true);
+
+  showToast('Drag the HotSchedules file into the highlighted box (or click it).', 'success');
+}
+
+function guideStep1Convert() {
+  if (!guideActive) return;
+  var chip1 = document.getElementById('scheduleGuideChip1');
+  var fileInput = document.getElementById('fileInput');
+  var dropzone = fileInput ? fileInput.closest('.dropzone') : null;
+  var processBtn = document.getElementById('processBtn');
+  if (!dropzone) return;
+
+  dropzone.removeEventListener('drop', guideStep1Convert);
+  dropzone.classList.remove('guide-highlight');
+  if (chip1) { chip1.onclick = null; chip1.style.display = 'none'; }
+
+  var statusEl = document.getElementById('status');
+  if (statusEl) statusEl.textContent = '✓ HotSchedules_Export.xlsx loaded';
+  if (processBtn) processBtn.classList.add('guide-pulse-btn');
+  showToast('File loaded ✓ — now click "Convert & Download CSV".', 'success');
+}
+
+function guideConvertIntercept(e) {
+  if (!guideActive) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  var processBtn = document.getElementById('processBtn');
+  var statusEl = document.getElementById('status');
+  if (processBtn) {
+    processBtn.classList.remove('guide-pulse-btn');
+    processBtn.removeEventListener('click', guideConvertIntercept, true);
+  }
+  if (statusEl) statusEl.textContent = 'Converting…';
+  setTimeout(function() {
+    if (statusEl) statusEl.textContent = '✓ Converted — downloaded Schedule_Week.csv';
+    startScheduleStep2();
+  }, 1000);
+}
+
+// ── Step 2: Analyze ──
+function startScheduleStep2() {
+  switchMainPanel('counter');
+  var step2 = document.getElementById('scheduleGuideStep2');
+  var chip2 = document.getElementById('scheduleGuideChip2');
+  var foh = document.getElementById('fohScheduleFile');
+  var fohGroup = foh ? foh.closest('.control-group') : null;
+  if (!fohGroup) return;
+
+  if (step2) step2.style.display = 'block';
+  fohGroup.classList.add('guide-highlight');
+  fohGroup.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  wireGuideChip(chip2, guideStep2Analyze);
+  fohGroup.addEventListener('drop', guideStep2Analyze);
+
+  showToast('Drag the CSV into the highlighted FOH box (or click it).', 'success');
+}
+
+function guideStep2Analyze() {
+  var step2 = document.getElementById('scheduleGuideStep2');
+  var chip2 = document.getElementById('scheduleGuideChip2');
+  var foh = document.getElementById('fohScheduleFile');
+  var fohGroup = foh ? foh.closest('.control-group') : null;
+  if (!fohGroup) return;
+
+  fohGroup.removeEventListener('drop', guideStep2Analyze);
+  fohGroup.classList.remove('guide-highlight');
+  if (chip2) chip2.onclick = null;
+  if (step2) step2.style.display = 'none';
+
+  if (!fohGroup.querySelector('.guide-loaded')) {
+    var note = document.createElement('div');
+    note.className = 'guide-loaded';
+    note.innerHTML = '&#10003; Schedule_Week.csv loaded';
+    fohGroup.appendChild(note);
+  }
+
+  // Stage the sample data WITHOUT rendering yet (defer the render to the real button)
+  var _confirm = window.confirm, _gen = window.generateReport, _toast = window.showToast;
+  window.confirm = function() { return true; };
+  window.generateReport = function() {};
+  window.showToast = function() {};
+  try { loadDemoData(); } finally {
+    window.confirm = _confirm; window.generateReport = _gen; window.showToast = _toast;
+  }
+
+  var genBtn = getGenerateBtn();
+  if (genBtn) {
+    genBtn.classList.add('guide-pulse-btn');
+    genBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    genBtn.addEventListener('click', function onGen() {
+      genBtn.classList.remove('guide-pulse-btn');
+      genBtn.removeEventListener('click', onGen);
+      guideActive = false;
+      setTimeout(function() { showToast('Analysis complete — staffing vs. sales for the week.', 'success'); }, 300);
+    });
+  }
+  showToast('File loaded ✓ — now click "Generate Analysis".', 'success');
 }
 
 // ── Walkthrough Modal ─────────────────────────────────────────
@@ -5799,18 +5987,18 @@ applyConfig(getDefaultConfig());
     return hh + ':00 ' + per;
   }
 
-  var FOH_NAMES = ['Ava','Liam','Sofia','Noah','Maya','Ethan','Zoe','Lucas','Ella','Mason','Nina','Caleb','Ruby','Owen'];
-  var BOH_NAMES = ['Diego','Priya','Marcus','Hana','Jamal','Lena','Tariq','Cora','Sam','Ife'];
+  var FOH_NAMES = ['Ava','Liam','Sofia','Noah','Maya','Ethan','Zoe','Lucas','Ella','Mason','Nina','Caleb','Ruby','Owen','Isla','Jack','Mila','Leo','Aria','Finn','Hazel','Eli','Nora','Max','Iris','Theo','June','Cole'];
+  var BOH_NAMES = ['Diego','Priya','Marcus','Hana','Jamal','Lena','Tariq','Cora','Sam','Ife','Rosa','Kai','Mona','Beck','Yara','Dev','Lola','Nico','Tess','Reed'];
 
   // Staffing matched to the default sales curve so labor tracks sales and the
   // $/LH line stays stable (the clean, well-scheduled look).
   //               5 6 7 8 9 10 11 12 1 2 3 4 5 6 7 8 9 10 11
-  var FOH_MATCHED = [2,4,5,7,9,9, 9, 9,8,7,5,5,4,3,2,2,1,1,0];
-  var BOH_MATCHED = [1,2,3,4,5,5, 5, 5,5,4,3,3,2,2,1,1,1,1,0];
+  var FOH_MATCHED = [6,11,14,20,26,26,26,26,23,20,14,14,11,9,6,6,3,3,0];
+  var BOH_MATCHED = [3,6,9,11,14,14,14,14,14,11,9,9,6,6,3,3,3,3,0];
   // ONE day deliberately mis-scheduled (lunch/dinner peaks that ignore the sales
   // curve) so $/LH swings wildly — shows what a bad schedule looks like.
-  var FOH_ODD     = [0,2,4,5,5,6, 9,10,8,5,4,5,8,9,8,5,3,2,0];
-  var BOH_ODD     = [0,2,3,3,3,4, 6, 7,6,4,3,3,5,6,5,3,2,1,0];
+  var FOH_ODD     = [0,6,11,14,14,17,26,28,23,14,11,14,23,26,23,14,9,6,0];
+  var BOH_ODD     = [0,6,9,9,9,11,17,20,17,11,9,9,14,17,14,9,6,3,0];
   var ODD_DAY = 2; // Wednesday (Mon=0) is the out-of-whack day
 
   function buildCSV(matched, odd, names, weekStart, dayCount) {

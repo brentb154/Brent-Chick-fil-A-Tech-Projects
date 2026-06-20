@@ -1776,129 +1776,43 @@
     }
 
     // Help Modal Component
-    // Guided Walkthrough — a plain, stepped "here's how you use it" tour of the tool.
-    // Just the mechanics of operating each screen. No selling, no metrics — the
-    // presenter narrates the why. Distinct from HelpModal (reference/troubleshooting).
+    // Quick "why it's better" popup — a few key points, not a how-to walkthrough.
+    // H.E.A.R.D. Log is self-explanatory; the presenter narrates the rest.
     function GuidedWalkthrough({ isOpen, onClose }) {
-      const [step, setStep] = useState(0);
-      useEffect(() => { if (isOpen) setStep(0); }, [isOpen]);
       if (!isOpen) return null;
 
-      const eyebrow = (t) => (
-        <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '1px',
-          textTransform: 'uppercase', color: '#E51636', marginBottom: '8px' }}>{t}</div>
-      );
-
-      const steps = [
-        {
-          eb: 'Report Complaint tab',
-          title: 'Log a complaint',
-          body: (
-            <div>
-              <ol style={{ marginLeft: '20px', lineHeight: '1.9' }}>
-                <li>Open the <strong>Report Complaint</strong> tab.</li>
-                <li>Enter the guest's phone number — it checks for past complaints as you type.</li>
-                <li>Fill in the required fields marked with *.</li>
-                <li>Click <strong>Submit Complaint</strong>.</li>
-              </ol>
-            </div>
-          ),
-        },
-        {
-          eb: 'Repeat-complainer badges',
-          title: 'Read the alert badges',
-          body: (
-            <div>
-              <p>After a phone lookup, a badge appears if the guest has prior complaints:</p>
-              <ul style={{ marginTop: '10px', marginLeft: '20px', lineHeight: '1.9' }}>
-                <li><strong style={{ color: '#856404' }}>Yellow</strong> — 2 complaints in the last 30 days.</li>
-                <li><strong style={{ color: '#721c24' }}>Red</strong> — 3 or more in the last 30 days.</li>
-              </ul>
-              <p style={{ marginTop: '12px' }}>Click the badge to see that guest's complaint history.</p>
-            </div>
-          ),
-        },
-        {
-          eb: 'Dashboard tab',
-          title: 'View the dashboard',
-          body: (
-            <div>
-              <ul style={{ marginLeft: '20px', lineHeight: '1.9' }}>
-                <li>Open the <strong>Dashboard</strong> tab for totals, flagged guests, and trends.</li>
-                <li>Use the checkbox on a complaint to mark it resolved.</li>
-              </ul>
-            </div>
-          ),
-        },
-        {
-          eb: 'Search tab',
-          title: 'Find a complaint',
-          body: (
-            <div>
-              <ul style={{ marginLeft: '20px', lineHeight: '1.9' }}>
-                <li>Open the <strong>Search</strong> tab.</li>
-                <li>Use the filter dropdown to search one field, or search across all fields.</li>
-                <li>Edit or delete a complaint with the action buttons.</li>
-              </ul>
-            </div>
-          ),
-        },
-        {
-          eb: 'Settings tab',
-          title: 'Set up email alerts',
-          body: (
-            <div>
-              <ul style={{ marginLeft: '20px', lineHeight: '1.9' }}>
-                <li>Open <strong>Settings</strong> (passcode <strong>1234</strong> in this demo).</li>
-                <li>Add the email addresses that should be alerted about repeat complainers.</li>
-              </ul>
-            </div>
-          ),
-        },
+      const points = [
+        { icon: '📞', title: 'Phone-number tracking', text: 'Every complaint is keyed to the guest’s phone number, so repeat complainers flag themselves automatically — no memory or paper cross-checking.' },
+        { icon: '⚡', title: 'Fast and simple', text: 'A full guest-recovery is logged in under a minute, right at the counter.' },
+        { icon: '📊', title: 'Live dashboard', text: 'Trends by issue type, day part, and location — visible at a glance, not buried in a binder.' },
+        { icon: '✉️', title: 'Automatic alerts', text: 'Leaders get an email the moment a guest crosses the repeat-complaint threshold.' },
       ];
-
-      const cur = steps[step];
-      const last = step === steps.length - 1;
 
       return (
         <div style={styles.modal} onClick={onClose}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+          <div style={{ ...styles.modalContent, maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>{cur.title}</h2>
+              <h2 style={styles.modalTitle}>Why the H.E.A.R.D. Log</h2>
               <button style={styles.closeButton} onClick={onClose}><X size={24} /></button>
             </div>
-
-            {/* progress dots */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '20px' }}>
-              {steps.map((_, i) => (
-                <span key={i} onClick={() => setStep(i)} style={{
-                  width: '10px', height: '10px', borderRadius: '50%', cursor: 'pointer',
-                  background: i === step ? '#E51636' : '#e0e0e0',
-                }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {points.map((p, i) => (
+                <div key={i} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '24px', lineHeight: '1.2', flexShrink: 0 }}>{p.icon}</span>
+                  <div>
+                    <strong style={{ color: '#333', display: 'block', marginBottom: '2px' }}>{p.title}</strong>
+                    <span style={{ color: '#666', fontSize: '14px', lineHeight: '1.5' }}>{p.text}</span>
+                  </div>
+                </div>
               ))}
             </div>
-
-            <div style={{ lineHeight: '1.6', minHeight: '180px' }}>
-              {eyebrow(cur.eb)}
-              {cur.body}
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px', gap: '10px' }}>
-              <button
-                onClick={() => (step === 0 ? onClose() : setStep(step - 1))}
-                style={{ padding: '12px 20px', background: 'transparent', border: '2px solid #e0e0e0',
-                  borderRadius: '8px', fontWeight: '600', color: '#666', cursor: 'pointer' }}
-              >
-                {step === 0 ? 'Skip' : '← Back'}
-              </button>
-              <button
-                onClick={() => (last ? onClose() : setStep(step + 1))}
-                style={{ padding: '12px 24px', background: '#E51636', color: 'white', border: 'none',
-                  borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
-              >
-                {last ? "Done" : `Next: ${steps[step + 1].eb} →`}
-              </button>
-            </div>
+            <button
+              onClick={onClose}
+              style={{ width: '100%', marginTop: '24px', padding: '12px', background: '#E51636',
+                color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              Got it
+            </button>
           </div>
         </div>
       );
@@ -2246,7 +2160,7 @@
                     boxShadow: '0 4px 12px rgba(229,22,54,0.25)',
                   }}
                 >
-                  ▶ &nbsp;Guided Walkthrough
+                  ✨ &nbsp;Why this works
                 </button>
               </div>
               <div style={styles.nav} className="nav-bar">
