@@ -6,7 +6,7 @@
   <title>H.E.A.R.D. Log - Chick-fil-A</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
   <style>
     body {
       margin: 0;
@@ -1776,6 +1776,134 @@
     }
 
     // Help Modal Component
+    // Guided Walkthrough — a plain, stepped "here's how you use it" tour of the tool.
+    // Just the mechanics of operating each screen. No selling, no metrics — the
+    // presenter narrates the why. Distinct from HelpModal (reference/troubleshooting).
+    function GuidedWalkthrough({ isOpen, onClose }) {
+      const [step, setStep] = useState(0);
+      useEffect(() => { if (isOpen) setStep(0); }, [isOpen]);
+      if (!isOpen) return null;
+
+      const eyebrow = (t) => (
+        <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '1px',
+          textTransform: 'uppercase', color: '#E51636', marginBottom: '8px' }}>{t}</div>
+      );
+
+      const steps = [
+        {
+          eb: 'Report Complaint tab',
+          title: 'Log a complaint',
+          body: (
+            <div>
+              <ol style={{ marginLeft: '20px', lineHeight: '1.9' }}>
+                <li>Open the <strong>Report Complaint</strong> tab.</li>
+                <li>Enter the guest's phone number — it checks for past complaints as you type.</li>
+                <li>Fill in the required fields marked with *.</li>
+                <li>Click <strong>Submit Complaint</strong>.</li>
+              </ol>
+            </div>
+          ),
+        },
+        {
+          eb: 'Repeat-complainer badges',
+          title: 'Read the alert badges',
+          body: (
+            <div>
+              <p>After a phone lookup, a badge appears if the guest has prior complaints:</p>
+              <ul style={{ marginTop: '10px', marginLeft: '20px', lineHeight: '1.9' }}>
+                <li><strong style={{ color: '#856404' }}>Yellow</strong> — 2 complaints in the last 30 days.</li>
+                <li><strong style={{ color: '#721c24' }}>Red</strong> — 3 or more in the last 30 days.</li>
+              </ul>
+              <p style={{ marginTop: '12px' }}>Click the badge to see that guest's complaint history.</p>
+            </div>
+          ),
+        },
+        {
+          eb: 'Dashboard tab',
+          title: 'View the dashboard',
+          body: (
+            <div>
+              <ul style={{ marginLeft: '20px', lineHeight: '1.9' }}>
+                <li>Open the <strong>Dashboard</strong> tab for totals, flagged guests, and trends.</li>
+                <li>Use the checkbox on a complaint to mark it resolved.</li>
+              </ul>
+            </div>
+          ),
+        },
+        {
+          eb: 'Search tab',
+          title: 'Find a complaint',
+          body: (
+            <div>
+              <ul style={{ marginLeft: '20px', lineHeight: '1.9' }}>
+                <li>Open the <strong>Search</strong> tab.</li>
+                <li>Use the filter dropdown to search one field, or search across all fields.</li>
+                <li>Edit or delete a complaint with the action buttons.</li>
+              </ul>
+            </div>
+          ),
+        },
+        {
+          eb: 'Settings tab',
+          title: 'Set up email alerts',
+          body: (
+            <div>
+              <ul style={{ marginLeft: '20px', lineHeight: '1.9' }}>
+                <li>Open <strong>Settings</strong> (passcode <strong>1234</strong> in this demo).</li>
+                <li>Add the email addresses that should be alerted about repeat complainers.</li>
+              </ul>
+            </div>
+          ),
+        },
+      ];
+
+      const cur = steps[step];
+      const last = step === steps.length - 1;
+
+      return (
+        <div style={styles.modal} onClick={onClose}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>{cur.title}</h2>
+              <button style={styles.closeButton} onClick={onClose}><X size={24} /></button>
+            </div>
+
+            {/* progress dots */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '20px' }}>
+              {steps.map((_, i) => (
+                <span key={i} onClick={() => setStep(i)} style={{
+                  width: '10px', height: '10px', borderRadius: '50%', cursor: 'pointer',
+                  background: i === step ? '#E51636' : '#e0e0e0',
+                }} />
+              ))}
+            </div>
+
+            <div style={{ lineHeight: '1.6', minHeight: '180px' }}>
+              {eyebrow(cur.eb)}
+              {cur.body}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px', gap: '10px' }}>
+              <button
+                onClick={() => (step === 0 ? onClose() : setStep(step - 1))}
+                style={{ padding: '12px 20px', background: 'transparent', border: '2px solid #e0e0e0',
+                  borderRadius: '8px', fontWeight: '600', color: '#666', cursor: 'pointer' }}
+              >
+                {step === 0 ? 'Skip' : '← Back'}
+              </button>
+              <button
+                onClick={() => (last ? onClose() : setStep(step + 1))}
+                style={{ padding: '12px 24px', background: '#E51636', color: 'white', border: 'none',
+                  borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                {last ? "Done" : `Next: ${steps[step + 1].eb} →`}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     function HelpModal({ isOpen, onClose }) {
       if (!isOpen) return null;
 
@@ -2048,6 +2176,7 @@
       const [error, setError] = useState('');
       const [currentView, setCurrentView] = useState('form');
       const [showHelp, setShowHelp] = useState(false);
+      const [showWalkthrough, setShowWalkthrough] = useState(false);
       const [showSettings, setShowSettings] = useState(false);
       const isOnline = useOnlineStatus();
 
@@ -2106,6 +2235,20 @@
           <div style={styles.container}>
             <div style={styles.wideCard} className="wide-card">
               <h1 style={styles.title} className="title">H.E.A.R.D. Log</h1>
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <button
+                  onClick={() => setShowWalkthrough(true)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '8px',
+                    padding: '12px 24px', background: '#E51636', color: 'white',
+                    border: 'none', borderRadius: '24px', fontSize: '15px',
+                    fontWeight: 'bold', cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(229,22,54,0.25)',
+                  }}
+                >
+                  ▶ &nbsp;Guided Walkthrough
+                </button>
+              </div>
               <div style={styles.nav} className="nav-bar">
                 <button
                   style={{
@@ -2159,6 +2302,7 @@
             ?
           </button>
 
+          <GuidedWalkthrough isOpen={showWalkthrough} onClose={() => setShowWalkthrough(false)} />
           <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
           <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
         </>
