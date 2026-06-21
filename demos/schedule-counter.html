@@ -175,6 +175,18 @@ tbody td  { padding:0; text-align:center; border:1px solid #e2e8f0; position:rel
 .adequate-staffed { background:#eab308; }
 .well-staffed     { background:#22c55e; }
 .overstaffed      { background:#60a5fa; }
+/* ── Colorblind-friendly palette (toggled via body.cb-mode; default off) ── */
+.cb-mode .understaffed     { background:#D55E00; }
+.cb-mode .low-staffed      { background:#E69F00; }
+.cb-mode .adequate-staffed { background:#F0E442; }
+.cb-mode .well-staffed     { background:#009E73; }
+.cb-mode .overstaffed      { background:#0072B2; }
+.cb-mode .adequate-staffed .staff-count,
+.cb-mode .adequate-staffed .staff-label,
+.cb-mode .adequate-staffed .staff-suggestion { color:#1f2937; text-shadow:none; }
+.cb-mode .productivity-high   { background:#0072B2; }
+.cb-mode .productivity-medium { background:#E69F00; }
+.cb-mode .productivity-low    { background:#D55E00; }
 #scheduleTable td div.staff-cell { cursor:pointer; transition:transform 0.1s,box-shadow 0.1s; }
 #scheduleTable td div.staff-cell:hover { transform:scale(1.02); box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); z-index:5; position:relative; }
 
@@ -942,6 +954,10 @@ table.curve-table { width:100%; border-collapse:collapse; }
               <button onclick="setDaypart('dinner', event)">Dinner</button>
               <button onclick="setDaypart('latenight', event)">Late Night</button>
             </div>
+            <label class="cb-toggle" style="display:inline-flex; align-items:center; gap:6px; margin-top:10px; font-size:13px; color:#475569; cursor:pointer;">
+              <input type="checkbox" id="colorblindToggle" onchange="toggleColorblindMode(this.checked)">
+              <span>&#128065;&#65039; Colorblind-friendly colors</span>
+            </label>
           </div>
         </div>
 
@@ -4107,6 +4123,23 @@ function guideStep2Analyze() {
   }
   showToast('File loaded ✓ — now click "Generate Analysis".', 'success');
 }
+
+// ── Colorblind Mode (toggle; default off = regular colors) ────
+function toggleColorblindMode(on) {
+  document.body.classList.toggle('cb-mode', !!on);
+  try { localStorage.setItem('scheduleCounter_cbMode', on ? '1' : '0'); } catch (e) {}
+}
+(function () {
+  function applyCb() {
+    var on = false;
+    try { on = localStorage.getItem('scheduleCounter_cbMode') === '1'; } catch (e) {}
+    document.body.classList.toggle('cb-mode', on);
+    var cb = document.getElementById('colorblindToggle');
+    if (cb) cb.checked = on;
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applyCb);
+  else applyCb();
+})();
 
 // ── Walkthrough Modal ─────────────────────────────────────────
 
