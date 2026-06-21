@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Run-of-Show — Rachel &amp; Mat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#F8F9FB; --surface:#FFFFFF; --border:#E2E5EA; --text:#1F2937; --muted:#6B7280;
+    --accent:#E51636; --accent-dark:#B81029; --accent-soft:rgba(229,22,54,0.07);
+    --font-display:'Syne',system-ui,sans-serif; --font-body:'DM Sans',system-ui,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:var(--font-body);background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;font-size:14px;}
+  .wrap{max-width:860px;margin:0 auto;padding:32px 28px 64px;}
+  h1,h2,h3,h4{font-family:var(--font-display);font-weight:700;letter-spacing:-0.01em;}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+  h1{font-size:30px;line-height:1.1;margin-bottom:6px;}
+  .sub{color:var(--muted);font-size:15px;margin-bottom:18px;}
+  .goal{background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:14px;}
+  .opener{background:#0f172a;color:#fff;border-radius:10px;padding:16px 18px;margin-bottom:22px;}
+  .opener .lbl{font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px;}
+  .opener p{font-size:15px;line-height:1.55;}
+  .opener em{color:#fca5a5;font-style:normal;font-weight:600;}
+  .logi{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;}
+  .logi span{font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 12px;color:var(--muted);}
+  .seg{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:16px 18px;margin-bottom:14px;}
+  .seg.hero{border-top:3px solid var(--accent);}
+  .seg-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px;}
+  .seg-head h3{font-size:17px;}
+  .time{font-family:var(--font-display);font-weight:700;color:var(--accent);font-size:13px;white-space:nowrap;}
+  .path{font-size:12.5px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;margin:8px 0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  ul{margin:6px 0 0 18px;}
+  li{margin-bottom:4px;}
+  .say{border-left:3px solid var(--accent);padding-left:10px;color:var(--text);font-style:italic;margin:8px 0;font-size:13.5px;}
+  .stat{display:inline-block;background:var(--accent-soft);color:var(--accent-dark);font-weight:700;border-radius:5px;padding:0 6px;font-size:12.5px;}
+  .qs{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px;}
+  .qs h3{font-size:17px;margin-bottom:10px;}
+  .qs li{margin-bottom:8px;}
+  .note{font-size:12.5px;color:var(--muted);margin-top:4px;}
+  @media print{ body{background:#fff;font-size:11.5px;} .wrap{padding:0;max-width:none;} .seg,.qs,.opener,.goal{break-inside:avoid;} .logi{display:none;} .opener{background:#0f172a !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Presenter Run-of-Show &middot; ~45 min</div>
+  <h1>Meeting with Rachel &amp; Mat</h1>
+  <div class="sub">Chick-fil-A, Inc. &mdash; Advanced Analytics &amp; Automation</div>
+
+  <div class="goal"><strong>Your goal:</strong> learn how they think about field-built tools and where the real gaps are &mdash; and build the relationship. This is a conversation, not a pitch. The throughline: <em>these tools exist to make the team&rsquo;s life easier; the operational wins came after.</em></div>
+
+  <div class="opener">
+    <div class="lbl">Open with this (verbatim-ish)</div>
+    <p>&ldquo;Every one of these started the same way &mdash; I wanted to make life easier for my team. Let people put in their own time off, order a uniform and know <em>exactly what comes out of their check</em>, see their pay clearly. That turned out to be the best retention tool I have &mdash; <em>turnover&rsquo;s down 53 points year over year.</em> I&rsquo;d love to show you a few and hear how you all think about this.&rdquo;</p>
+  </div>
+
+  <div class="logi">
+    <span>✅ Present from the LIVE site (HTTPS)</span>
+    <span>✅ Hard-refresh each demo first (Cmd+Shift+R)</span>
+    <span>✅ Gallery open as home base</span>
+    <span>🚫 Never open files directly (file://)</span>
+  </div>
+
+  <div class="seg">
+    <div class="seg-head"><h3>1. Why I build &mdash; people first</h3><span class="time">0:00 – 0:04</span></div>
+    <ul>
+      <li>Say the opener. Frame it as: I lead people; the software just protects their time.</li>
+      <li>The pattern, one sentence: <em>trigger → pipeline → cache → web app → email</em>, maintainable by editing a spreadsheet.</li>
+      <li>Set the tone: &ldquo;I&rsquo;m here to learn how you all approach this as much as to show it.&rdquo;</li>
+    </ul>
+  </div>
+
+  <div class="seg hero">
+    <div class="seg-head"><h3>2. The team-member experience</h3><span class="time">0:04 – 0:14</span></div>
+    <div class="path">Gallery → Uniform Request demo &nbsp;|&nbsp; Gallery → Time-Off Request demo</div>
+    <ul>
+      <li><strong>Uniform Request:</strong> pick items and sizes, and the team member sees <span class="stat">the price of each item and exactly what comes out of each paycheck</span> before submitting. No surprises on payday.</li>
+      <li><strong>Time-Off Request:</strong> a team member puts in their own PTO from their phone &mdash; pick dates, submit. No catching a manager, no waiting on a text. Both forms are bilingual (English &amp; Spanish).</li>
+      <li>The point: <strong>dignity and time back.</strong> People handle their own stuff without having to ask permission for everything.</li>
+    </ul>
+    <div class="say">&ldquo;This is the part that actually moves retention &mdash; people feel respected when they don&rsquo;t have to chase a manager to take a day off or guess what a uniform will cost them.&rdquo;</div>
+  </div>
+
+  <div class="seg">
+    <div class="seg-head"><h3>3. Where it lands — Payroll</h3><span class="time">0:14 – 0:22</span></div>
+    <div class="path">Payroll demo → Overtime → Upload Data → &ldquo;Try with Sample Files&rdquo; → drag both → Analyze Overtime Data</div>
+    <ul>
+      <li>Those PTO/uniform requests flow into one payroll system with the math already done.</li>
+      <li>The technical depth: cross-location OT reconciliation &mdash; under 40 at each store but over 40 combined is legally owed OT that neither location catches alone (FLSA). Show the 8 multi-location employees flagged.</li>
+      <li>Result: <span class="stat">payroll processing 2–3 hr → 30 min</span>.</li>
+    </ul>
+  </div>
+
+  <div class="seg">
+    <div class="seg-head"><h3>4. Schedules built around real lives — Schedule Counter</h3><span class="time">0:22 – 0:30</span></div>
+    <div class="path">Schedule demo → &ldquo;Try with a Sample File&rdquo; → drag HotSchedules → Convert → drag CSV → Generate Analysis</div>
+    <ul>
+      <li>Tie it back to people: saying yes when life happens, then building the schedule around it &mdash; that&rsquo;s what the turnover number came from.</li>
+      <li>And it holds productivity: sales-per-labor-hour, sales-curve weighting, exponential smoothing. <span class="stat">SPLH $84.42 → $91.02</span> (past the $90 goal, since Feb 2025).</li>
+    </ul>
+  </div>
+
+  <div class="seg">
+    <div class="seg-head"><h3>5. Rapid-fire the rest</h3><span class="time">0:30 – 0:34</span></div>
+    <ul>
+      <li><strong>H.E.A.R.D. Log</strong> (&ldquo;Why this works&rdquo;): phone-number tracking auto-flags repeat complainers.</li>
+      <li><strong>Catering Quote</strong>: <span class="stat">10–20 min → 2–3 min</span> per quote. Gesture, don&rsquo;t deep-dive.</li>
+    </ul>
+  </div>
+
+  <div class="seg">
+    <div class="seg-head"><h3>6. The numbers it moved + how it lasts</h3><span class="time">0:34 – 0:39</span></div>
+    <ul>
+      <li><span class="stat">Turnover −53.50 pts YoY</span> &middot; <span class="stat">Retention +11.21 pts YoY</span> &middot; top 4% of the chain for profitability &middot; food cost gap 1.02% → 0.74%.</li>
+      <li>&ldquo;The relationship work is the strategy &mdash; the tools just protect people&rsquo;s time so we can do it.&rdquo;</li>
+      <li>Built to last: idempotent setup, config in the sheet, a non-technical manager maintains it; I run a risk-audit scanner on my own code; honest that it&rsquo;s built for two stores today.</li>
+    </ul>
+  </div>
+
+  <div class="qs">
+    <h3>7. Questions for them &mdash; spend real time here (0:39 – 0:45)</h3>
+    <ul>
+      <li>Where does corporate already solve these, and where am I filling gaps that shouldn&rsquo;t have to be field-built?</li>
+      <li>How do you all think about field-built tools &mdash; is there a path for them, or a reason to keep them at arm&rsquo;s length?</li>
+      <li>What would it take to do something like this at scale &mdash; and what would you change about how I&rsquo;ve approached it?</li>
+      <li>If I wanted to do more of this kind of work, what should I be learning?</li>
+    </ul>
+    <div class="note" style="margin-top:10px;">Close: &ldquo;I&rsquo;d love to stay connected and learn how you all approach this.&rdquo;</div>
+  </div>
+</div>
+</body>
+</html>

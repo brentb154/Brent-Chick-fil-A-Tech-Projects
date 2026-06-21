@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meeting Pack — Rachel &amp; Mat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#F8F9FB; --surface:#FFFFFF; --border:#E2E5EA; --text:#1F2937; --muted:#6B7280;
+    --accent:#E51636; --accent-dark:#B81029; --accent-soft:rgba(229,22,54,0.07);
+    --font-display:'Syne',system-ui,sans-serif; --font-body:'DM Sans',system-ui,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:var(--font-body);background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;font-size:14px;}
+  .wrap{max-width:860px;margin:0 auto;padding:32px 28px 56px;}
+  h1,h2,h3,h4{font-family:var(--font-display);font-weight:700;letter-spacing:-0.01em;}
+  a{color:var(--accent);text-decoration:none;}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+  h1{font-size:30px;line-height:1.1;margin-bottom:6px;}
+  .sub{color:var(--muted);font-size:15px;margin-bottom:18px;}
+  .goal{background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:14px;}
+  .goal em{color:var(--accent-dark);font-style:normal;font-weight:600;}
+
+  /* Quick launch */
+  .launch{border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:14px 16px;margin-bottom:20px;}
+  .launch .lbl{font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+  .launch .links{display:flex;flex-wrap:wrap;gap:8px;}
+  .launch a{display:inline-block;border:1px solid var(--border);border-radius:20px;padding:6px 13px;font-size:13px;font-weight:600;background:var(--bg);}
+  .launch a:hover{border-color:var(--accent);}
+
+  .opener{background:#0f172a;color:#fff;border-radius:10px;padding:16px 18px;margin-bottom:22px;}
+  .opener .lbl{font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px;}
+  .opener p{font-size:15px;line-height:1.55;}
+  .opener em{color:#fca5a5;font-style:normal;font-weight:600;}
+  .logi{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;}
+  .logi span{font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 12px;color:var(--muted);}
+
+  .seg{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:16px 18px;margin-bottom:14px;}
+  .seg.hero{border-top:3px solid var(--accent);}
+  .seg-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px;}
+  .seg-head h3{font-size:17px;}
+  .time{font-family:var(--font-display);font-weight:700;color:var(--accent);font-size:13px;white-space:nowrap;}
+  .open{display:inline-block;background:var(--accent);color:#fff !important;border-radius:6px;padding:5px 11px;font-size:12.5px;font-weight:700;margin:6px 8px 4px 0;}
+  .path{font-size:12px;color:var(--muted);margin:6px 0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  ul{margin:6px 0 0 18px;}
+  li{margin-bottom:4px;}
+  .say{border-left:3px solid var(--accent);padding-left:10px;font-style:italic;margin:8px 0;font-size:13.5px;}
+  .stat{display:inline-block;background:var(--accent-soft);color:var(--accent-dark);font-weight:700;border-radius:5px;padding:0 6px;font-size:12.5px;}
+  .qs{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px;}
+  .qs h3{font-size:17px;margin-bottom:10px;}
+  .qs li{margin-bottom:8px;}
+  .note{font-size:12.5px;color:var(--muted);margin-top:4px;}
+
+  /* Leave-behind page */
+  .pagebreak{break-before:page;page-break-before:always;}
+  .lb-top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:2px solid var(--accent);padding-bottom:14px;margin:8px 0 18px;flex-wrap:wrap;}
+  .lb-top h1{font-size:26px;}
+  .lb-top .role{color:var(--muted);font-size:13.5px;margin-top:4px;}
+  .lede{font-size:15.5px;line-height:1.6;margin-bottom:12px;}
+  .lede strong{color:var(--accent-dark);}
+  .model2{font-size:13px;color:var(--muted);border-left:3px solid var(--border);padding-left:12px;margin-bottom:20px;}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+  .metric{border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:13px 14px;text-align:center;}
+  .metric .big{font-family:var(--font-display);font-weight:800;font-size:20px;color:var(--accent);line-height:1.05;}
+  .metric .mlbl{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.35;}
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;}
+  .panel{border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:15px 17px;}
+  .panel.team{border-top:3px solid var(--accent);}
+  .panel h2{font-size:15px;margin-bottom:3px;}
+  .panel .tag{font-size:11px;color:var(--muted);margin-bottom:10px;}
+  .item{margin-bottom:10px;}
+  .item h3{font-size:13.5px;margin-bottom:2px;}
+  .item p{font-size:12.5px;color:var(--muted);line-height:1.5;}
+  .item .win{color:var(--accent-dark);font-weight:600;}
+  .how{background:#0f172a;color:#cbd5e1;border-radius:10px;padding:15px 18px;margin-bottom:16px;}
+  .how h2{color:#fff;font-size:15px;margin-bottom:8px;}
+  .how ul{margin:0 0 0 18px;}
+  .how li{margin-bottom:5px;font-size:12.5px;}
+  .how strong{color:#fff;}
+  .foot{display:flex;justify-content:space-between;gap:16px;border-top:1px solid var(--border);padding-top:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);}
+
+  @media print{
+    body{background:#fff;font-size:11.5px;}
+    .wrap{padding:0;max-width:none;}
+    .seg,.qs,.opener,.goal,.panel,.how,.metric,.launch{break-inside:avoid;}
+    .logi{display:none;}
+    .opener,.how{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    a{color:var(--accent-dark);}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ PRESENTER RUN-OF-SHOW ============ -->
+  <div class="eyebrow">Presenter Pack &middot; ~45 min</div>
+  <h1>Meeting with Rachel &amp; Mat</h1>
+  <div class="sub">Chick-fil-A, Inc. &mdash; Advanced Analytics &amp; Automation</div>
+
+  <div class="goal"><strong>Goal:</strong> learn how they think about field-built tools and where the gaps are &mdash; and build the relationship. A conversation, not a pitch. Throughline: <em>these tools exist to make the team&rsquo;s life easier; the operational wins came after.</em></div>
+
+  <div class="launch">
+    <div class="lbl">Quick launch — live demos (click)</div>
+    <div class="links">
+      <a href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/gallery-x7k2m9.html">★ Gallery (home base)</a>
+      <a href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/uniform-request.html">Uniform Request</a>
+      <a href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/pto-request.html">Time-Off Request</a>
+      <a href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/payroll-system.html">Payroll System</a>
+      <a href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/schedule-counter.html">Schedule Counter</a>
+      <a href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/heard-log.html">H.E.A.R.D. Log</a>
+      <a href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/catering-quote.html">Catering Quote</a>
+    </div>
+  </div>
+
+  <div class="opener">
+    <div class="lbl">Open with this (verbatim-ish)</div>
+    <p>&ldquo;Every one of these started the same way &mdash; I wanted to make life easier for my team. Let people put in their own time off, order a uniform and know <em>exactly what comes out of their check</em>, see their pay clearly. That turned out to be the best retention tool I have &mdash; <em>turnover&rsquo;s down 53 points year over year.</em> I&rsquo;d love to show you a few and hear how you all think about this.&rdquo;</p>
+  </div>
+
+  <div class="logi">
+    <span>✅ Present from the LIVE links above (HTTPS)</span>
+    <span>✅ Hard-refresh each first (Cmd+Shift+R)</span>
+    <span>🚫 Never open files directly (file://)</span>
+  </div>
+
+  <div class="seg">
+    <div class="seg-head"><h3>1. Why I build — people first</h3><span class="time">0:00 – 0:04</span></div>
+    <ul>
+      <li>Say the opener. I lead people; the software just protects their time.</li>
+      <li>The pattern, one sentence: <em>trigger → pipeline → cache → web app → email</em>, maintainable by editing a spreadsheet.</li>
+      <li>Tone: &ldquo;I&rsquo;m here to learn how you all approach this as much as to show it.&rdquo;</li>
+    </ul>
+  </div>
+
+  <div class="seg hero">
+    <div class="seg-head"><h3>2. The team-member experience</h3><span class="time">0:04 – 0:14</span></div>
+    <a class="open" href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/uniform-request.html">▶ Open: Uniform Request</a>
+    <a class="open" href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/pto-request.html">▶ Open: Time-Off Request</a>
+    <ul>
+      <li><strong>Uniform Request:</strong> pick items and sizes; the team member sees <span class="stat">each item&rsquo;s price and exactly what comes out of each paycheck</span> before submitting. No payday surprises.</li>
+      <li><strong>Time-Off Request:</strong> a team member files their own PTO from their phone &mdash; pick dates, submit. No catching a manager, no waiting on a text. Both forms bilingual (English &amp; Spanish).</li>
+      <li>The point: <strong>dignity and time back.</strong> People handle their own stuff without asking permission for everything.</li>
+    </ul>
+    <div class="say">&ldquo;This is the part that actually moves retention &mdash; people feel respected when they don&rsquo;t have to chase a manager to take a day off or guess what a uniform costs them.&rdquo;</div>
+  </div>
+
+  <div class="seg">
+    <div class="seg-head"><h3>3. Where it lands — Payroll</h3><span class="time">0:14 – 0:22</span></div>
+    <a class="open" href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/payroll-system.html">▶ Open: Payroll System</a>
+    <div class="path">Overtime → Upload Data → &ldquo;Try with Sample Files&rdquo; → drag both → Analyze Overtime Data</div>
+    <ul>
+      <li>Those PTO/uniform requests flow into one payroll system with the math already done.</li>
+      <li>Technical depth: cross-location OT reconciliation &mdash; under 40 at each store but over 40 combined is legally owed OT neither location catches alone (FLSA). Show the 8 multi-location employees flagged.</li>
+      <li>Result: <span class="stat">payroll processing 2–3 hr → 30 min</span>.</li>
+    </ul>
+  </div>
+
+  <div class="seg">
+    <div class="seg-head"><h3>4. Schedules around real lives — Schedule Counter</h3><span class="time">0:22 – 0:30</span></div>
+    <a class="open" href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/schedule-counter.html">▶ Open: Schedule Counter</a>
+    <div class="path">&ldquo;Try with a Sample File&rdquo; → drag HotSchedules → Convert → drag CSV → Generate Analysis</div>
+    <ul>
+      <li>Tie it to people: say yes when life happens, build the schedule around it &mdash; that&rsquo;s where the turnover number came from.</li>
+      <li>And it holds productivity: SPLH, sales-curve weighting, exponential smoothing. <span class="stat">SPLH $84.42 → $91.02</span> (past the $90 goal, since Feb 2025).</li>
+    </ul>
+  </div>
+
+  <div class="seg">
+    <div class="seg-head"><h3>5. Rapid-fire the rest</h3><span class="time">0:30 – 0:34</span></div>
+    <a class="open" href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/heard-log.html">▶ Open: H.E.A.R.D. Log</a>
+    <a class="open" href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/catering-quote.html">▶ Open: Catering Quote</a>
+    <ul>
+      <li><strong>H.E.A.R.D. Log</strong> (&ldquo;Why this works&rdquo;): phone-number tracking auto-flags repeat complainers.</li>
+      <li><strong>Catering Quote</strong>: <span class="stat">10–20 min → 2–3 min</span> per quote. Gesture, don&rsquo;t deep-dive.</li>
+    </ul>
+  </div>
+
+  <div class="seg">
+    <div class="seg-head"><h3>6. The numbers it moved + how it lasts</h3><span class="time">0:34 – 0:39</span></div>
+    <ul>
+      <li><span class="stat">Turnover −53.50 pts YoY</span> &middot; <span class="stat">Retention +11.21 pts YoY</span> &middot; top 4% of the chain for profitability &middot; food cost gap 1.02% → 0.74%.</li>
+      <li>&ldquo;The relationship work is the strategy &mdash; the tools just protect people&rsquo;s time so we can do it.&rdquo;</li>
+      <li>Built to last: idempotent setup, config in the sheet, a non-technical manager maintains it; I run a risk-audit scanner on my own code; honest that it&rsquo;s built for two stores today.</li>
+    </ul>
+  </div>
+
+  <div class="qs">
+    <h3>7. Questions for them — spend real time here (0:39 – 0:45)</h3>
+    <ul>
+      <li>Where does corporate already solve these, and where am I filling gaps that shouldn&rsquo;t have to be field-built?</li>
+      <li>How do you all think about field-built tools &mdash; is there a path for them, or a reason to keep them at arm&rsquo;s length?</li>
+      <li>What would it take to do something like this at scale &mdash; and what would you change about how I&rsquo;ve approached it?</li>
+      <li>If I wanted to do more of this kind of work, what should I be learning?</li>
+    </ul>
+    <div class="note" style="margin-top:10px;">Close: &ldquo;I&rsquo;d love to stay connected and learn how you all approach this.&rdquo;</div>
+  </div>
+
+  <!-- ============ LEAVE-BEHIND (page 2) ============ -->
+  <div class="pagebreak"></div>
+
+  <div class="lb-top">
+    <div>
+      <h1>Tools that give the team their time back</h1>
+      <div class="role">Brent Baldwin &middot; Chief of Staff &middot; Cockrell Hill Chick-fil-A</div>
+    </div>
+    <div style="text-align:right;font-size:13px;"><a href="https://brentbaldwin.com">brentbaldwin.com</a></div>
+  </div>
+
+  <p class="lede">Every tool here started the same way: I wanted to make life easier for my team. Give people back their <strong>time</strong>, a little <strong>privacy</strong>, and a say in their own week &mdash; and they stop leaving. The operational wins came after, almost as a byproduct.</p>
+  <div class="model2">One pattern under all of it: a trigger feeds a pipeline, a pipeline feeds a cache, a cache feeds a web app, the app emails the right person at the right time &mdash; and a non-technical manager keeps it running by editing a spreadsheet.</div>
+
+  <div class="eyebrow">What taking care of people did to the numbers</div>
+  <div class="metrics">
+    <div class="metric"><div class="big">&minus;53.50 pts</div><div class="mlbl">Turnover, YoY (to 93.33%)</div></div>
+    <div class="metric"><div class="big">+11.21 pts</div><div class="mlbl">Retention, YoY (to 51.72%)</div></div>
+    <div class="metric"><div class="big">$84 &rarr; $91</div><div class="mlbl">Sales per labor hour (vs $90 goal)</div></div>
+    <div class="metric"><div class="big">2–3 hr &rarr; 30 min</div><div class="mlbl">Payroll processing time</div></div>
+  </div>
+
+  <div class="twocol">
+    <div class="panel team">
+      <h2>For the team</h2>
+      <div class="tag">Self-service, English &amp; Spanish &mdash; no manager required</div>
+      <div class="item"><h3>Request time off yourself</h3><p>Put in a PTO request from your phone &mdash; pick the dates and submit. No catching a manager, no waiting on a text. Your time off, your request.</p></div>
+      <div class="item"><h3>Order uniforms with the cost up front</h3><p>Browse the catalog, pick sizes, and see <span class="win">exactly what each item costs and what comes out of each paycheck</span> before you submit. No surprises on payday.</p></div>
+      <div class="item"><h3>Payroll that&rsquo;s clear</h3><p>PTO, overtime, and uniform deductions in one place with the math already done &mdash; so people can see what they earned and what was taken out, and trust it.</p></div>
+    </div>
+    <div class="panel">
+      <h2>For the operation</h2>
+      <div class="tag">The wins that follow when people&rsquo;s time is protected</div>
+      <div class="item"><h3>Schedule Counter</h3><p>Schedules built around real lives while holding productivity. <span class="win">SPLH $84.42 &rarr; $91.02</span>, past goal since Feb 2025.</p></div>
+      <div class="item"><h3>Payroll System</h3><p>One place for the whole pay period &mdash; including cross-location overtime reconciled correctly across both stores (FLSA). <span class="win">Processing 2–3 hr &rarr; 30 min.</span></p></div>
+      <div class="item"><h3>Catering Quote &amp; H.E.A.R.D. Log</h3><p>Catering quotes <span class="win">10–20 min &rarr; 2–3 min</span>; guest recovery logged in under a minute with repeat-complainer alerts. Food cost gap 1.02% &rarr; 0.74%.</p></div>
+    </div>
+  </div>
+
+  <div class="how">
+    <h2>How &mdash; and why &mdash; I build them this way</h2>
+    <ul>
+      <li><strong>I lead before I build.</strong> The software is the easy part; the tools exist to free the team&rsquo;s time so they can focus on the guest and on each other.</li>
+      <li><strong>Designed for whoever comes after me:</strong> idempotent setup, config in the spreadsheet, maintained by a non-technical operator.</li>
+      <li><strong>Security-conscious:</strong> I run a custom risk-audit scanner and XSS hardening passes over my own code.</li>
+      <li><strong>Honest about scope:</strong> built for two locations today, with a clear view of what would change to run at chain scale.</li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    <div><strong>Stack:</strong> Google Apps Script + Sheets &middot; React &middot; Python &middot; built by hand, no frameworks</div>
+    <div>Live previews (sample data): <a href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/gallery-x7k2m9.html">demo gallery</a></div>
+  </div>
+
+</div>
+</body>
+</html>

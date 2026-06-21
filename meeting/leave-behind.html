@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Brent Baldwin — Tools that give the team their time back</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#F8F9FB; --surface:#FFFFFF; --border:#E2E5EA; --text:#1F2937; --muted:#6B7280;
+    --accent:#E51636; --accent-dark:#B81029; --accent-soft:rgba(229,22,54,0.07);
+    --font-display:'Syne',system-ui,sans-serif; --font-body:'DM Sans',system-ui,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:var(--font-body);background:var(--bg);color:var(--text);line-height:1.55;-webkit-font-smoothing:antialiased;font-size:13.5px;}
+  .wrap{max-width:900px;margin:0 auto;padding:40px 32px 52px;}
+  h1,h2,h3{font-family:var(--font-display);font-weight:700;letter-spacing:-0.01em;}
+  .top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:18px;flex-wrap:wrap;}
+  .top h1{font-size:28px;line-height:1.05;}
+  .top .role{color:var(--muted);font-size:13.5px;margin-top:4px;}
+  .top .right{text-align:right;font-size:13px;}
+  .top .right a{color:var(--accent);text-decoration:none;font-weight:600;}
+  .lede{font-size:16px;line-height:1.6;margin-bottom:14px;}
+  .lede strong{color:var(--accent-dark);}
+  .model{font-size:13px;color:var(--muted);border-left:3px solid var(--border);padding-left:12px;margin-bottom:20px;}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin:0 0 12px;}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;}
+  .metric{border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:13px 14px;text-align:center;}
+  .metric .big{font-family:var(--font-display);font-weight:800;font-size:21px;color:var(--accent);line-height:1.05;}
+  .metric .lbl{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.35;}
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px;}
+  .panel{border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:16px 18px;}
+  .panel.team{border-top:3px solid var(--accent);}
+  .panel h2{font-size:15px;margin-bottom:4px;}
+  .panel .tag{font-size:11px;color:var(--muted);margin-bottom:10px;}
+  .item{margin-bottom:11px;}
+  .item h3{font-size:13.5px;margin-bottom:2px;}
+  .item p{font-size:12.5px;color:var(--muted);line-height:1.5;}
+  .item .win{color:var(--accent-dark);font-weight:600;}
+  .how{background:#0f172a;color:#cbd5e1;border-radius:10px;padding:16px 18px;margin-bottom:18px;}
+  .how h2{color:#fff;font-size:15px;margin-bottom:9px;}
+  .how ul{margin:0 0 0 18px;}
+  .how li{margin-bottom:5px;font-size:12.5px;}
+  .how strong{color:#fff;}
+  .foot{display:flex;justify-content:space-between;align-items:center;gap:16px;border-top:1px solid var(--border);padding-top:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);}
+  .foot a{color:var(--accent);font-weight:600;text-decoration:none;}
+  @media print{ body{background:#fff;font-size:11px;} .wrap{padding:0;max-width:none;} .panel,.how,.metric{break-inside:avoid;} .how{background:#0f172a !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>Tools that give the team their time back</h1>
+      <div class="role">Brent Baldwin &middot; Chief of Staff &middot; Cockrell Hill Chick-fil-A</div>
+    </div>
+    <div class="right"><a href="https://brentbaldwin.com">brentbaldwin.com</a></div>
+  </div>
+
+  <p class="lede">Every tool here started the same way: I wanted to make life easier for my team. Give people back their <strong>time</strong>, a little <strong>privacy</strong>, and a say in their own week &mdash; and they stop leaving. The operational wins came after, almost as a byproduct.</p>
+  <div class="model">One pattern under all of it: a trigger feeds a pipeline, a pipeline feeds a cache, a cache feeds a web app, the app emails the right person at the right time &mdash; and a non-technical manager keeps it running by editing a spreadsheet.</div>
+
+  <div class="eyebrow">What taking care of people did to the numbers</div>
+  <div class="metrics">
+    <div class="metric"><div class="big">&minus;53.50 pts</div><div class="lbl">Turnover, year over year (to 93.33%)</div></div>
+    <div class="metric"><div class="big">+11.21 pts</div><div class="lbl">Retention, year over year (to 51.72%)</div></div>
+    <div class="metric"><div class="big">$84.42 &rarr; $91.02</div><div class="lbl">Sales per labor hour (vs. $90 goal)</div></div>
+    <div class="metric"><div class="big">2&ndash;3 hr &rarr; 30 min</div><div class="lbl">Payroll processing time</div></div>
+  </div>
+
+  <div class="twocol">
+    <div class="panel team">
+      <h2>For the team</h2>
+      <div class="tag">Self-service, in English &amp; Spanish &mdash; no manager required</div>
+      <div class="item">
+        <h3>Request time off yourself</h3>
+        <p>Put in a PTO request from your phone &mdash; pick the dates and submit. No catching a manager between rushes, no waiting on a text back. Your time off, your request.</p>
+      </div>
+      <div class="item">
+        <h3>Order uniforms with the cost up front</h3>
+        <p>Browse the catalog, pick your sizes, and see <span class="win">exactly what each item costs and what will come out of each paycheck</span> before you ever hit submit. No surprises on payday.</p>
+      </div>
+      <div class="item">
+        <h3>Payroll that&rsquo;s clear</h3>
+        <p>PTO, overtime, and uniform deductions live in one place with the math already done &mdash; so people can see what they earned and what was taken out, and trust it.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>For the operation</h2>
+      <div class="tag">The wins that follow when people&rsquo;s time is protected</div>
+      <div class="item">
+        <h3>Schedule Counter</h3>
+        <p>Builds the schedule around people&rsquo;s real lives while holding labor productivity. <span class="win">SPLH $84.42 &rarr; $91.02</span>, past goal since Feb 2025.</p>
+      </div>
+      <div class="item">
+        <h3>Payroll System</h3>
+        <p>One place for the whole pay period &mdash; including cross-location overtime reconciled correctly across both stores (FLSA). <span class="win">Processing 2&ndash;3 hr &rarr; 30 min.</span></p>
+      </div>
+      <div class="item">
+        <h3>Catering Quote Generator &amp; H.E.A.R.D. Log</h3>
+        <p>Catering quotes <span class="win">10&ndash;20 min &rarr; 2&ndash;3 min</span>; guest recovery logged in under a minute with repeat-complainer alerts. Food cost gap 1.02% &rarr; 0.74%.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="how">
+    <h2>How &mdash; and why &mdash; I build them this way</h2>
+    <ul>
+      <li><strong>I lead before I build.</strong> The software is the easy part; the tools exist to free up the team&rsquo;s time so they can focus on the guest and on each other.</li>
+      <li><strong>Designed for whoever comes after me:</strong> idempotent setup, config in the spreadsheet, maintained by a non-technical operator.</li>
+      <li><strong>Security-conscious:</strong> I run a custom risk-audit scanner and XSS hardening passes over my own code.</li>
+      <li><strong>Honest about scope:</strong> built for two locations today, with a clear view of what would change to run at chain scale.</li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    <div><strong>Stack:</strong> Google Apps Script + Sheets &middot; React &middot; Python &middot; built by hand, no frameworks</div>
+    <div>Interactive previews (sample data): <a href="https://brentb154.github.io/Brent-Chick-fil-A-Tech-Projects/demos/gallery-x7k2m9.html">live demo gallery</a></div>
+  </div>
+</div>
+</body>
+</html>
