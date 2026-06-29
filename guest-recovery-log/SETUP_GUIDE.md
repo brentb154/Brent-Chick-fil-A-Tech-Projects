@@ -72,15 +72,27 @@ https://docs.google.com/spreadsheets/d/1AbC...XyZ/edit#gid=0
    - Choose your Google account
    - You may see "Google hasn't verified this app" — click **Advanced ▸ Go to (project name)**
    - Click **Allow**
-10. After it runs, click **Execution log** at the bottom. You should see:
+10. After it runs, click **Execution log** at the bottom. You'll see something like this:
     ```
     H.E.A.R.D. Log setup complete.
+
+    Spreadsheet : H.E.A.R.D. Log Data
     Data tab    : Sheet1  (already existed)
     Headers     : written
     Alert emails: initialized
+    API token   : generated
+
+    >>> API TOKEN (paste into index.html API_TOKEN):
+        7f3a9c2e1b6d4805af19e2c7d3b0a6f4
+
+    NEXT STEP: Deploy ▸ New deployment ▸ Web app
     ```
 
-`runFirstTimeSetup` is **safe to run again** anytime — it never overwrites or deletes existing data. It just makes sure the data tab, header row, and alert storage all exist.
+> **⚠️ Important — this is the API token you'll need in Step 5.** The token is **not** written anywhere in the `Code.gs` code. It's generated when you run `runFirstTimeSetup` and printed **only here, in the Execution log**, on the indented line right under `>>> API TOKEN`. It's a long string of letters and numbers (the `7f3a9c2e...` above is just an example — yours will be different).
+>
+> **Copy that whole line now and keep it somewhere safe** — you'll paste it into `index.html` in Step 5. If you lose it, just run `runFirstTimeSetup` again; it prints the same token every time.
+
+`runFirstTimeSetup` is **safe to run again** anytime — it never overwrites or deletes existing data. It just makes sure the data tab, header row, alert storage, and API token all exist.
 
 ---
 
@@ -130,7 +142,13 @@ This gives your backend a web address the app can talk to.
    ```js
    const API_TOKEN = 'YOUR_API_TOKEN';
    ```
-   Replace `YOUR_API_TOKEN` with the token that `runFirstTimeSetup` printed in the execution log back in Step 3 (a long string of letters and numbers). Keep the quotes. **This must match exactly** — it's the shared secret that stops anyone with your web-app URL from reading or changing your guest data. If you lost it, just re-run `runFirstTimeSetup` and look at the log again.
+   Replace `YOUR_API_TOKEN` with the token from the **Execution log** in Step 3 — the long string of letters and numbers on the indented line under `>>> API TOKEN`. Keep the quotes. So it ends up looking like:
+   ```js
+   const API_TOKEN = '7f3a9c2e1b6d4805af19e2c7d3b0a6f4';
+   ```
+   **This must match exactly** — it's the shared secret that stops anyone with your web-app URL from reading or changing your guest data.
+
+   > **Can't find the token?** It's not in the `Code.gs` code — it only appears in the Execution log *after* you run `runFirstTimeSetup`. If you closed that log, just go back to Apps Script, run `runFirstTimeSetup` again, and read the log. It prints the same token every time.
 
 6. **Save** the file.
 

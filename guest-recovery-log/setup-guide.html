@@ -151,9 +151,22 @@
                 <li>In the function dropdown at the top (may say <code>doGet</code>), choose <strong><code>runFirstTimeSetup</code></strong>.</li>
                 <li>Click <strong>&#9654; Run</strong>.</li>
                 <li>The first time, Google asks for permission: <strong>Review permissions</strong> &rarr; pick your account &rarr; <strong>Advanced &rarr; Go to (project)</strong> &rarr; <strong>Allow</strong>.</li>
-                <li>Open the <strong>Execution log</strong> at the bottom. You should see "H.E.A.R.D. Log setup complete."</li>
+                <li>Open the <strong>Execution log</strong> at the bottom. You'll see something like this:</li>
             </ol>
-            <div class="callout"><strong>Safe to re-run.</strong> <code>runFirstTimeSetup</code> never overwrites or deletes existing data &mdash; it just makes sure the data tab, header row, and alert storage all exist.</div>
+            <pre><code>H.E.A.R.D. Log setup complete.
+
+Spreadsheet : H.E.A.R.D. Log Data
+Data tab    : Sheet1  (already existed)
+Headers     : written
+Alert emails: initialized
+API token   : generated
+
+&gt;&gt;&gt; API TOKEN (paste into index.html API_TOKEN):
+    <strong style="color:#FFD54F;">7f3a9c2e1b6d4805af19e2c7d3b0a6f4</strong>
+
+NEXT STEP: Deploy &rarr; New deployment &rarr; Web app</code></pre>
+            <div class="callout warn"><strong>&#9888;&#65039; This is the API token you'll need in Step 5.</strong> The token is <strong>not</strong> written anywhere in the <code>Code.gs</code> code &mdash; it's generated when you run <code>runFirstTimeSetup</code> and printed <strong>only here, in the Execution log</strong>, on the indented line under <code>&gt;&gt;&gt; API TOKEN</code> (the yellow text above is just an example &mdash; yours will be different). <strong>Copy that whole line now and keep it safe</strong> &mdash; you'll paste it into <code>index.html</code> in Step 5. Lost it? Run <code>runFirstTimeSetup</code> again; it prints the same token every time.</div>
+            <div class="callout"><strong>Safe to re-run.</strong> <code>runFirstTimeSetup</code> never overwrites or deletes existing data &mdash; it just makes sure the data tab, header row, alert storage, and API token all exist.</div>
         </div>
 
         <div class="step">
@@ -174,7 +187,7 @@
                 <li>Find <code>const APPS_SCRIPT_URL = 'YOUR_APPS_SCRIPT_URL';</code> and paste your Web app URL from Step 4 (keep the quotes).</li>
                 <li>Find <code>if (passcode === 'YOUR_LOGIN_PASSCODE')</code> and set the 4-digit code your <strong>team</strong> uses to log in (e.g. <code>'1234'</code>).</li>
                 <li>Find <code>if (settingsPasscode === 'YOUR_SETTINGS_PASSCODE')</code> and set a <strong>different</strong> 4-digit code only <strong>managers</strong> know &mdash; it protects the email-alert settings (e.g. <code>'5678'</code>).</li>
-                <li>Find <code>const API_TOKEN = 'YOUR_API_TOKEN';</code> and paste the <strong>API token</strong> that <code>runFirstTimeSetup</code> printed in the log back in Step 3. It must match exactly &mdash; it's the shared secret that keeps your web-app URL from being readable by anyone.</li>
+                <li>Find <code>const API_TOKEN = 'YOUR_API_TOKEN';</code> and paste the <strong>API token</strong> from the <strong>Execution log</strong> in Step 3 &mdash; the long string under <code>&gt;&gt;&gt; API TOKEN</code> (not anything from the <code>Code.gs</code> code). It must match exactly. So it ends up like <code>const API_TOKEN = '7f3a9c2e1b6d4805af19e2c7d3b0a6f4';</code>. <strong>Can't find it?</strong> Re-run <code>runFirstTimeSetup</code> in Apps Script and read the log again &mdash; it prints the same token every time.</li>
                 <li><strong>Save</strong> the file.</li>
             </ol>
             <div class="callout warn"><strong>The passcodes are browser-only convenience locks.</strong> The <strong>API token</strong> is what actually protects your guest data &mdash; the backend rejects any call without it. Keep it private and never paste your real token into a public repo.</div>
