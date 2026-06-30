@@ -132,7 +132,7 @@
         </div>
 
         <div style="text-align:center; margin-bottom:1.5rem;">
-            <a href="setup-guide.html" style="display:inline-block; padding:0.75rem 1.5rem; background:linear-gradient(135deg,#DD0031,#FF4444); color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:0.95rem;">&#128202; Open the Step-by-Step Setup Guide</a>
+            <a href="#setup-guide" style="display:inline-block; padding:0.75rem 1.5rem; background:linear-gradient(135deg,#DD0031,#FF4444); color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:0.95rem;">&#128202; Jump to the Full Setup Guide &darr;</a>
         </div>
 
         <div class="section">
@@ -213,17 +213,50 @@
             </div>
         </div>
 
-        <div class="section">
-            <h2>Setup Steps</h2>
-            <ol class="steps">
-                <li>Create a new Google Sheet for Schedule Counter.</li>
-                <li>Open <strong>Extensions &rarr; Apps Script</strong> and paste <code>Code.gs</code>.</li>
-                <li>Create all HTML files: <code>Index.html</code>, <code>JavaScript.html</code>, <code>Stylesheet.html</code>, <code>Onboarding.html</code>, <code>TrackerEmbed.html</code>, <code>ProductivityTracker.html</code>.</li>
-                <li>Deploy as a Web App (<strong>Deploy &rarr; New Deployment &rarr; Web App</strong>). Set access to "Anyone" or your domain.</li>
-                <li>Open the web app URL &mdash; the onboarding wizard will guide you through configuration.</li>
-                <li>Once set up, go to <strong>Settings &rarr; Automation &rarr; Install Triggers</strong> to enable weekly automation.</li>
-                <li>If you have existing CFA sales data in Sheet1, click <strong>Backfill History</strong> then <strong>Rebuild Curves</strong>.</li>
-            </ol>
+        <div class="section" id="setup-guide">
+            <h2>Full Step-by-Step Setup Guide</h2>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6; margin-bottom:0.5rem;">About 30 minutes, no coding needed. You copy files, set one setting, run two functions, deploy, and connect your sales data.</p>
+            <div class="note" style="background:rgba(255,193,7,0.1); border-color:rgba(255,193,7,0.4); margin:0.75rem 0 1.5rem;"><strong style="color:#FFD54F;">&#9888;&#65039; The one rule that keeps it working:</strong> never create or rename a tab by hand. The setup function builds every tab with the exact name the tool expects &mdash; rename one and it quietly stops working.</div>
+
+            <h3 style="color:#FF8A80; font-size:1.05rem; margin:1.25rem 0 0.4rem;">1. Create the Google Sheet</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">At <a href="https://sheets.google.com" target="_blank" style="color:#FF8A80;">sheets.google.com</a>, click <strong>Blank spreadsheet</strong> and name it "Schedule Counter &mdash; [Your Store]". Leave the default <code>Sheet1</code> tab alone &mdash; it becomes the landing zone for your sales data in Step 9.</p>
+
+            <h3 style="color:#FF8A80; font-size:1.05rem; margin:1.25rem 0 0.4rem;">2. Open Apps Script</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Click <strong>Extensions &rarr; Apps Script</strong>. The script is now bound to this Sheet, which is why you never paste a Sheet ID.</p>
+
+            <h3 style="color:#FF8A80; font-size:1.05rem; margin:1.25rem 0 0.4rem;">3. Paste the Files</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Create a matching file for each project file and paste its contents. Names must match <strong>exactly</strong>, capitalization included. Use <strong>+ &rarr; Script</strong> for <code>Code.gs</code>, and <strong>+ &rarr; HTML</strong> for <code>Index</code>, <code>JavaScript</code>, <code>Stylesheet</code>, <code>Onboarding</code>, <code>TrackerEmbed</code>, <code>ProductivityTracker</code>. Save with Ctrl/Cmd+S.</p>
+
+            <h3 style="color:#FF8A80; font-size:1.05rem; margin:1.25rem 0 0.4rem;">4. Set the One Required Setting</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In the editor, <strong>&#9881;&#65039; Project Settings &rarr; Script Properties &rarr; Add script property</strong>. Property <code>ALERT_EMAIL</code>, value = your email. This is where failure alerts go if a weekly job ever fails.</p>
+
+            <h3 style="color:#FF8A80; font-size:1.05rem; margin:1.25rem 0 0.4rem;">5. Build the Tabs</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Pick <code>initSheets</code> in the function dropdown &rarr; <strong>Run</strong>. Authorize when asked (<strong>Advanced &rarr; Go to (project) &rarr; Allow</strong>). The log shows <code>initSheets complete. All tabs verified.</code> and your tabs appear (<code>config</code>, <code>sales_curves</code>, <code>sales_history</code>, <code>app_cache</code>, and more &mdash; see "Sheet Tabs" below). Safe to re-run anytime.</p>
+
+            <h3 style="color:#FF8A80; font-size:1.05rem; margin:1.25rem 0 0.4rem;">6. Install the Background Jobs</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;"><strong>Separate step from #5.</strong> Pick <code>installTriggers</code> &rarr; <strong>Run</strong>. This installs the three weekly jobs (see "Weekly Automation" above). Confirm three appear under the clock icon. To remove them later, run <code>deleteAllTriggers</code>.</p>
+
+            <h3 style="color:#FF8A80; font-size:1.05rem; margin:1.25rem 0 0.4rem;">7. Deploy as a Web App</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;"><strong>Deploy &rarr; New deployment &rarr;</strong> gear &rarr; <strong>Web app</strong>. Execute as <strong>Me</strong>, access <strong>Anyone within your domain</strong>. Deploy, then copy the Web app URL &mdash; that's the tool. After any future code change, redeploy via <strong>Manage deployments &rarr; Edit &rarr; New version</strong>; the URL stays the same.</p>
+
+            <h3 style="color:#FF8A80; font-size:1.05rem; margin:1.25rem 0 0.4rem;">8. First-Run Onboarding</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Open the Web app URL. The first load is slow (10&ndash;20 sec) &mdash; that's normal. A built-in onboarding wizard walks you through your location, SPLH goals, and labor shares, all saved to the <code>config</code> tab.</p>
+
+            <h3 style="color:#FF8A80; font-size:1.05rem; margin:1.5rem 0 0.4rem;">9. Connect Automatic Sales Data (ThoughtSpot / Analytics Hub)</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">This makes the tool run itself: a weekly sync that pulls your store's hourly sales into <code>Sheet1</code> every Sunday night, right before the tool's Sunday 10 PM check looks for them. You only do it once.</p>
+            <p style="color:#fff; font-size:0.9rem; margin:0.75rem 0 0.25rem;"><strong>Part A &mdash; Build the search.</strong></p>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In <strong>CFA Home &rarr; Analytics Hub &rarr; Custom Reports &rarr; ThoughtSpot Search</strong>, open <strong>Sales Analytics</strong> and build a search with: <strong>Sales</strong>, <strong>Hour (24 hr)</strong>, <strong>Business Date</strong>, time filter <strong>this week</strong>, sort by Business Date and Hour, and a store filter for <strong>your restaurant by number, all sales channels</strong> (not drive-thru only).</p>
+            <p style="color:#fff; font-size:0.9rem; margin:0.75rem 0 0.25rem;"><strong>Part B &mdash; Add the "Today date" formula.</strong></p>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Click <strong>+ Add &rarr; Formula</strong>, name it <strong>Today date</strong>, enter <code>today()</code>, Save, and tick its box (along with Hour, Business Date, and Sales). It stamps each sync with the run date.</p>
+            <p style="color:#fff; font-size:0.9rem; margin:0.75rem 0 0.25rem;"><strong>Part C &mdash; Set up the weekly sync.</strong></p>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Click the <strong>&hellip;</strong> menu &rarr; <strong>Sync &rarr; Sync to Sheets</strong> (link your Google account the first time). In the pipeline editor set <strong>File</strong> = your scheduling Sheet, <strong>Sheet name</strong> = <code>Sheet1</code>, <strong>Cell</strong> = <code>A1</code>, check <strong>Sync schedule</strong> = <strong>Week, 21:00, your timezone, Sunday</strong>. Save.</p>
+            <div class="note" style="background:rgba(255,193,7,0.1); border-color:rgba(255,193,7,0.4);"><strong style="color:#FFD54F;">Timing matters.</strong> The sync must land before the tool's Sunday 10 PM check. 9 PM Sunday gives an hour of cushion.</div>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">After the first sync, your <code>Sheet1</code> row 1 should read: <code>Hour (24 hr)</code> &middot; <code>Business Date</code> &middot; <code>Today date</code> &middot; <code>Total Sales</code>. The tool reads Hour, Business Date, and Total Sales by name.</p>
+
+            <h3 style="color:#FF8A80; font-size:1.05rem; margin:1.5rem 0 0.4rem;">10. Backfill &amp; Verify</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Once sales data is landing in <code>Sheet1</code>, go to <strong>Settings &rarr; Automation</strong> in the app and click <strong>Backfill History</strong>, then <strong>Rebuild Curves</strong>. Upload a schedule on the Analysis tab and confirm you get a staffing grid. A populated grid plus three triggers means you're fully live.</p>
+
+            <div class="note" style="margin-top:1.5rem;"><strong>Troubleshooting:</strong> Blank white screen &rarr; hard-refresh after redeploying. "Tab X not found" or "sales_curves is empty" &rarr; run <code>initSheets</code>. Numbers never update &rarr; run <code>installTriggers</code>. Sunday "sync may have failed" email &rarr; check your ThoughtSpot export ran and <code>Sheet1</code> has a current Business Date. "Missing required columns" &rarr; confirm the headers match the four above.</div>
         </div>
 
         <div class="section">
