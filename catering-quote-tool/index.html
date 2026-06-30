@@ -162,7 +162,7 @@
                 <li>Quote history with Edit &amp; Reuse — originals are never modified</li>
                 <li>Fully customizable email subject and body templates</li>
                 <li>Optional BCC on every sent quote</li>
-                <li>Auto-cleanup deletes quotes older than 30 days</li>
+                <li>Auto-archive moves quotes older than 120 days to a hidden sheet (nothing deleted)</li>
                 <li>Logo upload and per-location store details in Settings</li>
             </ul>
         </div>
@@ -212,7 +212,7 @@
             <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Open the Web app URL, build a quote, and hit <strong>Save &amp; Email</strong> to yourself. A PDF in your inbox and a new card on the <strong>Pipeline</strong> board means you're live.</p>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.5rem 0 0.4rem;">Optional Extras</h3>
-            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Nightly cleanup of quotes older than 30 days: add a time-driven trigger for <code>cleanOldQuotes</code> daily at midnight. Calendar events and follow-up reminder emails are separate feature deployments &mdash; see <a href="SETUP.md" style="color:#4DD0E1;">SETUP.md</a>.</p>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Nightly archive of old quotes (moved to a hidden archive sheet, never deleted): add a time-driven trigger for <code>cleanOldQuotes</code> daily at midnight. How old before they archive is set in the <strong>Settings</strong> tab under <code>Archive After Days</code> (defaults to 120). Calendar events and follow-up reminder emails are separate feature deployments &mdash; see <a href="SETUP.md" style="color:#4DD0E1;">SETUP.md</a>.</p>
 
             <div class="note" style="margin-top:1.5rem;"><strong>Troubleshooting:</strong> Blank page / "function not found" &rarr; the HTML file holding <code>App.html</code> isn't named <code>Index</code>. Tab missing &rarr; re-run <code>initializeSheet</code>. Menu items not showing &rarr; check the 4 columns, use <code>N/A</code> not blank. No email/PDF &rarr; re-authorize via <code>initializeSheet</code>. Changes not showing &rarr; redeploy a new version.</div>
         </div>

@@ -180,6 +180,15 @@ function getCalendarLeadMinutes_(settings) {
   return n;
 }
 
+// Reads the Settings tab "Archive After Days" — how old a quote gets before
+// cleanOldQuotes() moves it to the archive. Falls back to 120 if blank/invalid.
+function getArchiveAfterDays_(settings) {
+  var n = parseInt(settings['Archive After Days'], 10);
+  if (isNaN(n) || n < 1) return 120;
+  if (n > 3650) return 3650; // hard cap at ~10 years
+  return n;
+}
+
 function getNextQuoteId() {
   var sheet = getSpreadsheet().getSheetByName(TAB_QUOTE_SEQUENCE);
   var current = parseInt(sheet.getRange('B1').getValue()) || 0;
@@ -276,7 +285,8 @@ function updateQuotePO(sheetRow, poNumber, calendarEventId) {
   return status;
 }
 
-// Move quotes older than 120 days to a hidden archive sheet instead of deleting.
+// Move quotes older than the "Archive After Days" setting (default 120) to a
+// hidden archive sheet instead of deleting.
 // Nothing is lost — the archive keeps the full row so old quotes can always be reviewed.
 function cleanOldQuotes() {
   var ss = getSpreadsheet();
@@ -286,7 +296,8 @@ function cleanOldQuotes() {
 
   var lastCol = sheet.getLastColumn();
   var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
-  var cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 120);
+  var archiveAfterDays = getArchiveAfterDays_(getSettings());
+  var cutoff = new Date(); cutoff.setDate(cutoff.getDate() - archiveAfterDays);
 
   var toArchive = [];   // full rows to copy into the archive
   var rowsToDelete = []; // sheet row numbers, deleted bottom-up
@@ -336,6 +347,7 @@ function initializeSheet() {
     ['Quote Contact Name',          ''],
     ['Default Tax Rate (%)',         8.25],
     ['Calendar Lead Time (Minutes)', 30],
+    ['Archive After Days',           120],
     ['Logo (Base64)',                ''],
     ['Email Subject',               'Your Catering Quote from Chick-fil-A {{location}}'],
     ['Email Body',                  'Hi {{customer}},\n\nThank you for considering Chick-fil-A {{location}} for your catering needs! We appreciate you reaching out and would love to help make your event something special.\n\nPlease find your catering quote attached. If you have any questions or would like to make any changes, don\'t hesitate to reach out — we\'re happy to help.\n\nWe look forward to serving you!\n\nWarm regards,\n{{contact}}\nChick-fil-A {{location}}\n{{phone}}'],

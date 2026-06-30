@@ -43,8 +43,8 @@ Your sheet will have five tabs: **Settings**, **Menu**, **Quotes**, **Quote_Sequ
 
 > After any code change, create a **new deployment version** — the `/exec` URL always serves the last deployed version, not the latest saved code. Use `/dev` during testing to always see the latest save.
 
-### Step 6: Set Up Nightly Cleanup (Optional)
-Triggers (clock icon) → **+ Add Trigger** → `cleanOldQuotes` → Time-driven → Day timer → Midnight to 1am.
+### Step 6: Set Up Nightly Archive (Optional)
+Triggers (clock icon) → **+ Add Trigger** → `cleanOldQuotes` → Time-driven → Day timer → Midnight to 1am. This moves quotes older than the **Archive After Days** setting (Settings tab, default 120) into a hidden archive sheet — nothing is deleted, and you can change the threshold anytime.
 
 ### Step 7: Add Menu Items
 
@@ -128,7 +128,7 @@ The **Pipeline** tab shows all emailed quotes organized by sales stage:
 - Sequential IDs (Q-2026-0001, Q-2026-0002, …) that never repeat
 - Prices frozen at creation time — menu changes don't affect old quotes
 - Edit & Reuse creates a new quote; originals are never modified
-- Auto-cleanup deletes quotes older than 30 days (requires trigger setup)
+- Auto-archive moves quotes older than 120 days to a hidden archive sheet — nothing is deleted (requires trigger setup)
 
 ---
 
@@ -152,6 +152,7 @@ Columns A–N are original fields. Column O (**PO Number**) was added and is aut
 | Location 1/2 Name/Address/Phone | Store details |
 | Quote Contact Name | Shown on PDF "questions?" line |
 | Default Tax Rate (%) | Pre-filled on new quotes |
+| Archive After Days | How old a quote gets before `cleanOldQuotes` archives it (default 120) |
 | Logo (Base64) | Uploaded via the app Settings tab |
 | Email Subject | Template with `{{placeholders}}` |
 | Email Body | Template with `{{placeholders}}` |
