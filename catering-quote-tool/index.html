@@ -190,13 +190,19 @@
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">6. Add Your Menu</h3>
             <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">The <strong>Menu</strong> tab has four columns: <strong>Category | Item Name | Pickup Price | Delivery Price</strong>. Same category groups items together in the picker, and <code>N/A</code> in Delivery Price hides an item from delivery quotes. You can type items in by hand, but the fastest way is to pull your real prices straight from CFA Home:</p>
-            <p style="color:#fff; font-size:0.9rem; margin:0.75rem 0 0.25rem;"><strong>Pull your menu from CFA Home (recommended):</strong></p>
-            <ol style="color:#c0c0c0; font-size:0.92rem; line-height:1.65; margin:0.25rem 0 0.5rem 1.25rem;">
-                <li>On <strong>CFA Home &rarr; Backoffice</strong>, open the pricing / <strong>Current Price Lists</strong> area and find your restaurant by its number.</li>
-                <li>Click your location link &mdash; e.g. <em>"Location 03177 (Price Group 32)"</em>. (If you land on a price group already, click <strong>&laquo; Select a different price group</strong> first, then pick your location.)</li>
-                <li>You'll see the price list: <strong>Category</strong>, <strong>Menu Item Name</strong>, <strong>Inside Sales Price</strong>, <strong>Outside Sales Price</strong>. Click <strong>Export this to an Excel spreadsheet</strong>.</li>
-                <li>Open the Excel file, select the menu rows, copy, and paste them into the <strong>Menu</strong> tab of your Google Sheet.</li>
-            </ol>
+            <p style="color:#fff; font-size:0.9rem; margin:0.75rem 0 0.5rem;"><strong>Pull your menu straight from CFA Home (recommended):</strong></p>
+
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6; margin:0.75rem 0 0.25rem;"><strong style="color:#4DD0E1;">1.</strong> On <strong>CFA Home &rarr; Backoffice</strong>, search your restaurant by number. On its page, under <strong>Menu Price Group</strong>, click your price group (e.g. <em>Price Group 32</em>).</p>
+            <img src="images/menu-1-price-group.png" alt="Click your Menu Price Group on the restaurant page" style="display:block; width:100%; max-width:640px; border:1px solid rgba(255,255,255,0.18); border-radius:8px; margin:0.4rem 0 1rem;">
+
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6; margin:0.75rem 0 0.25rem;"><strong style="color:#4DD0E1;">2.</strong> On the price list, click <strong>&laquo; Select a different price group</strong>.</p>
+            <img src="images/menu-2-select-different-group.png" alt="Click Select a different price group" style="display:block; width:100%; max-width:640px; border:1px solid rgba(255,255,255,0.18); border-radius:8px; margin:0.4rem 0 1rem;">
+
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6; margin:0.75rem 0 0.25rem;"><strong style="color:#4DD0E1;">3.</strong> On the <strong>Current Price Lists</strong> page, click your location link &mdash; e.g. <em>"Location 03177 (Price Group 32)"</em>.</p>
+            <img src="images/menu-3-location.png" alt="Click your location on the Current Price Lists page" style="display:block; width:100%; max-width:640px; border:1px solid rgba(255,255,255,0.18); border-radius:8px; margin:0.4rem 0 1rem;">
+
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6; margin:0.75rem 0 0.25rem;"><strong style="color:#4DD0E1;">4.</strong> Click <strong>Export this to an Excel spreadsheet</strong>, then open the file, copy the menu rows, and paste them into the <strong>Menu</strong> tab of your Google Sheet.</p>
+            <img src="images/menu-4-export-excel.png" alt="Export this to an Excel spreadsheet" style="display:block; width:100%; max-width:640px; border:1px solid rgba(255,255,255,0.18); border-radius:8px; margin:0.4rem 0 1rem;">
             <div class="note"><strong>The columns line up:</strong> <code>Category &rarr; Category</code>, <code>Menu Item Name &rarr; Item Name</code>, <code>Inside Sales Price &rarr; Pickup Price</code>, <code>Outside Sales Price &rarr; Delivery Price</code>. So paste them in that order under the existing headers. Any item with <code>N/A</code> for Outside Sales Price simply won't show on delivery quotes &mdash; which is exactly what you want.</div>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">7. Fill in Settings</h3>
