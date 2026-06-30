@@ -4,11 +4,15 @@ Labor scheduling tool — schedule upload, sales curve weighting, weekly snapsho
 
 ## Setup
 
+See **[SETUP_GUIDE.md](SETUP_GUIDE.md)** for the full step-by-step. Short version:
+
 1. Open the target Google Sheet
 2. Go to Extensions > Apps Script
 3. Copy all `.gs` and `.html` files into the script editor
-4. Run `runInitialSetup()` — this creates all sheet tabs and installs triggers in one step
-5. Deploy as web app (Execute as: Me, Access: Anyone within domain)
+4. Set the `ALERT_EMAIL` Script Property
+5. Run `initSheets()` — creates all sheet tabs (safe to re-run)
+6. Run `installTriggers()` — installs the time-driven jobs (separate step)
+7. Deploy as web app (Execute as: Me, Access: Anyone within domain)
 
 ## Triggers
 

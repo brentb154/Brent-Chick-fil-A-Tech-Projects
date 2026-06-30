@@ -69,6 +69,25 @@ Fill in store names, addresses, phone numbers, contact name, tax rate, logo, and
 
 ---
 
+## Golden Rules (so it doesn't break)
+
+- **Don't hand-create or rename tabs.** `initializeSheet` builds `Settings`, `Menu`, `Quotes`, `Quote_Sequence`, and `Pipeline` with the exact names the code expects. Renaming one silently breaks that feature.
+- **The `Index` file must be named exactly `Index`** (it holds the contents of `App.html`). `doGet` loads it by that name.
+- **Redeploy a new version after any code change** — the `/exec` URL serves the last *deployed* version, not your latest save.
+
+## Setup Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| Web app shows a blank page or "script function not found" | Confirm the HTML file holding `App.html` is named exactly `Index` (Step 3). |
+| "getSheetByName(...) is null" / a tab is missing | Run `initializeSheet` again (Step 4). It re-creates any missing tab without touching existing data. |
+| Menu items don't appear in the picker | Check the **Menu** tab has all 4 columns (Category, Item Name, Pickup Price, Delivery Price). Use `N/A` for non-deliverable items' delivery price. |
+| Quote saves but no email/PDF | Re-authorize: run `initializeSheet` once from the editor and click **Allow** (the script needs Gmail + Drive access). |
+| Calendar events or reminders not working | See **[SETUP.md](SETUP.md)** — those are the feature-specific deployment steps and their troubleshooting. |
+| Changes to code don't show up | You edited but didn't redeploy. **Deploy ▸ Manage deployments ▸ Edit ▸ New version ▸ Deploy.** |
+
+---
+
 ## Features
 
 ### Searchable Item Picker
