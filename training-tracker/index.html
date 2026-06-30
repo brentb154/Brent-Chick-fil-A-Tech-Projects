@@ -148,7 +148,7 @@
         <div class="note">
             <strong>This is a Google Apps Script application.</strong> It runs inside Google Sheets and feeds off a Google Form &mdash; there's no web app to deploy. The full step-by-step setup guide walks you through it in about 30 minutes. It's a lot of files to paste, but every step is just copy-paste and clicking buttons.
             <div style="margin-top:1rem;">
-                <a href="setup-guide.html" style="display:inline-block; padding:0.65rem 1.4rem; background:linear-gradient(135deg,#E53935,#FF7043); color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:0.95rem;">&#127891; Open the Step-by-Step Setup Guide</a>
+                <a href="#setup-guide" style="display:inline-block; padding:0.65rem 1.4rem; background:linear-gradient(135deg,#E53935,#FF7043); color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:0.95rem;">&#127891; Jump to the Full Setup Guide &darr;</a>
             </div>
         </div>
 
@@ -166,16 +166,36 @@
             </ul>
         </div>
 
-        <div class="section">
-            <h2>Setup Steps</h2>
-            <ol class="steps">
-                <li>Create a new Google Sheet for Training Tracker.</li>
-                <li>Open <strong>Extensions &rarr; Apps Script</strong> and paste each .gs file in order (01 through 08).</li>
-                <li>Create HTML files: <strong>TimelineDialog.html</strong>, <strong>DeduplicationSidebar.html</strong>, <strong>AlertSettingsDialog.html</strong>.</li>
-                <li>Run the initial setup function from the custom menu.</li>
-                <li>Create a Google Form linked to the sheet for training submissions.</li>
-                <li>Configure alert settings via the Training menu &rarr; <strong>Alert Settings</strong>.</li>
-            </ol>
+        <div class="section" id="setup-guide">
+            <h2>Full Step-by-Step Setup Guide</h2>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6; margin-bottom:0.5rem;">About 30 minutes. It looks like a lot because there are several files to paste, but every step is just copy-paste and clicking buttons. There's no web app to deploy &mdash; you run it from a <strong>Training Tools</strong> menu inside the Sheet, fed by a Google Form.</p>
+            <div class="note" style="background:rgba(255,193,7,0.1); border-color:rgba(255,193,7,0.4); margin:0.75rem 0 1.5rem;"><strong style="color:#FFD54F;">Heads up on the file count:</strong> 9 script files and 3 dialog files. That's the only part that feels like a lot &mdash; it's repetitive, not hard.</div>
+
+            <h3 style="color:#FF8A65; font-size:1.05rem; margin:1.25rem 0 0.4rem;">1. Create the Google Sheet</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">At <a href="https://sheets.google.com" target="_blank" style="color:#FF8A65;">sheets.google.com</a>, click <strong>Blank spreadsheet</strong> and name it "Training Tracker". Don't add tabs &mdash; Step 3 builds them all.</p>
+
+            <h3 style="color:#FF8A65; font-size:1.05rem; margin:1.25rem 0 0.4rem;">2. Paste the Files</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Click <strong>Extensions &rarr; Apps Script</strong>. Create each file (names must match exactly). <strong>Script</strong> files: <code>01_Menu_and_Setup</code>, <code>02_Form_and_Dedup</code>, <code>03_Dashboard</code>, <code>04_Timeline</code>, <code>05_Certification</code>, <code>06_Alerts</code>, <code>07_UI_Functions</code>, <code>08_DataSync</code>, <code>DIAGNOSTIC</code>. <strong>HTML</strong> files: <code>AlertSettingsDialog</code>, <code>DeduplicationSidebar</code>, <code>TimelineDialog</code>. Save. (You do <em>not</em> paste <code>index.html</code> &mdash; that's this web page.)</p>
+
+            <h3 style="color:#FF8A65; font-size:1.05rem; margin:1.25rem 0 0.4rem;">3. Run Initial Setup</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Reload the spreadsheet (F5) and wait a few seconds &mdash; a <strong>Training Tools</strong> menu appears. Click <strong>Training Tools &rarr; Initial Setup (Run Once)</strong> and authorize (<strong>Advanced &rarr; Go to (project) &rarr; Allow</strong>). It builds every tab (Position Requirements, Daily Training Log, Master Dashboard, Certification Log, and more). No menu? Wait and reload again &mdash; <code>onOpen</code> needs a moment.</p>
+
+            <h3 style="color:#FF8A65; font-size:1.05rem; margin:1.25rem 0 0.4rem;">4. Create the Google Form</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">At <a href="https://forms.google.com" target="_blank" style="color:#FF8A65;">forms.google.com</a>, make a form named "Daily Training Log" with these questions <strong>in this exact order</strong>: <strong>Date</strong>, <strong>Trainee Name</strong>, <strong>Position Trained</strong> (dropdown), <strong>Hours</strong>, <strong>On Track?</strong> (Yes/No), <strong>Notes</strong>. Order matters &mdash; the script reads responses by column position.</p>
+
+            <h3 style="color:#FF8A65; font-size:1.05rem; margin:1.25rem 0 0.4rem;">5. Link the Form to the Sheet</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In the form's <strong>Responses</strong> tab, click the green <strong>Link to Sheets</strong> icon and pick your Training Tracker sheet. If it makes a "Form Responses 1" tab, that's fine &mdash; run <strong>Training Tools &rarr; Sync Form Data</strong> to pull responses into the Daily Training Log. Submit a test response to confirm.</p>
+
+            <h3 style="color:#FF8A65; font-size:1.05rem; margin:1.25rem 0 0.4rem;">6. Set Up the Triggers</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In the editor, click the <strong>clock icon &rarr; + Add Trigger</strong> and add: <code>onFormSubmit</code> (From spreadsheet &rarr; On form submit) &mdash; <strong>the important one</strong>; plus the daily time-driven ones <code>dailyReminderCheck</code> (8&ndash;9pm), <code>checkInactiveTrainees</code> (6&ndash;7am), and <code>checkForDuplicates</code> (7&ndash;8am). If you only do one, do <code>onFormSubmit</code>.</p>
+
+            <h3 style="color:#FF8A65; font-size:1.05rem; margin:1.25rem 0 0.4rem;">7. Configure &amp; Verify</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Set positions and required hours in the <strong>Position Requirements</strong> tab and manager emails via <strong>Training Tools &rarr; Alert Settings</strong>. Then run <strong>Training Tools &rarr; Run Diagnostic</strong> &mdash; it checks every tab, trigger, and setting and tells you in plain English if anything's off.</p>
+
+            <h3 style="color:#FF8A65; font-size:1.05rem; margin:1.5rem 0 0.4rem;">Going Deeper (Optional)</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Certification feedback forms, Monday auto-populate from your schedule, and position-name aliases are all in the full <a href="SETUP_GUIDE.md" style="color:#FF8A65;">SETUP_GUIDE.md</a> &mdash; none required to get the core tracker running.</p>
+
+            <div class="note" style="margin-top:1.5rem;"><strong>Troubleshooting:</strong> Training Tools menu never shows &rarr; reload and wait; confirm <code>01_Menu_and_Setup</code> saved. Responses not on dashboard &rarr; run <strong>Sync Form Data</strong> and check the <code>onFormSubmit</code> trigger. Columns look shifted &rarr; form questions are out of order. One person showing as two &rarr; run <strong>Scan for Duplicates</strong>. Unsure &rarr; run <strong>Run Diagnostic</strong>.</div>
         </div>
 
         <div class="section">

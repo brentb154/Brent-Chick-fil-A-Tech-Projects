@@ -148,7 +148,7 @@
         <div class="note">
             <strong>This is a Google Apps Script application.</strong> It runs inside Google Sheets and cannot be opened directly in a browser. This is the biggest tool in the set, so the full step-by-step guide takes it slow &mdash; about 30&ndash;45 minutes, written for zero technical experience.
             <div style="margin-top:1rem;">
-                <a href="setup-guide.html" style="display:inline-block; padding:0.65rem 1.4rem; background:linear-gradient(135deg,#4CAF50,#66BB6A); color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:0.95rem;">&#129534; Open the Step-by-Step Setup Guide</a>
+                <a href="#setup-guide" style="display:inline-block; padding:0.65rem 1.4rem; background:linear-gradient(135deg,#4CAF50,#66BB6A); color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:0.95rem;">&#129534; Jump to the Full Setup Guide &darr;</a>
             </div>
         </div>
 
@@ -167,16 +167,37 @@
             </ul>
         </div>
 
-        <div class="section">
-            <h2>Setup Steps</h2>
-            <ol class="steps">
-                <li>Create a new Google Sheet for the Payroll System.</li>
-                <li>Open <strong>Extensions &rarr; Apps Script</strong> and paste each .gs file.</li>
-                <li>Create all HTML files as listed below.</li>
-                <li>Run the initial setup function to create required sheet tabs.</li>
-                <li>Deploy as a Web App (<strong>Deploy &rarr; New Deployment &rarr; Web App</strong>).</li>
-                <li>Configure settings in the Settings page within the app.</li>
-            </ol>
+        <div class="section" id="setup-guide">
+            <h2>Full Step-by-Step Setup Guide</h2>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6; margin-bottom:0.5rem;">Written for zero technical experience. This is the biggest tool in the set, so take it slow &mdash; about 30&ndash;45 minutes. It sits next to your real payroll provider and gives you visibility they don't; it doesn't replace them. Use a computer (not a phone).</p>
+            <div class="note" style="background:rgba(255,193,7,0.1); border-color:rgba(255,193,7,0.4); margin:0.75rem 0 1.5rem;"><strong style="color:#FFD54F;">Two things that bite people:</strong> some files are very long &mdash; copy <em>all</em> the content; and file names must match exactly, capitalization included, or the page comes up blank.</div>
+
+            <h3 style="color:#A5D6A7; font-size:1.05rem; margin:1.25rem 0 0.4rem;">1. Create the Spreadsheet</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">At <a href="https://drive.google.com" target="_blank" style="color:#A5D6A7;">drive.google.com</a>, click <strong>+ New &rarr; Google Sheets</strong> and name it "Payroll System 2026". This one Sheet stores all your data &mdash; don't delete it or rename the tabs the setup creates.</p>
+
+            <h3 style="color:#A5D6A7; font-size:1.05rem; margin:1.25rem 0 0.4rem;">2. Open the Script Editor</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In the Sheet, click <strong>Extensions &rarr; Apps Script</strong>. A code editor opens with a default <code>Code.gs</code>.</p>
+
+            <h3 style="color:#A5D6A7; font-size:1.05rem; margin:1.25rem 0 0.4rem;">3. Create All the Files (~26)</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">For each: <strong>+ next to "Files"</strong> &rarr; <strong>Script</strong> or <strong>HTML</strong> &rarr; name it exactly &rarr; paste &rarr; save. <strong>Script (4):</strong> <code>Code</code>, <code>DashboardModule</code>, <code>PTOModule</code>, <code>ReportsModule</code>. <strong>Core HTML (6):</strong> <code>Index</code>, <code>MainApp</code>, <code>MainAppJS</code>, <code>Styles</code>, <code>JavaScript</code>, <code>View_Help</code>. <strong>View files (13):</strong> <code>View_Dashboard</code>, <code>View_OTUpload</code>, <code>View_OTHistory</code>, <code>View_OTEmployee</code>, <code>View_OTTrends</code>, <code>View_UniformOrders</code>, <code>View_UniformDeductions</code>, <code>View_UniformCatalog</code>, <code>View_PTORecords</code>, <code>View_PayrollProcessing</code>, <code>View_SettingsPage</code>, <code>View_SystemHealth</code>, <code>View_PayrollCalendar</code>, <code>View_YearEndWizard</code>. <strong>Forms (2):</strong> <code>EmployeeUniformRequest</code>, <code>EmployeePTORequest</code>.</p>
+
+            <h3 style="color:#A5D6A7; font-size:1.05rem; margin:1.25rem 0 0.4rem;">4. Initialize the System</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In <code>Code.gs</code>, pick <code>manualInit</code> in the function dropdown &rarr; <strong>Run</strong>. Authorize (<strong>Advanced &rarr; Go to Payroll System &rarr; Allow</strong>). The log lists the sheets it built. Safe to re-run.</p>
+
+            <h3 style="color:#A5D6A7; font-size:1.05rem; margin:1.25rem 0 0.4rem;">5. Deploy the App</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;"><strong>Deploy &rarr; New deployment &rarr;</strong> gear &rarr; <strong>Web app</strong>. Execute as <strong>Me</strong>, access <strong>Anyone</strong> (or your domain). Deploy, copy the URL, and bookmark it. First load is slow (10&ndash;20 sec). After any change, redeploy via <strong>Manage deployments &rarr; Edit &rarr; New version</strong>.</p>
+
+            <h3 style="color:#A5D6A7; font-size:1.05rem; margin:1.25rem 0 0.4rem;">6. Configure Settings &amp; Passcode</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In the app's <strong>Settings</strong>: average hourly wage, OT multiplier (1.5), your locations, and admin emails; click <strong>Save All Settings</strong>. Then set the manager passcode in the Sheet's <code>PAYROLL_SETTINGS</code> tab (the <code>ManagerPasscode</code> cell).</p>
+
+            <h3 style="color:#A5D6A7; font-size:1.05rem; margin:1.25rem 0 0.4rem;">7. Add Employees</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Easiest: <strong>Overtime &rarr; Upload Data</strong> with your CFA Home CSV &mdash; employees are created automatically. Or add them manually in the <code>Employees</code> tab.</p>
+
+            <h3 style="color:#A5D6A7; font-size:1.05rem; margin:1.25rem 0 0.4rem;">8. Set Up the Employee Forms (QR Codes)</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Add the page onto your Web app URL: <code>YOUR-APP-URL?view=uniform-request</code> and <code>YOUR-APP-URL?view=pto-request</code>. Make QR codes for each and post them by the time clock.</p>
+            <div class="note" style="background:rgba(255,193,7,0.1); border-color:rgba(255,193,7,0.4);"><strong style="color:#FFD54F;">Use <code>?view=</code>, not <code>?page=</code>.</strong> The forms route off the <code>view</code> parameter. If a form link opens the dashboard instead, that's why.</div>
+
+            <div class="note" style="margin-top:1.5rem;"><strong>Troubleshooting:</strong> "Script function not found: doGet" &rarr; re-copy <code>Code.gs</code> fully and redeploy. Blank screen &rarr; the <code>Index</code> file is missing/incomplete or a name's capitalization is off. "Authorization required" repeats &rarr; run any function once and Allow. Changes not showing &rarr; redeploy a new version. Form opens dashboard &rarr; use <code>?view=</code>. Not sure &rarr; open <strong>System Health</strong> in the app.</div>
         </div>
 
         <div class="section">

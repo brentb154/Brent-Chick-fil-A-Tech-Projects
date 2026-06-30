@@ -148,7 +148,7 @@
         <div class="note">
             <strong>This is a Google Apps Script application.</strong> It runs inside Google Sheets and cannot be opened directly in a browser. The full step-by-step setup guide walks you through deploying it to your Google account in about 25 minutes.
             <div style="margin-top:1rem;">
-                <a href="setup-guide.html" style="display:inline-block; padding:0.65rem 1.4rem; background:linear-gradient(135deg,#00BCD4,#26C6DA); color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:0.95rem;">&#129534; Open the Step-by-Step Setup Guide</a>
+                <a href="#setup-guide" style="display:inline-block; padding:0.65rem 1.4rem; background:linear-gradient(135deg,#00BCD4,#26C6DA); color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:0.95rem;">&#129534; Jump to the Full Setup Guide &darr;</a>
             </div>
         </div>
 
@@ -167,18 +167,40 @@
             </ul>
         </div>
 
-        <div class="section">
-            <h2>Setup Steps</h2>
-            <ol class="steps">
-                <li>Create a new Google Sheet and name it <strong>CFA Catering Quotes</strong>.</li>
-                <li>Open <strong>Extensions &rarr; Apps Script</strong> in the sheet.</li>
-                <li>Paste the contents of <strong>Code.gs</strong> into the default script file.</li>
-                <li>Create an HTML file named <strong>Index</strong> and paste the contents of <strong>Index.html</strong>.</li>
-                <li>Run <strong>initializeSheet</strong> once — this creates the Settings, Menu, Quotes, and Quote_Sequence tabs.</li>
-                <li>Add your menu items to the <strong>Menu</strong> tab (Category | Item Name | Pickup Price | Delivery Price).</li>
-                <li>Deploy: <strong>Deploy &rarr; New Deployment &rarr; Web App</strong>. Set access to your organization and copy the URL.</li>
-                <li>Set up a nightly cleanup trigger: add a <strong>Time-driven</strong> trigger for <code>cleanOldQuotes</code> to run daily at midnight.</li>
-            </ol>
+        <div class="section" id="setup-guide">
+            <h2>Full Step-by-Step Setup Guide</h2>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6; margin-bottom:0.5rem;">About 25 minutes, no coding needed. You copy four files, run one setup function, add your menu, and deploy.</p>
+            <div class="note" style="background:rgba(255,193,7,0.1); border-color:rgba(255,193,7,0.4); margin:0.75rem 0 1.5rem;"><strong style="color:#FFD54F;">&#9888;&#65039; Two rules that keep it working:</strong> don't create or rename tabs by hand (the setup function builds them), and make sure the HTML file holding <code>App.html</code> is named exactly <code>Index</code>. Those two mistakes cause almost every "it won't load."</div>
+
+            <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">1. Create the Google Sheet</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">At <a href="https://sheets.google.com" target="_blank" style="color:#4DD0E1;">sheets.google.com</a>, click <strong>Blank spreadsheet</strong> and name it "CFA Catering Quotes". Leave the tabs alone &mdash; Step 4 builds them.</p>
+
+            <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">2. Open Apps Script</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Click <strong>Extensions &rarr; Apps Script</strong>. The script is bound to this Sheet, so you never paste a Sheet ID.</p>
+
+            <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">3. Paste the Four Files</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Names must match exactly. Replace the starter <code>Code.gs</code> with the project's <code>Code.gs</code>; add an <strong>HTML</strong> file named <code>Index</code> holding <strong><code>App.html</code></strong>; add a <strong>Script</strong> file <code>Pipeline</code> holding <code>Pipeline.gs</code>; add an <strong>HTML</strong> file <code>PipelineView</code> holding <code>Pipelineview.html</code>. Save.</p>
+            <div class="note" style="background:rgba(255,193,7,0.1); border-color:rgba(255,193,7,0.4);"><strong style="color:#FFD54F;">Most common mistake:</strong> the file holding <code>App.html</code> must be named exactly <code>Index</code> &mdash; <code>doGet</code> loads the page by that name. Wrong name = blank page.</div>
+
+            <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">4. Run the Setup Function</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Pick <code>initializeSheet</code> in the function dropdown &rarr; <strong>Run</strong>. Authorize when asked (<strong>Advanced &rarr; Go to (project) &rarr; Allow</strong>) &mdash; it needs Gmail, Drive, and Calendar to email PDFs and create events. This builds the five tabs: <strong>Settings</strong>, <strong>Menu</strong>, <strong>Quotes</strong>, <strong>Quote_Sequence</strong>, <strong>Pipeline</strong>. Safe to re-run.</p>
+
+            <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">5. Deploy as a Web App</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;"><strong>Deploy &rarr; New deployment &rarr;</strong> gear &rarr; <strong>Web app</strong>. Execute as <strong>Me</strong>, access <strong>Anyone within your domain</strong>. Deploy and copy the URL &mdash; that's the tool. First load is slow (10&ndash;20 sec). After any code change, redeploy via <strong>Manage deployments &rarr; Edit &rarr; New version</strong>.</p>
+
+            <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">6. Add Your Menu</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In the <strong>Menu</strong> tab, fill the four columns: <strong>Category | Item Name | Pickup Price | Delivery Price</strong>. Same category groups items together in the picker. Use <code>N/A</code> in Delivery Price for items that can't be delivered &mdash; they hide automatically on delivery quotes.</p>
+
+            <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">7. Fill in Settings</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In the <strong>Settings</strong> tab, enter store name, address, phone, contact, tax rate, logo, email template, and (optionally) the follow-up reminder config. The app reads these at runtime &mdash; no code edits.</p>
+
+            <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">8. Send a Test Quote</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Open the Web app URL, build a quote, and hit <strong>Save &amp; Email</strong> to yourself. A PDF in your inbox and a new card on the <strong>Pipeline</strong> board means you're live.</p>
+
+            <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.5rem 0 0.4rem;">Optional Extras</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Nightly cleanup of quotes older than 30 days: add a time-driven trigger for <code>cleanOldQuotes</code> daily at midnight. Calendar events and follow-up reminder emails are separate feature deployments &mdash; see <a href="SETUP.md" style="color:#4DD0E1;">SETUP.md</a>.</p>
+
+            <div class="note" style="margin-top:1.5rem;"><strong>Troubleshooting:</strong> Blank page / "function not found" &rarr; the HTML file holding <code>App.html</code> isn't named <code>Index</code>. Tab missing &rarr; re-run <code>initializeSheet</code>. Menu items not showing &rarr; check the 4 columns, use <code>N/A</code> not blank. No email/PDF &rarr; re-authorize via <code>initializeSheet</code>. Changes not showing &rarr; redeploy a new version.</div>
         </div>
 
         <div class="section">
