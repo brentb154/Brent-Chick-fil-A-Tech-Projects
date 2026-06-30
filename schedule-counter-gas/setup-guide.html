@@ -39,10 +39,10 @@
         }
         .step-head { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1rem; }
         .step-num {
-            flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+            flex-shrink: 0; min-width: 34px; height: 34px; padding: 0 0.45rem; border-radius: 17px;
             background: linear-gradient(135deg,#DD0031,#FF4444); color: #fff;
             display: flex; align-items: center; justify-content: center;
-            font-weight: 700; font-size: 1rem;
+            font-weight: 700; font-size: 0.9rem; white-space: nowrap;
         }
         .step-head h2 { font-size: 1.15rem; font-weight: 600; color: #fff; }
         .step p { color: #c5c5c5; font-size: 0.95rem; line-height: 1.65; margin: 0.5rem 0; }
@@ -65,8 +65,10 @@
             font-size: 0.9rem; color: #c0c0c0; line-height: 1.6;
         }
         .callout.warn { background: rgba(255,193,7,0.1); border-left-color: #FFC107; }
+        .callout.todo { background: rgba(255,255,255,0.06); border-left-color: #888; border-style: dashed; border-left-style: solid; }
         .callout strong { color: #FF8A80; }
         .callout.warn strong { color: #FFD54F; }
+        .callout.todo strong { color: #cfcfcf; }
         h3.section-title {
             font-size: 1.25rem; color: #FF5252; margin: 2rem 0 1rem; font-weight: 700;
         }
@@ -75,7 +77,7 @@
         }
         th, td {
             text-align: left; padding: 0.6rem 0.8rem;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
+            border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: top;
         }
         th { color: #FF8A80; font-weight: 600; }
         td { color: #c5c5c5; }
@@ -85,8 +87,6 @@
             border: 1px solid rgba(255,255,255,0.1); padding: 1.25rem 1.5rem;
             margin-bottom: 1.5rem; color: #c5c5c5; font-size: 0.95rem; line-height: 1.65;
         }
-        .lead ol { margin: 0.5rem 0 0 1.25rem; }
-        .lead li { margin-bottom: 0.3rem; }
         @media (max-width: 600px) {
             body { padding: 1rem; }
             h1 { font-size: 1.5rem; }
@@ -101,118 +101,237 @@
         <div class="header">
             <div class="project-icon">&#128202;</div>
             <h1>Schedule Counter — Setup Guide</h1>
-            <p class="subtitle">From zero to a working labor-scheduling tool. No coding experience needed &mdash; you copy files, set one setting, and run two functions. Follow the steps in order.</p>
-            <span class="pill">&#9201; About 20 minutes</span>
+            <p class="subtitle">From zero to a working, self-updating labor tool. No coding experience needed &mdash; you copy files, set one setting, run two functions, deploy, and connect your sales data. Follow the steps in order and you'll be done in about 30 minutes.</p>
+            <span class="pill">&#9201; About 30 minutes</span>
         </div>
 
         <div class="lead">
-            Schedule Counter uploads your published schedule, weights it against sales curves, takes weekly snapshots, and tracks productivity. It lives <strong>inside one Google Sheet</strong> &mdash; there are no IDs, URLs, or passwords to paste.
-            <div class="callout warn" style="margin-top:1rem;"><strong>&#9888;&#65039; The single most important rule:</strong> do <strong>not</strong> create or rename any tabs by hand. The setup function builds every tab with the exact names and headers the tool needs. If you make a tab called "Config" instead of <code>config</code>, or rename one later, the tool silently stops working.</div>
+            <p style="margin-top:0;">Schedule Counter takes your published schedule and lays it against your sales, hour by hour, so you can see exactly where you're heavy, thin, or on target. It lives <strong>inside one Google Sheet</strong> &mdash; there are no IDs, URLs, or passwords to paste anywhere.</p>
+            <p><strong>How the whole thing fits together</strong> (worth understanding before you start):</p>
+            <ul style="margin:0.5rem 0 0 1.25rem;">
+                <li><strong>The Sheet</strong> is the database. The tool's tabs live here.</li>
+                <li><strong>Sheet1</strong> is the landing zone where your CFA sales data shows up (you'll connect that in Step&nbsp;9).</li>
+                <li><strong>The web app</strong> is the screen you and your team actually use.</li>
+                <li><strong>Three weekly jobs</strong> run on their own &mdash; pulling in sales, updating the forecast, and reminding you to post the schedule.</li>
+            </ul>
+            <div class="callout warn" style="margin-top:1rem;"><strong>&#9888;&#65039; The one rule that keeps it working:</strong> never create or rename a tab by hand. The setup function builds every tab with the exact name and headers the tool expects. Make a tab called "Config" instead of <code>config</code>, or rename one later, and the tool quietly stops working with no obvious error.</div>
+        </div>
+
+        <h3 class="section-title">Before You Start</h3>
+        <div class="step">
+            <ul>
+                <li>A Google account that can create Google Sheets &mdash; your CFA Workspace account is ideal.</li>
+                <li>The project files from this folder (all the <code>.gs</code> and <code>.html</code> files).</li>
+                <li>Access to your store's <strong>CFA Home &rarr; Analytics Hub (ThoughtSpot)</strong> sales data &mdash; you'll wire that up in Step&nbsp;9.</li>
+                <li>About 30 minutes, on a computer (not a phone).</li>
+            </ul>
         </div>
 
         <div class="step">
             <div class="step-head"><div class="step-num">1</div><h2>Create the Google Sheet</h2></div>
             <ol>
                 <li>Go to <a href="https://sheets.google.com" target="_blank" style="color:#FF8A80;">sheets.google.com</a> and click <strong>Blank spreadsheet</strong>.</li>
-                <li>Rename it something clear, like <strong>"Schedule Counter — [Your Store]"</strong>.</li>
-                <li>Leave the default <code>Sheet1</code> tab alone. Don't add any other tabs &mdash; Step 5 does that.</li>
+                <li>Rename it something clear, like <strong>"Schedule Counter — [Your Store]"</strong> (click the title, top-left).</li>
+                <li>Leave the default <code>Sheet1</code> tab exactly as it is &mdash; don't rename or delete it. It becomes the landing zone for your sales data later.</li>
             </ol>
+            <p>This single spreadsheet is both your database and your sales-sync target. Everything the tool does happens inside it.</p>
         </div>
 
         <div class="step">
             <div class="step-head"><div class="step-num">2</div><h2>Open the Apps Script Editor</h2></div>
             <ol>
-                <li>In your new Sheet, click <strong>Extensions &rarr; Apps Script</strong>. A code editor opens in a new tab.</li>
-                <li>This script is now <strong>bound</strong> to your Sheet &mdash; that's why you never paste a Sheet ID.</li>
+                <li>In your new Sheet, click <strong>Extensions &rarr; Apps Script</strong>. A code editor opens in a new browser tab.</li>
+                <li>You'll see a starter file called <code>Code.gs</code> with an empty <code>myFunction</code>.</li>
             </ol>
+            <p>Because you opened the editor from inside the Sheet, the script is <strong>bound</strong> to that Sheet. That binding is why you never paste a Sheet ID &mdash; the code already knows which spreadsheet it belongs to.</p>
         </div>
 
         <div class="step">
             <div class="step-head"><div class="step-num">3</div><h2>Paste the Files</h2></div>
-            <p>For each file in this project, create a matching file in the editor and paste the contents:</p>
+            <p>For each file in this project, create a matching file in the editor and paste its contents. The app loads files by name, so names must match <strong>exactly</strong>, capitalization included.</p>
             <ul>
-                <li><strong><code>.gs</code> files</strong> (like <code>Code.gs</code>): use <strong>+ &rarr; Script</strong>, name it to match, paste.</li>
-                <li><strong><code>.html</code> files</strong> (like <code>Index</code>, <code>JavaScript</code>, <code>Stylesheet</code>): use <strong>+ &rarr; HTML</strong>, name it to match (no <code>.html</code> in the name), paste.</li>
+                <li><strong>Script files</strong> (e.g. <code>Code.gs</code>): click <strong>+ &rarr; Script</strong>, name it to match, paste, save.</li>
+                <li><strong>HTML files</strong> (<code>Index</code>, <code>JavaScript</code>, <code>Stylesheet</code>, <code>Onboarding</code>, <code>TrackerEmbed</code>, <code>ProductivityTracker</code>): click <strong>+ &rarr; HTML</strong>, name it to match (no <code>.html</code> in the name), paste, save.</li>
             </ul>
-            <p>Delete the empty starter <code>myFunction</code> if it's in the way, then click <strong>&#128190; Save</strong>.</p>
-            <div class="callout"><strong>File names must match exactly</strong>, including capitalization (<code>Index</code>, not <code>index</code>) &mdash; the app loads them by name.</div>
+            <p>Replace the contents of the starter <code>Code.gs</code> with the project's <code>Code.gs</code> (don't make a second one). Delete the empty <code>myFunction</code> if it's in your way. Press <strong>Ctrl/Cmd+S</strong> to save everything.</p>
+            <div class="callout"><strong>Why exact names matter:</strong> the main page is loaded as <code>Index</code> and pulls in <code>JavaScript</code>, <code>Stylesheet</code>, and the others by name. A lowercase <code>index</code> or a typo'd <code>Stylesheet</code> shows up later as a blank page or missing styling, not an error message.</div>
         </div>
 
         <div class="step">
             <div class="step-head"><div class="step-num">4</div><h2>Set the One Required Setting</h2></div>
-            <p>The tool emails you if a scheduled background job ever fails. Tell it where to send that:</p>
+            <p>The tool emails you if one of its weekly background jobs ever fails &mdash; that's how you find out the sales sync didn't run <em>before</em> it throws off your numbers. Tell it where to send that alert:</p>
             <ol>
-                <li>In the Apps Script editor, click <strong>&#9881;&#65039; Project Settings</strong> (gear, left sidebar).</li>
-                <li>Scroll to <strong>Script Properties &rarr; Add script property</strong>.</li>
-                <li>Property: <code>ALERT_EMAIL</code> &nbsp;&middot;&nbsp; Value: your email address.</li>
+                <li>In the Apps Script editor, click <strong>&#9881;&#65039; Project Settings</strong> (the gear in the left sidebar).</li>
+                <li>Scroll down to <strong>Script Properties</strong> and click <strong>Add script property</strong>.</li>
+                <li>Property: <code>ALERT_EMAIL</code> &nbsp;&middot;&nbsp; Value: the email address that should get failure alerts.</li>
                 <li>Click <strong>Save script properties</strong>.</li>
             </ol>
-            <div class="callout">Skipping this won't break the app, but you won't get alerted if a weekly job fails. Set it.</div>
+            <div class="callout">Skipping this won't stop the app from working, but you'll be flying blind if a weekly job fails silently. Take the 30 seconds and set it.</div>
         </div>
 
         <div class="step">
             <div class="step-head"><div class="step-num">5</div><h2>Build the Tabs</h2></div>
             <ol>
-                <li>At the top of the editor, open the function dropdown and choose <strong><code>initSheets</code></strong>.</li>
+                <li>At the top of the editor, open the function dropdown (it may say <code>doGet</code>) and choose <strong><code>initSheets</code></strong>.</li>
                 <li>Click <strong>&#9654; Run</strong>.</li>
-                <li>The first time, Google asks for permission: <strong>Review permissions</strong> &rarr; pick your account &rarr; <strong>Advanced &rarr; Go to (project)</strong> &rarr; <strong>Allow</strong>.</li>
-                <li>Open the <strong>Execution log</strong> at the bottom. You should see <code>initSheets complete. All tabs verified.</code></li>
+                <li>The first run triggers Google's permission screen: <strong>Review permissions</strong> &rarr; pick your account &rarr; <strong>Advanced &rarr; Go to (project name)</strong> &rarr; <strong>Allow</strong>. This is normal for your own scripts.</li>
+                <li>Open the <strong>Execution log</strong> at the bottom. When it finishes you'll see:
+                    <pre><code>initSheets complete. All tabs verified.</code></pre>
+                </li>
             </ol>
-            <p>This creates every tab &mdash; <code>config</code>, <code>sales_curves</code>, <code>sales_history</code>, <code>productivity_tracker</code>, <code>app_cache</code>, and the snapshot tabs &mdash; and seeds default settings and sales curves.</p>
-            <div class="callout"><strong>Safe to re-run.</strong> <code>initSheets</code> skips tabs that already exist and never deletes data.</div>
+            <p>This one function builds every tab the tool needs and seeds your default settings and sales curves. You'll see these tabs appear in the Sheet:</p>
+            <table>
+                <tr><th>Tab</th><th>What it holds</th></tr>
+                <tr><td><code>config</code></td><td>All your settings &mdash; SPLH goals, labor shares, email, location. The one tab you'll edit by hand.</td></tr>
+                <tr><td><code>sales_curves</code></td><td>The hourly weight distribution per day used to spread sales across the day.</td></tr>
+                <tr><td><code>sales_history</code></td><td>Hourly sales per day per week, kept for forecasting.</td></tr>
+                <tr><td><code>schedule_history</code></td><td>Hourly staffing (FOH/BOH) per day per week.</td></tr>
+                <tr><td><code>weekly_summary</code></td><td>One row per week &mdash; SPLH, peak hour, goal %.</td></tr>
+                <tr><td><code>productivity_tracker</code></td><td>Long-term monthly productivity scores.</td></tr>
+                <tr><td><code>app_cache</code></td><td>Pre-computed data for fast app loads. <strong>Never edit by hand.</strong></td></tr>
+                <tr><td><code>Sheet1</code></td><td>The landing zone your CFA sales data drops into (Step&nbsp;9).</td></tr>
+            </table>
+            <div class="callout"><strong>Safe to re-run.</strong> <code>initSheets</code> skips any tab that already exists and never deletes data. If you ever think a tab got messed up, re-running this is the safe first move.</div>
         </div>
 
         <div class="step">
             <div class="step-head"><div class="step-num">6</div><h2>Install the Background Jobs</h2></div>
-            <div class="callout warn"><strong>This is a separate step from Step 5.</strong> The old README wrongly said setup did both &mdash; it doesn't. You must run this too.</div>
+            <div class="callout warn"><strong>This is a separate step from Step 5</strong> &mdash; building the tabs does <em>not</em> install the automation. You must run this too, or the weekly numbers will never update on their own.</div>
             <ol>
                 <li>In the function dropdown, choose <strong><code>installTriggers</code></strong>.</li>
                 <li>Click <strong>&#9654; Run</strong>.</li>
+                <li>Confirm it worked: click the <strong>clock icon (Triggers)</strong> in the left sidebar. You should see <strong>three</strong> time-driven triggers listed.</li>
             </ol>
-            <p>This installs three time-driven jobs:</p>
-            <ul>
-                <li><strong>Sunday 10 PM</strong> &mdash; schedule-upload reminder</li>
-                <li><strong>Monday 6 AM</strong> &mdash; the weekly processing pipeline</li>
-                <li><strong>Thursday 7 PM</strong> &mdash; schedule reminder</li>
-            </ul>
-            <p>To reinstall later, run <code>installTriggers</code> again. To remove them all, run <code>deleteAllTriggers</code>.</p>
+            <p>Those three jobs are the heart of the automation:</p>
+            <table>
+                <tr><th>When</th><th>Job</th><th>What it does</th></tr>
+                <tr><td>Sunday 10 PM</td><td>Sync check</td><td>Confirms your CFA sales data actually landed in <code>Sheet1</code>. Emails you if the sync failed, so you can fix it before Monday.</td></tr>
+                <tr><td>Monday 6 AM</td><td>Weekly pipeline</td><td>Archives the week's sales, updates the curves with smoothing, runs bias detection, cleans old data, and rebuilds the cache.</td></tr>
+                <tr><td>Thursday 7 PM</td><td>Schedule reminder</td><td>Emails you a reminder (with last week's performance) to post the new schedule.</td></tr>
+            </table>
+            <p>To reinstall these later, run <code>installTriggers</code> again. To remove them all, run <code>deleteAllTriggers</code>.</p>
         </div>
 
         <div class="step">
             <div class="step-head"><div class="step-num">7</div><h2>Deploy as a Web App</h2></div>
-            <p>This gives your team a link to open the tool.</p>
+            <p>This turns the script into a real web page with a link your team can open.</p>
             <ol>
                 <li>Click <strong>Deploy &rarr; New deployment</strong> (top-right).</li>
-                <li>Click the gear &#9881; next to "Select type" &rarr; <strong>Web app</strong>.</li>
-                <li>Set <strong>Execute as: Me</strong> and <strong>Who has access: Anyone within [your domain]</strong> &mdash; this keeps it inside your CFA Workspace.</li>
-                <li>Click <strong>Deploy</strong>, authorize if asked, and copy the <strong>Web app URL</strong>.</li>
+                <li>Click the gear &#9881; next to "Select type" and choose <strong>Web app</strong>.</li>
+                <li>Fill in:
+                    <ul>
+                        <li><strong>Description:</strong> <code>Schedule Counter</code> (anything works)</li>
+                        <li><strong>Execute as:</strong> <strong>Me</strong></li>
+                        <li><strong>Who has access:</strong> <strong>Anyone within [your domain]</strong> &mdash; keeps it inside your CFA Workspace</li>
+                    </ul>
+                </li>
+                <li>Click <strong>Deploy</strong>, authorize if asked, and <strong>copy the Web app URL</strong>. That link is the tool &mdash; bookmark it.</li>
             </ol>
-            <div class="callout"><strong>Updating later:</strong> after any code change, go to <strong>Deploy &rarr; Manage deployments &rarr; &#9998; Edit &rarr; Version: New version &rarr; Deploy</strong>. The URL stays the same. Editing code alone does nothing until you redeploy.</div>
+            <div class="callout"><strong>Updating later:</strong> any time you change the code, you must redeploy or nothing changes for your users. Go to <strong>Deploy &rarr; Manage deployments &rarr; &#9998; Edit &rarr; Version: New version &rarr; Deploy</strong>. The URL stays the same every time.</div>
         </div>
 
         <div class="step">
-            <div class="step-head"><div class="step-num">8</div><h2>Open It and Verify</h2></div>
+            <div class="step-head"><div class="step-num">8</div><h2>First-Run Onboarding</h2></div>
+            <p>Open your Web app URL. The first time it loads, a built-in <strong>onboarding wizard</strong> walks you through the settings that make the numbers yours:</p>
+            <ul>
+                <li><strong>Location name</strong> and which dayparts you run.</li>
+                <li><strong>SPLH goals</strong> &mdash; overall, FOH, and BOH targets.</li>
+                <li><strong>Labor shares</strong> &mdash; how you split staffing between front and back of house.</li>
+            </ul>
+            <p>Everything the wizard sets is written to the <code>config</code> tab, so you can come back and adjust it any time in the Sheet &mdash; you never touch code to change a setting.</p>
+            <div class="callout">First load is slow (10&ndash;20 seconds) while Apps Script wakes up. That's normal. If you ever get a blank white page instead, see Troubleshooting.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">9</div><h2>Connect Automatic Sales Data (ThoughtSpot / Analytics Hub)</h2></div>
+            <p>This is the piece that makes the tool run itself. You're going to set up a <strong>weekly sync</strong> that pulls your store's hourly sales out of CFA's analytics and drops them into the <code>Sheet1</code> tab every Sunday night &mdash; right before the tool's own Sunday 10 PM check looks for them. It's the most involved step, but you only do it once.</p>
+
+            <p><strong>Part A &mdash; Build the search</strong></p>
             <ol>
-                <li>Open the <strong>Web app URL</strong> from Step 7.</li>
-                <li>Confirm the tool loads (no blank white screen).</li>
-                <li>Open the <code>config</code> tab in your Sheet and set your store name and email recipients.</li>
+                <li>In <strong>CFA Home</strong>, go to <strong>Analytics Hub &rarr; Custom Reports &rarr; ThoughtSpot Search</strong> and open the <strong>Sales Analytics</strong> search.</li>
+                <li>Build the search so it includes these, as columns and filters (your tokens across the top should read like this):
+                    <ul>
+                        <li><strong>Sales</strong> (the sales measure)</li>
+                        <li><strong>Hour (24 hr)</strong></li>
+                        <li><strong>Business Date</strong></li>
+                        <li>time filter: <strong>this week</strong></li>
+                        <li>sort by <strong>Business Date</strong>, and sort by <strong>Hour (24 hr)</strong></li>
+                        <li>store filter: <strong>your restaurant</strong> by its number &mdash; <strong>all sales channels</strong> (don't restrict it to drive-thru only)</li>
+                    </ul>
+                </li>
             </ol>
-            <div class="callout">&#9989; If the page loads and the <code>config</code> tab is full of settings, you're done.</div>
+
+            <p><strong>Part B &mdash; Add the "Today date" formula</strong></p>
+            <ol>
+                <li>In the left column panel, click <strong>+ Add &rarr; Formula</strong>.</li>
+                <li>Name it <strong>Today date</strong>, type <code>today()</code> into the formula editor (it'll say "Formula is ready to save"), and click <strong>Save</strong>.</li>
+                <li>Make sure its checkbox is ticked so it's included, along with <strong>Hour (24 hr)</strong>, <strong>Business Date</strong>, and the <strong>Sales</strong> measure.</li>
+            </ol>
+            <div class="callout">The <code>today()</code> formula stamps every sync with the date it ran &mdash; a simple way to confirm at a glance that fresh data came through.</div>
+
+            <p><strong>Part C &mdash; Set up the weekly sync to your Sheet</strong></p>
+            <ol>
+                <li>Up top, click the <strong>&hellip;</strong> (more) menu &rarr; <strong>Sync &rarr; Sync to Sheets</strong>. The first time, you'll be asked to <strong>link your Google account</strong> &mdash; use the same account that owns your scheduling Sheet.</li>
+                <li>In the pipeline editor, fill in:
+                    <ul>
+                        <li><strong>Pipeline name:</strong> something like <code>PL-Last week sales by day and hour</code></li>
+                        <li><strong>File name:</strong> your scheduling Google Sheet (the one from Step 1)</li>
+                        <li><strong>Sheet name:</strong> <code>Sheet1</code></li>
+                        <li><strong>Cell:</strong> <code>A1</code></li>
+                    </ul>
+                </li>
+                <li>Check <strong>Sync schedule</strong> and set <strong>Update occurs every Week</strong>, at <strong>21:00</strong> (9 PM), <strong>your timezone</strong> (America/Chicago for Cockrell Hill), on <strong>Sunday (SU)</strong>.</li>
+                <li>Click <strong>Save</strong>.</li>
+            </ol>
+            <div class="callout warn"><strong>The 9 PM Sunday time matters.</strong> The sync must land <em>before</em> the tool's Sunday 10 PM check and Monday 6 AM pipeline. 9 PM Sunday gives it an hour of cushion. If you move it, keep it Sunday evening, before 10 PM.</div>
+
+            <p><strong>What you've built:</strong> every Sunday at 9 PM, this week's sales by day and hour overwrite <code>Sheet1</code> starting at <code>A1</code>. The tool reads the <strong>Hour</strong>, <strong>Business Date</strong>, and <strong>sales</strong> columns by name (any order), then clears <code>Sheet1</code> after the Monday run so it's fresh for the next sync.</p>
+            <div class="callout"><strong>What your <code>Sheet1</code> row 1 should look like after the first sync:</strong>
+                <pre><code>A: Hour (24 hr)   B: Business Date   C: Today date   D: Total Sales</code></pre>
+                The tool reads the <strong>Hour</strong>, <strong>Business Date</strong>, and <strong>Total Sales</strong> columns by name, so the order doesn't matter and the extra <strong>Today date</strong> column is fine. If you ever get a "Sheet1 missing required columns" error, compare your headers against this.</div>
         </div>
 
-        <h3 class="section-title">Configure for Your Store</h3>
         <div class="step">
-            <p>Everything operator-editable lives in the <strong><code>config</code></strong> tab &mdash; store name, email recipients, thresholds. Edit it in the Sheet; the code reads it at runtime. You never edit code to change settings.</p>
+            <div class="step-head"><div class="step-num">10</div><h2>Backfill &amp; Verify</h2></div>
+            <p>Once sales data is landing in <code>Sheet1</code>, prime the history so the forecast has something to learn from, then confirm everything's talking:</p>
+            <ol>
+                <li>In the app, go to <strong>Settings &rarr; Automation</strong> and click <strong>Backfill History</strong> (this reads what's in <code>Sheet1</code> into your history), then <strong>Rebuild Curves</strong>.</li>
+                <li>Open the <strong>Schedule Analysis</strong> tab in the app and upload a schedule export &mdash; you should get a color-coded staffing grid with the sales overlay.</li>
+                <li>Check the <code>config</code> tab in the Sheet shows your store name and goals from onboarding.</li>
+            </ol>
+            <div class="callout">&#9989; A populated staffing grid, history in your <code>sales_history</code> tab, and three triggers under the clock icon means you're fully live.</div>
+        </div>
+
+        <h3 class="section-title">How the Weekly Automation Works</h3>
+        <div class="step">
+            <p>Once it's set up, you don't touch it &mdash; but here's the cycle so you know what's happening behind the scenes and what each alert means:</p>
+            <ul>
+                <li><strong>Through the week</strong> &mdash; your sales data flows into <code>Sheet1</code> automatically from ThoughtSpot (Step&nbsp;9).</li>
+                <li><strong>Sunday 10 PM</strong> &mdash; the sync check makes sure that data actually arrived. If <code>Sheet1</code> is empty or stale, you get an email so you can fix it before the pipeline runs.</li>
+                <li><strong>Monday 6 AM</strong> &mdash; the pipeline archives the week's numbers, re-smooths your sales curves, checks the forecast for bias, cleans up old rows, clears <code>Sheet1</code>, and rebuilds the cache so the app loads fast.</li>
+                <li><strong>Thursday 7 PM</strong> &mdash; you get a reminder (with last week's performance) to post the new schedule.</li>
+            </ul>
+        </div>
+
+        <h3 class="section-title">Where Your Team Opens It</h3>
+        <div class="step">
+            <p>It's a web app, so it's just a link &mdash; no install. Open the Web app URL from Step&nbsp;7 and:</p>
+            <ul>
+                <li><strong>Bookmark it</strong> on the office computer.</li>
+                <li><strong>Add it to a tablet's home screen</strong> if you want it one tap away on the floor.</li>
+                <li><strong>Share the link</strong> with whoever builds the schedule &mdash; access is already limited to your domain from the deploy settings.</li>
+            </ul>
         </div>
 
         <h3 class="section-title">Troubleshooting</h3>
         <div class="step">
-            <p><strong>Blank white screen when opening the web app</strong> &mdash; the browser libraries must be version-pinned (they are in this copy). If you ever paste an older <code>Index.html</code>, make sure the React and Babel <code>&lt;script&gt;</code> tags have specific version numbers (<code>react@18.3.1</code>, <code>@babel/standalone@7.26.4</code>) &mdash; an unpinned Babel floats to v8 and white-screens the page. Hard-refresh (Ctrl/Cmd+Shift+R) after redeploying.</p>
-            <p><strong>"Tab "X" not found. Run initSheets() first."</strong> &mdash; you deployed or used the app before running <code>initSheets</code> (Step 5), or a tab got renamed/deleted. Run <code>initSheets</code> from the editor and try again.</p>
-            <p><strong>"app_cache tab not found" / "sales_curves is empty"</strong> &mdash; same fix: run <code>initSheets</code> (Step 5). It seeds these.</p>
-            <p><strong>The weekly numbers never update</strong> &mdash; the triggers aren't installed. Run <code>installTriggers</code> (Step 6). Confirm under <strong>Triggers</strong> (clock icon, left sidebar) that three exist.</p>
+            <p><strong>Blank white screen when you open the web app</strong> &mdash; almost always the browser libraries. They're version-pinned in this copy; if you ever pasted an older <code>Index</code>, confirm the React and Babel <code>&lt;script&gt;</code> tags carry specific versions (<code>react@18.3.1</code>, <code>@babel/standalone@7.26.4</code>). An unpinned Babel floats to v8 and white-screens the page. After fixing, redeploy a new version and hard-refresh (Ctrl/Cmd+Shift+R).</p>
+            <p><strong>"Tab "X" not found. Run initSheets() first."</strong> &mdash; you used or deployed the app before running <code>initSheets</code> (Step 5), or a tab got renamed/deleted. Run <code>initSheets</code> from the editor and try again.</p>
+            <p><strong>"app_cache tab not found" or "sales_curves is empty"</strong> &mdash; same fix: run <code>initSheets</code> (Step 5). It creates and seeds both.</p>
+            <p><strong>You got a Sunday "sync may have failed" email</strong> &mdash; the sales data didn't reach <code>Sheet1</code>. Check your ThoughtSpot export (Step&nbsp;9) actually ran and that <code>Sheet1</code> has recent rows with a current Business Date.</p>
+            <p><strong>"Sheet1 missing required columns"</strong> &mdash; the data that landed doesn't have headers containing <strong>Hour</strong>, <strong>Business Date</strong>, and <strong>Total Sales</strong>. Fix the export so those columns come through with those names.</p>
+            <p><strong>The weekly numbers never update on their own</strong> &mdash; the triggers aren't installed. Run <code>installTriggers</code> (Step 6) and confirm three appear under the clock icon.</p>
             <p><strong>"You do not have permission to call &hellip;"</strong> &mdash; re-authorize: run <code>initSheets</code> once from the editor and click <strong>Allow</strong>.</p>
-            <p><strong>A background job failed</strong> &mdash; you'll get an email at your <code>ALERT_EMAIL</code> (Step 4). Open the Apps Script <strong>Executions</strong> log to see which job and why.</p>
         </div>
 
         <h3 class="section-title">Quick Reference</h3>
@@ -225,8 +344,10 @@
                 <tr><td>Remove weekly jobs</td><td>run <code>deleteAllTriggers</code></td></tr>
                 <tr><td>Web app URL</td><td>Deploy &rarr; Manage deployments</td></tr>
                 <tr><td>Operator settings</td><td>the <code>config</code> tab in the Sheet</td></tr>
+                <tr><td>Sales data lands in</td><td>the <code>Sheet1</code> tab (Hour, Business Date, Total Sales)</td></tr>
+                <tr><td>Backfill / rebuild</td><td>app &rarr; Settings &rarr; Automation</td></tr>
             </table>
-            <div class="callout" style="margin-top:1rem;"><strong>Golden rules:</strong> never hand-create or rename tabs (let <code>initSheets</code> do it), run <code>initSheets</code> <strong>and</strong> <code>installTriggers</code> (two steps), and redeploy a <strong>New version</strong> after any code change.</div>
+            <div class="callout" style="margin-top:1rem;"><strong>Golden rules:</strong> never hand-create or rename tabs (let <code>initSheets</code> do it), run <code>initSheets</code> <strong>and</strong> <code>installTriggers</code> (two separate steps), keep <code>Sheet1</code> as the sales landing zone, and redeploy a <strong>New version</strong> after any code change.</div>
         </div>
 
         <p style="text-align:center; color:#8a6a6a; font-size:0.85rem; margin: 2rem 0 1rem;">Built with care for Cockrell Hill Chick-fil-A</p>
