@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catering Quote Generator — Setup Guide</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e8e8e8;
+            padding: 2rem;
+        }
+        .container { max-width: 820px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            color: #a8a8a8; text-decoration: none; font-size: 0.9rem;
+            margin-bottom: 2rem; transition: color 0.2s;
+        }
+        .back-link:hover { color: #fff; }
+        .header {
+            background: rgba(255,255,255,0.05); border-radius: 16px; padding: 2rem;
+            border: 1px solid rgba(255,255,255,0.1); border-top: 4px solid #00BCD4;
+            margin-bottom: 1.5rem;
+        }
+        .project-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+        h1 { font-size: 1.9rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+        .subtitle { color: #a8a8a8; font-size: 1rem; line-height: 1.5; }
+        .pill {
+            display: inline-block; margin-top: 0.75rem; padding: 0.3rem 0.7rem;
+            background: rgba(0,188,212,0.18); border: 1px solid rgba(38,198,218,0.4);
+            border-radius: 999px; font-size: 0.8rem; color: #4DD0E1;
+        }
+        .step {
+            background: rgba(255,255,255,0.05); border-radius: 12px; padding: 1.5rem 1.75rem;
+            border: 1px solid rgba(255,255,255,0.1); margin-bottom: 1.25rem;
+        }
+        .step-head { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1rem; }
+        .step-num {
+            flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+            background: linear-gradient(135deg,#00BCD4,#26C6DA); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 1rem;
+        }
+        .step-head h2 { font-size: 1.15rem; font-weight: 600; color: #fff; }
+        .step p { color: #c5c5c5; font-size: 0.95rem; line-height: 1.65; margin: 0.5rem 0; }
+        .step ol, .step ul { margin: 0.5rem 0 0.5rem 1.25rem; }
+        .step li { color: #c5c5c5; font-size: 0.95rem; line-height: 1.7; margin-bottom: 0.35rem; }
+        strong { color: #fff; }
+        code {
+            font-family: 'SF Mono', Menlo, monospace; background: rgba(255,255,255,0.08);
+            padding: 0.12rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: #4DD0E1;
+        }
+        pre {
+            background: #07212a; border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px; padding: 0.9rem 1.1rem; overflow-x: auto;
+            margin: 0.75rem 0; font-size: 0.85rem; line-height: 1.55;
+        }
+        pre code { background: none; padding: 0; color: #B2EBF2; }
+        .callout {
+            background: rgba(0,188,212,0.1); border-left: 3px solid #26C6DA;
+            border-radius: 6px; padding: 0.85rem 1.1rem; margin: 0.85rem 0;
+            font-size: 0.9rem; color: #c0c0c0; line-height: 1.6;
+        }
+        .callout.warn { background: rgba(255,193,7,0.1); border-left-color: #FFC107; }
+        .callout strong { color: #4DD0E1; }
+        .callout.warn strong { color: #FFD54F; }
+        h3.section-title {
+            font-size: 1.25rem; color: #26C6DA; margin: 2rem 0 1rem; font-weight: 700;
+        }
+        table {
+            width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.9rem;
+        }
+        th, td {
+            text-align: left; padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        th { color: #4DD0E1; font-weight: 600; }
+        td { color: #c5c5c5; }
+        td code { white-space: nowrap; }
+        .lead {
+            background: rgba(255,255,255,0.05); border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1); padding: 1.25rem 1.5rem;
+            margin-bottom: 1.5rem; color: #c5c5c5; font-size: 0.95rem; line-height: 1.65;
+        }
+        @media (max-width: 600px) {
+            body { padding: 1rem; }
+            h1 { font-size: 1.5rem; }
+            .step { padding: 1.1rem 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">&#8592; Back to Catering Quote Generator</a>
+
+        <div class="header">
+            <div class="project-icon">&#129534;</div>
+            <h1>Catering Quote Generator — Setup Guide</h1>
+            <p class="subtitle">From zero to sending professional catering quotes. No coding experience needed &mdash; you copy a few files, run one setup function, and add your menu. Follow the steps in order.</p>
+            <span class="pill">&#9201; About 25 minutes</span>
+        </div>
+
+        <div class="lead">
+            This tool lives <strong>inside one Google Sheet</strong> &mdash; there are no IDs or passwords to paste. You build quotes from your own menu, it numbers them, makes a clean PDF, emails it, and tracks every quote on a pipeline board.
+            <div class="callout warn" style="margin-top:1rem;"><strong>&#9888;&#65039; The one rule that keeps it working:</strong> don't create or rename tabs by hand. The setup function builds <code>Settings</code>, <code>Menu</code>, <code>Quotes</code>, <code>Quote_Sequence</code>, and <code>Pipeline</code> with the exact names the code expects. Rename one and that feature quietly stops working.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">1</div><h2>Create the Google Sheet</h2></div>
+            <ol>
+                <li>Go to <a href="https://sheets.google.com" target="_blank" style="color:#4DD0E1;">sheets.google.com</a> and click <strong>Blank spreadsheet</strong>.</li>
+                <li>Rename it <strong>"CFA Catering Quotes"</strong> (click the title, top-left).</li>
+                <li>Leave the tabs alone &mdash; Step 4 builds them for you.</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">2</div><h2>Open the Apps Script Editor</h2></div>
+            <ol>
+                <li>In your Sheet, click <strong>Extensions &rarr; Apps Script</strong>. A code editor opens in a new tab.</li>
+                <li>The script is now <strong>bound</strong> to your Sheet &mdash; that's why you never paste a Sheet ID.</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">3</div><h2>Paste the Four Files</h2></div>
+            <p>You need exactly four files in the editor. Match each name <strong>exactly</strong>, capitalization included:</p>
+            <table>
+                <tr><th>Create this file</th><th>Type</th><th>Paste the contents of</th></tr>
+                <tr><td><code>Code</code> (already there)</td><td>Script</td><td><code>Code.gs</code></td></tr>
+                <tr><td><code>Index</code></td><td>HTML</td><td><code>App.html</code></td></tr>
+                <tr><td><code>Pipeline</code></td><td>Script</td><td><code>Pipeline.gs</code></td></tr>
+                <tr><td><code>PipelineView</code></td><td>HTML</td><td><code>Pipelineview.html</code></td></tr>
+            </table>
+            <p>For new files use the <strong>+</strong> next to "Files" &rarr; <strong>Script</strong> or <strong>HTML</strong>. Replace the starter <code>Code.gs</code> contents with the project's <code>Code.gs</code>. Click <strong>&#128190; Save</strong>.</p>
+            <div class="callout warn"><strong>Watch this one:</strong> the HTML file that holds <code>App.html</code> must be named exactly <code>Index</code> &mdash; <code>doGet</code> loads it by that name. If the page comes up blank later, this is almost always why.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">4</div><h2>Run the Setup Function</h2></div>
+            <ol>
+                <li>At the top of the editor, open the function dropdown and choose <strong><code>initializeSheet</code></strong>.</li>
+                <li>Click <strong>&#9654; Run</strong>.</li>
+                <li>Google asks for permission the first time: <strong>Review permissions</strong> &rarr; pick your account &rarr; <strong>Advanced &rarr; Go to (project)</strong> &rarr; <strong>Allow</strong>. (It needs Gmail, Drive, and Calendar so it can email PDFs and create events.)</li>
+                <li>Check the <strong>Execution log</strong> &mdash; no errors means you're good.</li>
+            </ol>
+            <p>Your Sheet now has five tabs: <strong>Settings</strong>, <strong>Menu</strong>, <strong>Quotes</strong>, <strong>Quote_Sequence</strong>, and <strong>Pipeline</strong>.</p>
+            <div class="callout"><strong>Safe to re-run.</strong> <code>initializeSheet</code> re-creates any missing tab without touching data you've already entered.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">5</div><h2>Deploy as a Web App</h2></div>
+            <ol>
+                <li>Click <strong>Deploy &rarr; New deployment</strong> (top-right).</li>
+                <li>Gear &#9881; next to "Select type" &rarr; <strong>Web app</strong>.</li>
+                <li>Set <strong>Execute as: Me</strong> and <strong>Who has access: Anyone within [your domain]</strong>.</li>
+                <li>Click <strong>Deploy</strong>, authorize if asked, and copy the <strong>Web app URL</strong> &mdash; that's the link your team opens.</li>
+            </ol>
+            <div class="callout"><strong>Updating later:</strong> after any code change go to <strong>Deploy &rarr; Manage deployments &rarr; &#9998; Edit &rarr; Version: New version &rarr; Deploy</strong>. The URL stays the same. Saving code alone does nothing until you redeploy a new version.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">6</div><h2>Add Your Menu</h2></div>
+            <p>Open the <strong>Menu</strong> tab. It has four columns: <strong>Category</strong> | <strong>Item Name</strong> | <strong>Pickup Price</strong> | <strong>Delivery Price</strong>.</p>
+            <ul>
+                <li>Categories are freeform &mdash; type anything (Trays, Box Meals, Sides, Drinks). Items with the same category group together in the picker.</li>
+                <li>Put <code>N/A</code> in Delivery Price for anything that can't be delivered &mdash; it'll hide automatically when someone picks Delivery.</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">7</div><h2>Fill in Settings</h2></div>
+            <p>Open the <strong>Settings</strong> tab and fill in your store name, address, phone, contact name, tax rate, logo, and email template. The app reads these at runtime &mdash; you never edit code to change them.</p>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">8</div><h2>Send a Test Quote</h2></div>
+            <ol>
+                <li>Open your <strong>Web app URL</strong> from Step 5.</li>
+                <li>Build a quote, pick a couple menu items, and hit <strong>Save &amp; Email</strong> to yourself.</li>
+                <li>Confirm the PDF arrives and the quote shows up under History and on the <strong>Pipeline</strong> board.</li>
+            </ol>
+            <div class="callout">&#9989; PDF in your inbox + quote on the pipeline = you're live.</div>
+        </div>
+
+        <h3 class="section-title">Optional Extras</h3>
+        <div class="step">
+            <p><strong>Nightly cleanup</strong> &mdash; to auto-delete quotes older than 30 days, add a time-driven trigger (clock icon in the editor) for <code>cleanOldQuotes</code> set to run daily around midnight.</p>
+            <p><strong>Calendar events &amp; follow-up reminders</strong> &mdash; these are separate feature deployments with their own steps and authorization. See <strong><a href="SETUP.md" style="color:#4DD0E1;">SETUP.md</a></strong> for those.</p>
+        </div>
+
+        <h3 class="section-title">Troubleshooting</h3>
+        <div class="step">
+            <p><strong>Web app shows a blank page or "script function not found"</strong> &mdash; the HTML file holding <code>App.html</code> isn't named exactly <code>Index</code> (Step 3). Rename it and redeploy.</p>
+            <p><strong>"getSheetByName(...) is null" / a tab is missing</strong> &mdash; run <code>initializeSheet</code> again (Step 4). It re-creates any missing tab without touching existing data.</p>
+            <p><strong>Menu items don't show in the picker</strong> &mdash; check the <strong>Menu</strong> tab has all four columns. Use <code>N/A</code> (not blank) for non-deliverable items' delivery price.</p>
+            <p><strong>Quote saves but no email or PDF</strong> &mdash; re-authorize: run <code>initializeSheet</code> once from the editor and click <strong>Allow</strong> (it needs Gmail + Drive access).</p>
+            <p><strong>Calendar events or reminders not working</strong> &mdash; see <strong><a href="SETUP.md" style="color:#4DD0E1;">SETUP.md</a></strong> &mdash; those are the feature-specific deployment steps and their troubleshooting.</p>
+            <p><strong>Changes to the code don't show up</strong> &mdash; you edited but didn't redeploy. <strong>Deploy &rarr; Manage deployments &rarr; Edit &rarr; New version &rarr; Deploy.</strong></p>
+        </div>
+
+        <h3 class="section-title">Quick Reference</h3>
+        <div class="step">
+            <table>
+                <tr><th>What</th><th>Where</th></tr>
+                <tr><td>Build all tabs</td><td>run <code>initializeSheet</code> (Step 4) &mdash; safe to re-run</td></tr>
+                <tr><td>Main UI file name</td><td>HTML file <code>Index</code> (holds <code>App.html</code>)</td></tr>
+                <tr><td>Menu items</td><td>the <code>Menu</code> tab &mdash; 4 columns, <code>N/A</code> for no delivery</td></tr>
+                <tr><td>Store info / tax / logo / email</td><td>the <code>Settings</code> tab</td></tr>
+                <tr><td>Web app URL</td><td>Deploy &rarr; Manage deployments</td></tr>
+                <tr><td>Calendar &amp; reminders</td><td><code>SETUP.md</code></td></tr>
+            </table>
+            <div class="callout" style="margin-top:1rem;"><strong>Golden rules:</strong> don't hand-create or rename tabs (let <code>initializeSheet</code> do it), keep the main HTML file named exactly <code>Index</code>, and redeploy a <strong>New version</strong> after any code change.</div>
+        </div>
+
+        <p style="text-align:center; color:#6a8a90; font-size:0.85rem; margin: 2rem 0 1rem;">Built with care for Cockrell Hill Chick-fil-A</p>
+    </div>
+</body>
+</html>
