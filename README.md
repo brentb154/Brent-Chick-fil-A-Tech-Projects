@@ -9,11 +9,8 @@ Tech tools and applications for Chick-fil-A operations at Cockrell Hill.
 ### Payroll Management System (`/payroll-system`)
 Complete payroll solution with PTO tracking, overtime management, uniform ordering, and year-end processing. Built with Google Apps Script and integrates with Google Sheets.
 
-### Schedule Counter — Standalone (`/schedule-counter`)
-Standalone HTML tool for analyzing scheduling data and counting hours. Just download and open in your browser.
-
-### Schedule Counter — Labor Scheduling (`/schedule-counter-gas`)
-Full Apps Script version: upload your published schedule and it counts FOH/BOH by the half-hour, weights it against sales curves, takes weekly snapshots, and tracks productivity. Auto-runs a weekly processing pipeline. Built with Google Apps Script and Google Sheets. See `SETUP_GUIDE.md` in the folder.
+### Schedule Counter (`/schedule-counter-gas`)
+Drop in your published schedule and it counts FOH/BOH by the hour, weights it against your sales curve, snapshots every week, and tracks productivity — all inside a Google Sheet, running itself on a weekly trigger. There's a no-setup local version you can try right in your browser first (linked from the landing page and kept in `/schedule-counter`); when you're ready for the automated version, follow `SETUP_GUIDE.md`.
 
 ### Inventory Analyzer (`/inventory-analyzer`)
 Standalone HTML tool for tracking and analyzing inventory levels. Works entirely in your browser.
@@ -35,11 +32,11 @@ Turns a Google Form into a live training dashboard — daily training logs, cert
 
 ## How to Use
 
-**Standalone Tools (Schedule Counter, Inventory Analyzer):**
+**Standalone Tools (Inventory Analyzer, Schedule Counter local preview):**
 1. Click the link on the website, or
 2. Download the HTML file and open it in any browser
 
-**Google Apps Script Projects (Payroll, Schedule Counter — Labor, Catering Quote, Training Tracker, H.E.A.R.D. Log, Manager Hub, Shared Table Email):**
+**Google Apps Script Projects (Payroll, Schedule Counter, Catering Quote, Training Tracker, H.E.A.R.D. Log, Manager Hub, Shared Table Email):**
 1. See the setup guide in each project folder (`SETUP_GUIDE.md` or `README.md`)
 2. Requires Google Sheets and Apps Script setup
 
