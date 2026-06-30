@@ -299,16 +299,18 @@ Employees can order uniforms via a QR code or link.
 
 **Get your Uniform Form URL:**
 ```
-YOUR-APP-URL?page=uniform-request
+YOUR-APP-URL?view=uniform-request
 ```
 
-Example: `https://script.google.com/.../exec?page=uniform-request`
+Example: `https://script.google.com/.../exec?view=uniform-request`
+
+> **Use `?view=`, not `?page=`.** The app routes the employee forms off the `view` parameter. If a form link opens the dashboard instead of the form, this is why.
 
 ### PTO Request Form
 
 **Get your PTO Form URL:**
 ```
-YOUR-APP-URL?page=pto-request
+YOUR-APP-URL?view=pto-request
 ```
 
 ### Create QR Codes
