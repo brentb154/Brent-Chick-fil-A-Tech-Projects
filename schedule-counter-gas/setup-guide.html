@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule Counter — Setup Guide</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1c0c0c 0%, #240f0f 50%, #2b0a0a 100%);
+            min-height: 100vh;
+            color: #e8e8e8;
+            padding: 2rem;
+        }
+        .container { max-width: 820px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            color: #a8a8a8; text-decoration: none; font-size: 0.9rem;
+            margin-bottom: 2rem; transition: color 0.2s;
+        }
+        .back-link:hover { color: #fff; }
+        .header {
+            background: rgba(255,255,255,0.05); border-radius: 16px; padding: 2rem;
+            border: 1px solid rgba(255,255,255,0.1); border-top: 4px solid #DD0031;
+            margin-bottom: 1.5rem;
+        }
+        .project-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+        h1 { font-size: 1.9rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+        .subtitle { color: #a8a8a8; font-size: 1rem; line-height: 1.5; }
+        .pill {
+            display: inline-block; margin-top: 0.75rem; padding: 0.3rem 0.7rem;
+            background: rgba(221,0,49,0.18); border: 1px solid rgba(255,68,68,0.4);
+            border-radius: 999px; font-size: 0.8rem; color: #FF8A80;
+        }
+        .step {
+            background: rgba(255,255,255,0.05); border-radius: 12px; padding: 1.5rem 1.75rem;
+            border: 1px solid rgba(255,255,255,0.1); margin-bottom: 1.25rem;
+        }
+        .step-head { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1rem; }
+        .step-num {
+            flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+            background: linear-gradient(135deg,#DD0031,#FF4444); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 1rem;
+        }
+        .step-head h2 { font-size: 1.15rem; font-weight: 600; color: #fff; }
+        .step p { color: #c5c5c5; font-size: 0.95rem; line-height: 1.65; margin: 0.5rem 0; }
+        .step ol, .step ul { margin: 0.5rem 0 0.5rem 1.25rem; }
+        .step li { color: #c5c5c5; font-size: 0.95rem; line-height: 1.7; margin-bottom: 0.35rem; }
+        strong { color: #fff; }
+        code {
+            font-family: 'SF Mono', Menlo, monospace; background: rgba(255,255,255,0.08);
+            padding: 0.12rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: #FF8A80;
+        }
+        pre {
+            background: #210909; border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px; padding: 0.9rem 1.1rem; overflow-x: auto;
+            margin: 0.75rem 0; font-size: 0.85rem; line-height: 1.55;
+        }
+        pre code { background: none; padding: 0; color: #FFCDD2; }
+        .callout {
+            background: rgba(221,0,49,0.1); border-left: 3px solid #FF4444;
+            border-radius: 6px; padding: 0.85rem 1.1rem; margin: 0.85rem 0;
+            font-size: 0.9rem; color: #c0c0c0; line-height: 1.6;
+        }
+        .callout.warn { background: rgba(255,193,7,0.1); border-left-color: #FFC107; }
+        .callout strong { color: #FF8A80; }
+        .callout.warn strong { color: #FFD54F; }
+        h3.section-title {
+            font-size: 1.25rem; color: #FF5252; margin: 2rem 0 1rem; font-weight: 700;
+        }
+        table {
+            width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.9rem;
+        }
+        th, td {
+            text-align: left; padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        th { color: #FF8A80; font-weight: 600; }
+        td { color: #c5c5c5; }
+        td code { white-space: nowrap; }
+        .lead {
+            background: rgba(255,255,255,0.05); border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1); padding: 1.25rem 1.5rem;
+            margin-bottom: 1.5rem; color: #c5c5c5; font-size: 0.95rem; line-height: 1.65;
+        }
+        .lead ol { margin: 0.5rem 0 0 1.25rem; }
+        .lead li { margin-bottom: 0.3rem; }
+        @media (max-width: 600px) {
+            body { padding: 1rem; }
+            h1 { font-size: 1.5rem; }
+            .step { padding: 1.1rem 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="landing.html" class="back-link">&#8592; Back to Schedule Counter</a>
+
+        <div class="header">
+            <div class="project-icon">&#128202;</div>
+            <h1>Schedule Counter — Setup Guide</h1>
+            <p class="subtitle">From zero to a working labor-scheduling tool. No coding experience needed &mdash; you copy files, set one setting, and run two functions. Follow the steps in order.</p>
+            <span class="pill">&#9201; About 20 minutes</span>
+        </div>
+
+        <div class="lead">
+            Schedule Counter uploads your published schedule, weights it against sales curves, takes weekly snapshots, and tracks productivity. It lives <strong>inside one Google Sheet</strong> &mdash; there are no IDs, URLs, or passwords to paste.
+            <div class="callout warn" style="margin-top:1rem;"><strong>&#9888;&#65039; The single most important rule:</strong> do <strong>not</strong> create or rename any tabs by hand. The setup function builds every tab with the exact names and headers the tool needs. If you make a tab called "Config" instead of <code>config</code>, or rename one later, the tool silently stops working.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">1</div><h2>Create the Google Sheet</h2></div>
+            <ol>
+                <li>Go to <a href="https://sheets.google.com" target="_blank" style="color:#FF8A80;">sheets.google.com</a> and click <strong>Blank spreadsheet</strong>.</li>
+                <li>Rename it something clear, like <strong>"Schedule Counter — [Your Store]"</strong>.</li>
+                <li>Leave the default <code>Sheet1</code> tab alone. Don't add any other tabs &mdash; Step 5 does that.</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">2</div><h2>Open the Apps Script Editor</h2></div>
+            <ol>
+                <li>In your new Sheet, click <strong>Extensions &rarr; Apps Script</strong>. A code editor opens in a new tab.</li>
+                <li>This script is now <strong>bound</strong> to your Sheet &mdash; that's why you never paste a Sheet ID.</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">3</div><h2>Paste the Files</h2></div>
+            <p>For each file in this project, create a matching file in the editor and paste the contents:</p>
+            <ul>
+                <li><strong><code>.gs</code> files</strong> (like <code>Code.gs</code>): use <strong>+ &rarr; Script</strong>, name it to match, paste.</li>
+                <li><strong><code>.html</code> files</strong> (like <code>Index</code>, <code>JavaScript</code>, <code>Stylesheet</code>): use <strong>+ &rarr; HTML</strong>, name it to match (no <code>.html</code> in the name), paste.</li>
+            </ul>
+            <p>Delete the empty starter <code>myFunction</code> if it's in the way, then click <strong>&#128190; Save</strong>.</p>
+            <div class="callout"><strong>File names must match exactly</strong>, including capitalization (<code>Index</code>, not <code>index</code>) &mdash; the app loads them by name.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">4</div><h2>Set the One Required Setting</h2></div>
+            <p>The tool emails you if a scheduled background job ever fails. Tell it where to send that:</p>
+            <ol>
+                <li>In the Apps Script editor, click <strong>&#9881;&#65039; Project Settings</strong> (gear, left sidebar).</li>
+                <li>Scroll to <strong>Script Properties &rarr; Add script property</strong>.</li>
+                <li>Property: <code>ALERT_EMAIL</code> &nbsp;&middot;&nbsp; Value: your email address.</li>
+                <li>Click <strong>Save script properties</strong>.</li>
+            </ol>
+            <div class="callout">Skipping this won't break the app, but you won't get alerted if a weekly job fails. Set it.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">5</div><h2>Build the Tabs</h2></div>
+            <ol>
+                <li>At the top of the editor, open the function dropdown and choose <strong><code>initSheets</code></strong>.</li>
+                <li>Click <strong>&#9654; Run</strong>.</li>
+                <li>The first time, Google asks for permission: <strong>Review permissions</strong> &rarr; pick your account &rarr; <strong>Advanced &rarr; Go to (project)</strong> &rarr; <strong>Allow</strong>.</li>
+                <li>Open the <strong>Execution log</strong> at the bottom. You should see <code>initSheets complete. All tabs verified.</code></li>
+            </ol>
+            <p>This creates every tab &mdash; <code>config</code>, <code>sales_curves</code>, <code>sales_history</code>, <code>productivity_tracker</code>, <code>app_cache</code>, and the snapshot tabs &mdash; and seeds default settings and sales curves.</p>
+            <div class="callout"><strong>Safe to re-run.</strong> <code>initSheets</code> skips tabs that already exist and never deletes data.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">6</div><h2>Install the Background Jobs</h2></div>
+            <div class="callout warn"><strong>This is a separate step from Step 5.</strong> The old README wrongly said setup did both &mdash; it doesn't. You must run this too.</div>
+            <ol>
+                <li>In the function dropdown, choose <strong><code>installTriggers</code></strong>.</li>
+                <li>Click <strong>&#9654; Run</strong>.</li>
+            </ol>
+            <p>This installs three time-driven jobs:</p>
+            <ul>
+                <li><strong>Sunday 10 PM</strong> &mdash; schedule-upload reminder</li>
+                <li><strong>Monday 6 AM</strong> &mdash; the weekly processing pipeline</li>
+                <li><strong>Thursday 7 PM</strong> &mdash; schedule reminder</li>
+            </ul>
+            <p>To reinstall later, run <code>installTriggers</code> again. To remove them all, run <code>deleteAllTriggers</code>.</p>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">7</div><h2>Deploy as a Web App</h2></div>
+            <p>This gives your team a link to open the tool.</p>
+            <ol>
+                <li>Click <strong>Deploy &rarr; New deployment</strong> (top-right).</li>
+                <li>Click the gear &#9881; next to "Select type" &rarr; <strong>Web app</strong>.</li>
+                <li>Set <strong>Execute as: Me</strong> and <strong>Who has access: Anyone within [your domain]</strong> &mdash; this keeps it inside your CFA Workspace.</li>
+                <li>Click <strong>Deploy</strong>, authorize if asked, and copy the <strong>Web app URL</strong>.</li>
+            </ol>
+            <div class="callout"><strong>Updating later:</strong> after any code change, go to <strong>Deploy &rarr; Manage deployments &rarr; &#9998; Edit &rarr; Version: New version &rarr; Deploy</strong>. The URL stays the same. Editing code alone does nothing until you redeploy.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">8</div><h2>Open It and Verify</h2></div>
+            <ol>
+                <li>Open the <strong>Web app URL</strong> from Step 7.</li>
+                <li>Confirm the tool loads (no blank white screen).</li>
+                <li>Open the <code>config</code> tab in your Sheet and set your store name and email recipients.</li>
+            </ol>
+            <div class="callout">&#9989; If the page loads and the <code>config</code> tab is full of settings, you're done.</div>
+        </div>
+
+        <h3 class="section-title">Configure for Your Store</h3>
+        <div class="step">
+            <p>Everything operator-editable lives in the <strong><code>config</code></strong> tab &mdash; store name, email recipients, thresholds. Edit it in the Sheet; the code reads it at runtime. You never edit code to change settings.</p>
+        </div>
+
+        <h3 class="section-title">Troubleshooting</h3>
+        <div class="step">
+            <p><strong>Blank white screen when opening the web app</strong> &mdash; the browser libraries must be version-pinned (they are in this copy). If you ever paste an older <code>Index.html</code>, make sure the React and Babel <code>&lt;script&gt;</code> tags have specific version numbers (<code>react@18.3.1</code>, <code>@babel/standalone@7.26.4</code>) &mdash; an unpinned Babel floats to v8 and white-screens the page. Hard-refresh (Ctrl/Cmd+Shift+R) after redeploying.</p>
+            <p><strong>"Tab "X" not found. Run initSheets() first."</strong> &mdash; you deployed or used the app before running <code>initSheets</code> (Step 5), or a tab got renamed/deleted. Run <code>initSheets</code> from the editor and try again.</p>
+            <p><strong>"app_cache tab not found" / "sales_curves is empty"</strong> &mdash; same fix: run <code>initSheets</code> (Step 5). It seeds these.</p>
+            <p><strong>The weekly numbers never update</strong> &mdash; the triggers aren't installed. Run <code>installTriggers</code> (Step 6). Confirm under <strong>Triggers</strong> (clock icon, left sidebar) that three exist.</p>
+            <p><strong>"You do not have permission to call &hellip;"</strong> &mdash; re-authorize: run <code>initSheets</code> once from the editor and click <strong>Allow</strong>.</p>
+            <p><strong>A background job failed</strong> &mdash; you'll get an email at your <code>ALERT_EMAIL</code> (Step 4). Open the Apps Script <strong>Executions</strong> log to see which job and why.</p>
+        </div>
+
+        <h3 class="section-title">Quick Reference</h3>
+        <div class="step">
+            <table>
+                <tr><th>What</th><th>Where</th></tr>
+                <tr><td>Failure-alert email</td><td>Script Property <code>ALERT_EMAIL</code> (Step 4)</td></tr>
+                <tr><td>Build all tabs</td><td>run <code>initSheets</code> (Step 5) &mdash; safe to re-run</td></tr>
+                <tr><td>Install weekly jobs</td><td>run <code>installTriggers</code> (Step 6)</td></tr>
+                <tr><td>Remove weekly jobs</td><td>run <code>deleteAllTriggers</code></td></tr>
+                <tr><td>Web app URL</td><td>Deploy &rarr; Manage deployments</td></tr>
+                <tr><td>Operator settings</td><td>the <code>config</code> tab in the Sheet</td></tr>
+            </table>
+            <div class="callout" style="margin-top:1rem;"><strong>Golden rules:</strong> never hand-create or rename tabs (let <code>initSheets</code> do it), run <code>initSheets</code> <strong>and</strong> <code>installTriggers</code> (two steps), and redeploy a <strong>New version</strong> after any code change.</div>
+        </div>
+
+        <p style="text-align:center; color:#8a6a6a; font-size:0.85rem; margin: 2rem 0 1rem;">Built with care for Cockrell Hill Chick-fil-A</p>
+    </div>
+</body>
+</html>
