@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Training Tracker — Setup Guide</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e8e8e8;
+            padding: 2rem;
+        }
+        .container { max-width: 820px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            color: #a8a8a8; text-decoration: none; font-size: 0.9rem;
+            margin-bottom: 2rem; transition: color 0.2s;
+        }
+        .back-link:hover { color: #fff; }
+        .header {
+            background: rgba(255,255,255,0.05); border-radius: 16px; padding: 2rem;
+            border: 1px solid rgba(255,255,255,0.1); border-top: 4px solid #E53935;
+            margin-bottom: 1.5rem;
+        }
+        .project-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+        h1 { font-size: 1.9rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+        .subtitle { color: #a8a8a8; font-size: 1rem; line-height: 1.5; }
+        .pill {
+            display: inline-block; margin-top: 0.75rem; padding: 0.3rem 0.7rem;
+            background: rgba(229,57,53,0.18); border: 1px solid rgba(255,112,67,0.4);
+            border-radius: 999px; font-size: 0.8rem; color: #FF8A65;
+        }
+        .step {
+            background: rgba(255,255,255,0.05); border-radius: 12px; padding: 1.5rem 1.75rem;
+            border: 1px solid rgba(255,255,255,0.1); margin-bottom: 1.25rem;
+        }
+        .step-head { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1rem; }
+        .step-num {
+            flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+            background: linear-gradient(135deg,#E53935,#FF7043); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 1rem;
+        }
+        .step-head h2 { font-size: 1.15rem; font-weight: 600; color: #fff; }
+        .step p { color: #c5c5c5; font-size: 0.95rem; line-height: 1.65; margin: 0.5rem 0; }
+        .step ol, .step ul { margin: 0.5rem 0 0.5rem 1.25rem; }
+        .step li { color: #c5c5c5; font-size: 0.95rem; line-height: 1.7; margin-bottom: 0.35rem; }
+        strong { color: #fff; }
+        code {
+            font-family: 'SF Mono', Menlo, monospace; background: rgba(255,255,255,0.08);
+            padding: 0.12rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: #FF8A65;
+        }
+        pre {
+            background: #2a1410; border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px; padding: 0.9rem 1.1rem; overflow-x: auto;
+            margin: 0.75rem 0; font-size: 0.85rem; line-height: 1.55;
+        }
+        pre code { background: none; padding: 0; color: #FFCCBC; }
+        .callout {
+            background: rgba(229,57,53,0.1); border-left: 3px solid #FF7043;
+            border-radius: 6px; padding: 0.85rem 1.1rem; margin: 0.85rem 0;
+            font-size: 0.9rem; color: #c0c0c0; line-height: 1.6;
+        }
+        .callout.warn { background: rgba(255,193,7,0.1); border-left-color: #FFC107; }
+        .callout strong { color: #FF8A65; }
+        .callout.warn strong { color: #FFD54F; }
+        h3.section-title {
+            font-size: 1.25rem; color: #FF7043; margin: 2rem 0 1rem; font-weight: 700;
+        }
+        table {
+            width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.9rem;
+        }
+        th, td {
+            text-align: left; padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        th { color: #FF8A65; font-weight: 600; }
+        td { color: #c5c5c5; }
+        td code { white-space: nowrap; }
+        .lead {
+            background: rgba(255,255,255,0.05); border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1); padding: 1.25rem 1.5rem;
+            margin-bottom: 1.5rem; color: #c5c5c5; font-size: 0.95rem; line-height: 1.65;
+        }
+        @media (max-width: 600px) {
+            body { padding: 1rem; }
+            h1 { font-size: 1.5rem; }
+            .step { padding: 1.1rem 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">&#8592; Back to Training Tracker</a>
+
+        <div class="header">
+            <div class="project-icon">&#127891;</div>
+            <h1>Training Tracker — Setup Guide</h1>
+            <p class="subtitle">From zero to a live training dashboard. It looks like a lot because there are several files to paste, but every step is just copy-paste and clicking buttons. Follow them in order.</p>
+            <span class="pill">&#9201; About 30 minutes</span>
+        </div>
+
+        <div class="lead">
+            This one lives <strong>inside a Google Sheet</strong> and feeds off a <strong>Google Form</strong>. Training gets logged through the form, and the Sheet turns it into a live dashboard, timelines, and alerts. You run it from a <strong>Training Tools</strong> menu that appears right in the Sheet &mdash; there's no web app to deploy.
+            <div class="callout" style="margin-top:1rem;"><strong>Heads up on the file count:</strong> there are 9 script files and 3 small dialog files to paste. That's the only part that feels like a lot &mdash; it's repetitive, not hard. Don't let the number scare you off.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">1</div><h2>Create the Google Sheet</h2></div>
+            <ol>
+                <li>Go to <a href="https://sheets.google.com" target="_blank" style="color:#FF8A65;">sheets.google.com</a> and click <strong>Blank spreadsheet</strong>.</li>
+                <li>Name it something clear like <strong>"Training Tracker"</strong>.</li>
+                <li>Don't add any tabs &mdash; Step 3 builds all of them for you.</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">2</div><h2>Paste the Files</h2></div>
+            <p>Click <strong>Extensions &rarr; Apps Script</strong>. Then create each file below and paste in its contents. Match the names exactly &mdash; the numbers keep them in order.</p>
+            <p style="margin-top:0.75rem;"><strong>Script files</strong> (use <strong>+ &rarr; Script</strong>):</p>
+            <pre><code>01_Menu_and_Setup    02_Form_and_Dedup    03_Dashboard
+04_Timeline          05_Certification     06_Alerts
+07_UI_Functions      08_DataSync          DIAGNOSTIC</code></pre>
+            <p><strong>HTML files</strong> (use <strong>+ &rarr; HTML</strong>):</p>
+            <pre><code>AlertSettingsDialog    DeduplicationSidebar    TimelineDialog</code></pre>
+            <p>Delete the empty starter <code>myFunction</code> file, then press <strong>Ctrl/Cmd+S</strong> to save everything.</p>
+            <div class="callout">You do <strong>not</strong> paste <code>index.html</code> into Apps Script &mdash; that's just the web page you're reading this from.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">3</div><h2>Run Initial Setup</h2></div>
+            <ol>
+                <li>Go back to your spreadsheet tab and <strong>reload the page</strong> (F5). Wait 3&ndash;5 seconds.</li>
+                <li>A new <strong>Training Tools</strong> menu appears in the menu bar (next to Help).</li>
+                <li>Click <strong>Training Tools &rarr; Initial Setup (Run Once)</strong>.</li>
+                <li>Google asks to authorize: <strong>Continue</strong> &rarr; pick your account &rarr; <strong>Advanced &rarr; Go to (project)</strong> &rarr; <strong>Allow</strong>. (It needs Sheets, Gmail for alerts, and permission to show its dialogs.)</li>
+            </ol>
+            <p>Setup builds every tab &mdash; Position Requirements, Daily Training Log, Master Dashboard, Certification Log, Name Deduplication, Alert Settings, and more &mdash; and shows a confirmation of what it created.</p>
+            <div class="callout warn"><strong>No Training Tools menu?</strong> Give it a few more seconds and reload again. The <code>onOpen</code> function needs a moment to register after you save the files.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">4</div><h2>Create the Google Form</h2></div>
+            <p>At <a href="https://forms.google.com" target="_blank" style="color:#FF8A65;">forms.google.com</a>, make a new form named <strong>Daily Training Log</strong> with these questions <strong>in this exact order</strong>:</p>
+            <table>
+                <tr><th>#</th><th>Question</th><th>Type</th><th>Required</th></tr>
+                <tr><td>1</td><td>Date</td><td>Date</td><td>Yes</td></tr>
+                <tr><td>2</td><td>Trainee Name</td><td>Short answer</td><td>Yes</td></tr>
+                <tr><td>3</td><td>Position Trained</td><td>Dropdown (recommended)</td><td>Yes</td></tr>
+                <tr><td>4</td><td>Hours</td><td>Short answer (number)</td><td>Yes</td></tr>
+                <tr><td>5</td><td>On Track?</td><td>Multiple choice (Yes / No)</td><td>Yes</td></tr>
+                <tr><td>6</td><td>Notes</td><td>Paragraph</td><td>No</td></tr>
+            </table>
+            <div class="callout warn"><strong>Order matters.</strong> The script reads responses by column position. Keep these six questions in this order. For <strong>Position Trained</strong>, a dropdown listing your real positions keeps names clean (there's alias handling, but consistent is better).</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">5</div><h2>Link the Form to the Sheet</h2></div>
+            <ol>
+                <li>In your form, open the <strong>Responses</strong> tab &rarr; click the green <strong>Link to Sheets</strong> icon.</li>
+                <li>Choose <strong>Select existing spreadsheet</strong> and pick your Training Tracker sheet.</li>
+                <li>If it offers <strong>Daily Training Log</strong>, use it. If it makes a new <strong>"Form Responses 1"</strong> tab, that's fine too.</li>
+                <li>Submit one test response to confirm it lands in the Sheet.</li>
+            </ol>
+            <div class="callout">If the response went into <strong>"Form Responses 1"</strong>, just run <strong>Training Tools &rarr; Sync Form Data</strong> to pull it into the Daily Training Log. The system recognizes the common form-response tab names automatically.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">6</div><h2>Set Up the Triggers</h2></div>
+            <p>In the Apps Script editor, click the <strong>clock icon</strong> (Triggers) &rarr; <strong>+ Add Trigger</strong>, and add these:</p>
+            <table>
+                <tr><th>Function</th><th>When</th><th>What it does</th></tr>
+                <tr><td><code>onFormSubmit</code></td><td>From spreadsheet &rarr; On form submit</td><td><strong>The important one.</strong> Processes each entry live.</td></tr>
+                <tr><td><code>dailyReminderCheck</code></td><td>Time-driven &rarr; Day &rarr; 8&ndash;9pm</td><td>Emails if no training was logged today.</td></tr>
+                <tr><td><code>checkInactiveTrainees</code></td><td>Time-driven &rarr; Day &rarr; 6&ndash;7am</td><td>Flags trainees inactive 3+ days.</td></tr>
+                <tr><td><code>checkForDuplicates</code></td><td>Time-driven &rarr; Day &rarr; 7&ndash;8am</td><td>Catches duplicate / misspelled names.</td></tr>
+            </table>
+            <div class="callout">If you only set up one, make it <code>onFormSubmit</code> &mdash; that's what keeps the dashboard live. The other three are nice-to-haves you can add anytime.</div>
+        </div>
+
+        <div class="step">
+            <div class="step-head"><div class="step-num">7</div><h2>Configure &amp; Verify</h2></div>
+            <ol>
+                <li>Set your positions and required hours in the <strong>Position Requirements</strong> tab, and the manager emails in <strong>Alert Settings</strong> (or via <strong>Training Tools &rarr; Alert Settings</strong>).</li>
+                <li>Run <strong>Training Tools &rarr; Run Diagnostic</strong> &mdash; it checks every tab, trigger, and setting and tells you in plain English if anything's off.</li>
+            </ol>
+            <div class="callout">&#9989; A clean diagnostic and a test form response showing up on the dashboard means you're done.</div>
+        </div>
+
+        <h3 class="section-title">Going Deeper (Optional)</h3>
+        <div class="step">
+            <p>Certification feedback forms, the Monday auto-populate from your schedule, position-name aliases, and daypart customization are all covered in the full <strong><a href="SETUP_GUIDE.md" style="color:#FF8A65;">SETUP_GUIDE.md</a></strong>. None of it is required to get the core tracker running &mdash; add it when you want it.</p>
+        </div>
+
+        <h3 class="section-title">Troubleshooting</h3>
+        <div class="step">
+            <p><strong>The Training Tools menu never shows up</strong> &mdash; reload the Sheet and wait a few seconds; <code>onOpen</code> needs a moment after you save. If it still doesn't appear, confirm <code>01_Menu_and_Setup</code> got pasted and saved.</p>
+            <p><strong>Form responses aren't reaching the dashboard</strong> &mdash; run <strong>Training Tools &rarr; Sync Form Data</strong>, and make sure the <code>onFormSubmit</code> trigger exists (Step 6).</p>
+            <p><strong>Columns look shifted / wrong data on the dashboard</strong> &mdash; your form questions are out of order. They must be Date, Name, Position, Hours, On Track, Notes (Step 4).</p>
+            <p><strong>One person shows up as two people</strong> &mdash; a name got typed two ways. Run <strong>Training Tools &rarr; Scan for Duplicates</strong> (or the dedup sidebar) to merge them.</p>
+            <p><strong>Not sure what's broken</strong> &mdash; run <strong>Training Tools &rarr; Run Diagnostic</strong>. It's built to tell you exactly what's missing.</p>
+        </div>
+
+        <h3 class="section-title">Quick Reference</h3>
+        <div class="step">
+            <table>
+                <tr><th>What</th><th>Where</th></tr>
+                <tr><td>Build all tabs</td><td>Training Tools &rarr; Initial Setup (Run Once)</td></tr>
+                <tr><td>Pull in form responses</td><td>Training Tools &rarr; Sync Form Data</td></tr>
+                <tr><td>Manager alert emails</td><td>Alert Settings tab / Training Tools menu</td></tr>
+                <tr><td>Positions &amp; required hours</td><td>Position Requirements tab</td></tr>
+                <tr><td>Live, automatic updates</td><td>the <code>onFormSubmit</code> trigger (Step 6)</td></tr>
+                <tr><td>Check everything's healthy</td><td>Training Tools &rarr; Run Diagnostic</td></tr>
+            </table>
+            <div class="callout" style="margin-top:1rem;"><strong>Golden rules:</strong> paste all the files before running setup, keep the six form questions in order, and set the <code>onFormSubmit</code> trigger &mdash; those three things are what make it work.</div>
+        </div>
+
+        <p style="text-align:center; color:#8a6a66; font-size:0.85rem; margin: 2rem 0 1rem;">Built with care for Cockrell Hill Chick-fil-A</p>
+    </div>
+</body>
+</html>
