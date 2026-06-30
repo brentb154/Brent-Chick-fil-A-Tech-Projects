@@ -189,7 +189,15 @@
             <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;"><strong>Deploy &rarr; New deployment &rarr;</strong> gear &rarr; <strong>Web app</strong>. Execute as <strong>Me</strong>, access <strong>Anyone within your domain</strong>. Deploy and copy the URL &mdash; that's the tool. First load is slow (10&ndash;20 sec). After any code change, redeploy via <strong>Manage deployments &rarr; Edit &rarr; New version</strong>.</p>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">6. Add Your Menu</h3>
-            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In the <strong>Menu</strong> tab, fill the four columns: <strong>Category | Item Name | Pickup Price | Delivery Price</strong>. Same category groups items together in the picker. Use <code>N/A</code> in Delivery Price for items that can't be delivered &mdash; they hide automatically on delivery quotes.</p>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">The <strong>Menu</strong> tab has four columns: <strong>Category | Item Name | Pickup Price | Delivery Price</strong>. Same category groups items together in the picker, and <code>N/A</code> in Delivery Price hides an item from delivery quotes. You can type items in by hand, but the fastest way is to pull your real prices straight from CFA Home:</p>
+            <p style="color:#fff; font-size:0.9rem; margin:0.75rem 0 0.25rem;"><strong>Pull your menu from CFA Home (recommended):</strong></p>
+            <ol style="color:#c0c0c0; font-size:0.92rem; line-height:1.65; margin:0.25rem 0 0.5rem 1.25rem;">
+                <li>On <strong>CFA Home &rarr; Backoffice</strong>, open the pricing / <strong>Current Price Lists</strong> area and find your restaurant by its number.</li>
+                <li>Click your location link &mdash; e.g. <em>"Location 03177 (Price Group 32)"</em>. (If you land on a price group already, click <strong>&laquo; Select a different price group</strong> first, then pick your location.)</li>
+                <li>You'll see the price list: <strong>Category</strong>, <strong>Menu Item Name</strong>, <strong>Inside Sales Price</strong>, <strong>Outside Sales Price</strong>. Click <strong>Export this to an Excel spreadsheet</strong>.</li>
+                <li>Open the Excel file, select the menu rows, copy, and paste them into the <strong>Menu</strong> tab of your Google Sheet.</li>
+            </ol>
+            <div class="note"><strong>The columns line up:</strong> <code>Category &rarr; Category</code>, <code>Menu Item Name &rarr; Item Name</code>, <code>Inside Sales Price &rarr; Pickup Price</code>, <code>Outside Sales Price &rarr; Delivery Price</code>. So paste them in that order under the existing headers. Any item with <code>N/A</code> for Outside Sales Price simply won't show on delivery quotes &mdash; which is exactly what you want.</div>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">7. Fill in Settings</h3>
             <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In the <strong>Settings</strong> tab, enter store name, address, phone, contact, tax rate, logo, email template, and (optionally) the follow-up reminder config. The app reads these at runtime &mdash; no code edits.</p>
