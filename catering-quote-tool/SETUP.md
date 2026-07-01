@@ -110,7 +110,7 @@ If this row is blank or missing, events go to the default calendar. Either way w
 2. Create a new quote with a **date AND time** filled in
 3. Save it (any method — Save, Save & Email, or Print)
 4. Open Google Calendar and navigate to that date
-5. **Expected:** A 30-minute calendar event appears, starting 30 minutes before the order time
+5. **Expected:** A calendar event appears, starting a set number of minutes before the order time. That lead time is the **Calendar Lead Time (Minutes)** value in the Settings tab (default 30) — change it there to make events start earlier or later.
 6. Title should read: `🔴 NEEDS PO — [Customer Name] — [Date]`
 7. Click the event — description should contain full quote details
 

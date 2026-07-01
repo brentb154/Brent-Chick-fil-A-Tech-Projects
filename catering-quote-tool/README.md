@@ -153,6 +153,7 @@ Columns A–N are original fields. Column O (**PO Number**) was added and is aut
 | Quote Contact Name | Shown on PDF "questions?" line |
 | Default Tax Rate (%) | Pre-filled on new quotes |
 | Archive After Days | How old a quote gets before `cleanOldQuotes` archives it (default 120) |
+| Calendar Lead Time (Minutes) | How many minutes before the order time the calendar event starts (default 30) |
 | Logo (Base64) | Uploaded via the app Settings tab |
 | Email Subject | Template with `{{placeholders}}` |
 | Email Body | Template with `{{placeholders}}` |
