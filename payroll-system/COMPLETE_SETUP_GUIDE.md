@@ -455,7 +455,7 @@ YOUR-APP-URL?view=pto-request
 | EmployeeUniformRequest.html | Uniform order form (bilingual) |
 | EmployeePTORequest.html | PTO request form (bilingual) |
 
-**Total: 34 files (5 script + 29 HTML), ~30,000+ lines of code**
+**Total: 34 files (5 script + 29 HTML), ~55,000+ lines of code**
 
 ---
 

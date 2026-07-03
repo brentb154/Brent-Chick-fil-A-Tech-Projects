@@ -72,7 +72,7 @@ const DEFAULT_SETTINGS = {
  * This is called automatically when someone visits the web app URL
  */
 // Code version for debugging deployment issues
-const CODE_VERSION = 'v2024.12.20.2';
+const CODE_VERSION = 'v2026.07.03.1'; // bump on deploy — getCodeVersion() verifies a push took effect
 
 function getCodeVersion() {
   return CODE_VERSION;
