@@ -8,7 +8,7 @@ This guide is written for someone with **zero technical experience**. Follow eac
 
 ## 📋 Table of Contents
 
-1. [Can Other Restaurants Use This?](#-can-other-restaurants-use-this)
+1. [Can Other Restaurants Use This?](#can-other-restaurants-use-this)
 2. [What You'll Need](#-what-youll-need)
 3. [Part 1: Create the Spreadsheet](#part-1-create-the-spreadsheet-5-minutes)
 4. [Part 2: Add the Code](#part-2-add-the-code-15-20-minutes)
@@ -21,7 +21,7 @@ This guide is written for someone with **zero technical experience**. Follow eac
 
 ---
 
-##Can Other Restaurants Use This?
+## Can Other Restaurants Use This?
 
 **YES!** This system can be copied and used by any restaurant or business that needs to:
 - Track overtime hours
@@ -38,6 +38,7 @@ This guide is written for someone with **zero technical experience**. Follow eac
 | Admin Access Passcode | Payroll_Settings sheet (auto-generated on first use and emailed to admins) | Any number you choose |
 | Admin Email | Settings page | manager@email.com |
 | Hourly Wage (for OT estimates) | Settings page | $15.00 |
+| Login hint (shown under the access-code box) | Settings page → "Login Hint" | "Ask a manager" |
 | Logo/Branding | Code (optional) | Your restaurant name |
 
 ### What Works Out of the Box:
@@ -111,6 +112,7 @@ You need to create many files. Here's exactly how:
 Create these script files:
 - `Code` (already exists - just rename if needed)
 - `DashboardModule`
+- `PaydayModule` ⚠️ **don't skip this one** — every payday and deduction date comes from it
 - `PTOModule`
 - `ReportsModule`
 
@@ -121,31 +123,40 @@ Create these script files:
 2. Select **"HTML"**
 3. Type the name (without .html)
 
-Create these HTML files:
+Create these HTML files (**names are case-sensitive** — `index` is lowercase):
 ```
-Index
+index
 MainApp
 MainAppJS
+MainAppStyles
 Styles
 JavaScript
+AuthGateway
+LoginPrompt
+Walkthrough
 View_Dashboard
 View_OTUpload
 View_OTHistory
 View_OTEmployee
 View_OTTrends
+View_OTReconciliation
 View_UniformOrders
 View_UniformDeductions
 View_UniformCatalog
+View_UniformSummary
 View_PTORecords
+View_PTOSummary
 View_PayrollProcessing
+View_PayrollCalendar
 View_SettingsPage
 View_SystemHealth
 View_Help
-View_PayrollCalendar
 View_YearEndWizard
 EmployeeUniformRequest
 EmployeePTORequest
 ```
+
+**Skip `landing.html`** if you see it in the folder — that's the GitHub project page, not part of the app.
 
 ### Step 2.3: Copy the Code Into Each File
 
@@ -170,8 +181,11 @@ Before deploying, you need to set up the sheets:
 
 1. In the code editor, make sure you're in **Code.gs**
 2. Look at the top toolbar for a dropdown that says "Select function"
-3. Click it and choose **`manualInit`**
+3. Click it and choose **`runInitialSetup`** — this creates every sheet tab AND
+   installs the automatic triggers (weekly summary email, auto-archive, monthly backup)
 4. Click the **"Run"** button (looks like ▶️)
+
+(`manualInit` also exists but only creates the core sheets — use `runInitialSetup`.)
 
 **First time running? You'll see a permissions popup:**
 
@@ -184,11 +198,14 @@ Before deploying, you need to set up the sheets:
 
 **✅ Success looks like this in the log:**
 ```
-Sheets initialized successfully!
-OT_History sheet: EXISTS
-Employees sheet: EXISTS
-Settings sheet: EXISTS
-...
+OK  - Core sheets
+OK  - Activity log
+OK  - Comments sheet
+OK  - System counters
+OK  - Action history
+OK  - Weekly summary trigger
+OK  - Auto-archive triggers
+OK  - Monthly backup trigger
 ```
 
 ---
@@ -224,11 +241,20 @@ https://script.google.com/macros/s/AKfycb...very-long-string.../exec
 
 **Save this URL somewhere safe! Bookmark it!**
 
-### Step 3.4: Test It
+### Step 3.4: Log In for the First Time
 
 1. Open the URL in a new browser tab
 2. Wait 10-20 seconds (first load is slow)
-3. You should see the Dashboard!
+3. You'll see a **login screen** asking for your name and an **access code**
+4. Here's the trick: **the access code doesn't exist yet.** The moment the app
+   first needs it, it generates a random 5-digit code and **emails it to you**
+   (the Google account that owns the spreadsheet). So: type your name, then go
+   check your email for the code.
+5. Enter the code — you should see the Dashboard!
+
+**💡 Tip:** The login screen shows a small hint under the code box. You can change
+that hint (and the code itself) later — hint on the Settings page, code in the
+`Payroll_Settings` sheet tab (see Step 4.5).
 
 ---
 
@@ -339,8 +365,17 @@ YOUR-APP-URL?view=pto-request
 - **Fix:** Re-copy the entire Code.gs file, save, and redeploy
 
 ### App Shows White/Blank Screen
-- **Cause:** Index.html is missing or incomplete
-- **Fix:** Check that Index.html exists and has content
+- **Cause:** `index` (lowercase!), `MainApp`, or `LoginPrompt` HTML file is missing or incomplete
+- **Fix:** Check those files exist with those exact names and have content
+
+### Never Got the Access-Code Email
+- **Cause:** The code is emailed to the spreadsheet owner (or to adminEmails once set)
+- **Fix:** Check the spam folder of the Google account that owns the spreadsheet.
+  Or read it directly: open the spreadsheet → `Payroll_Settings` tab → `admin_access_passcode` row
+
+### Paydays / Deduction Dates Are Wrong or Crash
+- **Cause:** `PaydayModule.gs` wasn't copied, or the Payday Reference date in Settings isn't a real payday Friday
+- **Fix:** Confirm PaydayModule exists in Apps Script, then set "Payday Reference" in Settings to a known past payday
 
 ### "Authorization Required" Keeps Appearing
 - **Cause:** Permissions weren't fully granted
@@ -370,24 +405,29 @@ YOUR-APP-URL?view=pto-request
 
 ## 📁 Complete File List
 
-### Backend Files (.gs) - 4 files
+### Backend Files (.gs) - 5 files
 | File | Purpose |
 |------|---------|
-| Code.gs | Main backend logic (10,000+ lines) |
+| Code.gs | Main backend logic (15,000+ lines) |
 | DashboardModule.gs | Dashboard calculations |
+| PaydayModule.gs | Payday calendar math (every deduction date comes from here) |
 | PTOModule.gs | PTO management |
-| ReportsModule.gs | Report generation |
+| ReportsModule.gs | Report generation & payroll settings |
 
-### Core HTML Files - 6 files
+### Core HTML Files - 9 files
 | File | Purpose |
 |------|---------|
-| Index.html | Entry point |
+| index.html | Entry point (lowercase name!) |
 | MainApp.html | App shell, sidebar, modals |
 | MainAppJS.html | Navigation JavaScript |
+| MainAppStyles.html | App shell CSS |
 | Styles.html | All CSS (4,000+ lines) |
-| JavaScript.html | Main JavaScript (9,000+ lines) |
+| JavaScript.html | Main JavaScript (13,000+ lines) |
+| AuthGateway.html | Logout handling |
+| LoginPrompt.html | Login screen (name + access code) |
+| Walkthrough.html | Guided page tours (the "?" button) |
 
-### View Files - 14 files
+### View Files - 18 files
 | File | Page |
 |------|------|
 | View_Dashboard.html | Home dashboard |
@@ -395,15 +435,18 @@ YOUR-APP-URL?view=pto-request
 | View_OTHistory.html | OT history table |
 | View_OTEmployee.html | Individual employee OT |
 | View_OTTrends.html | OT trends/graphs |
+| View_OTReconciliation.html | Multi-location OT reconciliation |
 | View_UniformOrders.html | Manage uniform orders |
 | View_UniformDeductions.html | Deduction schedules |
 | View_UniformCatalog.html | Uniform item catalog |
+| View_UniformSummary.html | Uniform totals & summary |
 | View_PTORecords.html | PTO requests |
+| View_PTOSummary.html | PTO summary |
 | View_PayrollProcessing.html | Pre-payroll checklist |
+| View_PayrollCalendar.html | Payroll calendar |
 | View_SettingsPage.html | App settings |
 | View_SystemHealth.html | System diagnostics |
 | View_Help.html | Help & documentation |
-| View_PayrollCalendar.html | Payroll calendar |
 | View_YearEndWizard.html | Year-end closing |
 
 ### Employee Forms - 2 files
@@ -412,7 +455,7 @@ YOUR-APP-URL?view=pto-request
 | EmployeeUniformRequest.html | Uniform order form (bilingual) |
 | EmployeePTORequest.html | PTO request form (bilingual) |
 
-**Total: ~26 files, ~22,000+ lines of code**
+**Total: 34 files (5 script + 29 HTML), ~30,000+ lines of code**
 
 ---
 
@@ -441,7 +484,7 @@ There are 6 hidden features in the app. Can you find them all?
 
 ---
 
-*Setup Guide v3.0 - December 2025*
+*Setup Guide v3.1 - July 2026*
 *Built by Brent for Cockrell Hill DTO & Dallas Baptist University OCV*
 *"Built to last"*
 
