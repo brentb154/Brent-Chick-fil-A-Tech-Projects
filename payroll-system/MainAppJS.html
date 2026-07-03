@@ -337,7 +337,7 @@ function loadView(viewName) {
         <div class="empty-state">
           <span class="material-icons-round">error_outline</span>
           <h3>Error Loading View</h3>
-          <p>${error.message || 'Please try again.'}</p>
+          <p>${escapeHtml(error.message) || 'Please try again.'}</p>
         </div>
       `;
       NavState.isLoading = false;
@@ -801,7 +801,7 @@ function showDefaultSearchResults() {
             <span class="material-icons-round">${page.icon}</span>
           </div>
           <div class="search-result-content">
-            <div class="search-result-title">${page.title}</div>
+            <div class="search-result-title">${escapeHtml(page.title)}</div>
           </div>
           <div class="search-result-action">↵</div>
         </div>
@@ -906,7 +906,7 @@ function renderSearchResultItem(result, index) {
         <span class="material-icons-round">${icon}</span>
       </div>
       <div class="search-result-content">
-        <div class="search-result-title">${result.title}</div>
+        <div class="search-result-title">${escapeHtml(result.title)}</div>
         ${result.meta ? `<div class="search-result-meta">${result.meta}</div>` : ''}
       </div>
       <div class="search-result-action">↵</div>
@@ -1203,14 +1203,14 @@ function renderComments(comments) {
   }
   
   const html = comments.map(comment => `
-    <div class="comment-item" data-id="${comment.id}">
+    <div class="comment-item" data-id="${escapeHtml(comment.id)}">
       <div class="comment-header">
-        <span class="comment-author">${comment.createdBy.split('@')[0]}</span>
+        <span class="comment-author">${escapeHtml(comment.createdBy.split('@')[0])}</span>
         <span class="comment-date">${formatTimeAgo(new Date(comment.createdDate))}</span>
       </div>
       <div class="comment-text">${escapeHtml(comment.text)}</div>
       <div class="comment-actions">
-        <button class="comment-action-btn" onclick="deleteComment('${comment.id}')">Delete</button>
+        <button class="comment-action-btn" onclick="deleteComment('${escapeHtml(comment.id)}')">Delete</button>
       </div>
     </div>
   `).join('');
@@ -1725,7 +1725,7 @@ function showProcessingOverlay(title) {
     '  <div class="progress-bar-container">',
     '    <div class="progress-bar-fill" id="processingProgressBar" style="width: 0%;"></div>',
     '  </div>',
-    '  <p class="processing-message" id="processingMessage">' + getProgressMessage(0) + '</p>',
+    '  <p class="processing-message" id="processingMessage">' + escapeHtml(getProgressMessage(0)) + '</p>',
     '</div>'
   ].join('');
   

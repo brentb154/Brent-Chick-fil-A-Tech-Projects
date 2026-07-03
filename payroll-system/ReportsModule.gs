@@ -48,9 +48,10 @@ function initializePayrollSettings() {
     ['next_payroll_date', formatDateISO(nextPayday), 'Next Friday payroll date', today],
     ['payroll_day_of_week', 'Friday', 'Day of week employees get paid', today],
     ['last_payroll_processed', '', 'Most recent payroll date that was marked complete', today],
-    ['default_ot_rate', '16.50', 'Default hourly rate for OT cost calculations', today],
-    ['admin_access_passcode', '05894', 'Shared passcode for admin dashboard access', today]
+    ['default_ot_rate', '16.50', 'Default hourly rate for OT cost calculations', today]
   ];
+  // admin_access_passcode is intentionally NOT seeded here with a literal —
+  // getOrSeedPasscode_() generates a random one on first use and emails admins.
   
   // Add settings
   sheet.getRange(2, 1, settings.length, 4).setValues(settings);
@@ -199,11 +200,11 @@ function updatePayrollSetting(settingName, newValue) {
     }
     
     const data = sheet.getDataRange().getValues();
-    
+
     for (let i = 1; i < data.length; i++) {
       if (data[i][0] === settingName) {
         const oldValue = data[i][1];
-        
+
         // Convert value to string for storage
         let valueToStore = newValue;
         if (newValue instanceof Date) {
@@ -211,15 +212,12 @@ function updatePayrollSetting(settingName, newValue) {
         } else if (typeof newValue === 'number') {
           valueToStore = newValue.toString();
         }
-        
-        // Update Setting_Value (column B)
-        sheet.getRange(i + 1, 2).setValue(valueToStore);
-        
-        // Update Last_Updated (column D)
-        sheet.getRange(i + 1, 4).setValue(new Date());
-        
+
+        // Write Setting_Value..Last_Updated (B-D) in one call, keeping Description as-is
+        sheet.getRange(i + 1, 2, 1, 3).setValues([[valueToStore, data[i][2], new Date()]]);
+
         console.log(`Updated ${settingName}: ${oldValue} -> ${valueToStore}`);
-        
+
         return {
           success: true,
           settingName: settingName,
@@ -228,7 +226,7 @@ function updatePayrollSetting(settingName, newValue) {
         };
       }
     }
-    
+
     return { success: false, error: 'Setting not found: ' + settingName };
     
   } catch (error) {
@@ -1516,10 +1514,12 @@ function markUniformPaymentsComplete(payday, skippedOrderIds = []) {
         let newStatus = current.status;
         if (newPaymentsMade >= current.paymentPlan) { newStatus = 'Completed'; newRemaining = 0; }
 
-        sheet.getRange(current.rowIndex, col['Payments_Made'] + 1).setValue(newPaymentsMade);
-        sheet.getRange(current.rowIndex, col['Amount_Paid'] + 1).setValue(newAmountPaid);
-        sheet.getRange(current.rowIndex, col['Amount_Remaining'] + 1).setValue(newRemaining);
-        sheet.getRange(current.rowIndex, col['Status'] + 1).setValue(newStatus);
+        // Apply to the in-memory copy; all rows written back below in 4 column writes
+        const r = ordersData[current.rowIndex - 2];
+        r[col['Payments_Made']] = newPaymentsMade;
+        r[col['Amount_Paid']] = newAmountPaid;
+        r[col['Amount_Remaining']] = newRemaining;
+        r[col['Status']] = newStatus;
 
         marked++;
         totalAmount += order.deductionAmount;
@@ -1527,6 +1527,15 @@ function markUniformPaymentsComplete(payday, skippedOrderIds = []) {
         errors.push(order.orderId + ': ' + e.message);
       }
     });
+
+    // One write per touched column instead of 4 per order
+    if (marked > 0) {
+      for (const h of ['Payments_Made', 'Amount_Paid', 'Amount_Remaining', 'Status']) {
+        const colVals = ordersData.map(function(row) { return [row[col[h]]]; });
+        sheet.getRange(2, col[h] + 1, colVals.length, 1).setValues(colVals);
+      }
+      SpreadsheetApp.flush();
+    }
 
     return {
       marked: marked,

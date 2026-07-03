@@ -158,7 +158,7 @@
     if (ov) ov.classList.remove('active');
     activeTarget = null;
     if (completed && Tour.isNewUser && typeof google !== 'undefined' && google.script && google.script.run) {
-      try { google.script.run.withFailureHandler(function(){}).markTourComplete(); } catch (e) {}
+      try { google.script.run.withFailureHandler(function(){}).markTourComplete(); } catch (e) { /* best-effort — tour completion is cosmetic */ }
     }
   }
 

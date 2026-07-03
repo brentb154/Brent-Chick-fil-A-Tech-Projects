@@ -273,7 +273,7 @@ function renderDashboardAlerts(alerts, totalCount) {
         break;
         
       default:
-        detailsLeft = '<p>' + a.message + '</p>';
+        detailsLeft = '<p>' + escapeHtml(a.message) + '</p>';
         detailsRight = 'Review this alert and take appropriate action.';
     }
     
@@ -281,8 +281,8 @@ function renderDashboardAlerts(alerts, totalCount) {
       '<div class="alert-header ' + a.severity + '" onclick="toggleAlert(' + index + ')">' +
         '<span class="material-icons-round alert-icon">' + (a.severity === 'high' ? 'error' : a.severity === 'warning' ? 'warning' : 'info') + '</span>' +
         '<div class="alert-summary">' +
-          '<h4>' + a.title + '</h4>' +
-          '<p>' + a.message + '</p>' +
+          '<h4>' + escapeHtml(a.title) + '</h4>' +
+          '<p>' + escapeHtml(a.message) + '</p>' +
         '</div>' +
         '<span class="material-icons-round alert-toggle">expand_more</span>' +
       '</div>' +
@@ -799,7 +799,7 @@ function renderAllTable(employees) {
     <tr class="employee-row ${e.location === 'Multi' ? 'highlight' : ''}" onclick="toggleEmployeeDetails(${index})" style="cursor: pointer;">
       <td class="name">
         <span class="expand-icon material-icons-round" id="expand-icon-${index}">chevron_right</span>
-        ${e.employeeName} ${e.location === 'Multi' ? '<span class="multi-badge">Multi</span>' : ''}
+        ${escapeHtml(e.employeeName)} ${e.location === 'Multi' ? '<span class="multi-badge">Multi</span>' : ''}
       </td>
       <td>${e.location}</td>
       <td class="numeric">${formatHours(e.totalHours)}</td>
@@ -1319,7 +1319,7 @@ function renderPeriodData(data) {
   
   tbody.innerHTML = data.employees.map(e => `
     <tr ${e.isMultiLocation ? 'class="highlight"' : ''}>
-      <td class="name">${e.employeeName} ${e.isMultiLocation ? '<span class="multi-badge">Multi</span>' : ''}</td>
+      <td class="name">${escapeHtml(e.employeeName)} ${e.isMultiLocation ? '<span class="multi-badge">Multi</span>' : ''}</td>
       <td>${e.location}</td>
       <td class="numeric">${formatHours(e.chHours || 0)}</td>
       <td class="numeric">${formatHours(e.dbuHours || 0)}</td>
@@ -1552,7 +1552,7 @@ function renderTopEmployeesTable(employees) {
   tbody.innerHTML = employees.slice(0, 15).map((e, i) => `
     <tr>
       <td class="font-bold">${i + 1}</td>
-      <td class="name">${e.employeeName}</td>
+      <td class="name">${escapeHtml(e.employeeName)}</td>
       <td class="numeric">${e.periods}</td>
       <td class="numeric font-bold text-danger">${formatHours(e.totalOT)}</td>
       <td class="numeric">$${e.totalCost.toFixed(2)}</td>
@@ -2571,7 +2571,9 @@ function showToast(msg, type = 'info') {
   if (!container) return;
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.innerHTML = `<span class="material-icons-round">${type === 'success' ? 'check_circle' : type === 'error' ? 'error' : 'info'}</span><span>${msg}</span>`;
+  // Message goes in via textContent — callers pass raw strings (some include employee names)
+  toast.innerHTML = `<span class="material-icons-round">${type === 'success' ? 'check_circle' : type === 'error' ? 'error' : 'info'}</span><span></span>`;
+  toast.lastElementChild.textContent = msg;
   container.appendChild(toast);
   setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
 }
@@ -2783,6 +2785,11 @@ function handleEmployeeSearch() {
 /**
  * Escape user-supplied text before injecting into HTML
  */
+// For values embedded inside onclick="fn('...')": JS-escape then HTML-escape
+function attrSafeJsString(value) {
+  return escapeHtml(String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+}
+
 function escapeHtml(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -3578,7 +3585,7 @@ function renderOrderItems() {
   
   tbody.innerHTML = UniformState.orderItems.map((item, index) => `
     <tr>
-      <td>${item.itemName}${item.isReplacement ? '<span class="badge-replacement">REPLACEMENT</span>' : ''}${item.discount > 0 ? '<span class="badge-discount">-$' + item.discount.toFixed(2) + '</span>' : ''}</td>
+      <td>${escapeHtml(item.itemName)}${item.isReplacement ? '<span class="badge-replacement">REPLACEMENT</span>' : ''}${item.discount > 0 ? '<span class="badge-discount">-$' + item.discount.toFixed(2) + '</span>' : ''}</td>
       <td>${item.size}</td>
       <td class="numeric">${item.quantity}</td>
       <td class="numeric">${item.isReplacement ? '<span style="color: var(--success);">FREE</span>' : '$' + item.unitPrice.toFixed(2)}</td>
@@ -3864,9 +3871,9 @@ function renderUniformOrders() {
     const showDiscount = order.status === 'Pending' || order.status === 'Pending - Cash' || order.status === 'Active';
     
     return `
-      <tr data-employee-name="${order.employeeName}" data-location="${order.location || ''}" data-order-id="${order.orderId}">
+      <tr data-employee-name="${escapeHtml(order.employeeName)}" data-location="${order.location || ''}" data-order-id="${order.orderId}">
         <td><strong style="cursor: pointer; color: var(--cfa-red);" onclick="viewOrderDetails('${order.orderId}')">${order.orderId}</strong></td>
-        <td>${order.employeeName}</td>
+        <td>${escapeHtml(order.employeeName)}</td>
         <td>${order.location || '-'}</td>
         <td>${formatDate(order.orderDate)}</td>
         <td class="numeric">$${order.totalAmount.toFixed(2)}</td>
@@ -4235,7 +4242,7 @@ function renderOrderDetailsModal(order) {
            </label>
          </td>
          <td>
-           <button class="btn-icon-sm" onclick="cancelItemFromModal('${item.lineId}', '${item.itemName}')" title="Cancel item">
+           <button class="btn-icon-sm" onclick="cancelItemFromModal('${item.lineId}', '${attrSafeJsString(item.itemName)}')" title="Cancel item">
              <span class="material-icons-round" style="font-size: 16px; color: var(--gray-400);">cancel</span>
            </button>
          </td>`
@@ -4310,7 +4317,7 @@ function renderOrderDetailsModal(order) {
       <span class="material-icons-round" style="color: #f9a825;">warning</span>
       <div style="flex: 1;">
         <div style="font-weight: 700; margin-bottom: 4px;">This order needs manual review</div>
-        <div style="font-size: 0.9rem; color: var(--gray-700); margin-bottom: 8px;">${order.reviewReason || 'An item was cancelled after payments started.'}</div>
+        <div style="font-size: 0.9rem; color: var(--gray-700); margin-bottom: 8px;">${escapeHtml(order.reviewReason) || 'An item was cancelled after payments started.'}</div>
         <button class="btn btn-primary btn-sm" onclick="openResolveReviewDialog('${order.orderId}')">
           <span class="material-icons-round" style="font-size: 16px;">gavel</span>
           Resolve Review
@@ -4324,7 +4331,7 @@ function renderOrderDetailsModal(order) {
     <div class="order-info-grid">
       <div class="order-info-item">
         <label>Employee</label>
-        <strong>${order.employeeName}</strong>
+        <strong>${escapeHtml(order.employeeName)}</strong>
       </div>
       <div class="order-info-item">
         <label>Location</label>
@@ -4353,7 +4360,7 @@ function renderOrderDetailsModal(order) {
       ${order.notes ? `
         <div class="order-info-item" style="grid-column: span 2;">
           <label>Notes</label>
-          <strong>${order.notes}</strong>
+          <strong>${escapeHtml(order.notes)}</strong>
         </div>
       ` : ''}
     </div>
@@ -4959,7 +4966,7 @@ function renderPayrollDeductions(result) {
     
     return `
       <tr class="${rowClass}" style="${isPaid ? 'opacity: 0.7; background: #f0fff0;' : ''}">
-        <td><strong>${d.employeeName}</strong></td>
+        <td><strong>${escapeHtml(d.employeeName)}</strong></td>
         <td>${breakdownHtml}</td>
         <td>${statusBadge}<div style="font-size: 0.75rem; color: var(--gray-500); margin-top: 4px;">${statusText}</div></td>
         <td class="numeric"><strong>$${d.amount.toFixed(2)}</strong></td>
@@ -5117,7 +5124,7 @@ function loadCatalogTable() {
       tbody.innerHTML = items.map(item => `
         <tr style="${!item.active ? 'opacity: 0.5;' : ''}">
           <td><code>${item.itemId}</code></td>
-          <td>${item.itemName}</td>
+          <td>${escapeHtml(item.itemName)}</td>
           <td>${item.category}</td>
           <td style="font-size: 0.75rem;">${item.availableSizes.join(', ')}</td>
           <td class="numeric">$${item.price.toFixed(2)}</td>
@@ -5996,7 +6003,7 @@ function renderActionItems(items) {
       <div class="action-item-checkbox" onclick="event.stopPropagation(); toggleActionItem(this)">
         <span class="material-icons-round" style="display: none;">check</span>
       </div>
-      <span class="action-item-text">${item.description}</span>
+      <span class="action-item-text">${escapeHtml(item.description)}</span>
       ${item.action ? '<span class="material-icons-round action-item-arrow">chevron_right</span>' : ''}
     </div>
   `).join('');
@@ -6041,9 +6048,9 @@ function renderTopOTEmployees(employees) {
   }
   
   container.innerHTML = employees.map((emp, index) => `
-    <div class="top-ot-item" onclick="searchEmployee('${emp.name.replace(/'/g, "\\'")}')">
+    <div class="top-ot-item" onclick="searchEmployee('${attrSafeJsString(emp.name)}')">
       <div class="top-ot-rank">${index + 1}</div>
-      <div class="top-ot-name">${emp.name}</div>
+      <div class="top-ot-name">${escapeHtml(emp.name)}</div>
       <div class="top-ot-hours">${emp.hours.toFixed(1)} hrs</div>
       <span class="flag ${emp.flag === 'Really High' ? 'high' : emp.flag === 'Moderate' ? 'moderate' : 'normal'}">${emp.flag}</span>
     </div>
@@ -6126,7 +6133,7 @@ function renderAlertsList(alerts) {
       <span class="material-icons-round">${alert.severity === 'error' ? 'error' : 'warning'}</span>
       <div class="alert-content">
         <div class="alert-title">${alert.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
-        <div class="alert-message">${alert.message}</div>
+        <div class="alert-message">${escapeHtml(alert.message)}</div>
       </div>
     </div>
     `;
@@ -6722,7 +6729,7 @@ function scanForDuplicates() {
       renderDuplicatesList(duplicates);
     })
     .withFailureHandler(function(error) {
-      container.innerHTML = '<div class="empty-state-small"><span class="material-icons-round">error</span><p>Error: ' + error.message + '</p></div>';
+      container.innerHTML = '<div class="empty-state-small"><span class="material-icons-round">error</span><p>Error: ' + escapeHtml(error.message) + '</p></div>';
     })
     .scanForDuplicateEmployees();
 }
@@ -6887,7 +6894,7 @@ function loadEmployeesNeedingReview() {
           renderEmployeesNeedingReview(employees);
         })
         .withFailureHandler(function(err2) {
-          container.innerHTML = '<div class="empty-state-small" style="color: #E51636;"><span class="material-icons-round">error</span><p>Error loading: ' + err2.message + '</p></div>';
+          container.innerHTML = '<div class="empty-state-small" style="color: #E51636;"><span class="material-icons-round">error</span><p>Error loading: ' + escapeHtml(err2.message) + '</p></div>';
         })
         .getEmployeesNeedingReview();
     })
@@ -7690,11 +7697,11 @@ function renderActivityLog(activities) {
         </div>
         <div class="activity-content">
           <strong>${activity.action}</strong>
-          <p>${activity.description}</p>
+          <p>${escapeHtml(activity.description)}</p>
         </div>
         <div class="activity-meta">
           <div>${timeAgo}</div>
-          <div style="font-size: 11px;">${userName}</div>
+          <div style="font-size: 11px;">${escapeHtml(userName)}</div>
         </div>
       </div>
     `;
@@ -7735,7 +7742,7 @@ function loadManagerPasscode() {
   google.script.run
     .withFailureHandler(handleServerError)
     .withSuccessHandler(function(passcode) {
-      displayInput.value = passcode || '03177';
+      displayInput.value = passcode || '';  // server seeds & emails a code if unset
     })
     .withFailureHandler(function(error) {
       console.error('Failed to load passcode:', error);
@@ -8519,14 +8526,14 @@ function renderPTOTable() {
     const showActions = record.status !== 'Cancelled';
     
     return `
-      <tr class="pto-row" data-pto-id="${record.ptoId}" data-employee-name="${record.employeeName}">
+      <tr class="pto-row" data-pto-id="${record.ptoId}" data-employee-name="${escapeHtml(record.employeeName)}">
         <td onclick="event.stopPropagation();">
           <input type="checkbox" class="pto-select" data-id="${record.ptoId}" 
                  onchange="togglePTOSelect('${record.ptoId}')"
                  ${PTOState.selectedIds.has(record.ptoId) ? 'checked' : ''}>
         </td>
         <td><strong>${record.ptoId}</strong></td>
-        <td>${record.employeeName}</td>
+        <td>${escapeHtml(record.employeeName)}</td>
         <td>${record.location}</td>
         <td><strong>${record.hoursRequested}</strong> hrs</td>
         <td>${dateRange}</td>
@@ -8637,7 +8644,7 @@ function viewPTODetails(ptoId) {
   body.innerHTML = `
     <div class="detail-row">
       <span class="detail-label">Employee</span>
-      <span class="detail-value">${record.employeeName}</span>
+      <span class="detail-value">${escapeHtml(record.employeeName)}</span>
     </div>
     <div class="detail-row">
       <span class="detail-label">Location</span>
@@ -8670,7 +8677,7 @@ function viewPTODetails(ptoId) {
     ${record.notes ? `
       <div class="detail-row" style="flex-direction: column; gap: 4px;">
         <span class="detail-label">Notes</span>
-        <span class="detail-value" style="font-weight: 400;">${record.notes}</span>
+        <span class="detail-value" style="font-weight: 400;">${escapeHtml(record.notes)}</span>
       </div>
     ` : ''}
   `;
@@ -9045,7 +9052,7 @@ function renderPTOTopEmployees(employees) {
     <div class="top-employee-item">
       <div class="top-employee-rank">${emp.rank}</div>
       <div class="top-employee-info">
-        <div class="top-employee-name">${emp.employeeName}</div>
+        <div class="top-employee-name">${escapeHtml(emp.employeeName)}</div>
         <div class="top-employee-location">${emp.location}</div>
       </div>
       <div style="text-align: right;">
@@ -9144,7 +9151,7 @@ function renderPTORecentActivity(activity) {
   tbody.innerHTML = activity.map(rec => `
     <tr>
       <td>${rec.submissionDate}</td>
-      <td><strong>${rec.employeeName}</strong></td>
+      <td><strong>${escapeHtml(rec.employeeName)}</strong></td>
       <td>${rec.location}</td>
       <td class="numeric">${rec.hours} hrs</td>
       <td>${rec.ptoStartDate || '--'}</td>
@@ -9287,7 +9294,7 @@ function renderUniformTopItems(items) {
     <div class="top-item">
       <div class="item-rank">${index + 1}</div>
       <div class="item-info">
-        <div class="item-name">${item.itemName}</div>
+        <div class="item-name">${escapeHtml(item.itemName)}</div>
         <div class="item-category">${item.category}</div>
       </div>
       <div class="item-quantity">${item.quantity} ordered</div>
@@ -9356,7 +9363,7 @@ function renderUniformRecentOrders(orders) {
     <tr>
       <td>${order.orderDate}</td>
       <td><strong>${order.orderId}</strong></td>
-      <td>${order.employeeName}</td>
+      <td>${escapeHtml(order.employeeName)}</td>
       <td>${order.location}</td>
       <td class="numeric">$${order.totalAmount.toFixed(2)}</td>
       <td>${order.paymentProgress}</td>
@@ -9624,8 +9631,8 @@ function renderPayrollValidation(result) {
             (isExpandable ? ' onclick="toggleValidationAccordion(' + i + ')"' : '') + '>';
     html += '<div class="validation-check-icon ' + displayClass + '"><span class="material-icons-round">' + icon + '</span></div>';
     html += '<div class="validation-check-content">';
-    html += '<div class="validation-check-title">' + check.title + (isDismissed ? ' <span class="dismissed-label">Reviewed</span>' : '') + '</div>';
-    html += '<div class="validation-check-message">' + check.message + '</div>';
+    html += '<div class="validation-check-title">' + escapeHtml(check.title) + (isDismissed ? ' <span class="dismissed-label">Reviewed</span>' : '') + '</div>';
+    html += '<div class="validation-check-message">' + escapeHtml(check.message) + '</div>';
     html += '</div>';
     if (isExpandable) {
       html += '<div class="validation-expand-icon"><span class="material-icons-round">expand_more</span></div>';
@@ -10114,7 +10121,7 @@ function renderOTSection(data) {
       ${sortedEmployees.map(emp => `
         <div class="ot-compact-card ${emp.otHours >= 10 ? 'high-ot' : emp.otHours >= 5 ? 'moderate-ot' : ''}">
           <div class="ot-compact-header">
-            <span class="ot-compact-name">${emp.employeeName}</span>
+            <span class="ot-compact-name">${escapeHtml(emp.employeeName)}</span>
             <span class="ot-compact-hours">${emp.otHours.toFixed(1)} OT</span>
       </div>
           <div class="ot-compact-details">
@@ -10240,7 +10247,7 @@ function renderPTOSection(data) {
       <div class="payroll-item-content">
         <div class="payroll-item-header">
           <span class="payroll-item-name">
-            ${pto.employeeName}
+            ${escapeHtml(pto.employeeName)}
             ${isRecorded ? '<span style="font-size: 0.75rem; background: var(--success-light); color: var(--success); padding: 2px 8px; border-radius: 4px; margin-left: 8px;">Paid</span>' : ''}
             <span class="badge-hs ${pto.hotSchedulesConfirmed ? 'confirmed' : 'not-confirmed'}">
               <span class="material-icons-round" style="font-size: 14px;">${pto.hotSchedulesConfirmed ? 'check_circle' : 'warning'}</span>
@@ -10300,7 +10307,7 @@ function renderTransferSection(data) {
             <thead>
               <tr style="background: var(--gray-50); border-bottom: 1px solid var(--gray-200);">
                 <th style="text-align:left; padding:4px 8px;">Week</th>
-                ${emp.locations.map(loc => '<th style="text-align:center; padding:4px 8px;" colspan="3">' + loc.name + '</th>').join('')}
+                ${emp.locations.map(loc => '<th style="text-align:center; padding:4px 8px;" colspan="3">' + escapeHtml(loc.name) + '</th>').join('')}
                 <th style="text-align:center; padding:4px 8px;" colspan="2">Combined</th>
               </tr>
               <tr style="border-bottom: 1px solid var(--gray-200);">
@@ -10355,7 +10362,7 @@ function renderTransferSection(data) {
       </div>
       <div class="payroll-item-content">
         <div class="payroll-item-header">
-          <span class="payroll-item-name">${emp.employeeName}</span>
+          <span class="payroll-item-name">${escapeHtml(emp.employeeName)}</span>
           <span style="font-size: 0.85rem; color: var(--gray-600); font-weight: 600;">Total: ${totalTimeFormatted} — Reg: ${fmtDec(totalRegular)}, OT: ${fmtDec(totalOT)}</span>
         </div>
         <div class="payroll-item-location">Paid from: ${emp.paidFromLocation}</div>
@@ -10363,7 +10370,7 @@ function renderTransferSection(data) {
           ${emp.locations.map(loc => {
             return `
             <div class="transfer-location">
-              <strong>${loc.name}:</strong> ${fmtDec(loc.totalHours)} total — Reg: ${fmtDec(loc.regularHours)}, OT: ${fmtDec(loc.otHours)}
+              <strong>${escapeHtml(loc.name)}:</strong> ${fmtDec(loc.totalHours)} total — Reg: ${fmtDec(loc.regularHours)}, OT: ${fmtDec(loc.otHours)}
             </div>
           `}).join('')}
         </div>
@@ -10642,8 +10649,8 @@ function renderOTReconciliationSection(reconData) {
           html += '<div style="font-weight:700; font-size:0.85rem; color:' + (hasHrs ? 'var(--gray-800)' : 'var(--gray-300)') + ';">' + (hasHrs ? dayTotal.toFixed(1) : '-') + '</div>';
           if (hasHrs && (chVal > 0 || dbuVal > 0)) {
             html += '<div style="margin-top:2px; font-size:0.65rem; line-height:1.3;">';
-            if (chVal > 0) html += '<span style="color:#e04e39; font-weight:600;">' + loc1Name.substring(0,2).toUpperCase() + ':' + chVal.toFixed(1) + '</span> ';
-            if (dbuVal > 0) html += '<span style="color:#004f71; font-weight:600;">' + loc2Name.substring(0,3).toUpperCase() + ':' + dbuVal.toFixed(1) + '</span>';
+            if (chVal > 0) html += '<span style="color:#e04e39; font-weight:600;">' + escapeHtml(loc1Name.substring(0,2).toUpperCase()) + ':' + chVal.toFixed(1) + '</span> ';
+            if (dbuVal > 0) html += '<span style="color:#004f71; font-weight:600;">' + escapeHtml(loc2Name.substring(0,3).toUpperCase()) + ':' + dbuVal.toFixed(1) + '</span>';
             html += '</div>';
           }
           html += '</div>';
@@ -10654,8 +10661,8 @@ function renderOTReconciliationSection(reconData) {
         var weekTotalCH = 0, weekTotalDBU = 0;
         dayKeys.forEach(function(dt) { weekTotalCH += (dailyHours[dt].ch || 0); weekTotalDBU += (dailyHours[dt].dbu || 0); });
         html += '<div style="display:flex; gap:12px; margin-top:6px; font-size:0.78rem; color:var(--gray-600);">';
-        html += '<span><strong>' + loc1Name + ':</strong> ' + floor2(weekTotalCH).toFixed(2) + ' hrs</span>';
-        html += '<span><strong>' + loc2Name + ':</strong> ' + floor2(weekTotalDBU).toFixed(2) + ' hrs</span>';
+        html += '<span><strong>' + escapeHtml(loc1Name) + ':</strong> ' + floor2(weekTotalCH).toFixed(2) + ' hrs</span>';
+        html += '<span><strong>' + escapeHtml(loc2Name) + ':</strong> ' + floor2(weekTotalDBU).toFixed(2) + ' hrs</span>';
         html += '<span><strong>Total:</strong> ' + floor2(weekTotalCH + weekTotalDBU).toFixed(2) + ' hrs</span>';
         html += '</div>';
         html += '</div>';
@@ -11799,7 +11806,7 @@ function showPageHelp() {
     <div class="help-modal-overlay" onclick="closeHelpModal()">
       <div class="help-modal" onclick="event.stopPropagation()">
         <div class="help-modal-header">
-          <h3><span class="material-icons-round">help_outline</span> ${helpData.title} - Help</h3>
+          <h3><span class="material-icons-round">help_outline</span> ${escapeHtml(helpData.title)} - Help</h3>
           <button class="help-modal-close" onclick="closeHelpModal()">
             <span class="material-icons-round">close</span>
           </button>
@@ -12350,7 +12357,7 @@ function renderDayDetail(data) {
     html += `
       <div class="deduction-item">
         <div>
-          <div class="employee">${order.employeeName}</div>
+          <div class="employee">${escapeHtml(order.employeeName)}</div>
           <div class="payment-info">Payment ${order.paymentNumber} of ${order.totalPayments}${order.isFinalPayment ? ' (Final)' : ''}</div>
         </div>
         <div class="amount">$${order.deductionAmount.toFixed(2)}</div>
@@ -12531,7 +12538,7 @@ function refreshReviewIssues() {
       renderReviewIssues(result);
     })
     .withFailureHandler(function(error) {
-      contentEl.innerHTML = '<div class="error-state"><span>Error loading issues: ' + error.message + '</span></div>';
+      contentEl.innerHTML = '<div class="error-state"><span>Error loading issues: ' + escapeHtml(error.message) + '</span></div>';
     })
     .getYearEndReviewIssues();
 }
@@ -12758,7 +12765,7 @@ function loadAnnualReports() {
       renderAnnualReports(result);
     })
     .withFailureHandler(function(error) {
-      contentEl.innerHTML = '<div class="error-state"><span>Error generating reports: ' + error.message + '</span></div>';
+      contentEl.innerHTML = '<div class="error-state"><span>Error generating reports: ' + escapeHtml(error.message) + '</span></div>';
     })
     .generateAnnualReports(wizardState.year);
 }
@@ -12938,7 +12945,7 @@ function runArchive() {
     .withFailureHandler(function(error) {
       if (resultsEl) {
         resultsEl.style.display = 'block';
-        resultsEl.innerHTML = '<div class="error-box"><p>Error: ' + error.message + '</p></div>';
+        resultsEl.innerHTML = '<div class="error-box"><p>Error: ' + escapeHtml(error.message) + '</p></div>';
       }
       if (btn) {
         btn.disabled = false;
@@ -12971,7 +12978,7 @@ function runYearEndBackup() {
           resultsEl.innerHTML = '<div class="success-box">' +
             '<h4>Backup Complete</h4>' +
             '<p>Files backed up: ' + result.fileCount + '</p>' +
-            '<p>Folder: <strong>' + result.folderName + '</strong></p>' +
+            '<p>Folder: <strong>' + escapeHtml(result.folderName) + '</strong></p>' +
             '<a href="' + result.folderUrl + '" target="_blank" class="btn btn-secondary">Open in Drive</a>' +
             '</div>';
           
@@ -12991,7 +12998,7 @@ function runYearEndBackup() {
     .withFailureHandler(function(error) {
       if (resultsEl) {
         resultsEl.style.display = 'block';
-        resultsEl.innerHTML = '<div class="error-box"><p>Error: ' + error.message + '</p></div>';
+        resultsEl.innerHTML = '<div class="error-box"><p>Error: ' + escapeHtml(error.message) + '</p></div>';
       }
       if (btn) {
         btn.disabled = false;

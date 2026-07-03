@@ -813,8 +813,9 @@ function batchMarkPTOPaid_(ptoIds, payrollDate) {
       
       const row = record.rowIndex;
 
-      // Paid_Out (K), Status (L), Notes (M) are adjacent — write them in one setValues call
-      const existingNotes = sheet.getRange(row, 13).getValue() || '';
+      // Paid_Out (K), Status (L), Notes (M) are adjacent — write them in one setValues call.
+      // Existing notes come from the already-loaded record (no per-row read).
+      const existingNotes = record.notes || '';
       const newNote = `Paid in payroll ${payrollDate}`;
       const updatedNotes = existingNotes ? `${existingNotes}; ${newNote}` : newNote;
       sheet.getRange(row, 11, 1, 3).setValues([[true, 'Paid', updatedNotes]]);

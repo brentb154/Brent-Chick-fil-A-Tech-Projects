@@ -2660,7 +2660,7 @@
     function setCached(key, data) {
       try {
         localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data: data }));
-      } catch (e) {}
+      } catch (e) { /* storage full or blocked — caching is optional */ }
     }
 
     // Size definitions - defaults that will be overwritten by server config
@@ -2926,6 +2926,12 @@
         .replace(/'/g, '&#39;');
     }
 
+    // For values embedded inside onclick="fn('...')": escape for the JS string first,
+    // then HTML-escape so quotes can't break out of the attribute.
+    function attrSafeJsString(value) {
+      return escapeHtml(String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+    }
+
     /**
      * Render search results
      */
@@ -2954,9 +2960,9 @@
         results.exact.forEach(function(emp) {
           const safeName = escapeHtml(emp.fullName);
           const safeLocation = escapeHtml(emp.location || '');
-          html += '<div class="search-result-item" onclick="selectSearchResult(\'' + 
-            emp.matchKey.replace(/'/g, "\\'") + '\', \'' + 
-            emp.fullName.replace(/'/g, "\\'") + '\')">' +
+          html += '<div class="search-result-item" onclick="selectSearchResult(\'' +
+            attrSafeJsString(emp.matchKey) + '\', \'' +
+            attrSafeJsString(emp.fullName) + '\')">' +
             '<div><strong>' + safeName + '</strong><span class="result-location">' + safeLocation + '</span></div>' +
             '<span class="material-icons-round" style="color: #9CA3AF;">chevron_right</span></div>';
         });
@@ -2966,9 +2972,9 @@
         html += '<div class="result-section-header">Similar</div>';
         results.similar.forEach(function(emp) {
           const safeName = escapeHtml(emp.fullName);
-          html += '<div class="search-result-item" onclick="selectSearchResult(\'' + 
-            emp.matchKey.replace(/'/g, "\\'") + '\', \'' + 
-            emp.fullName.replace(/'/g, "\\'") + '\')">' +
+          html += '<div class="search-result-item" onclick="selectSearchResult(\'' +
+            attrSafeJsString(emp.matchKey) + '\', \'' +
+            attrSafeJsString(emp.fullName) + '\')">' +
             '<div><strong>' + safeName + '</strong><span class="similarity-badge">' + emp.similarity + '%</span></div>' +
             '<span class="material-icons-round" style="color: #9CA3AF;">chevron_right</span></div>';
         });
@@ -3072,8 +3078,8 @@
         let html = '<h4>⚠️ Similar names / Nombres similares:</h4><ul>';
         results.similar.forEach(function(emp) {
           html += '<li><strong>' + escapeHtml(emp.fullName) + '</strong> (' + emp.similarity + '%) ' +
-            '<button type="button" class="btn-use-instead" onclick="selectSearchResult(\'' + 
-            emp.matchKey.replace(/'/g, "\\'") + '\', \'' + emp.fullName.replace(/'/g, "\\'") + '\')">Use / Usar</button></li>';
+            '<button type="button" class="btn-use-instead" onclick="selectSearchResult(\'' +
+            attrSafeJsString(emp.matchKey) + '\', \'' + attrSafeJsString(emp.fullName) + '\')">Use / Usar</button></li>';
         });
         html += '</ul>';
         container.innerHTML = html;
@@ -3874,8 +3880,10 @@
             document.getElementById('newEmployeePanel').style.display = 'none';
             resetNewEmployeeState();
             
-            // Reload employees to include new employee
+            // Reload employees to include new employee — drop the localStorage
+            // cache first or loadEmployees() serves the stale pre-signup list
             if (orderData.isNewEmployee) {
+              localStorage.removeItem('uniform_employees');
               loadEmployees();
             }
           } else {
@@ -3928,7 +3936,7 @@
         if (item.inseam) details += ` / ${item.inseam}"`;
         return `
           <div class="success-item">
-            <span>${item.itemName}</span>
+            <span>${escapeHtml(item.itemName)}</span>
             <span>${details} × ${item.quantity}</span>
           </div>
         `;
@@ -4234,7 +4242,7 @@
             </td>
             <td>
               <div class="bulk-employee">
-                ${order.employeeName}
+                ${escapeHtml(order.employeeName)}
                 ${isCash ? '<span class="cash-badge">CASH</span>' : ''}
               </div>
               <div style="font-size: 0.8rem; color: var(--gray-500);">${order.orderId} • ${order.location}</div>
@@ -4329,7 +4337,7 @@
         document.getElementById('cashOrderCount').textContent = cashOrders.length;
         document.getElementById('cashOrdersList').innerHTML = cashOrders.map(o => `
           <div style="padding: 6px 0; border-bottom: 1px solid var(--gray-200);">
-            <strong>${o.employeeName}</strong> - $${o.totalAmount.toFixed(2)}
+            <strong>${escapeHtml(o.employeeName)}</strong> - $${o.totalAmount.toFixed(2)}
           </div>
         `).join('');
         document.getElementById('bulkCashWarningModal').classList.add('show');
@@ -4427,7 +4435,7 @@
       const resultList = document.getElementById('bulkResultList');
       resultList.innerHTML = result.activatedOrders.map(o => `
         <div class="bulk-result-item">
-          <span class="name">${o.employeeName}</span>
+          <span class="name">${escapeHtml(o.employeeName)}</span>
           <span class="amount">$${o.amount.toFixed(2)}</span>
         </div>
       `).join('');
@@ -4539,7 +4547,7 @@
             <div class="receiving-order-card" data-order-id="${order.orderId}">
               <div class="order-card-header" onclick="toggleOrderCard('${order.orderId}')">
                 <div class="order-info">
-                  <h4>${order.employeeName}</h4>
+                  <h4>${escapeHtml(order.employeeName)}</h4>
                   <div class="order-meta">
                     ${order.orderId} • ${order.location} • ${formatDate(order.orderDate)}
                   </div>
@@ -4934,7 +4942,7 @@
       document.getElementById('cashPaymentDetails').innerHTML = `
         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
           <span style="color: var(--gray-600);">Employee:</span>
-          <strong>${order.employeeName}</strong>
+          <strong>${escapeHtml(order.employeeName)}</strong>
         </div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
           <span style="color: var(--gray-600);">Order:</span>
@@ -5016,7 +5024,7 @@
       currentCancelItem = { orderId, lineId, item };
       
       document.getElementById('cancelItemDetails').innerHTML = `
-        <strong>${item.itemName}</strong><br>
+        <strong>${escapeHtml(item.itemName)}</strong><br>
         Size: ${item.size} • Qty: ${item.quantity}<br>
         Price: $${item.lineTotal.toFixed(2)}
       `;
@@ -5112,7 +5120,7 @@
       
       // Build summary HTML
       let summaryHtml = `
-        <div style="margin-bottom: 8px;"><strong>Employee:</strong> ${order.employeeName}</div>
+        <div style="margin-bottom: 8px;"><strong>Employee:</strong> ${escapeHtml(order.employeeName)}</div>
         <div style="margin-bottom: 8px;"><strong>Items received:</strong> ${itemsWithSomeReceived} of ${activeItems.length}</div>
       `;
       

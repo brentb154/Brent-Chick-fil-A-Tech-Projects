@@ -129,7 +129,7 @@ function doGet(e) {
           clearAuthSession(logoutToken);
         }
         if (session && session.name) {
-          try { logActivity('LOGOUT', 'AUTH', 'User logged out: ' + session.name, ''); } catch (_) {}
+          try { logActivity('LOGOUT', 'AUTH', 'User logged out: ' + session.name, ''); } catch (_) { /* logging is best-effort */ }
         }
       }
       return template.evaluate()
@@ -283,7 +283,7 @@ function createSelfSession(name, passcode) {
     // Validate the shared access passcode before issuing any session.
     if (!validateAdminPasscode(passcode)) {
       Utilities.sleep(1000); // brute-force speed bump
-      try { logAuthEvent('LOGIN_DENIED', '', 'Bad access code for name: ' + clean); } catch (_) {}
+      try { logAuthEvent('LOGIN_DENIED', '', 'Bad access code for name: ' + clean); } catch (_) { /* logging is best-effort */ }
       return { error: 'Incorrect access code' };
     }
 
@@ -614,13 +614,9 @@ function initializeSheets() {
     }
     if (lastCol < 23) {
       const newHeaders = ['Week1_CH', 'Week1_DBU', 'Week2_CH', 'Week2_DBU'];
-      for (let i = 0; i < newHeaders.length; i++) {
-        const col = 20 + i;
-        if (lastCol < col) {
-          historySheet.getRange(1, col).setValue(newHeaders[i]);
-          historySheet.getRange(1, col).setFontWeight('bold');
-        }
-      }
+      const startCol = Math.max(20, lastCol + 1);
+      const toAdd = newHeaders.slice(startCol - 20);
+      historySheet.getRange(1, startCol, 1, toAdd.length).setValues([toAdd]).setFontWeight('bold');
     }
   }
   
@@ -950,17 +946,18 @@ function consolidateCatalogCategories() {
   const categoriesToMerge = ['Gloves', 'Performance Gear', 'Aprons', 'Belts', 'Hair Accessories', 'Other'];
   const newCategory = 'Accessories';
   
-  const data = sheet.getRange(2, 3, sheet.getLastRow() - 1, 1).getValues(); // Column C = Category
+  const range = sheet.getRange(2, 3, sheet.getLastRow() - 1, 1); // Column C = Category
+  const data = range.getValues();
   let updated = 0;
-  
+
   for (let i = 0; i < data.length; i++) {
-    const currentCategory = data[i][0];
-    if (categoriesToMerge.includes(currentCategory)) {
-      sheet.getRange(i + 2, 3).setValue(newCategory);
+    if (categoriesToMerge.includes(data[i][0])) {
+      data[i][0] = newCategory;
       updated++;
     }
   }
-  
+  if (updated > 0) range.setValues(data);
+
   Logger.log('Updated ' + updated + ' items to "Accessories" category');
 }
 
@@ -1043,16 +1040,12 @@ function migrateUniformSheets() {
       }
     }
     
-    // Update Belt sizes if needed
-    for (let i = 2; i <= catalogSheet.getLastRow(); i++) {
-      const itemId = catalogSheet.getRange(i, 1).getValue();
-      if (itemId === 'BELT') {
-        const currentSizes = catalogSheet.getRange(i, 4).getValue();
-        if (currentSizes === 'S,M,L') {
-          catalogSheet.getRange(i, 4).setValue('S (28-32),M (32-36),L (36-40),XL (40-44)');
-          Logger.log('Updated Belt sizes');
-        }
-      }
+    // Update Belt sizes if needed (single read, single targeted write)
+    const catRows = catalogSheet.getRange(2, 1, Math.max(1, catalogSheet.getLastRow() - 1), 4).getValues();
+    const beltIdx = catRows.findIndex(r => r[0] === 'BELT' && r[3] === 'S,M,L');
+    if (beltIdx >= 0) {
+      catalogSheet.getRange(beltIdx + 2, 4).setValue('S (28-32),M (32-36),L (36-40),XL (40-44)');
+      Logger.log('Updated Belt sizes');
     }
   }
   
@@ -1077,18 +1070,17 @@ function migrateUniformItemsForReceiving() {
   const headers = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
   Logger.log('Current headers: ' + headers.join(', '));
   
-  // Add new columns if they don't exist
+  // Add new columns if they don't exist — one write for all missing headers
   const newColumns = ['Item_Received', 'Item_Received_Date', 'Item_Received_By', 'Item_Status'];
-  let columnsAdded = 0;
-  
-  for (const colName of newColumns) {
-    if (!headers.includes(colName)) {
-      const newCol = itemsSheet.getLastColumn() + 1;
-      itemsSheet.getRange(1, newCol).setValue(colName);
-      itemsSheet.getRange(1, newCol).setFontWeight('bold');
-      itemsSheet.setColumnWidth(newCol, colName === 'Item_Received_By' ? 150 : 120);
-      columnsAdded++;
-      Logger.log('Added column: ' + colName);
+  const missing = newColumns.filter(c => !headers.includes(c));
+  const columnsAdded = missing.length;
+
+  if (missing.length > 0) {
+    const startCol = itemsSheet.getLastColumn() + 1;
+    itemsSheet.getRange(1, startCol, 1, missing.length).setValues([missing]).setFontWeight('bold');
+    for (let i = 0; i < missing.length; i++) {
+      itemsSheet.setColumnWidth(startCol + i, missing[i] === 'Item_Received_By' ? 150 : 120);
+      Logger.log('Added column: ' + missing[i]);
     }
   }
   
@@ -1121,31 +1113,33 @@ function migrateUniformItemsForReceiving() {
   const receivedByCol = updatedHeaders.indexOf('Item_Received_By') + 1;
   const statusCol = updatedHeaders.indexOf('Item_Status') + 1;
   
-  // Iterate through all items and set values based on order status
+  // Build both columns in memory, then two writes total
+  // (Item_Received_Date / Item_Received_By stay blank for existing items)
   const itemsData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, 2).getValues();
-  
+  const receivedVals = [];
+  const statusVals = [];
+
   for (let i = 0; i < itemsData.length; i++) {
-    const rowNum = i + 2;
     const orderId = itemsData[i][1]; // Order_ID is column B (index 1)
     const orderStatus = orderStatusMap[orderId] || 'Pending';
-    
+
     let itemReceived = false;
     let itemStatus = 'Pending';
-    
-    // Determine item status based on order status
+
     if (orderStatus === 'Active' || orderStatus === 'Completed' || orderStatus === 'Store Paid') {
       itemReceived = true;
       itemStatus = 'Received';
     } else if (orderStatus === 'Cancelled') {
-      itemReceived = false;
       itemStatus = 'Cancelled';
     }
     // Pending orders keep items as Pending
-    
-    itemsSheet.getRange(rowNum, receivedCol).setValue(itemReceived);
-    itemsSheet.getRange(rowNum, statusCol).setValue(itemStatus);
-    // Leave Item_Received_Date and Item_Received_By blank for existing items
+
+    receivedVals.push([itemReceived]);
+    statusVals.push([itemStatus]);
   }
+
+  itemsSheet.getRange(2, receivedCol, receivedVals.length, 1).setValues(receivedVals);
+  itemsSheet.getRange(2, statusCol, statusVals.length, 1).setValues(statusVals);
   
   Logger.log('Migration complete! Processed ' + itemsData.length + ' items');
 }
@@ -1293,7 +1287,7 @@ function addManagerReceivingPasscode() {
   }
   
   const data = sheet.getDataRange().getValues();
-  
+
   // Check if setting already exists
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === 'manager_receiving_passcode') {
@@ -1301,11 +1295,9 @@ function addManagerReceivingPasscode() {
       return;
     }
   }
-  
-  // Add the setting
-  const now = new Date();
-  sheet.appendRow(['manager_receiving_passcode', '03177', 'Passcode for manager receiving section on uniform request form', now]);
-  Logger.log('Added manager_receiving_passcode setting with default value 03177');
+
+  // Seed a random code (emailed to admins) — never a hardcoded default that ships in source
+  getOrSeedPasscode_('manager_receiving_passcode', 'Passcode for manager receiving section on uniform request form');
 }
 
 // ============================================================================
@@ -1322,8 +1314,8 @@ function getManagerReceivingPasscode(token) {
 }
 
 function getManagerReceivingPasscode_() {
-  const passcode = getPayrollSetting('manager_receiving_passcode');
-  return passcode || '03177'; // Default fallback
+  return getOrSeedPasscode_('manager_receiving_passcode',
+    'Passcode for manager receiving section on uniform request form');
 }
 
 /**
@@ -1344,7 +1336,7 @@ function validateManagerPasscode(inputCode) {
   }
   
   // Handle case where spreadsheet stored number without leading zeros
-  // E.g., user types "03177" but spreadsheet has 3177 (as number)
+  // E.g., user types "01234" but spreadsheet has 1234 (as number)
   // Compare numeric values if both are numeric
   const inputNum = parseInt(normalizedInput, 10);
   const correctNum = parseInt(normalizedCorrect, 10);
@@ -1383,12 +1375,14 @@ function setManagerReceivingPasscode(token, newPasscode) {
 // no per-user Google auth to gate on. The admin dashboard is therefore protected by
 // a shared access passcode (separate from the manager receiving passcode). Operators
 // change it on the Settings page.
+//
+// No default passcode ships in source. If a passcode has never been configured,
+// a random one is generated on first use, stored in Payroll_Settings + Script
+// Properties, and emailed to the configured admins.
 // ============================================================================
 
-const DEFAULT_ADMIN_ACCESS_PASSCODE = '05894';
-
 /**
- * Gets the admin access passcode (falls back to the seeded default).
+ * Gets the admin access passcode.
  * @returns {string}
  */
 function getAdminAccessPasscode(token) {
@@ -1397,8 +1391,42 @@ function getAdminAccessPasscode(token) {
 }
 
 function getAdminAccessPasscode_() {
-  const passcode = getPayrollSetting('admin_access_passcode');
-  return passcode || DEFAULT_ADMIN_ACCESS_PASSCODE;
+  return getOrSeedPasscode_('admin_access_passcode', 'Shared passcode for admin dashboard access');
+}
+
+/**
+ * Reads a passcode setting; on first use seeds a random one (sheet + Script
+ * Properties) and emails it to admins. Never returns a source-hardcoded value.
+ */
+function getOrSeedPasscode_(settingKey, description) {
+  const stored = getPayrollSetting(settingKey);
+  if (stored) return String(stored);
+
+  const props = PropertiesService.getScriptProperties();
+  const propVal = props.getProperty(settingKey);
+  if (propVal) return propVal;
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    // Re-check under the lock so concurrent first calls seed exactly once
+    const recheck = getPayrollSetting(settingKey) || props.getProperty(settingKey);
+    if (recheck) return String(recheck);
+
+    const generated = String(Math.floor(10000 + Math.random() * 90000));
+    props.setProperty(settingKey, generated);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Payroll_Settings');
+    if (sheet) {
+      sheet.appendRow([settingKey, generated, description, new Date()]);
+    }
+    sendAlertEmail_('New passcode generated for ' + settingKey,
+      'No ' + settingKey + ' was configured, so one was generated: ' + generated +
+      '\nYou can change it any time on the Settings page.');
+    return generated;
+  } finally {
+    try { lock.releaseLock(); } catch (e) { /* lock already released */ }
+  }
 }
 
 /**
@@ -1616,15 +1644,23 @@ function applySettingsUpdate_(newSettings) {
     }
     
     const data = sheet.getDataRange().getValues();
-    
-    // Update each setting
-    for (let i = 1; i < data.length; i++) {
-      const key = data[i][0];
-      if (newSettings[key] !== undefined) {
-        sheet.getRange(i + 1, 2).setValue(newSettings[key]);
+
+    // Update settings in memory, then one write for the whole value column
+    if (data.length > 1) {
+      const vals = [];
+      let changed = false;
+      for (let i = 1; i < data.length; i++) {
+        const key = data[i][0];
+        if (newSettings[key] !== undefined) {
+          vals.push([newSettings[key]]);
+          changed = true;
+        } else {
+          vals.push([data[i][1]]);
+        }
       }
+      if (changed) sheet.getRange(2, 2, vals.length, 1).setValues(vals);
     }
-    
+
     CacheService.getScriptCache().remove('settings_v1');
     return { success: true };
   } catch (error) {
@@ -1651,15 +1687,21 @@ function saveSettings(token, newSettings) {
     
     const data = sheet.getDataRange().getValues();
     const existingKeys = new Set();
-    
-    // Update existing settings
+
+    // Update existing settings in memory, then one write for the value column
+    const vals = [];
+    let changed = false;
     for (let i = 1; i < data.length; i++) {
       const key = data[i][0];
       existingKeys.add(key);
       if (newSettings[key] !== undefined) {
-        sheet.getRange(i + 1, 2).setValue(newSettings[key]);
+        vals.push([newSettings[key]]);
+        changed = true;
+      } else {
+        vals.push([data[i][1]]);
       }
     }
+    if (changed) sheet.getRange(2, 2, vals.length, 1).setValues(vals);
     
     // Add new settings that don't exist yet
     const newRows = [];
@@ -1777,19 +1819,26 @@ function saveSizeConfiguration(token, config) {
       }
     }
     
-    // Update or add each config key
+    // Update in memory / collect new rows, then at most two writes
+    const vals = [];
+    for (let i = 1; i < data.length; i++) vals.push([data[i][1]]);
+    let changed = false;
+    const newRows = [];
+
     for (const key in config) {
       const settingsKey = 'sizes_' + key;
       const value = JSON.stringify(config[key]);
-      
+
       if (existingRows[settingsKey]) {
-        // Update existing row
-        sheet.getRange(existingRows[settingsKey], 2).setValue(value);
+        vals[existingRows[settingsKey] - 2][0] = value;
+        changed = true;
       } else {
-        // Add new row
-        sheet.appendRow([settingsKey, value]);
+        newRows.push([settingsKey, value]);
       }
     }
+
+    if (changed && vals.length > 0) sheet.getRange(2, 2, vals.length, 1).setValues(vals);
+    if (newRows.length > 0) sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 2).setValues(newRows);
     
     // Log the change
     logActivity('UPDATE', 'SETTINGS', 'Uniform size configuration updated', '');
@@ -2131,14 +2180,13 @@ function updateEmployeeStatus(employeeId, status) {
     }
     
     const data = empSheet.getRange(2, 1, empSheet.getLastRow() - 1, 1).getValues();
-    
-    for (let i = 0; i < data.length; i++) {
-      if (data[i][0] === employeeId) {
-        empSheet.getRange(i + 2, 5).setValue(status); // Column E = Status
-        return { success: true };
-      }
+    const idx = data.findIndex(r => r[0] === employeeId);
+
+    if (idx >= 0) {
+      empSheet.getRange(idx + 2, 5).setValue(status); // Column E = Status
+      return { success: true };
     }
-    
+
     return { success: false, error: 'Employee not found' };
     
   } catch (error) {
@@ -2472,7 +2520,7 @@ function addNewEmployee(employeeData) {
   } finally {
     try {
       lock.releaseLock();
-    } catch (e) {}
+    } catch (e) { /* lock already released or expired — nothing to clean up */ }
   }
 }
 
@@ -2719,42 +2767,49 @@ function mergeEmployees(token, sourceKey, targetKey, keepName) {
     // orphaned on the now-deleted source employee.
     const sourceMatchKey = generateMatchKey(sourceEmp.fullName);
 
-    // Update Uniform_Orders (Column C = Employee_Name)
+    // Update Uniform_Orders (Column C = Employee_Name) — mutate in memory, one write.
+    // Safe to write the whole block back: we hold the document lock.
     const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
     if (ordersSheet && ordersSheet.getLastRow() >= 2) {
-      const ordersData = ordersSheet.getRange(2, 3, ordersSheet.getLastRow() - 1, 1).getValues();
+      const ordersRange = ordersSheet.getRange(2, 3, ordersSheet.getLastRow() - 1, 1);
+      const ordersData = ordersRange.getValues();
       for (let i = 0; i < ordersData.length; i++) {
         if (generateMatchKey(ordersData[i][0] || '') === sourceMatchKey) {
-          ordersSheet.getRange(i + 2, 3).setValue(finalName);
+          ordersData[i][0] = finalName;
           uniformOrdersUpdated++;
         }
       }
+      if (uniformOrdersUpdated > 0) ordersRange.setValues(ordersData);
     }
-    
-    // Update PTO (Column B = Employee_Name, need to check Match_Key too)
+
+    // Update PTO (Column B = Employee_Name)
     const ptoSheet = ss.getSheetByName(SHEET_NAMES.PTO);
     if (ptoSheet && ptoSheet.getLastRow() >= 2) {
-      const ptoData = ptoSheet.getRange(2, 2, ptoSheet.getLastRow() - 1, 1).getValues();
+      const ptoRange = ptoSheet.getRange(2, 2, ptoSheet.getLastRow() - 1, 1);
+      const ptoData = ptoRange.getValues();
       for (let i = 0; i < ptoData.length; i++) {
         if (generateMatchKey(ptoData[i][0] || '') === sourceMatchKey) {
-          ptoSheet.getRange(i + 2, 2).setValue(finalName);
+          ptoData[i][0] = finalName;
           ptoRecordsUpdated++;
         }
       }
+      if (ptoRecordsUpdated > 0) ptoRange.setValues(ptoData);
     }
-    
+
     // Update OT_History (Column B = Name, Column C = Match_Key)
     const historySheet = ss.getSheetByName(SHEET_NAMES.OT_HISTORY);
     if (historySheet && historySheet.getLastRow() >= 2) {
-      const historyData = historySheet.getRange(2, 2, historySheet.getLastRow() - 1, 2).getValues();
+      const historyRange = historySheet.getRange(2, 2, historySheet.getLastRow() - 1, 2);
+      const historyData = historyRange.getValues();
       for (let i = 0; i < historyData.length; i++) {
         const matchKey = (historyData[i][1] || '').toLowerCase();
         if (matchKey === sourceKeyLower) {
-          historySheet.getRange(i + 2, 2).setValue(finalName);       // Name
-          historySheet.getRange(i + 2, 3).setValue(finalMatchKey);   // Match_Key
+          historyData[i][0] = finalName;       // Name
+          historyData[i][1] = finalMatchKey;   // Match_Key
           otHistoryUpdated++;
         }
       }
+      if (otHistoryUpdated > 0) historyRange.setValues(historyData);
     }
     
     // Delete source employee from Employees sheet
@@ -2773,13 +2828,9 @@ function mergeEmployees(token, sourceKey, targetKey, keepName) {
     // Update target employee name if keeping source name
     if (keepName === 'source') {
       const empData = empSheet.getRange(2, 2, empSheet.getLastRow() - 1, 2).getValues();
-      for (let i = 0; i < empData.length; i++) {
-        const matchKey = (empData[i][1] || '').toLowerCase();
-        if (matchKey === targetKeyLower) {
-          empSheet.getRange(i + 2, 2).setValue(finalName);
-          empSheet.getRange(i + 2, 3).setValue(finalMatchKey);
-          break;
-        }
+      const tIdx = empData.findIndex(r => (r[1] || '').toLowerCase() === targetKeyLower);
+      if (tIdx >= 0) {
+        empSheet.getRange(tIdx + 2, 2, 1, 2).setValues([[finalName, finalMatchKey]]); // B: name, C: match key
       }
     }
     
@@ -3124,12 +3175,13 @@ function updateEmployeeStatuses(currentPeriodEnd, activeMatchKeys) {
       }
     }
     
-    // Apply updates
-    for (const update of updates) {
-      empSheet.getRange(update.row, 5).setValue(update.status);
-    }
-    
+    // Apply updates — one write for the whole status column
     if (updates.length > 0) {
+      const statusVals = data.map(r => [r[4]]);
+      for (const update of updates) {
+        statusVals[update.row - 2][0] = update.status;
+      }
+      empSheet.getRange(2, 5, statusVals.length, 1).setValues(statusVals);
       console.log(`Updated ${updates.length} employees to Inactive status`);
     }
     
@@ -3203,11 +3255,14 @@ function backfillEmployeeIds() {
       }
     }
     
-    // Batch update
-    for (const update of updates) {
-      historySheet.getRange(update.row, 19).setValue(update.id);
+    // Batch update — one write for the whole Employee_ID column
+    if (updates.length > 0) {
+      for (const update of updates) {
+        employeeIds[update.row - 2][0] = update.id;
+      }
+      historySheet.getRange(2, 19, employeeIds.length, 1).setValues(employeeIds);
     }
-    
+
     console.log(`Backfilled ${updated} Employee_IDs in OT_History`);
     
     return { success: true, updated, message: `Updated ${updated} records` };
@@ -3435,12 +3490,11 @@ function submitEmployeeUniformRequest(orderData) {
     CacheService.getScriptCache().remove('search_orders_v1_100');
     CacheService.getScriptCache().remove('search_orders_v1_all');
     
-    // Create line item rows (9 columns)
-    const lineRows = enrichedItems.map(item => {
-      const lineId = generateLineId();
-      
+    // Create line item rows (9 columns) — line IDs reserved in one counter round-trip
+    const lineIds = generateLineIds_(enrichedItems.length);
+    const lineRows = enrichedItems.map((item, idx) => {
       return [
-        lineId,
+        lineIds[idx],
         orderId,
         item.itemId,
         item.itemName,
@@ -3487,6 +3541,12 @@ function submitEmployeeUniformRequest(orderData) {
  * @returns {Object} Result
  */
 function cancelUniformOrder(token, orderId) {
+  const lock = LockService.getDocumentLock();
+  try {
+    lock.waitLock(10000);
+  } catch (lockErr) {
+    return { success: false, error: 'System busy — please try again.' };
+  }
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
@@ -3539,17 +3599,25 @@ function cancelUniformOrder(token, orderId) {
     // Update order status to Cancelled
     ordersSheet.getRange(orderRowNum, statusColIdx + 1).setValue('Cancelled');
     
-    // Also cancel all items in this order
+    // Also cancel all items in this order — one write for the status column
     if (itemsSheet && itemsSheet.getLastRow() > 1) {
       const itemsData = itemsSheet.getDataRange().getValues();
       const itemHeaders = itemsData[0];
       const itemStatusCol = itemHeaders.indexOf('Item_Status') + 1;
-      
+
       if (itemStatusCol > 0) {
+        let cancelled = 0;
+        const statusVals = [];
         for (let i = 1; i < itemsData.length; i++) {
           if (itemsData[i][1] === orderId) { // Order_ID column
-            itemsSheet.getRange(i + 1, itemStatusCol).setValue('Cancelled');
+            statusVals.push(['Cancelled']);
+            cancelled++;
+          } else {
+            statusVals.push([itemsData[i][itemStatusCol - 1]]);
           }
+        }
+        if (cancelled > 0 && statusVals.length > 0) {
+          itemsSheet.getRange(2, itemStatusCol, statusVals.length, 1).setValues(statusVals);
         }
       }
     }
@@ -3566,6 +3634,8 @@ function cancelUniformOrder(token, orderId) {
   } catch (error) {
     console.error('Error cancelling uniform order:', error);
     return { success: false, error: error.message };
+  } finally {
+    try { lock.releaseLock(); } catch (e) { /* lock already released */ }
   }
 }
 
@@ -3983,12 +4053,21 @@ function generateOrderId() {
  * @returns {string} New line ID in format LINE-NNNNNN
  */
 function generateLineId() {
+  return generateLineIds_(1)[0];
+}
+
+/**
+ * Atomically reserves `count` sequential line IDs under ONE lock/flush cycle —
+ * a 5-item order costs one counter round-trip instead of five.
+ * @returns {Array<string>} Line IDs in format LINE-NNNNNN
+ */
+function generateLineIds_(count) {
   const lock = LockService.getScriptLock();
-  
+
   try {
     // Wait up to 10 seconds to acquire lock
     lock.waitLock(10000);
-    
+
     const sheet = getOrCreateCountersSheet();
 
     // Find the Line_ID_Counter row by name (scan all rows, don't assume position)
@@ -4008,21 +4087,24 @@ function generateLineId() {
       sheet.getRange(counterRow, 3).setNumberFormat('yyyy-mm-dd hh:mm:ss');
     }
 
-    // Get current value and increment
+    // Reserve the whole block in one increment
     const currentValue = parseInt(sheet.getRange(counterRow, 2).getValue()) || 0;
-    const newValue = currentValue + 1;
-    
+    const newValue = currentValue + count;
+
     // Write back the new value with timestamp
-    sheet.getRange(counterRow, 2).setValue(newValue);
-    sheet.getRange(counterRow, 3).setValue(new Date());
-    
+    sheet.getRange(counterRow, 2, 1, 2).setValues([[newValue, new Date()]]);
+
     // Force the write to complete before releasing lock
     SpreadsheetApp.flush();
-    
-    return 'LINE-' + String(newValue).padStart(6, '0');
-    
+
+    const ids = [];
+    for (let n = currentValue + 1; n <= newValue; n++) {
+      ids.push('LINE-' + String(n).padStart(6, '0'));
+    }
+    return ids;
+
   } catch (e) {
-    Logger.log('Error in generateLineId: ' + e.message);
+    Logger.log('Error in generateLineIds_: ' + e.message);
     throw new Error('Failed to generate line ID. Please try again.');
   } finally {
     lock.releaseLock();
@@ -4229,7 +4311,7 @@ function createUniformOrder(token, orderData) {
   } finally {
     try {
       lock.releaseLock();
-    } catch (e) {}
+    } catch (e) { /* lock already released or expired — nothing to clean up */ }
   }
 }
 
@@ -4452,7 +4534,7 @@ function updateUniformPaymentPlan(token, orderId, newPlan) {
   } finally {
     try {
       lock.releaseLock();
-    } catch (e) {}
+    } catch (e) { /* lock already released or expired — nothing to clean up */ }
   }
 }
 
@@ -4525,33 +4607,44 @@ function markOrderReceived(token, orderId, receivedDateOverride = null) {
  */
 function bulkActivateOrders(token, orderIds) {
   requireManagerAccess_(token);
+  const lock = LockService.getDocumentLock();
+  try {
+    lock.waitLock(10000);
+  } catch (lockErr) {
+    return { success: false, error: 'System busy — another update is in progress. Please try again.' };
+  }
   try {
     if (!orderIds || orderIds.length === 0) {
       return { success: false, error: 'No orders provided' };
     }
-    
+
     console.log('Bulk activating orders:', orderIds);
-    
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
     const itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
-    
+
     if (!ordersSheet || !itemsSheet) {
       return { success: false, error: 'Required sheets not found' };
     }
-    
+
     const now = new Date();
     // Calculate first deduction date based on which pay period orders are received in
     const firstDeductionDate = getPaydayForReceivedDate(now);
-    
+
+    // Read both sheets ONCE — these arrays serve the undo snapshots, the status
+    // checks, and (mutated in memory) the write-back at the end.
+    const ordersRaw = ordersSheet.getDataRange().getValues();
+    const itemsData = itemsSheet.getDataRange().getValues();
+
     // CHUNK 19: Collect before state for all orders being activated
     const beforeStateOrders = [];
     for (const oid of orderIds) {
-      const state = getOrderStateForUndo(oid);
+      const state = getOrderStateForUndo(oid, ordersRaw, itemsData);
       if (state) beforeStateOrders.push(state);
     }
     const beforeState = { orders: beforeStateOrders };
-    
+
     // Get all orders — build Map for O(1) lookup
     const allOrders = getUniformOrders();
     const orderMap = {};
@@ -4560,9 +4653,9 @@ function bulkActivateOrders(token, orderIds) {
     let totalAmount = 0;
     let cashTotal = 0;
     let deductionTotal = 0;
+    let itemsTouched = false;
+    let ordersTouched = false;
 
-    // Read items sheet once before the loop
-    const itemsData = itemsSheet.getDataRange().getValues();
     const itemHeaders = itemsData[0];
     const receivedColIdx = itemHeaders.indexOf('Item_Received');
     const receivedDateColIdx = itemHeaders.indexOf('Item_Received_Date');
@@ -4595,44 +4688,44 @@ function bulkActivateOrders(token, orderIds) {
       const isCashOrder = order.status === 'Pending - Cash';
       const isStorePaid = order.status === 'Store Paid';
       const row = order.rowIndex;
-      
-      // Mark all items as received for this order (using pre-built index)
+
+      // Calculate order total from items (excluding cancelled) BEFORE mutating
       const itemRows = itemRowsByOrder[orderId] || [];
-      for (const i of itemRows) {
-        const itemStatus = itemsData[i][statusColIdx];
-        if (itemStatus !== 'Cancelled') {
-          itemsSheet.getRange(i + 1, receivedColIdx + 1).setValue(true);
-          itemsSheet.getRange(i + 1, receivedDateColIdx + 1).setValue(now);
-          if (statusColIdx >= 0) {
-            itemsSheet.getRange(i + 1, statusColIdx + 1).setValue('Received');
-          }
-        }
-      }
-      
-      // Calculate order total from items (excluding cancelled)
       let orderTotal = 0;
       for (const i of itemRows) {
         if (itemsData[i][statusColIdx] !== 'Cancelled') {
           orderTotal += parseFloat(itemsData[i][7]) || 0;
         }
       }
-      
-      // Update the order status
+
+      // Mark all items as received for this order (in memory — written back once below)
+      for (const i of itemRows) {
+        if (itemsData[i][statusColIdx] !== 'Cancelled') {
+          itemsData[i][receivedColIdx] = true;
+          itemsData[i][receivedDateColIdx] = now;
+          if (statusColIdx >= 0) itemsData[i][statusColIdx] = 'Received';
+          itemsTouched = true;
+        }
+      }
+
+      // Update the order row (in memory — written back once below)
+      const orderRowArr = ordersRaw[row - 1];
       if (isCashOrder) {
         // Cash orders become "Completed" since they're paid in full
-        ordersSheet.getRange(row, 13).setValue('Completed');  // M: Status
-        ordersSheet.getRange(row, 10).setValue(1);            // J: Payments_Made
-        ordersSheet.getRange(row, 11).setValue(orderTotal);   // K: Amount_Paid
-        ordersSheet.getRange(row, 12).setValue(0);            // L: Amount_Remaining
+        orderRowArr[12] = 'Completed';  // M: Status
+        orderRowArr[9] = 1;             // J: Payments_Made
+        orderRowArr[10] = orderTotal;   // K: Amount_Paid
+        orderRowArr[11] = 0;            // L: Amount_Remaining
         cashTotal += orderTotal;
       } else {
         // Regular orders become "Active" for paycheck deductions
-        ordersSheet.getRange(row, 9).setValue(parseLocalDate_(firstDeductionDate));  // I: First_Deduction_Date
-        ordersSheet.getRange(row, 13).setValue('Active');                      // M: Status
+        orderRowArr[8] = parseLocalDate_(firstDeductionDate);  // I: First_Deduction_Date
+        orderRowArr[12] = 'Active';                            // M: Status
         deductionTotal += orderTotal;
       }
-      ordersSheet.getRange(row, 17).setValue(now);  // Q: Received_Date
-      
+      orderRowArr[16] = now;  // Q: Received_Date
+      ordersTouched = true;
+
       totalAmount += orderTotal;
       activatedOrders.push({
         orderId: orderId,
@@ -4648,13 +4741,32 @@ function bulkActivateOrders(token, orderIds) {
       );
     }
     
+    // Write everything back: one write per receiving column on the items sheet,
+    // one block (I-M) + one column (Q) on the orders sheet. This is what turns
+    // ~250 API calls for a 20-order activation into ~8.
+    if (itemsTouched && itemsData.length > 1) {
+      for (const colIdx of [receivedColIdx, receivedDateColIdx, statusColIdx]) {
+        if (colIdx < 0) continue;
+        const colVals = itemsData.slice(1).map(r => [r[colIdx]]);
+        itemsSheet.getRange(2, colIdx + 1, colVals.length, 1).setValues(colVals);
+      }
+    }
+    if (ordersTouched && ordersRaw.length > 1) {
+      const blockIM = ordersRaw.slice(1).map(r => [r[8], r[9], r[10], r[11], r[12]]);
+      ordersSheet.getRange(2, 9, blockIM.length, 5).setValues(blockIM);
+      const colQ = ordersRaw.slice(1).map(r => [r[16]]);
+      ordersSheet.getRange(2, 17, colQ.length, 1).setValues(colQ);
+    }
+    SpreadsheetApp.flush();
+
     // Send confirmation email
     sendBulkActivationEmail(activatedOrders, totalAmount, cashTotal, deductionTotal, firstDeductionDate);
-    
-    // CHUNK 19: Save action state for undo
+
+    // CHUNK 19: Save action state for undo — the mutated in-memory arrays ARE the
+    // after state, so no re-reads are needed.
     const afterStateOrders = [];
     for (const activated of activatedOrders) {
-      const state = getOrderStateForUndo(activated.orderId);
+      const state = getOrderStateForUndo(activated.orderId, ordersRaw, itemsData);
       if (state) afterStateOrders.push(state);
     }
     const afterState = { orders: afterStateOrders };
@@ -4676,6 +4788,8 @@ function bulkActivateOrders(token, orderIds) {
   } catch (error) {
     console.error('Error in bulk activation:', error);
     return { success: false, error: error.message };
+  } finally {
+    try { lock.releaseLock(); } catch (e) { /* lock already released */ }
   }
 }
 
@@ -4880,13 +4994,9 @@ function repairFirstDeductionDates() {
       
       // Check if repair is needed
       if (currentDateStr !== correctPayday) {
-        // Update the cell
-        const rowNum = i + 1; // 1-indexed for sheet
-        const colNum = cols.firstDeduction + 1; // 1-indexed for sheet
-        
-        // Parse the correct date and set it
-        sheet.getRange(rowNum, colNum).setValue(parseLocalDate_(correctPayday));
-        
+        // Fix in memory; the whole column is written back once below
+        row[cols.firstDeduction] = parseLocalDate_(correctPayday);
+
         repairs.push({
           orderId,
           receivedDate: receivedDate.toISOString ? receivedDate.toISOString().split('T')[0] : String(receivedDate),
@@ -4894,6 +5004,12 @@ function repairFirstDeductionDates() {
           newDate: correctPayday
         });
       }
+    }
+
+    // One write for the whole First_Deduction_Date column
+    if (repairs.length > 0) {
+      const colVals = data.slice(1).map(r => [r[cols.firstDeduction]]);
+      sheet.getRange(2, cols.firstDeduction + 1, colVals.length, 1).setValues(colVals);
     }
     
     // Log results
@@ -5002,7 +5118,8 @@ function generateUniformFirstDeductionRepairReport(options = {}) {
       const reason = canUpdate ? 'Mismatch from received date' : 'Skipped: payments already recorded';
 
       if (applyChanges && canUpdate) {
-        ordersSheet.getRange(i + 1, cols.firstDeduction + 1).setValue(parseLocalDate_(expected));
+        // Fix in memory; the whole column is written back once below
+        row[cols.firstDeduction] = parseLocalDate_(expected);
         updated++;
       }
 
@@ -5022,6 +5139,12 @@ function generateUniformFirstDeductionRepairReport(options = {}) {
         reason
       ]);
     }
+  }
+
+  // One write for the whole First_Deduction_Date column
+  if (updated > 0) {
+    const colVals = data.slice(1).map(r => [r[cols.firstDeduction]]);
+    ordersSheet.getRange(2, cols.firstDeduction + 1, colVals.length, 1).setValues(colVals);
   }
 
   let reportSheet = ss.getSheetByName(reportName);
@@ -5296,21 +5419,27 @@ function getPendingOrdersForReceiving(location) {
  */
 function updateItemsReceivedStatus(token, updates, receivedBy) {
   requireManagerAccess_(token);
+  const lock = LockService.getDocumentLock();
+  try {
+    lock.waitLock(10000);
+  } catch (lockErr) {
+    return { success: false, error: 'System busy — another update is in progress. Please try again.' };
+  }
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
-    
+
     if (!itemsSheet || itemsSheet.getLastRow() < 2) {
       return { success: false, error: 'No items found' };
     }
-    
+
     // Get header row to find column indices
     const headers = itemsSheet.getRange(1, 1, 1, itemsSheet.getLastColumn()).getValues()[0];
     const receivedCol = headers.indexOf('Item_Received') + 1;
     const receivedDateCol = headers.indexOf('Item_Received_Date') + 1;
     const receivedByCol = headers.indexOf('Item_Received_By') + 1;
     const statusCol = headers.indexOf('Item_Status') + 1;
-    
+
     // Check for Received_Quantity column (add if missing)
     let receivedQtyCol = headers.indexOf('Received_Quantity') + 1;
     if (receivedQtyCol === 0) {
@@ -5319,59 +5448,69 @@ function updateItemsReceivedStatus(token, updates, receivedBy) {
       itemsSheet.getRange(1, lastCol + 1).setValue('Received_Quantity');
       receivedQtyCol = lastCol + 1;
     }
-    
+
     if (receivedCol === 0) {
       return { success: false, error: 'Item_Received column not found. Please run migration first.' };
     }
-    
-    // Get all items data
-    const itemsData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, 2).getValues();
+
+    // Read the sheet once, apply all updates in memory, then write each touched
+    // column back once (was up to 6 round-trips per item).
+    const numCols = Math.max(itemsSheet.getLastColumn(), receivedQtyCol);
+    const itemsData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, numCols).getValues();
+    const rowByLineId = {};
+    for (let i = 0; i < itemsData.length; i++) {
+      if (!(itemsData[i][0] in rowByLineId)) rowByLineId[itemsData[i][0]] = i;
+    }
+
     const now = new Date();
     let updatedCount = 0;
-    
+
     for (const update of updates) {
-      // Find the row for this lineId
-      let rowNum = -1;
-      for (let i = 0; i < itemsData.length; i++) {
-        if (itemsData[i][0] === update.lineId) {
-          rowNum = i + 2;
-          break;
-        }
-      }
-      
-      if (rowNum === -1) continue;
-      
-      // Update the item
-      itemsSheet.getRange(rowNum, receivedCol).setValue(update.received);
-      
+      const i = rowByLineId[update.lineId];
+      if (i === undefined) continue;
+      const row = itemsData[i];
+
+      row[receivedCol - 1] = update.received;
+
       // Store received quantity (for partial quantity support)
       if (receivedQtyCol > 0 && update.receivedQuantity !== undefined) {
-        itemsSheet.getRange(rowNum, receivedQtyCol).setValue(update.receivedQuantity);
+        row[receivedQtyCol - 1] = update.receivedQuantity;
       }
-      
+
       if (update.received) {
-        if (receivedDateCol > 0) itemsSheet.getRange(rowNum, receivedDateCol).setValue(now);
-        if (receivedByCol > 0) itemsSheet.getRange(rowNum, receivedByCol).setValue(receivedBy || 'Manager');
-        if (statusCol > 0) itemsSheet.getRange(rowNum, statusCol).setValue('Received');
+        if (receivedDateCol > 0) row[receivedDateCol - 1] = now;
+        if (receivedByCol > 0) row[receivedByCol - 1] = receivedBy || 'Manager';
+        if (statusCol > 0) row[statusCol - 1] = 'Received';
       } else {
         // If unmarking as received
-        if (receivedDateCol > 0) itemsSheet.getRange(rowNum, receivedDateCol).setValue('');
-        if (receivedByCol > 0) itemsSheet.getRange(rowNum, receivedByCol).setValue('');
-        if (statusCol > 0) itemsSheet.getRange(rowNum, statusCol).setValue('Pending');
+        if (receivedDateCol > 0) row[receivedDateCol - 1] = '';
+        if (receivedByCol > 0) row[receivedByCol - 1] = '';
+        if (statusCol > 0) row[statusCol - 1] = 'Pending';
       }
-      
+
       updatedCount++;
     }
-    
+
+    if (updatedCount > 0) {
+      for (const col of [receivedCol, receivedDateCol, receivedByCol, statusCol, receivedQtyCol]) {
+        if (col <= 0) continue;
+        const colVals = itemsData.map(r => [r[col - 1]]);
+        itemsSheet.getRange(2, col, colVals.length, 1).setValues(colVals);
+      }
+      SpreadsheetApp.flush();
+    }
+
     return {
       success: true,
       message: `Updated ${updatedCount} item(s)`,
       updatedCount: updatedCount
     };
-    
+
   } catch (error) {
     console.error('Error updating items received status:', error);
     return { success: false, error: error.message };
+  } finally {
+    try { lock.releaseLock(); } catch (e) { /* lock already released */ }
   }
 }
 
@@ -5826,6 +5965,12 @@ function resolveUniformItemCancellation(orderId, method) {
  */
 function activateOrderWithReceivedItems(token, orderId) {
   requireManagerAccess_(token);
+  const lock = LockService.getDocumentLock();
+  try {
+    lock.waitLock(10000);
+  } catch (lockErr) {
+    return { success: false, error: 'System busy — another update is in progress. Please try again.' };
+  }
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
@@ -5861,12 +6006,16 @@ function activateOrderWithReceivedItems(token, orderId) {
     const lineTotalCol = itemHeaders.indexOf('Line_Total') + 1;
     const receivedQtyCol = itemHeaders.indexOf('Received_Quantity') + 1;
     
-    // Get all item data and build map of lineId -> row data for O(1) lookup
+    // Get all item data and build maps of lineId -> row data / index for O(1) lookup
     const allItemData = itemsSheet.getRange(2, 1, itemsSheet.getLastRow() - 1, itemsSheet.getLastColumn()).getValues();
     const itemDataByLineId = {};
+    const itemRowIndexByLineId = {};
     for (let i = 0; i < allItemData.length; i++) {
       const lid = allItemData[i][lineIdCol - 1];
-      if (lid) itemDataByLineId[lid] = allItemData[i];
+      if (lid && !(lid in itemDataByLineId)) {
+        itemDataByLineId[lid] = allItemData[i];
+        itemRowIndexByLineId[lid] = i;
+      }
     }
     
     // Process items with partial quantity support
@@ -5979,16 +6128,12 @@ function activateOrderWithReceivedItems(token, orderId) {
       ordersSheet.getRange(orderRowNum, 11).setValue(newTotal);                 // K: Amount_Paid
     }
     
-    // Update quantity on partially received items (reduce to received qty only)
+    // Reduce quantity on partially received items (in memory — written back below)
     for (const item of partialItemsToSplit) {
-      for (let i = 0; i < allItemData.length; i++) {
-        if (allItemData[i][lineIdCol - 1] === item.lineId) {
-          const rowNum = i + 2;
-          if (quantityCol > 0) itemsSheet.getRange(rowNum, quantityCol).setValue(item.receivedQty);
-          if (lineTotalCol > 0) itemsSheet.getRange(rowNum, lineTotalCol).setValue(item.receivedAmount);
-          break;
-        }
-      }
+      const idx = itemRowIndexByLineId[item.lineId];
+      if (idx === undefined) continue;
+      if (quantityCol > 0) allItemData[idx][quantityCol - 1] = item.receivedQty;
+      if (lineTotalCol > 0) allItemData[idx][lineTotalCol - 1] = item.receivedAmount;
     }
     
     let newOrderId = null;
@@ -6016,7 +6161,7 @@ function activateOrderWithReceivedItems(token, orderId) {
         0,                                   // J: Payments_Made
         0,                                   // K: Amount_Paid
         totalUnreceivedAmount,               // L: Amount_Remaining
-        'Pending',                           // M: Status
+        isCashOrder ? 'Pending - Cash' : 'Pending', // M: Status (keep cash orders cash — never convert to deductions)
         `Split from ${orderId} - unreceived items`, // N: Notes
         'System',                            // O: Created_By
         now,                                 // P: Created_Date
@@ -6024,53 +6169,57 @@ function activateOrderWithReceivedItems(token, orderId) {
       ];
       
       ordersSheet.appendRow(newOrderRow);
-      
-      // Update fully unreceived items to point to the new order
+
+      // Point fully unreceived items at the new order (in memory — written back below)
       for (const item of itemsForNewOrder) {
-        for (let i = 0; i < allItemData.length; i++) {
-          if (allItemData[i][lineIdCol - 1] === item.lineId) {
-            itemsSheet.getRange(i + 2, orderIdCol).setValue(newOrderId);
-            break;
-          }
-        }
+        const idx = itemRowIndexByLineId[item.lineId];
+        if (idx !== undefined) allItemData[idx][orderIdCol - 1] = newOrderId;
       }
-      
-      // Create new line items for partial quantities (the unreceived portion)
+
+      // Create new line items for partial quantities (the unreceived portion) —
+      // collected and appended as one block
+      const itemReceivedCol = itemHeaders.indexOf('Item_Received');
+      const itemStatusCol = itemHeaders.indexOf('Item_Status');
+      const receivedDateCol = itemHeaders.indexOf('Item_Received_Date');
+      const receivedByCol = itemHeaders.indexOf('Item_Received_By');
+      const splitRows = [];
+
       for (const item of partialItemsToSplit) {
-        const newLineId = 'LINE-' + Utilities.getUuid().substring(0, 8).toUpperCase();
-        
-        // Find original item row to copy data
-        let origRow = null;
-        for (let i = 0; i < allItemData.length; i++) {
-          if (allItemData[i][lineIdCol - 1] === item.lineId) {
-            origRow = allItemData[i];
-            break;
-          }
-        }
-        
-        if (origRow) {
-          // Create new row with unreceived quantity
-          const newItemRow = [...origRow];
-          newItemRow[lineIdCol - 1] = newLineId;                     // New Line_ID
-          newItemRow[orderIdCol - 1] = newOrderId;                   // New Order_ID
-          if (quantityCol > 0) newItemRow[quantityCol - 1] = item.unreceivedQty;
-          if (lineTotalCol > 0) newItemRow[lineTotalCol - 1] = item.unreceivedAmount;
-          
-          // Reset received status for the new item
-          const itemReceivedCol = itemHeaders.indexOf('Item_Received');
-          const itemStatusCol = itemHeaders.indexOf('Item_Status');
-          const receivedDateCol = itemHeaders.indexOf('Item_Received_Date');
-          const receivedByCol = itemHeaders.indexOf('Item_Received_By');
-          
-          if (itemReceivedCol >= 0) newItemRow[itemReceivedCol] = false;
-          if (itemStatusCol >= 0) newItemRow[itemStatusCol] = 'Pending';
-          if (receivedDateCol >= 0) newItemRow[receivedDateCol] = '';
-          if (receivedByCol >= 0) newItemRow[receivedByCol] = '';
-          if (receivedQtyCol > 0) newItemRow[receivedQtyCol - 1] = '';
-          
-          itemsSheet.appendRow(newItemRow);
-        }
+        const idx = itemRowIndexByLineId[item.lineId];
+        if (idx === undefined) continue;
+
+        // Create new row with unreceived quantity (quantity/lineTotal are
+        // overwritten below, so copying the already-mutated row is safe)
+        const newItemRow = [...allItemData[idx]];
+        newItemRow[lineIdCol - 1] = 'LINE-' + Utilities.getUuid().substring(0, 8).toUpperCase();
+        newItemRow[orderIdCol - 1] = newOrderId;
+        if (quantityCol > 0) newItemRow[quantityCol - 1] = item.unreceivedQty;
+        if (lineTotalCol > 0) newItemRow[lineTotalCol - 1] = item.unreceivedAmount;
+
+        // Reset received status for the new item
+        if (itemReceivedCol >= 0) newItemRow[itemReceivedCol] = false;
+        if (itemStatusCol >= 0) newItemRow[itemStatusCol] = 'Pending';
+        if (receivedDateCol >= 0) newItemRow[receivedDateCol] = '';
+        if (receivedByCol >= 0) newItemRow[receivedByCol] = '';
+        if (receivedQtyCol > 0) newItemRow[receivedQtyCol - 1] = '';
+
+        splitRows.push(newItemRow);
       }
+
+      // Write mutated columns back (one write per touched column), then append
+      // the split rows as a single block
+      const colsToWrite = [];
+      if (partialItemsToSplit.length > 0 && quantityCol > 0) colsToWrite.push(quantityCol);
+      if (partialItemsToSplit.length > 0 && lineTotalCol > 0) colsToWrite.push(lineTotalCol);
+      if (itemsForNewOrder.length > 0 && orderIdCol > 0) colsToWrite.push(orderIdCol);
+      for (const col of colsToWrite) {
+        const colVals = allItemData.map(r => [r[col - 1]]);
+        itemsSheet.getRange(2, col, colVals.length, 1).setValues(colVals);
+      }
+      if (splitRows.length > 0) {
+        itemsSheet.getRange(itemsSheet.getLastRow() + 1, 1, splitRows.length, splitRows[0].length).setValues(splitRows);
+      }
+      SpreadsheetApp.flush();
       
       const totalUnreceivedUnits = itemsForNewOrder.reduce((sum, i) => sum + (i.quantity || 1), 0) 
                                  + partialItemsToSplit.reduce((sum, i) => sum + i.unreceivedQty, 0);
@@ -6102,6 +6251,8 @@ function activateOrderWithReceivedItems(token, orderId) {
   } catch (error) {
     console.error('Error activating order with received items:', error);
     return { success: false, error: error.message };
+  } finally {
+    try { lock.releaseLock(); } catch (e) { /* lock already released */ }
   }
 }
 
@@ -6114,6 +6265,12 @@ function activateOrderWithReceivedItems(token, orderId) {
  */
 function activateOrderAsCashPayment(token, orderId, receivedData) {
   requireManagerAccess_(token);
+  const lock = LockService.getDocumentLock();
+  try {
+    lock.waitLock(10000);
+  } catch (lockErr) {
+    return { success: false, error: 'System busy — another update is in progress. Please try again.' };
+  }
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
@@ -6212,33 +6369,45 @@ function activateOrderAsCashPayment(token, orderId, receivedData) {
     // Update the original order to "Store Paid" status (cash payment = no deductions)
     ordersSheet.getRange(orderRowNum, 6).setValue(newTotal);                // F: Total_Amount
     ordersSheet.getRange(orderRowNum, 8).setValue(0);                       // H: Amount_Per_Paycheck (no deductions)
-    ordersSheet.getRange(orderRowNum, 10).setValue(1);                      // J: Payments_Made (paid in full via cash)
-    ordersSheet.getRange(orderRowNum, 11).setValue(newTotal);               // K: Amount_Paid
-    ordersSheet.getRange(orderRowNum, 12).setValue(0);                      // L: Amount_Remaining
-    ordersSheet.getRange(orderRowNum, 13).setValue('Store Paid');           // M: Status
+    ordersSheet.getRange(orderRowNum, 10, 1, 4).setValues([[1, newTotal, 0, 'Store Paid']]); // J-M: paid in full via cash
     ordersSheet.getRange(orderRowNum, 17).setValue(now);                    // Q: Received_Date
-    
-    // Update item statuses
+
+    // Update item statuses (in memory — written back below, one write per column)
+    let anyReceived = false;
+    let anyPartial = false;
     for (let i = 0; i < allItemData.length; i++) {
-      const lineId = allItemData[i][lineIdCol - 1];
+      const row = allItemData[i];
+      const lineId = row[lineIdCol - 1];
       const receivedQty = receivedMap[lineId];
-      
+
       if (receivedQty !== undefined && receivedQty > 0) {
-        const rowNum = i + 2;
-        if (receivedCol > 0) itemsSheet.getRange(rowNum, receivedCol).setValue(true);
-        if (receivedDateCol > 0) itemsSheet.getRange(rowNum, receivedDateCol).setValue(now);
-        if (receivedByCol > 0) itemsSheet.getRange(rowNum, receivedByCol).setValue('Manager (Cash)');
-        if (statusCol > 0) itemsSheet.getRange(rowNum, statusCol).setValue('Received');
-        if (receivedQtyCol > 0) itemsSheet.getRange(rowNum, receivedQtyCol).setValue(receivedQty);
-        
-        // Update quantity if partial
-        const orderedQty = allItemData[i][quantityCol - 1] || 1;
+        if (receivedCol > 0) row[receivedCol - 1] = true;
+        if (receivedDateCol > 0) row[receivedDateCol - 1] = now;
+        if (receivedByCol > 0) row[receivedByCol - 1] = 'Manager (Cash)';
+        if (statusCol > 0) row[statusCol - 1] = 'Received';
+        if (receivedQtyCol > 0) row[receivedQtyCol - 1] = receivedQty;
+        anyReceived = true;
+
+        // Reduce quantity if partial (unit price from the pre-mutation values)
+        const orderedQty = row[quantityCol - 1] || 1;
         if (receivedQty < orderedQty && quantityCol > 0) {
-          itemsSheet.getRange(rowNum, quantityCol).setValue(receivedQty);
-          const unitPrice = allItemData[i][lineTotalCol - 1] / orderedQty;
-          if (lineTotalCol > 0) itemsSheet.getRange(rowNum, lineTotalCol).setValue(receivedQty * unitPrice);
+          const unitPrice = row[lineTotalCol - 1] / orderedQty;
+          row[quantityCol - 1] = receivedQty;
+          if (lineTotalCol > 0) row[lineTotalCol - 1] = receivedQty * unitPrice;
+          anyPartial = true;
         }
       }
+    }
+
+    if (anyReceived) {
+      const cols = [receivedCol, receivedDateCol, receivedByCol, statusCol, receivedQtyCol];
+      if (anyPartial) cols.push(quantityCol, lineTotalCol);
+      for (const col of cols) {
+        if (col <= 0) continue;
+        const colVals = allItemData.map(r => [r[col - 1]]);
+        itemsSheet.getRange(2, col, colVals.length, 1).setValues(colVals);
+      }
+      SpreadsheetApp.flush();
     }
     
     // If there are unreceived items, create a new pending order for them
@@ -6260,7 +6429,9 @@ function activateOrderAsCashPayment(token, orderId, receivedData) {
         0,
         0,
         totalUnreceivedAmount,
-        'Pending',
+        // Employee's original payment choice carries over to the remainder:
+        // cash orders stay cash, deduction orders stay deduction.
+        order.status === 'Pending - Cash' ? 'Pending - Cash' : 'Pending',
         order.notes ? `Split from ${orderId}. ${order.notes}` : `Split from ${orderId}`,
         '',
         '',
@@ -6269,24 +6440,29 @@ function activateOrderAsCashPayment(token, orderId, receivedData) {
       
       ordersSheet.appendRow(newOrderRow);
       
-      // Create items for new order
-      for (const item of itemsForNewOrder) {
-        const newItemRow = [
-          generateLineId(),
-          newOrderId,
-          item.itemId,
-          item.itemName,
-          item.size,
-          item.unreceivedQty,
-          item.unreceivedAmount,
-          false,
-          'Pending',
-          null,
-          null,
-          null,
-          null
-        ];
-        itemsSheet.appendRow(newItemRow);
+      // Create items for new order. Build each row sized to the sheet's real width
+      // and place receiving fields by header index — the old fixed-position array
+      // shifted every value after Quantity by one column (Line_Total got `false`,
+      // so split orders totalled $0). All rows appended as one block.
+      const width = itemsSheet.getLastColumn();
+      const newLineIds = generateLineIds_(itemsForNewOrder.length);
+      const newItemRows = itemsForNewOrder.map((item, n) => {
+        const newItemRow = new Array(width).fill('');
+        newItemRow[0] = newLineIds[n];                                     // Line_ID
+        newItemRow[1] = newOrderId;                                        // Order_ID
+        newItemRow[2] = item.itemId;                                       // Item_ID
+        newItemRow[3] = item.itemName;                                     // Item_Name
+        newItemRow[4] = item.size;                                         // Size
+        newItemRow[5] = item.unreceivedQty;                                // Quantity
+        newItemRow[6] = item.unitPrice;                                    // Unit_Price
+        newItemRow[7] = item.unreceivedAmount;                             // Line_Total
+        newItemRow[8] = item.isReplacement === true;                       // Is_Replacement
+        if (receivedCol > 0) newItemRow[receivedCol - 1] = false;          // Item_Received
+        if (statusCol > 0) newItemRow[statusCol - 1] = 'Pending';          // Item_Status
+        return newItemRow;
+      });
+      if (newItemRows.length > 0) {
+        itemsSheet.getRange(itemsSheet.getLastRow() + 1, 1, newItemRows.length, width).setValues(newItemRows);
       }
     }
     
@@ -6305,6 +6481,8 @@ function activateOrderAsCashPayment(token, orderId, receivedData) {
   } catch (error) {
     console.error('Error activating order as cash payment:', error);
     return { success: false, error: error.message };
+  } finally {
+    try { lock.releaseLock(); } catch (e) { /* lock already released */ }
   }
 }
 
@@ -10249,7 +10427,7 @@ function storeBackupHistory(backupId, backupName, backupUrl) {
     let user = 'Unknown';
     try {
       user = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail() || 'System';
-    } catch (e) {}
+    } catch (e) { /* email unavailable outside domain — 'Unknown' fallback stands */ }
     
     sheet.appendRow([backupId, backupName, backupUrl, new Date(), user]);
     
@@ -11564,16 +11742,18 @@ function reconcileUniformPayments(dryRun = true) {
       discrepancies.push(entry);
 
       if (!dryRun) {
-        const rowNum = i + 2;
-        ordersSheet.getRange(rowNum, 10).setValue(expectedPayments);      // J: Payments_Made
-        ordersSheet.getRange(rowNum, 11).setValue(correctedPaidFinal);    // K: Amount_Paid
-        ordersSheet.getRange(rowNum, 12).setValue(correctedRemaining);    // L: Amount_Remaining
-        ordersSheet.getRange(rowNum, 13).setValue(correctedStatus);       // M: Status
+        // Apply to the in-memory copy; J-M written back in one block below
+        row[9] = expectedPayments;       // J: Payments_Made
+        row[10] = correctedPaidFinal;    // K: Amount_Paid
+        row[11] = correctedRemaining;    // L: Amount_Remaining
+        row[12] = correctedStatus;       // M: Status
         fixedCount++;
       }
     }
 
     if (!dryRun && fixedCount > 0) {
+      ordersSheet.getRange(2, 10, data.length, 4).setValues(data.map(r => [r[9], r[10], r[11], r[12]]));
+      SpreadsheetApp.flush();
       logActivity('RECONCILE', 'UNIFORM',
         `Reconciled ${fixedCount} order(s) with payment discrepancies (cutoff: ${nextPayrollStr})`);
     }
@@ -13592,20 +13772,24 @@ function updateBackupStatus(timestamp, filesCount, totalFiles, folderUrl) {
       folderUrl
     ];
     
+    // Update in memory / collect appends, then at most two writes
+    const colVals = data.map(r => [r[1]]);
+    let changed = false;
+    const newRows = [];
+
     for (let i = 0; i < keys.length; i++) {
-      let rowIndex = -1;
-      for (let j = 0; j < data.length; j++) {
-        if (data[j][0] === keys[i]) {
-          rowIndex = j + 1;
-          break;
-        }
-      }
-      
-      if (rowIndex > 0) {
-        settingsSheet.getRange(rowIndex, 2).setValue(values[i]);
+      const rowIdx = data.findIndex(r => r[0] === keys[i]);
+      if (rowIdx >= 0) {
+        colVals[rowIdx][0] = values[i];
+        changed = true;
       } else {
-        settingsSheet.appendRow([keys[i], values[i]]);
+        newRows.push([keys[i], values[i]]);
       }
+    }
+
+    if (changed) settingsSheet.getRange(1, 2, colVals.length, 1).setValues(colVals);
+    if (newRows.length > 0) {
+      settingsSheet.getRange(settingsSheet.getLastRow() + 1, 1, newRows.length, 2).setValues(newRows);
     }
     
   } catch (error) {
@@ -13686,15 +13870,38 @@ function setupBackupTrigger() {
  * Only runs on the first Sunday of the month
  */
 function runScheduledBackup() {
-  const today = new Date();
-  const dayOfMonth = today.getDate();
-  
-  // Only run on the first Sunday (day 1-7 of the month)
-  if (dayOfMonth <= 7) {
-    Logger.log('Running scheduled monthly backup...');
-    monthlyBackup(false);
-  } else {
-    Logger.log('Skipping backup - not first Sunday of month (day ' + dayOfMonth + ')');
+  try {
+    const today = new Date();
+    const dayOfMonth = today.getDate();
+
+    // Only run on the first Sunday (day 1-7 of the month)
+    if (dayOfMonth <= 7) {
+      Logger.log('Running scheduled monthly backup...');
+      monthlyBackup(false);
+    } else {
+      Logger.log('Skipping backup - not first Sunday of month (day ' + dayOfMonth + ')');
+    }
+  } catch (error) {
+    console.error('Scheduled backup failed:', error);
+    sendAlertEmail_('Scheduled backup FAILED', error);
+  }
+}
+
+/**
+ * Emails the configured admins when a trigger fails. Never throws —
+ * an alert failure must not mask the original error.
+ */
+function sendAlertEmail_(subject, error) {
+  try {
+    const settings = getSettings();
+    const recipients = (settings.adminEmails || '').trim() || Session.getEffectiveUser().getEmail();
+    if (!recipients) return;
+    MailApp.sendEmail(recipients, 'Payroll System - ' + subject,
+      subject + '\n\nError: ' + (error && error.message ? error.message : error) +
+      '\n\nTime: ' + new Date().toLocaleString() +
+      '\n\nThis is an automated alert from the payroll system.');
+  } catch (e) {
+    console.error('Failed to send alert email:', e);
   }
 }
 
@@ -13833,17 +14040,18 @@ function saveActionState(actionType, description, affectedIds, beforeState, afte
  * @param {string} orderId - The order ID
  * @returns {Object} Order state snapshot
  */
-function getOrderStateForUndo(orderId) {
+function getOrderStateForUndo(orderId, preloadedOrdersData, preloadedItemsData) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
-  const itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
-  
-  // Find order row
-  const ordersData = ordersSheet.getDataRange().getValues();
-  const orderHeaders = ordersData[0];
+  const uOrdersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
+  const uItemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
+  if ((!preloadedOrdersData && !uOrdersSheet) || (!preloadedItemsData && !uItemsSheet)) return null;
+
+  // Callers doing bulk work pass preloaded data so N orders don't trigger
+  // 2N full-sheet reads.
+  const ordersData = preloadedOrdersData || uOrdersSheet.getDataRange().getValues();
   let orderRow = null;
   let orderRowNum = -1;
-  
+
   for (let i = 1; i < ordersData.length; i++) {
     if (ordersData[i][0] === orderId) {
       orderRow = ordersData[i];
@@ -13851,9 +14059,9 @@ function getOrderStateForUndo(orderId) {
       break;
     }
   }
-  
+
   if (!orderRow) return null;
-  
+
   // Build order state object
   const orderState = {
     rowNum: orderRowNum,
@@ -13868,23 +14076,30 @@ function getOrderStateForUndo(orderId) {
     receivedDate: orderRow[16],              // Q: Received_Date
     items: []
   };
-  
-  // Get items for this order
-  const itemsData = itemsSheet.getDataRange().getValues();
+
+  // Get items for this order — receiving fields located by HEADER, not fixed
+  // index (the old fixed index 11 was actually Item_Received_By, so undo never
+  // restored the real Item_Status).
+  const itemsData = preloadedItemsData || uItemsSheet.getDataRange().getValues();
   const itemHeaders = itemsData[0];
-  
+  const recIdx = itemHeaders.indexOf('Item_Received');
+  const recDateIdx = itemHeaders.indexOf('Item_Received_Date');
+  const statusIdx = itemHeaders.indexOf('Item_Status');
+  const recQtyIdx = itemHeaders.indexOf('Received_Quantity');
+
   for (let i = 1; i < itemsData.length; i++) {
     if (itemsData[i][1] === orderId) { // Order_ID column
       orderState.items.push({
         rowNum: i + 1,
         lineId: itemsData[i][0],
-        itemReceived: itemsData[i][9],       // Item_Received
-        itemReceivedDate: itemsData[i][10],  // Item_Received_Date
-        itemStatus: itemsData[i][11]         // Item_Status
+        itemReceived: recIdx >= 0 ? itemsData[i][recIdx] : false,
+        itemReceivedDate: recDateIdx >= 0 ? itemsData[i][recDateIdx] : '',
+        itemStatus: statusIdx >= 0 ? itemsData[i][statusIdx] : '',
+        receivedQuantity: recQtyIdx >= 0 ? itemsData[i][recQtyIdx] : ''
       });
     }
   }
-  
+
   return orderState;
 }
 
@@ -13960,35 +14175,90 @@ function undoAction(actionId) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
     const itemsSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDER_ITEMS);
-    
-    // Restore each order to its before state
-    for (const orderState of beforeState.orders) {
-      const rowNum = orderState.rowNum;
-      
-      // Restore order fields
-      ordersSheet.getRange(rowNum, 6).setValue(orderState.totalAmount);         // F: Total_Amount
-      ordersSheet.getRange(rowNum, 8).setValue(orderState.amountPerPaycheck);   // H: Amount_Per_Paycheck
-      ordersSheet.getRange(rowNum, 9).setValue(orderState.firstDeductionDate);  // I: First_Deduction_Date
-      ordersSheet.getRange(rowNum, 10).setValue(orderState.paymentsMade);       // J: Payments_Made
-      ordersSheet.getRange(rowNum, 11).setValue(orderState.amountPaid);         // K: Amount_Paid
-      ordersSheet.getRange(rowNum, 12).setValue(orderState.amountRemaining);    // L: Amount_Remaining
-      ordersSheet.getRange(rowNum, 13).setValue(orderState.status);             // M: Status
-      ordersSheet.getRange(rowNum, 17).setValue(orderState.receivedDate);       // Q: Received_Date
-      
-      // Restore item states
-      for (const itemState of orderState.items) {
-        itemsSheet.getRange(itemState.rowNum, 10).setValue(itemState.itemReceived);      // Item_Received
-        itemsSheet.getRange(itemState.rowNum, 11).setValue(itemState.itemReceivedDate);  // Item_Received_Date
-        itemsSheet.getRange(itemState.rowNum, 12).setValue(itemState.itemStatus);        // Item_Status
+
+    const lock = LockService.getDocumentLock();
+    lock.waitLock(10000);
+    try {
+      // Item restores are applied to an in-memory copy of the receiving columns,
+      // then written back as whole columns — a handful of writes total instead of
+      // 3 per item. Row positions are verified against the saved lineId (rows
+      // never shift on these sheets, but trust-and-verify is cheap here).
+      const itemsData = itemsSheet.getDataRange().getValues();
+      const ordersRaw = ordersSheet.getDataRange().getValues();
+      const itemHeaders = itemsData[0];
+      const recIdx = itemHeaders.indexOf('Item_Received');
+      const recDateIdx = itemHeaders.indexOf('Item_Received_Date');
+      const statusIdx = itemHeaders.indexOf('Item_Status');
+      const recQtyIdx = itemHeaders.indexOf('Received_Quantity');
+      const validStatuses = ['Pending', 'Received', 'Cancelled', ''];
+      let itemsTouched = false;
+      let ordersTouched = false;
+
+      // Restore each order to its before state (in memory — written back below)
+      for (const orderState of beforeState.orders) {
+        let oIdx = orderState.rowNum - 1;
+        if (!ordersRaw[oIdx] || ordersRaw[oIdx][0] !== orderState.orderId) {
+          oIdx = ordersRaw.findIndex(r => r[0] === orderState.orderId);
+        }
+        if (oIdx >= 1) {
+          const oRow = ordersRaw[oIdx];
+          oRow[5] = orderState.totalAmount;         // F
+          oRow[7] = orderState.amountPerPaycheck;   // H
+          oRow[8] = orderState.firstDeductionDate;  // I
+          oRow[9] = orderState.paymentsMade;        // J
+          oRow[10] = orderState.amountPaid;         // K
+          oRow[11] = orderState.amountRemaining;    // L
+          oRow[12] = orderState.status;             // M
+          oRow[16] = orderState.receivedDate;       // Q
+          ordersTouched = true;
+        }
+
+        // Restore item states in memory
+        for (const itemState of orderState.items) {
+          let idx = itemState.rowNum - 1;
+          if (!itemsData[idx] || itemsData[idx][0] !== itemState.lineId) {
+            idx = itemsData.findIndex(r => r[0] === itemState.lineId);
+            if (idx < 1) continue; // line no longer exists
+          }
+          if (recIdx >= 0) itemsData[idx][recIdx] = itemState.itemReceived;
+          if (recDateIdx >= 0) itemsData[idx][recDateIdx] = itemState.itemReceivedDate;
+          // Actions saved before the header-lookup fix stored Item_Received_By
+          // under itemStatus — only restore recognizable status values.
+          if (statusIdx >= 0 && validStatuses.indexOf(itemState.itemStatus) !== -1) {
+            itemsData[idx][statusIdx] = itemState.itemStatus;
+          }
+          if (recQtyIdx >= 0 && itemState.receivedQuantity !== undefined) {
+            itemsData[idx][recQtyIdx] = itemState.receivedQuantity;
+          }
+          itemsTouched = true;
+        }
       }
+
+      // Write the order columns back: F, contiguous H-M, and Q
+      if (ordersTouched && ordersRaw.length > 1) {
+        const body = ordersRaw.slice(1);
+        ordersSheet.getRange(2, 6, body.length, 1).setValues(body.map(r => [r[5]]));
+        ordersSheet.getRange(2, 8, body.length, 6).setValues(body.map(r => [r[7], r[8], r[9], r[10], r[11], r[12]]));
+        ordersSheet.getRange(2, 17, body.length, 1).setValues(body.map(r => [r[16]]));
+      }
+
+      // Write the receiving columns back (one write per column)
+      if (itemsTouched && itemsData.length > 1) {
+        for (const colIdx of [recIdx, recDateIdx, statusIdx, recQtyIdx]) {
+          if (colIdx < 0) continue;
+          const colVals = itemsData.slice(1).map(r => [r[colIdx]]);
+          itemsSheet.getRange(2, colIdx + 1, colVals.length, 1).setValues(colVals);
+        }
+      }
+      SpreadsheetApp.flush();
+    } finally {
+      try { lock.releaseLock(); } catch (e) { /* lock already released */ }
     }
-    
-    // Mark action as undone
+
+    // Mark action as undone (J-L are contiguous)
     const now = new Date();
     const user = Session.getActiveUser().getEmail() || 'Unknown';
-    sheet.getRange(actionRowNum, 10).setValue(true);  // Is_Undone
-    sheet.getRange(actionRowNum, 11).setValue(now);   // Undone_At
-    sheet.getRange(actionRowNum, 12).setValue(user);  // Undone_By
+    sheet.getRange(actionRowNum, 10, 1, 3).setValues([[true, now, user]]); // Is_Undone, Undone_At, Undone_By
     
     // Log the undo action
     const description = actionRow[4];

@@ -722,7 +722,7 @@
     function setCached(key, data) {
       try {
         localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data: data }));
-      } catch (e) {}
+      } catch (e) { /* storage full or blocked — caching is optional */ }
     }
 
     /**
