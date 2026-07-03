@@ -84,7 +84,7 @@ This installs three time-driven jobs:
 - **Monday 6 AM** — the weekly processing pipeline
 - **Thursday 7 PM** — schedule reminder
 
-To reinstall later, run `installTriggers` again. To remove them all, run `deleteAllTriggers`.
+To reinstall later, run `installTriggers` again. To remove them all, run `deleteTriggers`.
 
 ---
 
@@ -149,7 +149,7 @@ You'll get an email at your `ALERT_EMAIL` (Step 4). Open the Apps Script **Execu
 | Failure-alert email | Script Property `ALERT_EMAIL` (Step 4) |
 | Build all tabs | run `initSheets` (Step 5) — safe to re-run |
 | Install weekly jobs | run `installTriggers` (Step 6) |
-| Remove weekly jobs | run `deleteAllTriggers` |
+| Remove weekly jobs | run `deleteTriggers` |
 | Web app URL | Deploy ▸ Manage deployments |
 | Operator settings | the `config` tab in the Sheet |
 

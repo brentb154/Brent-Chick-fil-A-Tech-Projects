@@ -7,7 +7,7 @@ Schedule variance analysis — two locations, planned vs actual hours, weekly re
 1. Open the target Google Sheet
 2. Go to Extensions > Apps Script
 3. Copy all `.gs` and `.html` files into the script editor
-4. Run `initializeAllSheets()` to create required sheet tabs
+4. Run `initializeSheet()` to create required sheet tabs
 5. Refresh the spreadsheet — the custom menu appears
 
 ## Triggers
