@@ -34,7 +34,8 @@ This guide is written for someone with **zero technical experience**. Follow eac
 | Setting | Where to Change | Example |
 |---------|-----------------|---------|
 | Location Names | Settings page | "Downtown Store", "Mall Location" |
-| Manager Passcode | PAYROLL_SETTINGS sheet | Any number you choose |
+| Manager Passcode | Payroll_Settings sheet (auto-generated on first use and emailed to admins) | Any number you choose |
+| Admin Access Passcode | Payroll_Settings sheet (auto-generated on first use and emailed to admins) | Any number you choose |
 | Admin Email | Settings page | manager@email.com |
 | Hourly Wage (for OT estimates) | Settings page | $15.00 |
 | Logo/Branding | Code (optional) | Your restaurant name |
@@ -258,14 +259,23 @@ Configure these options:
 
 Click **"Save All Settings"** at the bottom!
 
-### Step 4.5: Set Manager Passcode
+### Step 4.5: Passcodes (Manager Receiving + Admin Access)
 
-To set the passcode for the manager receiving panel:
+There are two passcodes, and **you don't have to invent them** — the first time
+either one is needed, the system generates a random 5-digit code, saves it, and
+**emails it to your admin email(s)**. No default passcode ships with the code,
+so nobody can look one up on GitHub.
+
+To change a passcode later:
 
 1. Go back to your **Google Spreadsheet** (not the app)
-2. Find the sheet tab called **"PAYROLL_SETTINGS"** (bottom of screen)
-3. Find the cell for "ManagerPasscode"
-4. Enter your desired passcode (numbers only, like `1234`)
+2. Find the sheet tab called **"Payroll_Settings"** (bottom of screen)
+3. Find the row named `manager_receiving_passcode` (uniform receiving panel)
+   or `admin_access_passcode` (admin dashboard login)
+4. Change the value in the **Setting_Value** column (numbers work best, like `1234`)
+
+💡 **Tip:** Make sure your admin email is set (Step 4.3) *before* anyone opens
+the receiving panel, so the generated passcode email has somewhere to go.
 
 ---
 
