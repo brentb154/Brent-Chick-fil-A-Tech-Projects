@@ -20,14 +20,23 @@ _DECISION_RE = re.compile(
 )
 
 
+_REGEX_PRECEDER = set('(,=:[!&|?{};+-*%~^<>')
+
+
 def sanitize(text):
     """Blank string/template/comment CONTENT (keep newlines + structural braces) so
     brace-matching and pattern checks aren't fooled by punctuation, the word 'for'
-    inside a label, etc. Returned text is aligned line-for-line with the original."""
+    inside a label, etc. Returned text is aligned line-for-line with the original.
+
+    Regex literals are blanked too — a pattern like /"/g used to be misread as a
+    string opener, desyncing brace tracking for the rest of the file (which made
+    everything downstream look like it was inside a loop)."""
     out = []
     i, n = 0, len(text)
-    state = 'code'   # code | line_comment | block_comment | string
+    state = 'code'   # code | line_comment | block_comment | string | regex
     delim = ''
+    in_class = False           # inside a regex [...] character class
+    last_code = ''             # last non-whitespace char emitted in code state
     while i < n:
         c = text[i]
         nxt = text[i + 1] if i + 1 < n else ''
@@ -36,8 +45,13 @@ def sanitize(text):
                 state = 'line_comment'; out.append('  '); i += 2; continue
             if c == '/' and nxt == '*':
                 state = 'block_comment'; out.append('  '); i += 2; continue
+            if c == '/' and (last_code in _REGEX_PRECEDER or last_code == '' or
+                             out and ''.join(out[-7:]).rstrip().endswith(('return', 'typeof', 'case'))):
+                state = 'regex'; in_class = False; out.append(' '); i += 1; continue
             if c in ('"', "'", '`'):
                 state = 'string'; delim = c; out.append(' '); i += 1; continue
+            if not c.isspace():
+                last_code = c
             out.append(c); i += 1; continue
         if state == 'line_comment':
             if c == '\n':
@@ -54,6 +68,19 @@ def sanitize(text):
                 out.append('  '); i += 2; continue
             if c == delim:
                 state = 'code'; out.append(' '); i += 1; continue
+            out.append('\n' if c == '\n' else ' '); i += 1; continue
+        if state == 'regex':
+            if c == '\\':
+                out.append('  '); i += 2; continue
+            if c == '[':
+                in_class = True
+            elif c == ']':
+                in_class = False
+            elif c == '/' and not in_class:
+                state = 'code'; last_code = '/'
+            elif c == '\n':
+                # Regex literals can't span lines — bail out (mis-detection guard)
+                state = 'code'
             out.append('\n' if c == '\n' else ' '); i += 1; continue
     return ''.join(out)
 

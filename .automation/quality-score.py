@@ -60,12 +60,19 @@ SECRET_KEY_RE = re.compile(
 SECRET_VAL_RE = re.compile(r'[:=]\s*(?:[\'"][^\'"]{4,}[\'"]|\d{4,})')
 URL_SECRET_RE = re.compile(r'[?&](?:token|key|secret|passcode|auth[_-]?token)=[\w\-]{8,}', re.IGNORECASE)
 HTML_TAG_STRING_RE = re.compile(r"""['"`]\s*<\s*\w""")
-ESCAPE_HINT_RE = re.compile(r'escapeHtml|encodeURI|DOMPurify|sanitize', re.IGNORECASE)
+ESCAPE_HINT_RE = re.compile(r'escapeHtml|encodeURI|DOMPurify|sanitize|attrSafe|\bsafe[A-Z_]\w*')
 # Broadened from risk-audit's hardcoded field list: ANY identifier concatenated into
 # an HTML-tag string literal in client code, minus obviously-safe numeric/date/count
 # variables. Catches the real stored-XSS class (user-typed names) the old rule missed.
 HTML_VAR_CONCAT_RE = re.compile(r"""\+\s*[A-Za-z_$][\w.$\[\]']*""")
 SAFE_VAR_RE = re.compile(r'(count|index|idx|total|len|length|num|rowindex|^i$|^n$|date|time|width|height|size)', re.IGNORECASE)
+# Template-literal interpolation into HTML. Must be checked on the RAW line — the
+# sanitizer blanks template contents, which is exactly how `${user.name}` XSS evaded
+# the concat rule. Field-name targeted (user-content fields), because flagging every
+# ${var} would bury the signal under system-generated ids/amounts/dates.
+TPL_TAG_RE = re.compile(r'<\s*\w')
+TPL_EXPR_RE = re.compile(r'\$\{([^}]*)\}')
+RISKY_FIELD_RE = re.compile(r'(name|notes|comment|message|reason|desc|email|title)', re.IGNORECASE)
 
 
 def grade_letter(score):
@@ -111,6 +118,7 @@ def analyze_project(project):
     all_funcs = []
     gs_names = {}
     all_code = ''
+    gs_code = ''   # server-side only — trigger/reliability checks must not see client JS
     findings = {k: [] for k in AXIS_WEIGHTS}
 
     # File-level passes
@@ -123,6 +131,8 @@ def analyze_project(project):
 
     for fname, orig, san in bundles:
         all_code += '\n'.join(orig) + '\n'
+        if fname.endswith('.gs'):
+            gs_code += '\n'.join(orig) + '\n'
         is_client = fname.endswith(('.html', '.js'))
         funcs = ac.extract_functions(san)
         for fn in funcs:
@@ -141,7 +151,26 @@ def analyze_project(project):
             if in_loop and re.search(r'getRange\s*\([^)]*\)\s*\.\s*(?:get|set)Value\b', sline):
                 cell_loops += 1
             if in_loop and re.search(r'getDataRange\s*\(\s*\)|getRange\s*\([^)]*\)\s*\.\s*getValues', sline):
-                full_reads_in_loop += 1
+                # A handle created fresh inside the loop (iterating over DIFFERENT
+                # sheets, one read each) is the batch pattern, not a redundant
+                # re-read. Walk back through the loop body for the declaration.
+                m2 = re.search(r'(\w+)\s*\.\s*(?:getDataRange|getRange)', sline)
+                recv = m2.group(1) if m2 else ''
+                fresh = False
+                if recv:
+                    decl = re.compile(
+                        r'(?:(?:const|let|var)\s+' + recv + r'\s*=' +
+                        r'|for\s*\(\s*(?:const|let|var)\s+' + recv + r'\s+of' +
+                        r'|forEach\s*\(\s*(?:function\s*\(\s*)?\(?\s*' + recv + r'\s*[,)=]' +
+                        r'|\.map\s*\(\s*\(?\s*' + recv + r'\s*[,)=])')
+                    for back in range(idx - 1, max(-1, idx - 40), -1):
+                        if decl.search(san[back]):
+                            fresh = True
+                            break
+                        if back < len(mask) and not mask[back]:
+                            break  # left the loop body without finding it
+                if not fresh:
+                    full_reads_in_loop += 1
             if in_loop and 'flush' in sline:
                 flush_in_loop += 1
             if re.search(r'getSheetByName\s*\([^)]*\)\s*\.\s*(?:getRange|getLastRow|getDataRange|getValues)', sline):
@@ -153,30 +182,44 @@ def analyze_project(project):
                 sec_hits.append(('high', fname, idx + 1, 'hardcoded secret/passcode in source'))
             if URL_SECRET_RE.search(raw):
                 sec_hits.append(('high', fname, idx + 1, 'secret/token embedded in a URL'))
-            if is_client and HTML_TAG_STRING_RE.search(sline) and '${' not in sline \
-               and HTML_VAR_CONCAT_RE.search(sline) and not ESCAPE_HINT_RE.search(sline):
-                concat = HTML_VAR_CONCAT_RE.search(sline).group(0)
-                if not SAFE_VAR_RE.search(concat):
-                    sec_hits.append(('medium', fname, idx + 1, 'variable concatenated into HTML without escaping (XSS)'))
+            # Concat rule checks the RAW line — the sanitizer blanks string
+            # contents (including the '<tag' part), which had silently killed
+            # this rule. Same field-name targeting as the template rule.
+            if is_client and HTML_TAG_STRING_RE.search(raw) and '${' not in raw \
+               and HTML_VAR_CONCAT_RE.search(raw) and not ESCAPE_HINT_RE.search(raw):
+                for concat in HTML_VAR_CONCAT_RE.findall(raw):
+                    if RISKY_FIELD_RE.search(concat) and not SAFE_VAR_RE.search(concat):
+                        sec_hits.append(('medium', fname, idx + 1, 'variable concatenated into HTML without escaping (XSS)'))
+                        break
+            if is_client and '${' in raw and TPL_TAG_RE.search(raw) and not ESCAPE_HINT_RE.search(raw):
+                for expr in TPL_EXPR_RE.findall(raw):
+                    if RISKY_FIELD_RE.search(expr) and not SAFE_VAR_RE.search(expr):
+                        sec_hits.append(('medium', fname, idx + 1,
+                                         'template literal interpolates user-content field into HTML without escaping (XSS)'))
+                        break
 
-        # empty catch blocks (swallowed errors)
-        empty_catch += len(re.findall(r'catch\s*\([^)]*\)\s*\{\s*\}', '\n'.join(san)))
+        # empty catch blocks (swallowed errors) — counted on ORIGINAL text, so a
+        # catch documented with a comment (intentional ignore, e.g. releaseLock
+        # guards) is not treated as silent swallowing.
+        empty_catch += len(re.findall(r'catch\s*\([^)]*\)\s*\{\s*\}', '\n'.join(orig)))
 
     # Duplicate gs function names (last-wins footgun)
     dup_fn = [n for n, defs in gs_names.items() if len(defs) > 1]
 
-    # Reliability: trigger handlers with/without try/catch + alerting
-    trigger_handlers = set(re.findall(r"ScriptApp\.newTrigger\(\s*['\"](\w+)['\"]", all_code))
-    trigger_handlers |= set(re.findall(r'function\s+(on[A-Z]\w*)\s*\(', all_code))
+    # Reliability: trigger handlers with/without try/catch + alerting.
+    # .gs code only — client HTML defines onChange-style handlers (onCategoryChange
+    # etc.) that the on[A-Z] heuristic would otherwise miscount as GAS triggers.
+    trigger_handlers = set(re.findall(r"ScriptApp\.newTrigger\(\s*['\"](\w+)['\"]", gs_code))
+    trigger_handlers |= set(re.findall(r'function\s+(on[A-Z]\w*)\s*\(', gs_code))
     unguarded_triggers = 0
     for h in trigger_handlers:
-        m = re.search(r'function\s+' + re.escape(h) + r'\s*\([^)]*\)\s*\{', all_code)
+        m = re.search(r'function\s+' + re.escape(h) + r'\s*\([^)]*\)\s*\{', gs_code)
         if not m:
             continue
-        body = all_code[m.end():m.end() + 1500]
+        body = gs_code[m.end():m.end() + 1500]
         if 'try' not in body:
             unguarded_triggers += 1
-    has_alerting = bool(re.search(r'catch[\s\S]{0,200}?(?:MailApp|GmailApp)\.sendEmail|catch[\s\S]{0,200}?sendAlert', all_code))
+    has_alerting = bool(re.search(r'catch[\s\S]{0,200}?(?:MailApp|GmailApp)\.sendEmail|catch[\s\S]{0,200}?sendAlert', gs_code))
 
     # Maintainability metrics
     func_count = len(all_funcs) or 1
