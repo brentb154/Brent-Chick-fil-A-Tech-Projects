@@ -4,6 +4,12 @@
 // Chunk 2: History, Trends & Email
 // ============================================================
 
+// Escape user-derived text (employee names from schedules) before innerHTML
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // ── Global State ─────────────────────────────────────────────
 var fohScheduleData = {};
 var bohScheduleData = {};
@@ -1509,7 +1515,7 @@ function showOTBreakdown() {
   } else {
     html += '<div class="ot-list"><div class="ot-list-header"><span class="ot-col-name">Employee</span><span class="ot-col-hrs">Total</span><span class="ot-col-ot">OT</span></div>';
     data.employeesInOT.forEach(function(emp) {
-      html += '<div class="ot-list-row"><span class="ot-col-name" title="' + emp.name + '">' + emp.name + '</span><span class="ot-col-hrs">' + emp.totalHours + '</span><span class="ot-col-ot">' + emp.otHours + '</span></div>';
+      html += '<div class="ot-list-row"><span class="ot-col-name" title="' + escHtml(emp.name) + '">' + escHtml(emp.name) + '</span><span class="ot-col-hrs">' + emp.totalHours + '</span><span class="ot-col-ot">' + emp.otHours + '</span></div>';
     });
     html += '</div>';
   }
@@ -1804,8 +1810,8 @@ function generateInsights() {
       '<div class="critical-grid">' +
       criticalItems.map(function(item) {
         return '<div class="plan-item '+item.type+'" style="border-width:1px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">' +
-          '<div class="plan-item-top"><span class="plan-day-time">'+item.day+' '+item.hour+'</span><span class="plan-badge">'+item.label+'</span></div>' +
-          '<div class="plan-title">'+item.title+'</div><div class="plan-desc">'+item.desc+'</div></div>';
+          '<div class="plan-item-top"><span class="plan-day-time">'+escHtml(item.day)+' '+escHtml(item.hour)+'</span><span class="plan-badge">'+escHtml(item.label)+'</span></div>' +
+          '<div class="plan-title">'+escHtml(item.title)+'</div><div class="plan-desc">'+escHtml(item.desc)+'</div></div>';
       }).join('') + '</div>';
     insightsList.appendChild(critSection);
   }
@@ -1820,8 +1826,8 @@ function generateInsights() {
       list.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:20px;font-size:13px;">No issues found.</div>';
     } else {
       var renderItem = function(item) {
-        return '<div class="plan-item '+typeClass+'"><div class="plan-item-top"><span class="plan-day-time">'+item.day+' '+item.hour+'</span></div>' +
-          '<div class="plan-title">'+item.title+'</div><div class="plan-desc">'+item.desc+'</div></div>';
+        return '<div class="plan-item '+typeClass+'"><div class="plan-item-top"><span class="plan-day-time">'+escHtml(item.day)+' '+escHtml(item.hour)+'</span></div>' +
+          '<div class="plan-title">'+escHtml(item.title)+'</div><div class="plan-desc">'+escHtml(item.desc)+'</div></div>';
       };
       items.slice(0,20).forEach(function(item) { list.innerHTML += renderItem(item); });
       if (items.length > 20) {
@@ -1979,7 +1985,7 @@ function openStaffModal(day, hour, event) {
     allStaff.forEach(function(staff) {
       var initials = staff.name.split(' ').map(function(n) { return n[0]; }).join('').substring(0,2).toUpperCase();
       var li = document.createElement('li'); li.className = 'staff-list-item';
-      li.innerHTML = '<div class="staff-avatar">'+initials+'</div><span style="font-weight:500;">'+staff.name+'</span><span class="staff-dept-badge badge-'+staff.type+'">'+staff.type.toUpperCase()+'</span>';
+      li.innerHTML = '<div class="staff-avatar">'+escHtml(initials)+'</div><span style="font-weight:500;">'+escHtml(staff.name)+'</span><span class="staff-dept-badge badge-'+staff.type+'">'+staff.type.toUpperCase()+'</span>';
       listEl.appendChild(li);
     });
   }

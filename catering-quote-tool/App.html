@@ -888,7 +888,7 @@ function buildCalColorGrid() {
   var g = document.getElementById('calColorGrid');
   if (!g || g.childNodes.length) return;
   g.innerHTML = CALENDAR_COLORS.map(function(c) {
-    return '<div class="cal-color-swatch" onclick="pickCalendarColor(\''+c.name+'\')"><div class="cal-color-dot" style="background:'+c.hex+';"></div><div class="cal-color-name">'+c.label+'</div></div>';
+    return '<div class="cal-color-swatch" onclick="pickCalendarColor(\''+escAttr(c.name)+'\')"><div class="cal-color-dot" style="background:'+c.hex+';"></div><div class="cal-color-name">'+escHtml(c.label)+'</div></div>';
   }).join('');
 }
 
@@ -1018,8 +1018,8 @@ function openPrintWindow(data) {
   var liH=''; (data.lineItems||[]).forEach(function(i) {
     var da=parseFloat(i.discountAmount)||0;
     var net=(parseFloat(i.amount)||0)-da;
-    var descHtml=escHtml(i.description)+(da>0?'<div style="font-size:12px;color:#6B7280;font-style:italic;margin-top:2px;">Discount: −$'+da.toFixed(2)+'</div>':'');
-    liH+='<tr><td style="text-align:center;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-size:14px;">'+i.quantity+'</td><td style="padding:10px 12px;border-bottom:1px solid #E5E7EB;font-size:14px;">'+descHtml+'</td><td style="text-align:right;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-family:monospace;font-size:14px;">$'+(i.price||0).toFixed(2)+'</td><td style="text-align:right;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-family:monospace;font-size:14px;font-weight:600;">$'+net.toFixed(2)+'</td></tr>';
+    var safeDescHtml=escHtml(i.description)+(da>0?'<div style="font-size:12px;color:#6B7280;font-style:italic;margin-top:2px;">Discount: −$'+da.toFixed(2)+'</div>':'');
+    liH+='<tr><td style="text-align:center;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-size:14px;">'+i.quantity+'</td><td style="padding:10px 12px;border-bottom:1px solid #E5E7EB;font-size:14px;">'+safeDescHtml+'</td><td style="text-align:right;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-family:monospace;font-size:14px;">$'+(i.price||0).toFixed(2)+'</td><td style="text-align:right;padding:10px 12px;border-bottom:1px solid #E5E7EB;font-family:monospace;font-size:14px;font-weight:600;">$'+net.toFixed(2)+'</td></tr>';
   });
   var itemDiscTotal=0; (data.lineItems||[]).forEach(function(i){itemDiscTotal+=parseFloat(i.discountAmount)||0;});
   var orderDiscAmt=parseFloat(data.orderDiscountAmount)||0;
@@ -1111,8 +1111,8 @@ function openQuoteDetail(q) {
   if (li.length) { h+='<table class="detail-items-table"><thead><tr><th>Qty</th><th>Description</th><th>Price</th><th>Amount</th></tr></thead><tbody>'; li.forEach(function(i){
     var da=parseFloat(i.discountAmount)||0;
     var net=(parseFloat(i.amount)||0)-da;
-    var descCell='<td>'+escHtml(i.description)+(da>0?'<div style="font-size:11px;color:#9CA3AF;font-style:italic;margin-top:2px;">Discount: −$'+da.toFixed(2)+'</div>':'')+'</td>';
-    h+='<tr><td>'+i.quantity+'</td>'+descCell+'<td style="font-family:var(--mono);">$'+(i.price||0).toFixed(2)+'</td><td style="font-family:var(--mono);">$'+net.toFixed(2)+'</td></tr>';
+    var safeDescCell='<td>'+escHtml(i.description)+(da>0?'<div style="font-size:11px;color:#9CA3AF;font-style:italic;margin-top:2px;">Discount: −$'+da.toFixed(2)+'</div>':'')+'</td>';
+    h+='<tr><td>'+i.quantity+'</td>'+safeDescCell+'<td style="font-family:var(--mono);">$'+(i.price||0).toFixed(2)+'</td><td style="font-family:var(--mono);">$'+net.toFixed(2)+'</td></tr>';
   }); h+='</tbody></table>'; }
   if (q.quoteNotes) {
     h+='<div style="background:#FFFBEB;border-left:3px solid #D97706;padding:12px 16px;margin-top:12px;font-size:13px;color:#374151;border-radius:4px;"><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#6B7280;margin-bottom:4px;">Notes</div>'+escHtml(q.quoteNotes).split('\n').join('<br>')+'</div>';

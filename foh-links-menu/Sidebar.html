@@ -380,7 +380,8 @@
   }
 
   function onError(err) {
-    container.innerHTML = '<div class="empty-state"><div class="icon">!</div><div>' + err.message + '</div></div>';
+    var safeMsg = String(err && err.message || err).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    container.innerHTML = '<div class="empty-state"><div class="icon">!</div><div>' + safeMsg + '</div></div>';
   }
 
   // --- Populate category filter ---

@@ -508,6 +508,16 @@
     document.getElementById('statOverdue').textContent   = fmt(s.overdueFollowUps);
   }
 
+  // Escape user data (customer names, notes) before building table HTML
+  function escHtml(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  // Escape for a JS string literal inside an inline onclick attribute
+  function jsEsc(s) {
+    return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  }
+
   function renderPipelineTable() {
     var filtered = _pipelineFilter === 'all'
       ? _pipelineEntries
@@ -546,25 +556,25 @@
       if (e.followUpDate) {
         var fuClass = e.followUpDue ? 'followup-overdue' : (e.followUpSoon ? 'followup-soon' : 'followup-ok');
         var fuPrefix = e.followUpDue ? '⚠ ' : (e.followUpSoon ? '→ ' : '');
-        followUpHtml = '<span class="' + fuClass + '">' + fuPrefix + e.followUpDate + '</span>';
+        followUpHtml = '<span class="' + fuClass + '">' + fuPrefix + escHtml(e.followUpDate) + '</span>';
       }
 
       var notesHtml = e.notes
-        ? '<span title="' + e.notes.replace(/"/g,'&quot;') + '">' + (e.notes.length > 30 ? e.notes.substring(0,30) + '…' : e.notes) + '</span>'
+        ? '<span title="' + escHtml(e.notes) + '">' + escHtml(e.notes.length > 30 ? e.notes.substring(0,30) + '…' : e.notes) + '</span>'
         : '<span style="color:#d1d5db;">—</span>';
 
       html += '<tr class="' + rowClass + '">' +
-        '<td class="quote-id-cell">' + e.quoteId + '</td>' +
-        '<td class="customer-cell">' + e.customer + '</td>' +
-        '<td style="color:#6b7280;">' + (e.location || '—') + '</td>' +
+        '<td class="quote-id-cell">' + escHtml(e.quoteId) + '</td>' +
+        '<td class="customer-cell">' + escHtml(e.customer) + '</td>' +
+        '<td style="color:#6b7280;">' + escHtml(e.location || '—') + '</td>' +
         '<td class="total-cell">$' + e.total.toFixed(2) + '</td>' +
-        '<td style="color:#374151;">' + (e.eventDate || '—') + '</td>' +
-        '<td><span class="status-badge ' + statusClass + '">' + e.status + '</span></td>' +
+        '<td style="color:#374151;">' + escHtml(e.eventDate || '—') + '</td>' +
+        '<td><span class="status-badge ' + statusClass + '">' + escHtml(e.status) + '</span></td>' +
         '<td class="followup-cell">' + followUpHtml + '</td>' +
         '<td style="font-size:12.5px;color:#6b7280;max-width:180px;">' + notesHtml + '</td>' +
         '<td style="white-space:nowrap;">' +
-          '<button class="btn-edit" onclick="openPipelineModal(\'' + e.quoteId + '\')">Edit</button> ' +
-          '<button class="btn-remove" onclick="confirmRemove(\'' + e.quoteId + '\',\'' + e.customer.replace(/'/g,"\\'") + '\')">✕</button>' +
+          '<button class="btn-edit" onclick="openPipelineModal(\'' + escHtml(jsEsc(e.quoteId)) + '\')">Edit</button> ' +
+          '<button class="btn-remove" onclick="confirmRemove(\'' + escHtml(jsEsc(e.quoteId)) + '\',\'' + escHtml(jsEsc(e.customer)) + '\')">✕</button>' +
         '</td>' +
         '</tr>';
     });
