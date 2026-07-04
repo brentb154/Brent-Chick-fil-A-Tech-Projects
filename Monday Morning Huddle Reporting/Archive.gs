@@ -63,7 +63,7 @@ function archiveWeeklySnapshot_() {
   if (maxCols < 5) maxCols = 5;
 
   var masterBanner = archive.getRange(startRow, 1, 1, maxCols);
-  try { masterBanner.breakApart(); } catch (e) {}
+  try { masterBanner.breakApart(); } catch (e) { /* range not merged yet */ }
   masterBanner.merge()
     .setValue('SNAPSHOT — ' + dateStr)
     .setFontSize(14).setFontWeight('bold').setFontColor('#FFFFFF')
@@ -78,7 +78,7 @@ function archiveWeeklySnapshot_() {
 
     // Tab sub-banner
     var subBanner = archive.getRange(startRow, 1, 1, maxCols);
-    try { subBanner.breakApart(); } catch (e) {}
+    try { subBanner.breakApart(); } catch (e) { /* range not merged yet */ }
     subBanner.merge()
       .setValue(tabName)
       .setFontSize(12).setFontWeight('bold').setFontColor('#FFFFFF')
@@ -205,7 +205,7 @@ function diagnoseArchive() {
 
   var msg = lines.join('\n');
   Logger.log(msg);
-  try { SpreadsheetApp.getUi().alert('Archive Diagnostic', msg, SpreadsheetApp.getUi().ButtonSet.OK); } catch (e) {}
+  try { SpreadsheetApp.getUi().alert('Archive Diagnostic', msg, SpreadsheetApp.getUi().ButtonSet.OK); } catch (e) { /* headless (trigger) run — no UI */ }
   return msg;
 }
 

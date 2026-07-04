@@ -19,17 +19,48 @@ function writeReport(ss, allRows, weeks, locationData, crossLocOT, chronicFlags,
   // which is why integer day counts were rendering as "12:00 AM".
   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).setNumberFormat('General');
 
-  var row = 1;
+  // The whole report is buffered into parallel 2D arrays and written with one
+  // setValues + one call per format layer at the end (was ~300 per-cell calls).
+  var W = 19;
+  var vals = [], colors = [], weights = [], bgs = [], sizes = [];
+  var numFmtBlocks = []; // {row, col, nrows, ncols, fmt} applied after the batch write
+
+  // cells: sparse array of values by 0-based col; fmts: {colIndex: {color,weight,bg,size}}
+  function addRow(cells, fmts) {
+    var v = [], c = [], w = [], b = [], s = [];
+    for (var i = 0; i < W; i++) {
+      v.push(cells && cells[i] !== undefined ? cells[i] : '');
+      c.push('#000000'); w.push('normal'); b.push('#ffffff'); s.push(10);
+    }
+    if (fmts) {
+      Object.keys(fmts).forEach(function(k) {
+        var f = fmts[k], i = Number(k);
+        if (f.color) c[i] = f.color;
+        if (f.weight) w[i] = f.weight;
+        if (f.bg) b[i] = f.bg;
+        if (f.size) s[i] = f.size;
+      });
+    }
+    vals.push(v); colors.push(c); weights.push(w); bgs.push(b); sizes.push(s);
+    return vals.length; // 1-based sheet row just added
+  }
+  function addBlank(n) { for (var i = 0; i < (n || 1); i++) addRow([]); }
+  // bg across the first n columns of a row
+  function rowBg(bg, n, extra) {
+    var f = extra || {};
+    for (var i = 0; i < n; i++) f[i] = f[i] ? f[i] : {};
+    for (var j = 0; j < n; j++) f[j].bg = bg;
+    return f;
+  }
+
   var locNames = locationData.map(function(l) { return l.name; }).join(' + ');
   var weekLabels = weeks.map(function(w) { return w.label; }).join(', ');
 
   // ── Header ──
-  sheet.getRange(row, 1).setValue('SCHEDULE VARIANCE REPORT').setFontSize(16).setFontWeight('bold');
-  row++;
-  sheet.getRange(row, 1).setValue(locNames + ' — ' + weekLabels).setFontSize(11).setFontColor('#666666');
-  row++;
-  sheet.getRange(row, 1).setValue('Generated: ' + new Date().toLocaleString()).setFontSize(9).setFontColor('#999999');
-  row += 2;
+  addRow(['SCHEDULE VARIANCE REPORT'], { 0: { size: 16, weight: 'bold' } });
+  addRow([locNames + ' — ' + weekLabels], { 0: { size: 11, color: '#666666' } });
+  addRow(['Generated: ' + new Date().toLocaleString()], { 0: { size: 9, color: '#999999' } });
+  addBlank();
 
   // ── Section 1: Summary Stats ──
   var totalEmp = allRows.length;
@@ -47,8 +78,7 @@ function writeReport(ss, allRows, weeks, locationData, crossLocOT, chronicFlags,
   var prevAdherence = getPreviousAdherence_(ss);
   var adhDelta = prevAdherence !== null ? (adherence - prevAdherence) : null;
 
-  sheet.getRange(row, 1).setValue('SUMMARY').setFontSize(12).setFontWeight('bold');
-  row++;
+  addRow(['SUMMARY'], { 0: { size: 12, weight: 'bold' } });
 
   var stats = [
     ['Employees Analyzed', totalEmp],
@@ -62,18 +92,16 @@ function writeReport(ss, allRows, weeks, locationData, crossLocOT, chronicFlags,
   ];
 
   stats.forEach(function(s) {
-    sheet.getRange(row, 1).setValue(s[0]).setFontWeight('bold').setFontColor('#555555');
-    sheet.getRange(row, 2).setValue(s[1]);
+    var f = { 0: { weight: 'bold', color: '#555555' } };
     if (s[0] === 'Schedule Adherence' && adhDelta !== null) {
-      sheet.getRange(row, 2).setFontColor(adhDelta >= 0 ? '#059669' : '#DC2626');
+      f[1] = { color: adhDelta >= 0 ? '#059669' : '#DC2626' };
     }
-    row++;
+    addRow([s[0], s[1]], f);
   });
-  row++;
+  addBlank();
 
   // ── Section 2: Flags & Alerts ──
-  sheet.getRange(row, 1).setValue('FLAGS & ALERTS').setFontSize(12).setFontWeight('bold');
-  row++;
+  addRow(['FLAGS & ALERTS'], { 0: { size: 12, weight: 'bold' } });
 
   // Midnight clock-outs
   var midnighters = [];
@@ -86,17 +114,11 @@ function writeReport(ss, allRows, weeks, locationData, crossLocOT, chronicFlags,
   });
 
   if (midnighters.length) {
-    sheet.getRange(row, 1).setValue('Missed Clock-Outs (punched out near midnight)').setFontWeight('bold').setFontColor('#D97706');
-    row++;
+    addRow(['Missed Clock-Outs (punched out near midnight)'], { 0: { weight: 'bold', color: '#D97706' } });
     midnighters.forEach(function(m) {
-      sheet.getRange(row, 1).setValue(m[0]);
-      sheet.getRange(row, 2).setValue(m[1]);
-      sheet.getRange(row, 3).setValue(m[2]);
-      sheet.getRange(row, 4).setValue(m[3] + 'x');
-      sheet.getRange(row, 1, 1, 4).setBackground('#FEF3C7');
-      row++;
+      addRow([m[0], m[1], m[2], m[3] + 'x'], rowBg('#FEF3C7', 4));
     });
-    row++;
+    addBlank();
   }
 
   // Absences
@@ -110,98 +132,70 @@ function writeReport(ss, allRows, weeks, locationData, crossLocOT, chronicFlags,
   });
 
   if (absents.length) {
-    sheet.getRange(row, 1).setValue('Absences (scheduled but no punch)').setFontWeight('bold').setFontColor('#DC2626');
-    row++;
+    addRow(['Absences (scheduled but no punch)'], { 0: { weight: 'bold', color: '#DC2626' } });
     absents.forEach(function(a) {
-      sheet.getRange(row, 1).setValue(a[0]);
-      sheet.getRange(row, 2).setValue(a[1]);
-      sheet.getRange(row, 3).setValue(a[2]);
-      sheet.getRange(row, 4).setValue(a[3] + ' day(s)');
-      sheet.getRange(row, 1, 1, 4).setBackground('#FEE2E2');
-      row++;
+      addRow([a[0], a[1], a[2], a[3] + ' day(s)'], rowBg('#FEE2E2', 4));
     });
-    row++;
+    addBlank();
   }
 
   // High variance
   var highVarEmps = allRows.filter(function(r) { return r.absTotal >= cfg.HIGH_VARIANCE_THRESHOLD; })
     .sort(function(a, b) { return b.absTotal - a.absTotal; });
   if (highVarEmps.length) {
-    sheet.getRange(row, 1).setValue('High Variance (>' + cfg.HIGH_VARIANCE_THRESHOLD + ' min total)').setFontWeight('bold').setFontColor('#DC2626');
-    row++;
+    addRow(['High Variance (>' + cfg.HIGH_VARIANCE_THRESHOLD + ' min total)'], { 0: { weight: 'bold', color: '#DC2626' } });
     highVarEmps.forEach(function(r) {
-      sheet.getRange(row, 1).setValue(r.name);
-      sheet.getRange(row, 2).setValue(r.locationName);
-      sheet.getRange(row, 3).setValue(formatVariance(r.totalVar));
-      sheet.getRange(row, 3).setFontColor('#DC2626');
-      row++;
+      addRow([r.name, r.locationName, formatVariance(r.totalVar)], { 2: { color: '#DC2626' } });
     });
-    row++;
+    addBlank();
   }
 
   // Possible swaps
   var swapEmps = allRows.filter(function(r) { return r.swapCount > 0; });
   if (swapEmps.length) {
-    sheet.getRange(row, 1).setValue('Possible Schedule Mismatches / Swaps').setFontWeight('bold').setFontColor('#D97706');
-    row++;
+    addRow(['Possible Schedule Mismatches / Swaps'], { 0: { weight: 'bold', color: '#D97706' } });
     swapEmps.forEach(function(r) {
-      sheet.getRange(row, 1).setValue(r.name);
-      sheet.getRange(row, 2).setValue(r.locationName);
-      sheet.getRange(row, 3).setValue(r.swapCount + ' shift(s) with >' + cfg.SWAP_THRESHOLD + ' min start variance');
-      sheet.getRange(row, 1, 1, 3).setBackground('#FFF7ED');
-      row++;
+      addRow([r.name, r.locationName, r.swapCount + ' shift(s) with >' + cfg.SWAP_THRESHOLD + ' min start variance'],
+        rowBg('#FFF7ED', 3));
     });
-    row++;
+    addBlank();
   }
 
   // Behavioral flags
   var latePatterns = allRows.filter(function(r) { return r.pattern.type === 'bad'; });
   if (latePatterns.length) {
-    sheet.getRange(row, 1).setValue('Behavioral Flags').setFontWeight('bold').setFontColor('#DC2626');
-    row++;
+    addRow(['Behavioral Flags'], { 0: { weight: 'bold', color: '#DC2626' } });
     latePatterns.forEach(function(r) {
-      sheet.getRange(row, 1).setValue(r.name);
-      sheet.getRange(row, 2).setValue(r.locationName);
-      sheet.getRange(row, 3).setValue(r.pattern.label);
-      sheet.getRange(row, 4).setValue('Reliability: ' + (r.reliability !== null ? r.reliability + '%' : 'N/A'));
-      row++;
+      addRow([r.name, r.locationName, r.pattern.label,
+        'Reliability: ' + (r.reliability !== null ? r.reliability + '%' : 'N/A')]);
     });
-    row++;
+    addBlank();
   }
 
   // Chronic flags (from History lookback)
   if (chronicFlags && chronicFlags.length) {
-    sheet.getRange(row, 1).setValue('ONGOING CONCERNS (flagged ' + cfg.CHRONIC_TRIGGER + '+ of last ' + cfg.CHRONIC_WINDOW + ' weeks)')
-      .setFontWeight('bold').setFontColor('#7C3AED');
-    row++;
+    addRow(['ONGOING CONCERNS (flagged ' + cfg.CHRONIC_TRIGGER + '+ of last ' + cfg.CHRONIC_WINDOW + ' weeks)'],
+      { 0: { weight: 'bold', color: '#7C3AED' } });
     chronicFlags.forEach(function(f) {
-      sheet.getRange(row, 1).setValue(f.name);
-      sheet.getRange(row, 2).setValue(f.reason);
-      sheet.getRange(row, 3).setValue(f.weeksTriggered + ' of last ' + cfg.CHRONIC_WINDOW + ' weeks');
-      sheet.getRange(row, 1, 1, 3).setBackground('#F3E8FF');
-      row++;
+      addRow([f.name, f.reason, f.weeksTriggered + ' of last ' + cfg.CHRONIC_WINDOW + ' weeks'], rowBg('#F3E8FF', 3));
     });
-    row++;
+    addBlank();
   }
 
-  row++;
+  addBlank();
 
   // ── Section 3: OT Summary ──
-  sheet.getRange(row, 1).setValue('OVERTIME SUMMARY').setFontSize(12).setFontWeight('bold');
-  row++;
+  addRow(['OVERTIME SUMMARY'], { 0: { size: 12, weight: 'bold' } });
 
   Object.keys(crossLocOT.byLocation).forEach(function(loc) {
     var d = crossLocOT.byLocation[loc];
-    sheet.getRange(row, 1).setValue(loc).setFontWeight('bold');
-    sheet.getRange(row, 2).setValue('Scheduled: ' + d.schedHours + ' hrs');
-    sheet.getRange(row, 3).setValue('Actual: ' + d.actualHours + ' hrs');
-    row++;
+    addRow([loc, 'Scheduled: ' + d.schedHours + ' hrs', 'Actual: ' + d.actualHours + ' hrs'],
+      { 0: { weight: 'bold' } });
   });
 
-  sheet.getRange(row, 1).setValue('Cross-Location Reconciled OT').setFontWeight('bold').setFontColor('#7C3AED');
-  sheet.getRange(row, 2).setValue(crossLocOT.totalOTHours + ' hrs actual OT');
-  sheet.getRange(row, 3).setValue(crossLocOT.totalScheduledOTHours + ' hrs scheduled OT');
-  row++;
+  addRow(['Cross-Location Reconciled OT', crossLocOT.totalOTHours + ' hrs actual OT',
+    crossLocOT.totalScheduledOTHours + ' hrs scheduled OT'],
+    { 0: { weight: 'bold', color: '#7C3AED' } });
 
   // Top OT offenders
   var otList = [];
@@ -212,22 +206,17 @@ function writeReport(ss, allRows, weeks, locationData, crossLocOT, chronicFlags,
   otList.sort(function(a, b) { return b.ot - a.ot; });
 
   if (otList.length) {
-    row++;
-    sheet.getRange(row, 1).setValue('Top OT Employees').setFontWeight('bold');
-    row++;
+    addBlank();
+    addRow(['Top OT Employees'], { 0: { weight: 'bold' } });
     otList.slice(0, 10).forEach(function(e) {
-      sheet.getRange(row, 1).setValue(e.name + (e.multi ? ' ★ multi-location' : ''));
-      sheet.getRange(row, 2).setValue(e.ot + ' hrs OT');
-      sheet.getRange(row, 3).setValue(e.total + ' hrs total');
-      if (e.multi) sheet.getRange(row, 1).setFontColor('#7C3AED');
-      row++;
+      addRow([e.name + (e.multi ? ' ★ multi-location' : ''), e.ot + ' hrs OT', e.total + ' hrs total'],
+        e.multi ? { 0: { color: '#7C3AED' } } : null);
     });
   }
-  row += 2;
+  addBlank(2);
 
   // ── Section 4: Employee Roll-Up Table ──
-  sheet.getRange(row, 1).setValue('EMPLOYEE ROLL-UP').setFontSize(12).setFontWeight('bold');
-  row++;
+  addRow(['EMPLOYEE ROLL-UP'], { 0: { size: 12, weight: 'bold' } });
 
   var headers = [
     'Employee', 'Location', 'Sched Days', 'Worked Days', 'Absent', 'Unsched',
@@ -235,13 +224,27 @@ function writeReport(ss, allRows, weeks, locationData, crossLocOT, chronicFlags,
     'Early In', 'Late In', 'Stayed Late', 'Left Early',
     'Missed Punches', 'OT Hrs', 'Pattern', 'Flags'
   ];
-  var headerRange = sheet.getRange(row, 1, 1, headers.length);
-  headerRange.setValues([headers]);
-  headerRange.setFontWeight('bold').setBackground('#F3F4F6').setFontSize(9);
-  row++;
+  addRow(headers, rowBg('#F3F4F6', headers.length, (function() {
+    var f = {};
+    for (var i = 0; i < headers.length; i++) f[i] = { weight: 'bold', size: 9 };
+    return f;
+  })()));
 
+  var rollupStart = vals.length + 1;
   allRows.forEach(function(r) {
-    var vals = [
+    var f = {};
+    if (r.absentDays > 0) f[4] = { color: '#DC2626', weight: 'bold' };
+    if (r.reliability !== null && r.reliability < 75) f[6] = { color: '#DC2626' };
+    else if (r.reliability !== null && r.reliability < 90) f[6] = { color: '#D97706' };
+    else if (r.reliability !== null) f[6] = { color: '#059669' };
+    if (r.absTotal >= cfg.HIGH_VARIANCE_THRESHOLD) f[9] = { color: '#DC2626', weight: 'bold' };
+    if (r.midnightCount > 0) f[15] = { bg: '#FEF3C7', weight: 'bold' };
+    if (r.otHours > 0) f[16] = { color: '#DC2626', weight: 'bold' };
+    if (r.pattern.type === 'bad') f[17] = { color: '#DC2626' };
+    else if (r.pattern.type === 'good') f[17] = { color: '#059669' };
+    else if (r.pattern.type === 'warn') f[17] = { color: '#D97706' };
+
+    addRow([
       r.name,
       r.locationName,
       r.scheduledDays,
@@ -261,65 +264,44 @@ function writeReport(ss, allRows, weeks, locationData, crossLocOT, chronicFlags,
       r.otHours,
       r.pattern.label,
       r.swapCount > 0 ? r.swapCount + ' swap(s)' : ''
-    ];
-    var rowRange = sheet.getRange(row, 1, 1, vals.length);
-    rowRange.setValues([vals]);
+    ], f);
+  });
+  if (allRows.length) {
     // Force integer display on day-count columns — Sheets sometimes inherits
     // a time format on these cells from prior runs, displaying 5 as "12:00 AM".
-    sheet.getRange(row, 3, 1, 4).setNumberFormat('0');
+    numFmtBlocks.push({ row: rollupStart, col: 3, nrows: allRows.length, ncols: 4, fmt: '0' });
+  }
 
-    if (r.absentDays > 0) {
-      sheet.getRange(row, 5).setFontColor('#DC2626').setFontWeight('bold');
-    }
-    if (r.reliability !== null && r.reliability < 75) {
-      sheet.getRange(row, 7).setFontColor('#DC2626');
-    } else if (r.reliability !== null && r.reliability < 90) {
-      sheet.getRange(row, 7).setFontColor('#D97706');
-    } else if (r.reliability !== null) {
-      sheet.getRange(row, 7).setFontColor('#059669');
-    }
-    if (r.absTotal >= cfg.HIGH_VARIANCE_THRESHOLD) {
-      sheet.getRange(row, 10).setFontColor('#DC2626').setFontWeight('bold');
-    }
-    if (r.midnightCount > 0) {
-      sheet.getRange(row, 16).setBackground('#FEF3C7').setFontWeight('bold');
-    }
-    if (r.otHours > 0) {
-      sheet.getRange(row, 17).setFontColor('#DC2626').setFontWeight('bold');
-    }
-    if (r.pattern.type === 'bad') {
-      sheet.getRange(row, 18).setFontColor('#DC2626');
-    } else if (r.pattern.type === 'good') {
-      sheet.getRange(row, 18).setFontColor('#059669');
-    } else if (r.pattern.type === 'warn') {
-      sheet.getRange(row, 18).setFontColor('#D97706');
-    }
-    row++;
-  });
-
-  row += 2;
+  addBlank(2);
 
   // ── Section 5: Day-by-Day Detail ──
-  sheet.getRange(row, 1).setValue('DAY-BY-DAY DETAIL').setFontSize(12).setFontWeight('bold');
-  row++;
+  addRow(['DAY-BY-DAY DETAIL'], { 0: { size: 12, weight: 'bold' } });
 
   allRows.forEach(function(emp) {
-    sheet.getRange(row, 1).setValue(emp.name + '  (' + emp.locationName + ')');
-    sheet.getRange(row, 1).setFontWeight('bold').setFontSize(10).setBackground('#E5E7EB');
-    sheet.getRange(row, 1, 1, 9).setBackground('#E5E7EB');
-    row++;
+    addRow([emp.name + '  (' + emp.locationName + ')'],
+      rowBg('#E5E7EB', 9, { 0: { weight: 'bold', size: 10 } }));
 
     var detailHeaders = ['Day', 'Status', 'Sched In', 'Sched Out', 'Actual In', 'Actual Out', 'Sched Hrs', 'Actual Hrs', 'Net Var'];
-    sheet.getRange(row, 1, 1, detailHeaders.length).setValues([detailHeaders]);
-    sheet.getRange(row, 1, 1, detailHeaders.length).setFontWeight('bold').setFontSize(8).setFontColor('#888888');
-    row++;
+    addRow(detailHeaders, (function() {
+      var f = {};
+      for (var i = 0; i < detailHeaders.length; i++) f[i] = { weight: 'bold', size: 8, color: '#888888' };
+      return f;
+    })());
 
     var sortedDays = emp.dayList.slice().sort(function(a, b) {
       return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
     });
 
     sortedDays.forEach(function(d) {
-      var vals = [
+      var f = {};
+      if (d.status === 'absent') f = rowBg('#FEE2E2', 9);
+      else if (d.status === 'unscheduled') f = rowBg('#DBEAFE', 9);
+      if (d.midnightFlag) {
+        f[5] = f[5] || {};
+        f[5].color = '#D97706';
+        f[5].weight = 'bold';
+      }
+      addRow([
         formatFriendlyDate(d.date),
         d.status.charAt(0).toUpperCase() + d.status.slice(1),
         d.schedStart ? formatTime12(d.schedStart) : '—',
@@ -329,21 +311,25 @@ function writeReport(ss, allRows, weeks, locationData, crossLocOT, chronicFlags,
         d.schedMinutes ? formatHours(d.schedMinutes) : '—',
         d.actualMinutes ? formatHours(d.actualMinutes) : '—',
         d.totalVar !== null ? formatVariance(d.totalVar) : '—'
-      ];
-      sheet.getRange(row, 1, 1, vals.length).setValues([vals]);
-
-      if (d.status === 'absent') {
-        sheet.getRange(row, 1, 1, vals.length).setBackground('#FEE2E2');
-      } else if (d.status === 'unscheduled') {
-        sheet.getRange(row, 1, 1, vals.length).setBackground('#DBEAFE');
-      }
-      if (d.midnightFlag) {
-        sheet.getRange(row, 6).setFontColor('#D97706').setFontWeight('bold');
-      }
-      row++;
+      ], f);
     });
-    row++;
+    addBlank();
   });
+
+  // ── Single batched write ──
+  if (sheet.getMaxRows() < vals.length) {
+    sheet.insertRowsAfter(sheet.getMaxRows(), vals.length - sheet.getMaxRows());
+  }
+  var out = sheet.getRange(1, 1, vals.length, W);
+  out.setValues(vals);
+  out.setBackgrounds(bgs);
+  out.setFontColors(colors);
+  out.setFontWeights(weights);
+  out.setFontSizes(sizes);
+  numFmtBlocks.forEach(function(nf) {
+    sheet.getRange(nf.row, nf.col, nf.nrows, nf.ncols).setNumberFormat(nf.fmt);
+  });
+  SpreadsheetApp.flush();
 
   sheet.autoResizeColumns(1, headers.length);
 }

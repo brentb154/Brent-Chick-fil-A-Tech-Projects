@@ -595,39 +595,26 @@ function writeMondayBlock_(sheet, data, cfg) {
     .setFontColor('#FFFFFF').setBackground('#1D4ED8').setHorizontalAlignment('center');
   r++;
 
+  // 5 fixed rows, 3 columns of flags — built as one batch (values, colors, bgs)
   var maxNames = 5;
+  var flagVals = [], flagColors = [], flagBgs = [];
   for (var n = 0; n < maxNames; n++) {
-    // OT column (A-B merged)
-    sheet.getRange(r, 1, 1, 2).merge();
-    if (n < otList.length) {
-      sheet.getRange(r, 1).setValue(shortName_(otList[n].name) + '  ' + otList[n].val)
-        .setFontSize(11).setFontColor('#991B1B');
-    } else if (n === 0) {
-      sheet.getRange(r, 1).setValue('None').setFontSize(11).setFontColor('#059669');
-    }
-    sheet.getRange(r, 1, 1, 2).setBackground('#FEF2F2');
-
-    // Late column (C)
-    if (n < lateList.length) {
-      sheet.getRange(r, 3).setValue(shortName_(lateList[n].name) + '  ' + lateList[n].val)
-        .setFontSize(11).setFontColor('#92400E');
-    } else if (n === 0) {
-      sheet.getRange(r, 3).setValue('None').setFontSize(11).setFontColor('#059669');
-    }
-    sheet.getRange(r, 3).setBackground('#FFFBEB');
-
-    // Absent column (D-E merged)
-    sheet.getRange(r, 4, 1, 2).merge();
-    if (n < absentList.length) {
-      sheet.getRange(r, 4).setValue(shortName_(absentList[n].name) + '  ' + absentList[n].val)
-        .setFontSize(11).setFontColor('#1E40AF');
-    } else if (n === 0) {
-      sheet.getRange(r, 4).setValue('None').setFontSize(11).setFontColor('#059669');
-    }
-    sheet.getRange(r, 4, 1, 2).setBackground('#EFF6FF');
-
-    r++;
+    var otTxt = n < otList.length ? shortName_(otList[n].name) + '  ' + otList[n].val : (n === 0 ? 'None' : '');
+    var lateTxt = n < lateList.length ? shortName_(lateList[n].name) + '  ' + lateList[n].val : (n === 0 ? 'None' : '');
+    var absTxt = n < absentList.length ? shortName_(absentList[n].name) + '  ' + absentList[n].val : (n === 0 ? 'None' : '');
+    flagVals.push([otTxt, '', lateTxt, absTxt, '']);
+    flagColors.push([
+      n < otList.length ? '#991B1B' : '#059669', '#000000',
+      n < lateList.length ? '#92400E' : '#059669',
+      n < absentList.length ? '#1E40AF' : '#059669', '#000000'
+    ]);
+    flagBgs.push(['#FEF2F2', '#FEF2F2', '#FFFBEB', '#EFF6FF', '#EFF6FF']);
   }
+  sheet.getRange(r, 1, maxNames, 2).mergeAcross(); // OT column (A-B merged per row)
+  sheet.getRange(r, 4, maxNames, 2).mergeAcross(); // Absent column (D-E merged per row)
+  sheet.getRange(r, 1, maxNames, 5)
+    .setValues(flagVals).setFontColors(flagColors).setBackgrounds(flagBgs).setFontSize(11);
+  r += maxNames;
 
   // ── Missed Clock-Outs (table layout, 2 columns, up to 10 people) ──
   midList.sort(function(a, b) { return parseInt(b.val) - parseInt(a.val); });
@@ -639,26 +626,7 @@ function writeMondayBlock_(sheet, data, cfg) {
   r++;
 
   var midRows = midList.length > 0 ? Math.min(5, Math.ceil(midList.length / 2)) : 1;
-  for (var mi = 0; mi < midRows; mi++) {
-    var mL = mi * 2, mR = mi * 2 + 1;
-
-    sheet.getRange(r, 1, 1, 3).merge();
-    if (mL < midList.length) {
-      sheet.getRange(r, 1).setValue(shortName_(midList[mL].name) + '  ' + midList[mL].val)
-        .setFontSize(11).setFontColor('#6B21A8');
-    } else if (mL === 0) {
-      sheet.getRange(r, 1).setValue('None').setFontSize(11).setFontColor('#059669');
-    }
-    sheet.getRange(r, 1, 1, 3).setBackground('#F5F3FF');
-
-    sheet.getRange(r, 4, 1, 2).merge();
-    if (mR < midList.length) {
-      sheet.getRange(r, 4).setValue(shortName_(midList[mR].name) + '  ' + midList[mR].val)
-        .setFontSize(11).setFontColor('#6B21A8');
-    }
-    sheet.getRange(r, 4, 1, 2).setBackground('#F5F3FF');
-    r++;
-  }
+  r = writeTwoColFlagBlock_(sheet, r, midRows, midList, '#6B21A8', '#F5F3FF');
 
   // ── Largest Variance (table layout, 2 columns, up to 10 people, ±4hr threshold) ──
   sheet.getRange(r, 1, 1, MONDAY_COLS).merge()
@@ -667,31 +635,31 @@ function writeMondayBlock_(sheet, data, cfg) {
   r++;
 
   var varRows = varList.length > 0 ? Math.min(5, Math.ceil(varList.length / 2)) : 1;
-  for (var vi = 0; vi < varRows; vi++) {
-    var vL = vi * 2, vR = vi * 2 + 1;
-
-    sheet.getRange(r, 1, 1, 3).merge();
-    if (vL < varList.length) {
-      sheet.getRange(r, 1).setValue(shortName_(varList[vL].name) + '  ' + varList[vL].val)
-        .setFontSize(11).setFontColor('#9A3412');
-    } else if (vL === 0) {
-      sheet.getRange(r, 1).setValue('None').setFontSize(11).setFontColor('#059669');
-    }
-    sheet.getRange(r, 1, 1, 3).setBackground('#FFF7ED');
-
-    sheet.getRange(r, 4, 1, 2).merge();
-    if (vR < varList.length) {
-      sheet.getRange(r, 4).setValue(shortName_(varList[vR].name) + '  ' + varList[vR].val)
-        .setFontSize(11).setFontColor('#9A3412');
-    }
-    sheet.getRange(r, 4, 1, 2).setBackground('#FFF7ED');
-    r++;
-  }
+  r = writeTwoColFlagBlock_(sheet, r, varRows, varList, '#9A3412', '#FFF7ED');
 
   // Outer borders around the flags section
   var flagRows = r - flagsStartRow;
   sheet.getRange(flagsStartRow, 1, flagRows, MONDAY_COLS)
     .setBorder(true, true, true, true, false, false, '#D1D5DB', BORDER);
+}
+
+// Writes a 2-per-row name list (left A-C merged, right D-E merged) as one batch.
+// Returns the next free row.
+function writeTwoColFlagBlock_(sheet, startRow, nRows, list, color, bg) {
+  var vals = [], colors = [], bgs = [];
+  for (var i = 0; i < nRows; i++) {
+    var L = i * 2, R = i * 2 + 1;
+    var lTxt = L < list.length ? shortName_(list[L].name) + '  ' + list[L].val : (L === 0 ? 'None' : '');
+    var rTxt = R < list.length ? shortName_(list[R].name) + '  ' + list[R].val : '';
+    vals.push([lTxt, '', '', rTxt, '']);
+    colors.push([L < list.length ? color : '#059669', '#000000', '#000000', color, '#000000']);
+    bgs.push([bg, bg, bg, bg, bg]);
+  }
+  sheet.getRange(startRow, 1, nRows, 3).mergeAcross();
+  sheet.getRange(startRow, 4, nRows, 2).mergeAcross();
+  sheet.getRange(startRow, 1, nRows, 5)
+    .setValues(vals).setFontColors(colors).setBackgrounds(bgs).setFontSize(11);
+  return startRow + nRows;
 }
 
 function styleHoursRow_(sheet, r, bg) {

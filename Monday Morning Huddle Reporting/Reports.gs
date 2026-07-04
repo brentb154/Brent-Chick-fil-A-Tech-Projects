@@ -198,11 +198,10 @@ function reportEmployeeTimeline() {
     ['Total Late Arrivals', totalLate],
     ['Total Missed Clock-Outs', totalMid]
   ];
-  summaryStats.forEach(function(s) {
-    sheet.getRange(row, 1).setValue(s[0]).setFontWeight('bold').setFontColor('#555');
-    sheet.getRange(row, 2).setValue(s[1]);
-    row++;
-  });
+  var statsRange = sheet.getRange(row, 1, summaryStats.length, 2);
+  statsRange.setValues(summaryStats);
+  sheet.getRange(row, 1, summaryStats.length, 1).setFontWeight('bold').setFontColor('#555');
+  row += summaryStats.length;
 
   sheet.autoResizeColumns(1, headers.length);
   ui.alert('Timeline for "' + actualName + '" generated on the "Report Output" tab.');
