@@ -3780,6 +3780,19 @@ function submitUniformOrder() {
         } else {
         showToast(`Order ${result.orderId} created! Status: Pending - mark as received when items arrive`, 'success');
         }
+
+        // Milestone celebration (1000th order etc.) — order number is the
+        // numeric tail of ORD-YYYY-NNNN
+        if (typeof checkOrderMilestone === 'function') {
+          const orderNum = parseInt(String(result.orderId).split('-').pop(), 10);
+          if (!isNaN(orderNum)) {
+            checkOrderMilestone(orderNum, {
+              employeeName: orderData.employeeName,
+              items: (orderData.items || []).map(i => i.itemName),
+              total: result.totalAmount || 0
+            });
+          }
+        }
         
         // Reset form
         UniformState.orderItems = [];
