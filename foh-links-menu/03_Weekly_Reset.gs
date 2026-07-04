@@ -66,41 +66,53 @@ function reorderTabs() {
  * Preserves formatting, clears all names. Safe to re-run.
  */
 function resetWeeklySheets() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var errors = [];
-  var resetCount = 0;
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var errors = [];
+    var resetCount = 0;
 
-  RESET_DAYS.forEach(function(day) {
-    var err = resetSingleDay_(ss, day);
-    if (err) {
-      errors.push(err);
-    } else {
-      resetCount++;
+    RESET_DAYS.forEach(function(day) {
+      var err = resetSingleDay_(ss, day);
+      if (err) {
+        errors.push(err);
+      } else {
+        resetCount++;
+      }
+    });
+
+    // Reorder tabs after reset (copyTo puts new sheets at the end)
+    reorderTabs();
+
+    SpreadsheetApp.flush();
+
+    // Alert on errors (email if running from trigger)
+    if (errors.length > 0) {
+      var msg = 'Weekly reset completed (' + resetCount + '/' + RESET_DAYS.length + ' sheets).\n\nIssues:\n' + errors.join('\n');
+      try {
+        var alertEmail = getSetting('Alert Email') || Session.getActiveUser().getEmail();
+        GmailApp.sendEmail(
+          alertEmail,
+          'FOH Sheet Reset — Errors',
+          msg
+        );
+      } catch(e) {
+        // If no email available, log it
+        Logger.log(msg);
+      }
     }
-  });
 
-  // Reorder tabs after reset (copyTo puts new sheets at the end)
-  reorderTabs();
-
-  SpreadsheetApp.flush();
-
-  // Alert on errors (email if running from trigger)
-  if (errors.length > 0) {
-    var msg = 'Weekly reset completed (' + resetCount + '/' + RESET_DAYS.length + ' sheets).\n\nIssues:\n' + errors.join('\n');
+    return { reset: resetCount, errors: errors };
+  } catch (fatal) {
+    // Unexpected throw — without this, the Sunday trigger dies silently
+    var fatalMsg = 'resetWeeklySheets failed before completing:\n\n' + (fatal && fatal.stack ? fatal.stack : fatal);
     try {
-      var alertEmail = getSetting('Alert Email') || Session.getActiveUser().getEmail();
-      GmailApp.sendEmail(
-        alertEmail,
-        'FOH Sheet Reset — Errors',
-        msg
-      );
-    } catch(e) {
-      // If no email available, log it
-      Logger.log(msg);
+      var email = getSetting('Alert Email') || Session.getActiveUser().getEmail();
+      GmailApp.sendEmail(email, 'FOH Sheet Reset — FAILED', fatalMsg);
+    } catch (e2) {
+      Logger.log(fatalMsg);
     }
+    throw fatal;
   }
-
-  return { reset: resetCount, errors: errors };
 }
 
 /**
