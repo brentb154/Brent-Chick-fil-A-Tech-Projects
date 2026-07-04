@@ -60,7 +60,9 @@ SECRET_KEY_RE = re.compile(
 SECRET_VAL_RE = re.compile(r'[:=]\s*(?:[\'"][^\'"]{4,}[\'"]|\d{4,})')
 URL_SECRET_RE = re.compile(r'[?&](?:token|key|secret|passcode|auth[_-]?token)=[\w\-]{8,}', re.IGNORECASE)
 HTML_TAG_STRING_RE = re.compile(r"""['"`]\s*<\s*\w""")
-ESCAPE_HINT_RE = re.compile(r'escapeHtml|encodeURI|DOMPurify|sanitize|attrSafe|\bsafe[A-Z_]\w*')
+ESCAPE_HINT_RE = re.compile(r'escapeHtml|escHtml|escAttr|jsEsc|encodeURI|DOMPurify|sanitize|attrSafe|\bsafe[A-Z_]\w*')
+# Setup-guide placeholder values (YOUR_SHEET_ID etc.) are markers, not leaked secrets
+PLACEHOLDER_RE = re.compile(r'YOUR_[A-Z_]+|CHANGE_?ME|REPLACE_?ME|PASTE_|<[A-Z][A-Z_ ]+>')
 # Broadened from risk-audit's hardcoded field list: ANY identifier concatenated into
 # an HTML-tag string literal in client code, minus obviously-safe numeric/date/count
 # variables. Catches the real stored-XSS class (user-typed names) the old rule missed.
@@ -134,6 +136,11 @@ def analyze_project(project):
         if fname.endswith('.gs'):
             gs_code += '\n'.join(orig) + '\n'
         is_client = fname.endswith(('.html', '.js'))
+        # React/JSX file (HEARD-style): React escapes JSX interpolation, so the
+        # concat/template XSS rules are false positives there. The real React
+        # vector is dangerouslySetInnerHTML, checked separately below.
+        fulltext = '\n'.join(orig)
+        is_jsx = is_client and bool(re.search(r'text/babel|ReactDOM|React\.createElement', fulltext))
         funcs = ac.extract_functions(san)
         for fn in funcs:
             fn['file'] = fname
@@ -178,25 +185,28 @@ def analyze_project(project):
 
             # Security (key in real code, value from original line)
             if SECRET_KEY_RE.search(sline) and SECRET_VAL_RE.search(raw) and not \
-               re.search(r'type\s*=\s*[\'"]password|getElementById|placeholder', raw, re.IGNORECASE):
+               re.search(r'type\s*=\s*[\'"]password|getElementById|placeholder', raw, re.IGNORECASE) and not \
+               PLACEHOLDER_RE.search(raw):
                 sec_hits.append(('high', fname, idx + 1, 'hardcoded secret/passcode in source'))
             if URL_SECRET_RE.search(raw):
                 sec_hits.append(('high', fname, idx + 1, 'secret/token embedded in a URL'))
             # Concat rule checks the RAW line — the sanitizer blanks string
             # contents (including the '<tag' part), which had silently killed
             # this rule. Same field-name targeting as the template rule.
-            if is_client and HTML_TAG_STRING_RE.search(raw) and '${' not in raw \
+            if is_client and not is_jsx and HTML_TAG_STRING_RE.search(raw) and '${' not in raw \
                and HTML_VAR_CONCAT_RE.search(raw) and not ESCAPE_HINT_RE.search(raw):
                 for concat in HTML_VAR_CONCAT_RE.findall(raw):
                     if RISKY_FIELD_RE.search(concat) and not SAFE_VAR_RE.search(concat):
                         sec_hits.append(('medium', fname, idx + 1, 'variable concatenated into HTML without escaping (XSS)'))
                         break
-            if is_client and '${' in raw and TPL_TAG_RE.search(raw) and not ESCAPE_HINT_RE.search(raw):
+            if is_client and not is_jsx and '${' in raw and TPL_TAG_RE.search(raw) and not ESCAPE_HINT_RE.search(raw):
                 for expr in TPL_EXPR_RE.findall(raw):
                     if RISKY_FIELD_RE.search(expr) and not SAFE_VAR_RE.search(expr):
                         sec_hits.append(('medium', fname, idx + 1,
                                          'template literal interpolates user-content field into HTML without escaping (XSS)'))
                         break
+            if is_jsx and 'dangerouslySetInnerHTML' in raw and not ESCAPE_HINT_RE.search(raw):
+                sec_hits.append(('medium', fname, idx + 1, 'dangerouslySetInnerHTML bypasses React escaping (XSS)'))
 
         # empty catch blocks (swallowed errors) — counted on ORIGINAL text, so a
         # catch documented with a comment (intentional ignore, e.g. releaseLock
@@ -210,7 +220,10 @@ def analyze_project(project):
     # .gs code only — client HTML defines onChange-style handlers (onCategoryChange
     # etc.) that the on[A-Z] heuristic would otherwise miscount as GAS triggers.
     trigger_handlers = set(re.findall(r"ScriptApp\.newTrigger\(\s*['\"](\w+)['\"]", gs_code))
-    trigger_handlers |= set(re.findall(r'function\s+(on[A-Z]\w*)\s*\(', gs_code))
+    # onOpen/onInstall are UI-only simple triggers (menu builders) — a failure
+    # there is immediately visible, so don't demand try/catch of them.
+    trigger_handlers |= {h for h in re.findall(r'function\s+(on[A-Z]\w*)\s*\(', gs_code)
+                         if h not in ('onOpen', 'onInstall', 'onSelectionChange')}
     unguarded_triggers = 0
     for h in trigger_handlers:
         m = re.search(r'function\s+' + re.escape(h) + r'\s*\([^)]*\)\s*\{', gs_code)
@@ -219,7 +232,12 @@ def analyze_project(project):
         body = gs_code[m.end():m.end() + 1500]
         if 'try' not in body:
             unguarded_triggers += 1
-    has_alerting = bool(re.search(r'catch[\s\S]{0,200}?(?:MailApp|GmailApp)\.sendEmail|catch[\s\S]{0,200}?sendAlert', gs_code))
+    # Alerting counts when the catch emails directly OR calls a notify/alert
+    # helper (e.g. catch → notifyTriggerFailure_() which does the MailApp send).
+    has_alerting = bool(re.search(
+        r'catch[\s\S]{0,400}?(?:MailApp|GmailApp)\.sendEmail'
+        r'|catch[\s\S]{0,400}?sendAlert'
+        r'|catch[\s\S]{0,400}?\w*[Nn]otify\w*\s*\(', gs_code))
 
     # Maintainability metrics
     func_count = len(all_funcs) or 1
@@ -235,8 +253,18 @@ def analyze_project(project):
     files = set(os.listdir(path))
     has_claude = 'CLAUDE.md' in files
     has_readme = any(x.lower() in ('readme.md', 'setup.md', 'setup_guide.md', 'complete_setup_guide.md') for x in files)
-    has_init = bool(re.search(r'function\s+(?:initializeSheet|runInitialSetup|initSheets|setupAccountability|manualInit)', all_code))
+    has_init = bool(re.search(
+        r'function\s+(?:initialize\w*|initSheets|run\w*Setup|\w*FirstTimeSetup|setupAccountability|manualInit)',
+        all_code))
     has_config_sheet = bool(re.search(r"getSheetByName\(['\"][\w ]*(?:Settings|Config|config)['\"]", all_code))
+    if not has_config_sheet:
+        # Constant-based sheet names: const TAB_SETTINGS = 'Settings'; getSheetByName(TAB_SETTINGS)
+        for cname, cval in re.findall(r"(?:const|var|let)\s+(\w+)\s*=\s*['\"]([\w ]+)['\"]", all_code):
+            if re.search(r'Settings|Config', cval) and \
+               re.search(r'getSheetByName\(\s*' + re.escape(cname) + r'\s*\)', all_code):
+                has_config_sheet = True
+                break
+    has_triggers = 'newTrigger' in all_code
     has_trigger_cleanup = bool(re.search(r'function\s+(?:delete|remove|cleanup)\w*[Tt]rigger', all_code))
     has_dynamic_detect = bool(re.search(r'getValues\(\)[\s\S]{0,400}?indexOf|headers?\.indexOf|detect\w*Column', all_code))
 
@@ -302,7 +330,8 @@ def analyze_project(project):
     for ok, pts, label in [
         (has_claude, 18, 'CLAUDE.md'), (has_readme, 16, 'README/setup guide'),
         (has_init, 18, 'idempotent init fn'), (has_config_sheet, 18, 'config-in-sheet'),
-        (has_trigger_cleanup, 15, 'trigger-cleanup util'), (has_dynamic_detect, 15, 'dynamic column detection')]:
+        (has_trigger_cleanup or not has_triggers, 15, 'trigger-cleanup util'),
+        (has_dynamic_detect, 15, 'dynamic column detection')]:
         if not ok:
             h -= pts
             findings['handoff'].append('missing: ' + label)

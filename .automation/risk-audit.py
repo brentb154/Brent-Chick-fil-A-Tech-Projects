@@ -204,7 +204,9 @@ SECRET_KEY_RE = re.compile(
     re.IGNORECASE)
 SECRET_VAL_RE = re.compile(r'[:=]\s*(?:[\'"][^\'"]{4,}[\'"]|\d{4,})')
 INNERHTML_RE = re.compile(r'(?:innerHTML|outerHTML|insertAdjacentHTML)\b')
-ESCAPE_HINT_RE = re.compile(r'escapeHtml|escapeHtmlHealth|encodeURI|DOMPurify|sanitize', re.IGNORECASE)
+ESCAPE_HINT_RE = re.compile(r'escapeHtml|escapeHtmlHealth|escHtml|escAttr|jsEsc|encodeURI|DOMPurify|sanitize|\bsafe[A-Z_]\w*', re.IGNORECASE)
+# Setup-guide placeholder values (YOUR_SHEET_ID etc.) are markers, not leaked secrets
+PLACEHOLDER_RE = re.compile(r'YOUR_[A-Z_]+|CHANGE_?ME|REPLACE_?ME|PASTE_|<[A-Z][A-Z_ ]+>')
 TZ_RE = re.compile(r'toISOString\(\)\s*\.\s*(?:split\(\s*[\'"]T[\'"]\s*\)|slice\(\s*0\s*,\s*10\s*\)|substr(?:ing)?\(\s*0\s*,\s*10\s*\))')
 
 # --- Hardened checks (added 2026-06-13 to cover blind spots the original rules missed) ---
@@ -240,8 +242,10 @@ def scan_lines(project, relpath, orig_lines, san_lines):
         # --- Hardcoded secret / passcode ---
         # Keyword must be real code (sanitized line), value must be a literal (original line).
         if SECRET_KEY_RE.search(san) and SECRET_VAL_RE.search(line):
-            # Skip obvious non-secrets: HTML password inputs, element lookups, placeholders
-            if not re.search(r'type\s*=\s*[\'"]password|getElementById|placeholder|autocomplete', line, re.IGNORECASE):
+            # Skip obvious non-secrets: HTML password inputs, element lookups, placeholders,
+            # and setup-guide marker values (YOUR_LOGIN_PASSCODE etc.)
+            if not re.search(r'type\s*=\s*[\'"]password|getElementById|placeholder|autocomplete', line, re.IGNORECASE) \
+               and not PLACEHOLDER_RE.search(line):
                 findings.append(_mk(project, relpath, idx, 'security', 'high',
                                     'hardcoded-secret',
                                     'Hardcoded secret/passcode in source — move to Script Properties or a Settings sheet',
