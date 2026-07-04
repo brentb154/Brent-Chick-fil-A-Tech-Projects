@@ -98,8 +98,27 @@ function fetchEmployeesForReview() {
   return getEmployeesNeedingReview();
 }
 
+// Adoption ping: one row per day to the shared adoption sheet.
+// No-op unless ADOPTION_SHEET_ID is set in Script Properties. Never throws.
+function logAdoptionPing_(toolName) {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const sheetId = props.getProperty('ADOPTION_SHEET_ID');
+    if (!sheetId) return;
+    const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    if (props.getProperty('ADOPTION_LAST_PING') === today) return;
+    const tab = SpreadsheetApp.openById(sheetId).getSheetByName('Pings');
+    if (!tab) return;
+    tab.appendRow([today, toolName]);
+    props.setProperty('ADOPTION_LAST_PING', today);
+  } catch (err) {
+    // Never let adoption logging break the tool.
+  }
+}
+
 function doGet(e) {
   try {
+    logAdoptionPing_('payroll-system');
     // One-time cleanup: the old auth flow stored a shared 'auth_session' in
     // UserProperties (which is owner-scoped under "execute as owner"). Purge
     // any leftover copy on every doGet so stale state can't keep anyone

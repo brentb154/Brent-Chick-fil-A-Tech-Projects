@@ -33,6 +33,24 @@ function onOpen() {
     .addToUi();
 }
 
+// Adoption ping: one row per day to the shared adoption sheet.
+// No-op unless ADOPTION_SHEET_ID is set in Script Properties. Never throws.
+function logAdoptionPing_(toolName) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var sheetId = props.getProperty('ADOPTION_SHEET_ID');
+    if (!sheetId) return;
+    var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    if (props.getProperty('ADOPTION_LAST_PING') === today) return;
+    var tab = SpreadsheetApp.openById(sheetId).getSheetByName('Pings');
+    if (!tab) return;
+    tab.appendRow([today, toolName]);
+    props.setProperty('ADOPTION_LAST_PING', today);
+  } catch (err) {
+    // Never let adoption logging break the tool.
+  }
+}
+
 // -- Initial Setup --------------------------------------------
 
 /**

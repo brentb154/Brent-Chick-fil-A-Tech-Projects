@@ -18,6 +18,7 @@
 // ==============================================================
 
 function generateTrainingTimeline() {
+  logAdoptionPing_('training-tracker');
   var html = HtmlService.createHtmlOutputFromFile('TimelineDialog')
     .setWidth(580)
     .setHeight(680);
@@ -388,6 +389,7 @@ function writeToTrainingSchedule(ss, daySchedule, params) {
 
 /** Menu-callable: loads current week into Training Needs. */
 function loadThisWeeksTraining() {
+  logAdoptionPing_('training-tracker');
   populateWeeklyTraining(0, true);
 }
 
