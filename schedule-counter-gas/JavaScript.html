@@ -812,15 +812,21 @@ function renderCalibrationPanel_(panel) {
   } else {
     var eff = effectiveGoalValue(goal);
     var effPreview = enabled ? eff : Math.min(Math.max(c.weight * goal + (1 - c.weight) * c.actualSplh, goal * c.floor), goal * c.ceiling);
-    html += '<table class="cal-table">' +
-      '<tr><td>Configured goal</td><td>$' + goal.toFixed(2) + '</td></tr>' +
-      '<tr><td>Actual SPLH (8-wk, locked data)</td><td>$' + c.actualSplh.toFixed(2) + '</td></tr>' +
-      '<tr><td>Effective planning target</td><td><b>$' + effPreview.toFixed(2) + '</b></td></tr>' +
-      '<tr><td>Weeks used / excluded' + (c.weeksRejected ? ' / rejected' : '') + '</td><td>' +
-        c.weeksUsed + ' / ' + c.weeksExcluded + (c.weeksRejected ? ' / ' + c.weeksRejected : '') + '</td></tr>' +
-      '<tr><td>Newest locked week</td><td>' + c.newestWeek + '</td></tr>' +
-      (enabled ? '<tr><td>Grid cells changed</td><td>' + calCellsChanged + '</td></tr>' : '') +
-      '</table>' +
+    // Flex rows, not a <table> — the app's schedule-grid CSS styles every td
+    // and mangles any table rendered inside the page.
+    var calRow = function(label, value, strong) {
+      return '<div class="cal-row"><span class="cal-row-label">' + label + '</span>' +
+        '<span class="cal-row-value' + (strong ? ' cal-strong' : '') + '">' + value + '</span></div>';
+    };
+    html += '<div class="cal-rows">' +
+      calRow('Configured goal', '$' + goal.toFixed(2)) +
+      calRow('Actual SPLH (8-wk, locked)', '$' + c.actualSplh.toFixed(2)) +
+      calRow('Effective planning target', '$' + effPreview.toFixed(2), true) +
+      calRow('Weeks used / excluded' + (c.weeksRejected ? ' / rejected' : ''),
+        c.weeksUsed + ' / ' + c.weeksExcluded + (c.weeksRejected ? ' / ' + c.weeksRejected : '')) +
+      calRow('Newest locked week', c.newestWeek) +
+      (enabled ? calRow('Grid cells changed', calCellsChanged) : '') +
+      '</div>' +
       '<button class="cal-toggle ' + (enabled ? 'cal-on' : '') + '" onclick="toggleCalibrationEnabled()">' +
       (enabled ? 'Calibration ON - click to disable' : 'Calibration OFF - click to enable') + '</button>' +
       '<p class="cal-note">Applies to grid recommendations and insights only. Displays labeled ' +
