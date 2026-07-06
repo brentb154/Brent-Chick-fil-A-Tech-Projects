@@ -797,7 +797,7 @@ function renderCalibrationPanel_(panel) {
   var enabled = localStorage.getItem(CAL_ENABLED_KEY) === '1';
   var goal = getProductivityGoal();
   var html = '<div class="cal-panel-header"><span>Actuals Calibration</span>' +
-    '<button class="cal-close" onclick="document.getElementById(\'calPanel\').remove()">×</button></div>';
+    '<button class="cal-close" onclick="document.getElementById(\'calPanel\').remove()">&times;</button></div>';
 
   if (!c) {
     html += '<p class="cal-note">Not wired. Run <code>wireCalibration(\'&lt;payroll sheet id&gt;\')</code> ' +
@@ -806,7 +806,7 @@ function renderCalibrationPanel_(panel) {
     var why = c.reason === 'stale'
       ? 'Newest locked week (' + c.newestWeek + ') is over 6 weeks old — upload recent payroll batches.'
       : 'Only ' + c.weeksUsed + ' qualifying week(s) so far (need 4). Weeks need locked payroll + a full api sales week.';
-    html += '<p class="cal-note">⚠ ' + why + ' The grid is using the configured goal ($' + goal.toFixed(0) + ').</p>' +
+    html += '<p class="cal-note">\u26a0 ' + why + ' The grid is using the configured goal ($' + goal.toFixed(0) + ').</p>' +
       (c.weeksExcluded ? '<p class="cal-note">' + c.weeksExcluded + ' week(s) manually excluded in actuals_weekly.</p>' : '');
   } else {
     var eff = effectiveGoalValue(goal);
@@ -820,9 +820,9 @@ function renderCalibrationPanel_(panel) {
       (enabled ? '<tr><td>Grid cells changed</td><td>' + calCellsChanged + '</td></tr>' : '') +
       '</table>' +
       '<button class="cal-toggle ' + (enabled ? 'cal-on' : '') + '" onclick="toggleCalibrationEnabled()">' +
-      (enabled ? 'Calibration ON — click to disable' : 'Calibration OFF — click to enable') + '</button>' +
+      (enabled ? 'Calibration ON - click to disable' : 'Calibration OFF - click to enable') + '</button>' +
       '<p class="cal-note">Applies to grid recommendations and insights only. Displays labeled ' +
-      '"goal" keep showing the configured goal. Most cells won’t change — that’s the bounded blend working.</p>';
+      '"goal" keep showing the configured goal. Most cells will not change - that is the bounded blend working.</p>';
   }
   panel.innerHTML = html;
 }
@@ -850,7 +850,7 @@ function updateCalibrationChip() {
     chip.title = 'Staffing recs are calibrated by actual productivity from locked payroll data. 5-click the $/LH card for details.';
     table.parentElement.insertBefore(chip, table);
   }
-  chip.textContent = '⚖ calibrated target $' + eff.toFixed(0) +
+  chip.textContent = '\u2696 calibrated target $' + eff.toFixed(0) +
     ' (goal $' + goal.toFixed(0) + ' · actual $' + calibrationData.actualSplh.toFixed(0) + ')' +
     (calCellsChanged ? ' · ' + calCellsChanged + ' cells adjusted' : '');
   var panel = document.getElementById('calPanel');

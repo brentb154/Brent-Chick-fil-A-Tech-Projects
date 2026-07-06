@@ -2355,7 +2355,7 @@ function wireCalibration(payrollSheetId) {
     if (headers.indexOf(h) < 0) throw new Error('OT_History is missing expected column: ' + h);
   });
   PropertiesService.getScriptProperties().setProperty('PAYROLL_SHEET_ID', payrollSheetId);
-  Logger.log('Calibration wired. Running first refresh…');
+  Logger.log('Calibration wired. Running first refresh...');
   refreshActuals();
   Logger.log('Done. Check the ' + ACTUALS_TAB + ' tab.');
 }
@@ -2378,7 +2378,7 @@ function refreshActuals() {
     computeActualsWeekly_(payrollId);
   } catch (err) {
     sendAlert(
-      '⚠ Actuals Calibration Failed',
+      '\u26a0 Actuals Calibration Failed',
       'refreshActuals threw: ' + err.message +
       '\n\nThe staffing grid falls back to the configured SPLH goal until this is fixed.'
     );
