@@ -807,7 +807,8 @@ function renderCalibrationPanel_(panel) {
       ? 'Newest locked week (' + c.newestWeek + ') is over 6 weeks old — upload recent payroll batches.'
       : 'Only ' + c.weeksUsed + ' qualifying week(s) so far (need 4). Weeks need locked payroll + a full api sales week.';
     html += '<p class="cal-note">\u26a0 ' + why + ' The grid is using the configured goal ($' + goal.toFixed(0) + ').</p>' +
-      (c.weeksExcluded ? '<p class="cal-note">' + c.weeksExcluded + ' week(s) manually excluded in actuals_weekly.</p>' : '');
+      (c.weeksExcluded ? '<p class="cal-note">' + c.weeksExcluded + ' week(s) manually excluded in actuals_weekly.</p>' : '') +
+      (c.weeksRejected ? '<p class="cal-note">' + c.weeksRejected + ' week(s) rejected as bad data (SPLH implausibly far from goal) - check actuals_weekly.</p>' : '');
   } else {
     var eff = effectiveGoalValue(goal);
     var effPreview = enabled ? eff : Math.min(Math.max(c.weight * goal + (1 - c.weight) * c.actualSplh, goal * c.floor), goal * c.ceiling);
@@ -815,7 +816,8 @@ function renderCalibrationPanel_(panel) {
       '<tr><td>Configured goal</td><td>$' + goal.toFixed(2) + '</td></tr>' +
       '<tr><td>Actual SPLH (8-wk, locked data)</td><td>$' + c.actualSplh.toFixed(2) + '</td></tr>' +
       '<tr><td>Effective planning target</td><td><b>$' + effPreview.toFixed(2) + '</b></td></tr>' +
-      '<tr><td>Weeks used / excluded</td><td>' + c.weeksUsed + ' / ' + c.weeksExcluded + '</td></tr>' +
+      '<tr><td>Weeks used / excluded' + (c.weeksRejected ? ' / rejected' : '') + '</td><td>' +
+        c.weeksUsed + ' / ' + c.weeksExcluded + (c.weeksRejected ? ' / ' + c.weeksRejected : '') + '</td></tr>' +
       '<tr><td>Newest locked week</td><td>' + c.newestWeek + '</td></tr>' +
       (enabled ? '<tr><td>Grid cells changed</td><td>' + calCellsChanged + '</td></tr>' : '') +
       '</table>' +

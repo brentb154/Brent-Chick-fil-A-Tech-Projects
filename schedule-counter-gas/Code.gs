@@ -2388,11 +2388,18 @@ function refreshActuals() {
 
 /**
  * The join. For every locked pay period (Period End = Saturday, per the payroll
- * tool's PaydayModule): split into two Sun–Sat weeks, sum gross CH hours
- * (Week1_CH / Week2_CH — these INCLUDE OT hours; the OT columns are a
- * classification of the same hours and are recorded for context only), then
- * match the api sales week whose Monday week_start falls inside each window.
+ * tool's PaydayModule): split into two Sun–Sat weeks, sum gross home-store hours,
+ * then match the api sales week whose Monday week_start falls inside each window.
  * Upserts actuals_weekly by week_start, preserving the operator-set exclude flag.
+ *
+ * Hours source per OT_History row (all gross — OT columns classify the same
+ * hours and are recorded for context only):
+ * - Multi-location rows carry per-location splits in Week1_CH/Week2_CH.
+ * - Single-location home-store rows DON'T (the payroll parser only splits for
+ *   Multi) — but for them 'Week 1 Hours'/'Week 2 Hours' ARE their home-store
+ *   hours. Rows are matched to the home store by the Location column against
+ *   this tool's location_name config (prefix match, so 'Cockrell Hill' matches
+ *   'Cockrell Hill DTO'); other-store rows are ignored entirely.
  */
 function computeActualsWeekly_(payrollId) {
   var otRows = readPayrollActuals_(payrollId);
@@ -2436,6 +2443,9 @@ function computeActualsWeekly_(payrollId) {
         var d = parseLocalDate_(ws);
         if (d && d >= w.start && d <= w.end) { label = ws; sales = apiWeeks[ws].sales; days = apiWeeks[ws].days; }
       });
+      // Weeks with neither hours nor sales are pure noise (batches predating
+      // the weekly-split columns, sales weeks past the 90-day retention) — skip.
+      if (w.hours === 0 && sales === 0) return;
       var qualifies = sales > 0 && w.hours > 0 && days >= CAL_MIN_DAYS_COVERED;
       var splh = qualifies ? Math.round(sales / w.hours * 100) / 100 : '';
       var excl = existing[label] ? existing[label].exclude : false;
@@ -2467,21 +2477,53 @@ function readPayrollActuals_(payrollId) {
   var h = data[0].map(function(x) { return String(x).trim(); });
   var col = {
     periodEnd: h.indexOf('Period End'),
+    location: h.indexOf('Location'),
+    w1: h.indexOf('Week 1 Hours'), w2: h.indexOf('Week 2 Hours'),
     w1ch: h.indexOf('Week1_CH'), w2ch: h.indexOf('Week2_CH'),
     w1ot: h.indexOf('Week 1 OT'), w2ot: h.indexOf('Week 2 OT')
   };
-  if (col.periodEnd < 0 || col.w1ch < 0 || col.w2ch < 0) {
-    throw new Error('OT_History columns not found (Period End / Week1_CH / Week2_CH).');
+  if (col.periodEnd < 0 || col.location < 0 || col.w1 < 0) {
+    throw new Error('OT_History columns not found (Period End / Location / Week 1 Hours).');
   }
+
+  // Home-store matcher: the payroll tool writes 'Cockrell Hill DTO' / 'DBU' /
+  // 'Multi' in Location. Prefix-match against this tool's location_name config
+  // so operators control it from the sheet; accept bare 'CH' for old rows.
+  var homeName = String(getConfigValue('location_name') || 'Cockrell Hill').toLowerCase();
+  function isHome(loc) {
+    var l = String(loc).trim().toLowerCase();
+    return l === 'ch' || (l !== '' && l !== 'multi' && l.indexOf(homeName) === 0);
+  }
+
   var out = [];
   for (var i = 1; i < data.length; i++) {
     var pe = data[i][col.periodEnd];
     var d = (pe instanceof Date) ? new Date(pe.getFullYear(), pe.getMonth(), pe.getDate()) : parseLocalDate_(String(pe));
     if (!d) continue;
+
+    var loc = String(data[i][col.location]).trim();
+    var isMulti = loc.toLowerCase() === 'multi';
+    var home = isHome(loc);
+    if (!home && !isMulti) continue; // other-store row: contributes nothing
+
+    var w1 = 0, w2 = 0;
+    if (isMulti) {
+      // Only Multi rows carry per-location splits; without them the home-store
+      // share is unknowable — old Multi rows contribute 0 (small undercount).
+      w1 = col.w1ch >= 0 ? (parseFloat(data[i][col.w1ch]) || 0) : 0;
+      w2 = col.w2ch >= 0 ? (parseFloat(data[i][col.w2ch]) || 0) : 0;
+    } else {
+      // Home-store single-location row: Week 1/2 Hours ARE its home-store hours.
+      // (The payroll parser never fills Week1_CH for these — that was the bug
+      // that made hours read ~10x low.)
+      w1 = parseFloat(data[i][col.w1]) || 0;
+      w2 = parseFloat(data[i][col.w2]) || 0;
+    }
+
     out.push({
       periodEnd: d,
-      w1ch: parseFloat(data[i][col.w1ch]) || 0,
-      w2ch: parseFloat(data[i][col.w2ch]) || 0,
+      w1ch: w1,
+      w2ch: w2,
       w1ot: col.w1ot >= 0 ? (parseFloat(data[i][col.w1ot]) || 0) : 0,
       w2ot: col.w2ot >= 0 ? (parseFloat(data[i][col.w2ot]) || 0) : 0
     });
@@ -2520,13 +2562,14 @@ function buildCalibration_(ss, cfgMap) {
   var sheet = ss.getSheetByName(ACTUALS_TAB);
   var result = {
     ready: false, reason: 'insufficient',
-    actualSplh: 0, weeksUsed: 0, weeksExcluded: 0, newestWeek: '',
+    actualSplh: 0, weeksUsed: 0, weeksExcluded: 0, weeksRejected: 0, newestWeek: '',
     weight:  clampNum_(parseFloat(cfgMap['splh_cal_weight']),  0, 1,   0.5),
     floor:   clampNum_(parseFloat(cfgMap['splh_cal_floor']),   0.5, 1, 0.85),
     ceiling: clampNum_(parseFloat(cfgMap['splh_cal_ceiling']), 1, 1.5, 1.10)
   };
   if (!sheet || sheet.getLastRow() < 2) return result;
 
+  var goal = parseFloat(cfgMap['splh_goal_overall']) || 90;
   var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 8).getValues()
     .map(function(r) {
       return { week: toDateString_(r[0]), splh: parseFloat(r[4]) || 0,
@@ -2534,6 +2577,13 @@ function buildCalibration_(ss, cfgMap) {
     })
     .filter(function(r) { return r.week && r.splh > 0 && r.days >= CAL_MIN_DAYS_COVERED; })
     .sort(function(a, b) { return a.week < b.week ? -1 : 1; });
+
+  // Data-quality band: a real week's SPLH lands near the goal; anything outside
+  // 0.25x–2.5x means broken inputs (e.g. hours read wrong), not performance.
+  // Reject rather than let the clamps quietly absorb garbage.
+  var sane = rows.filter(function(r) { return r.splh >= goal * 0.25 && r.splh <= goal * 2.5; });
+  result.weeksRejected = rows.length - sane.length;
+  rows = sane;
 
   result.weeksExcluded = rows.filter(function(r) { return r.exclude; }).length;
   var qualifying = rows.filter(function(r) { return !r.exclude; }).slice(-CAL_WINDOW_WEEKS);
