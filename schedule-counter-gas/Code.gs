@@ -394,6 +394,7 @@ function initSheets() {
   seedConfigKeyIfMissing_(ss, 'splh_cal_weight',  '0.5');
   seedConfigKeyIfMissing_(ss, 'splh_cal_floor',   '0.85');
   seedConfigKeyIfMissing_(ss, 'splh_cal_ceiling', '1.10');
+  seedConfigKeyIfMissing_(ss, 'curve_outlier_pct', '30');
   Logger.log('initSheets complete. All tabs verified.');
 }
 
@@ -1961,10 +1962,29 @@ function runSmoothingUpdate(salesPayload) {
     grouped[rec.day][rec.hour] = (grouped[rec.day][rec.hour] || 0) + rec.sales;
   });
 
+  // Day-level outlier gate: typical (median) same-weekday api totals from
+  // history, excluding the week just archived. The hour-level winsorize below
+  // already caps single-hour spikes; this gate catches whole-day anomalies
+  // (closures, weather, spread-out catering blowouts) so they never teach the
+  // curve or inflate its confidence counts. Skipped days are logged.
+  var outlierPct = parseFloat(cfgMap['curve_outlier_pct']);
+  if (isNaN(outlierPct)) outlierPct = 30;
+  var typicalByDay = typicalApiDayTotals_(ss);
+
   Object.keys(grouped).forEach(function(day) {
     var dayHours   = grouped[day];
     var totalSales = Object.keys(dayHours).reduce(function(s, h) { return s + dayHours[h]; }, 0);
     if (totalSales <= 0) return;
+
+    var typical = typicalByDay[day] || 0;
+    if (outlierPct > 0 && typical > 0) {
+      var devPct = Math.abs(totalSales - typical) / typical * 100;
+      if (devPct > outlierPct) {
+        Logger.log('Smoothing skipped ' + day + ' as outlier: $' + Math.round(totalSales) +
+          ' vs typical $' + Math.round(typical) + ' (' + devPct.toFixed(0) + '% > ' + outlierPct + '%)');
+        return;
+      }
+    }
 
     // Compute actual fractions for the 17 in-range hours
     var actualFractions = {};
@@ -2111,18 +2131,39 @@ function runBiasDetection() {
 }
 
 /**
- * Deletes rows from schedule_history and sales_history older than 90 days.
+ * Moves rows older than 90 days from schedule_history and sales_history into
+ * matching *_archive tabs (was: permanent deletion). The working tabs stay
+ * small for fast reads; the archive preserves every observation forever —
+ * that history is what makes seasonality modeling, same-week-last-year
+ * comparisons, and parameter backtesting possible at all.
  * Uses rebuild-and-overwrite to avoid index-shifting errors.
  */
 function cleanupOldHistory() {
   var cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 90);
   var cutoffStr = cutoff.toISOString().split('T')[0];
+  var ss = getSpreadsheet();
   ['schedule_history', 'sales_history'].forEach(function(tabName) {
-    var sheet  = getSpreadsheet().getSheetByName(tabName);
+    var sheet  = ss.getSheetByName(tabName);
     var all    = sheet.getDataRange().getValues();
     var header = all[0];
     var kept   = all.slice(1).filter(function(row) { return toDateString_(row[0]) >= cutoffStr; });
+    var pruned = all.slice(1).filter(function(row) { return toDateString_(row[0]) < cutoffStr; });
+
+    // Archive before touching the working tab — never destroy observations
+    if (pruned.length) {
+      var archive = ss.getSheetByName(tabName + '_archive');
+      if (!archive) {
+        archive = ss.insertSheet(tabName + '_archive');
+        archive.getRange(1, 1, 1, header.length).setValues([header]).setFontWeight('bold');
+        archive.setFrozenRows(1);
+      }
+      var an = archive.getLastRow() + 1;
+      archive.getRange(an, 1, pruned.length, 1).setNumberFormat('@');
+      archive.getRange(an, 3, pruned.length, 1).setNumberFormat('@');
+      archive.getRange(an, 1, pruned.length, header.length).setValues(pruned);
+    }
+
     sheet.clearContents();
     sheet.getRange(1, 1, 1, header.length).setValues([header]);
     if (kept.length) {
@@ -2541,6 +2582,48 @@ function readPayrollActuals_(payrollId) {
   return out;
 }
 
+/**
+ * Median same-weekday api day-totals from sales_history, excluding the most
+ * recent api week (the one the pipeline just archived — it must not vouch for
+ * itself). Returns { Monday: median$, ... }; empty when history is thin.
+ */
+function typicalApiDayTotals_(ss) {
+  var sheet = ss.getSheetByName('sales_history');
+  var result = {};
+  if (!sheet || sheet.getLastRow() < 2) return result;
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
+
+  var latestWeek = '';
+  data.forEach(function(r) {
+    if (String(r[4]) === 'api') {
+      var ws = toDateString_(r[0]);
+      if (ws > latestWeek) latestWeek = ws;
+    }
+  });
+
+  var totals = {}; // { day: { week: total } }
+  data.forEach(function(r) {
+    if (String(r[4]) !== 'api') return;
+    var ws = toDateString_(r[0]);
+    if (ws === latestWeek) return;
+    var day = String(r[1]);
+    if (!totals[day]) totals[day] = {};
+    totals[day][ws] = (totals[day][ws] || 0) + (parseFloat(r[3]) || 0);
+  });
+
+  Object.keys(totals).forEach(function(day) {
+    result[day] = median_(Object.keys(totals[day]).map(function(w) { return totals[day][w]; }));
+  });
+  return result;
+}
+
+function median_(values) {
+  if (!values.length) return 0;
+  var sorted = values.slice().sort(function(a, b) { return a - b; });
+  var mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
 /** Weekly api sales from sales_history: { week_start: { sales, days } }. api rows only. */
 function readApiSalesWeeks_() {
   var sheet = getSpreadsheet().getSheetByName('sales_history');
@@ -2605,8 +2688,9 @@ function buildCalibration_(ss, cfgMap) {
   var ageDays = (new Date() - parseLocalDate_(newest)) / 86400000;
   if (ageDays > CAL_STALE_DAYS) { result.reason = 'stale'; return result; }
 
-  var sum = qualifying.reduce(function(t, r) { return t + r.splh; }, 0);
-  result.actualSplh = Math.round(sum / qualifying.length * 100) / 100;
+  // Median, not mean: a single anomalous week (big catering run, data hiccup)
+  // moves a mean by 1/8th of its weirdness but moves the median not at all.
+  result.actualSplh = Math.round(median_(qualifying.map(function(r) { return r.splh; })) * 100) / 100;
   result.ready = true;
   result.reason = 'ok';
   return result;
