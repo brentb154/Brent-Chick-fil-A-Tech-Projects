@@ -386,8 +386,14 @@ function initSheets() {
   createTabIfMissing(ss, 'app_cache',           [['cache_json']]);
   createTabIfMissing(ss, 'productivity_tracker', PRODUCTIVITY_TRACKER_HEADERS);
   createTabIfMissing(ss, 'schedule_published',  SCHEDULE_PUBLISHED_HEADERS);
+  createTabIfMissing(ss, 'actuals_weekly',      ACTUALS_HEADERS);
   seedDefaultConfig(ss);
   seedDefaultCurves(ss);
+  // Calibration keys seeded individually — seedDefaultConfig skips entirely once
+  // config has rows, so existing installs pick these up on an initSheets() re-run.
+  seedConfigKeyIfMissing_(ss, 'splh_cal_weight',  '0.5');
+  seedConfigKeyIfMissing_(ss, 'splh_cal_floor',   '0.85');
+  seedConfigKeyIfMissing_(ss, 'splh_cal_ceiling', '1.10');
   Logger.log('initSheets complete. All tabs verified.');
 }
 
@@ -537,7 +543,12 @@ function getConfig() {
       setupComplete:  cfgMap['setup_complete']  === 'true',
       biasFlags:      JSON.parse(cfgMap['bias_flags'] || '{}'),
       salesCurves:     finalCurves,
-      curveConfidence: finalConf
+      curveConfidence: finalConf,
+      // null unless wireCalibration() has been run — frontend is 100% stock on null
+      calibration: (function() {
+        try { return buildCalibration_(ss, cfgMap); }
+        catch (e) { Logger.log('calibration build failed (non-fatal): ' + e.message); return null; }
+      })()
     };
   } catch (err) {
     Logger.log('getConfig error: ' + err.message);
@@ -638,18 +649,36 @@ function saveSalesCurves_(ss, daysCurveData) {
  * Assumes matching rows are contiguous (they always are since we append in order).
  * Single deleteRows() call.
  */
-function deleteWeekRows_(sheet, weekStart) {
+/**
+ * Removes a week's rows via filtered rebuild. The old contiguous-block delete
+ * (deleteRows(firstMatch, matchCount)) destroyed bystander rows whenever a
+ * week's rows were non-contiguous (api rows written Monday, estimated rows
+ * published later, other weeks in between).
+ * Optional keepFn(row): return true to preserve a matching row (e.g. api sales).
+ */
+function deleteWeekRows_(sheet, weekStart, keepFn) {
   var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
   if (lastRow < 2) return;
-  var data = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  var firstMatch = -1, matchCount = 0;
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var kept = data.filter(function(r) {
+    if (toDateString_(r[0]) !== weekStart) return true;
+    return keepFn ? !!keepFn(r) : false;
+  });
+  if (kept.length === data.length) return;
+  sheet.getRange(2, 1, data.length, lastCol).clearContent();
+  if (kept.length > 0) sheet.getRange(2, 1, kept.length, lastCol).setValues(kept);
+}
+
+/** True when sales_history already holds pipeline (api) rows for this week. */
+function weekHasApiSales_(salesSheet, weekStart) {
+  var lastRow = salesSheet.getLastRow();
+  if (lastRow < 2) return false;
+  var data = salesSheet.getRange(2, 1, lastRow - 1, 5).getValues();
   for (var i = 0; i < data.length; i++) {
-    if (toDateString_(data[i][0]) === weekStart) {
-      if (firstMatch === -1) firstMatch = i + 2; // 1-based + header offset
-      matchCount++;
-    }
+    if (toDateString_(data[i][0]) === weekStart && String(data[i][4]) === 'api') return true;
   }
-  if (matchCount > 0) sheet.deleteRows(firstMatch, matchCount);
+  return false;
 }
 
 /**
@@ -683,9 +712,15 @@ function saveWeekSnapshot(body) {
     var locName     = cfgMap['location_name'] || 'Cockrell Hill';
     var now         = new Date().toISOString();
 
-    // Delete existing rows for this weekStart (idempotent re-run)
+    // Does this week already have actual (api) sales from the Monday pipeline?
+    // If so we keep them and skip writing publish-time sales rows entirely —
+    // actuals must never be downgraded to curve-distributed estimates.
+    var weekHasApiSales = weekHasApiSales_(salesSheet, weekStart);
+
+    // Delete existing rows for this weekStart (idempotent re-run).
+    // sales_history keeps its api rows; publish only owns non-api rows.
     deleteWeekRows_(schedSheet, weekStart);
-    deleteWeekRows_(salesSheet,  weekStart);
+    deleteWeekRows_(salesSheet, weekStart, function(r) { return String(r[4]) === 'api'; });
     deleteWeekRows_(trainingSheet, weekStart);
 
     // Build complete row arrays in memory first, then write once per sheet
@@ -739,7 +774,10 @@ function saveWeekSnapshot(body) {
       schedSheet.getRange(sn, 3, schedRows.length, 1).setNumberFormat('@');
       schedSheet.getRange(sn, 1, schedRows.length, 7).setValues(schedRows);
     }
-    if (salesRows.length > 0) {
+    // Skip the sales_history write when api actuals exist for this week — the
+    // pipeline's rows are strictly better and must not be duplicated/downgraded.
+    // weekly_summary below still computes from the in-memory salesRows (unchanged).
+    if (salesRows.length > 0 && !weekHasApiSales) {
       var an = salesSheet.getLastRow() + 1;
       // Force week_start (A) and hour (C) columns to plain text
       salesSheet.getRange(an, 1, salesRows.length, 1).setNumberFormat('@');
@@ -1735,6 +1773,11 @@ function mondayPipeline() {
     clearSheet1();
     Logger.log('Sheet1 cleared');
 
+    // Step 8.5: Refresh actuals calibration (silent no-op unless wired;
+    // failures alert + degrade to the configured goal, never abort the pipeline)
+    refreshActuals();
+    Logger.log('Actuals calibration refreshed');
+
     // Step 9: Build and write app_cache
     var cacheObject = buildCacheObject();
     writeAppCache(cacheObject);
@@ -2275,4 +2318,272 @@ function sendWeeklySummaryEmail(body) {
     Logger.log('sendWeeklySummaryEmail error: ' + err.message);
     return { error: err.message };
   }
+}
+
+// ============================================================
+// ACTUALS CALIBRATION (dormant unless PAYROLL_SHEET_ID is wired)
+// ============================================================
+// Joins locked payroll batches (OT_History in the payroll spreadsheet — gross
+// punched hours per week, immutable once uploaded) against this tool's actual
+// api sales weeks to compute true weekly SPLH, cached in the actuals_weekly
+// tab. The frontend blends that 8-week actual into the SPLH goal used by the
+// staffing grid. Entirely dormant until wireCalibration() stores the payroll
+// sheet id in Script Properties — nothing here runs for a stock install.
+
+var ACTUALS_TAB = 'actuals_weekly';
+var ACTUALS_HEADERS = [[
+  'week_start', 'actual_ch_hours', 'ot_hours', 'api_sales',
+  'actual_splh', 'days_covered', 'exclude', 'computed_at'
+]];
+var CAL_MIN_WEEKS = 4;        // qualifying weeks required before calibration engages
+var CAL_WINDOW_WEEKS = 8;     // trailing window for the actual-SPLH average
+var CAL_STALE_DAYS = 42;      // newest qualifying week older than this → stale
+var CAL_MIN_DAYS_COVERED = 5; // api sales rows must span at least this many days
+
+/**
+ * One-time wiring — run from the GAS editor: wireCalibration('<payroll sheet id>').
+ * Validates access + expected columns before storing anything, then runs the
+ * first refresh. Re-runnable. After an account transfer, Script Properties do
+ * NOT come along with pasted code — re-run this (see setup guide).
+ */
+function wireCalibration(payrollSheetId) {
+  if (!payrollSheetId) throw new Error('Usage: wireCalibration("<payroll spreadsheet id>")');
+  var probe = SpreadsheetApp.openById(payrollSheetId).getSheetByName('OT_History');
+  if (!probe) throw new Error('Opened the spreadsheet but found no OT_History tab — wrong sheet id?');
+  var headers = probe.getRange(1, 1, 1, probe.getLastColumn()).getValues()[0].map(function(h) { return String(h).trim(); });
+  ['Period End', 'Week1_CH', 'Week2_CH'].forEach(function(h) {
+    if (headers.indexOf(h) < 0) throw new Error('OT_History is missing expected column: ' + h);
+  });
+  PropertiesService.getScriptProperties().setProperty('PAYROLL_SHEET_ID', payrollSheetId);
+  Logger.log('Calibration wired. Running first refresh…');
+  refreshActuals();
+  Logger.log('Done. Check the ' + ACTUALS_TAB + ' tab.');
+}
+
+/** Removes the wiring — feature goes fully dormant. Data in actuals_weekly is kept. */
+function unwireCalibration() {
+  PropertiesService.getScriptProperties().deleteProperty('PAYROLL_SHEET_ID');
+  Logger.log('Calibration unwired.');
+}
+
+/**
+ * Trigger-safe refresh: recomputes actuals_weekly from locked payroll batches.
+ * Silent no-op when unwired. Alerts by email on failure (grid falls back to
+ * the configured goal, so a failure degrades gracefully).
+ */
+function refreshActuals() {
+  try {
+    var payrollId = PropertiesService.getScriptProperties().getProperty('PAYROLL_SHEET_ID');
+    if (!payrollId) return;
+    computeActualsWeekly_(payrollId);
+  } catch (err) {
+    sendAlert(
+      '⚠ Actuals Calibration Failed',
+      'refreshActuals threw: ' + err.message +
+      '\n\nThe staffing grid falls back to the configured SPLH goal until this is fixed.'
+    );
+    Logger.log('refreshActuals ERROR: ' + err.message);
+  }
+}
+
+/**
+ * The join. For every locked pay period (Period End = Saturday, per the payroll
+ * tool's PaydayModule): split into two Sun–Sat weeks, sum gross CH hours
+ * (Week1_CH / Week2_CH — these INCLUDE OT hours; the OT columns are a
+ * classification of the same hours and are recorded for context only), then
+ * match the api sales week whose Monday week_start falls inside each window.
+ * Upserts actuals_weekly by week_start, preserving the operator-set exclude flag.
+ */
+function computeActualsWeekly_(payrollId) {
+  var otRows = readPayrollActuals_(payrollId);
+  if (!otRows.length) throw new Error('OT_History has no readable rows.');
+
+  var apiWeeks = readApiSalesWeeks_(); // { 'YYYY-MM-DD': { sales, days } }
+
+  // Group payroll rows by period end
+  var periods = {};
+  otRows.forEach(function(r) {
+    var key = localDateString_(r.periodEnd);
+    if (!periods[key]) periods[key] = { periodEnd: r.periodEnd, w1ch: 0, w2ch: 0, w1ot: 0, w2ot: 0 };
+    periods[key].w1ch += r.w1ch; periods[key].w2ch += r.w2ch;
+    periods[key].w1ot += r.w1ot; periods[key].w2ot += r.w2ot;
+  });
+
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(ACTUALS_TAB);
+  if (!sheet) throw new Error(ACTUALS_TAB + ' tab missing — run initSheets() first.');
+
+  // Existing rows: preserve exclude flags across recomputes
+  var existing = {}; // week_start -> { exclude }
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    sheet.getRange(2, 1, lastRow - 1, 8).getValues().forEach(function(r) {
+      existing[toDateString_(r[0])] = { exclude: String(r[6]).toUpperCase() === 'TRUE' };
+    });
+  }
+
+  var now = new Date().toISOString();
+  var out = [];
+  Object.keys(periods).sort().forEach(function(key) {
+    var p = periods[key];
+    [
+      { start: addDaysLocal_(p.periodEnd, -13), end: addDaysLocal_(p.periodEnd, -7), hours: p.w1ch, ot: p.w1ot },
+      { start: addDaysLocal_(p.periodEnd, -6),  end: p.periodEnd,                    hours: p.w2ch, ot: p.w2ot }
+    ].forEach(function(w) {
+      // A 7-day window contains exactly one Monday → at most one api week matches
+      var label = localDateString_(w.start), sales = 0, days = 0;
+      Object.keys(apiWeeks).forEach(function(ws) {
+        var d = parseLocalDate_(ws);
+        if (d && d >= w.start && d <= w.end) { label = ws; sales = apiWeeks[ws].sales; days = apiWeeks[ws].days; }
+      });
+      var qualifies = sales > 0 && w.hours > 0 && days >= CAL_MIN_DAYS_COVERED;
+      var splh = qualifies ? Math.round(sales / w.hours * 100) / 100 : '';
+      var excl = existing[label] ? existing[label].exclude : false;
+      out.push([label, Math.round(w.hours * 100) / 100, Math.round(w.ot * 100) / 100,
+                Math.round(sales), splh, days, excl ? 'TRUE' : 'FALSE', now]);
+    });
+  });
+
+  // Dedupe by week_start (a re-uploaded/overwritten period recomputes cleanly),
+  // then rewrite the tab in one batch.
+  var byWeek = {};
+  out.forEach(function(r) { byWeek[r[0]] = r; });
+  var rows = Object.keys(byWeek).sort().map(function(k) { return byWeek[k]; });
+
+  if (lastRow >= 2) sheet.getRange(2, 1, lastRow - 1, 8).clearContent();
+  if (rows.length > 0) {
+    sheet.getRange(2, 1, rows.length, 1).setNumberFormat('@'); // keep week_start as text
+    sheet.getRange(2, 1, rows.length, 8).setValues(rows);
+  }
+  SpreadsheetApp.flush();
+  Logger.log('actuals_weekly: wrote ' + rows.length + ' week rows.');
+}
+
+/** Header-detected read of the payroll OT_History tab (cross-sheet, read-only). */
+function readPayrollActuals_(payrollId) {
+  var sheet = SpreadsheetApp.openById(payrollId).getSheetByName('OT_History');
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  var data = sheet.getDataRange().getValues();
+  var h = data[0].map(function(x) { return String(x).trim(); });
+  var col = {
+    periodEnd: h.indexOf('Period End'),
+    w1ch: h.indexOf('Week1_CH'), w2ch: h.indexOf('Week2_CH'),
+    w1ot: h.indexOf('Week 1 OT'), w2ot: h.indexOf('Week 2 OT')
+  };
+  if (col.periodEnd < 0 || col.w1ch < 0 || col.w2ch < 0) {
+    throw new Error('OT_History columns not found (Period End / Week1_CH / Week2_CH).');
+  }
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var pe = data[i][col.periodEnd];
+    var d = (pe instanceof Date) ? new Date(pe.getFullYear(), pe.getMonth(), pe.getDate()) : parseLocalDate_(String(pe));
+    if (!d) continue;
+    out.push({
+      periodEnd: d,
+      w1ch: parseFloat(data[i][col.w1ch]) || 0,
+      w2ch: parseFloat(data[i][col.w2ch]) || 0,
+      w1ot: col.w1ot >= 0 ? (parseFloat(data[i][col.w1ot]) || 0) : 0,
+      w2ot: col.w2ot >= 0 ? (parseFloat(data[i][col.w2ot]) || 0) : 0
+    });
+  }
+  return out;
+}
+
+/** Weekly api sales from sales_history: { week_start: { sales, days } }. api rows only. */
+function readApiSalesWeeks_() {
+  var sheet = getSpreadsheet().getSheetByName('sales_history');
+  var byWeek = {};
+  if (!sheet || sheet.getLastRow() < 2) return byWeek;
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
+  var daySets = {};
+  data.forEach(function(r) {
+    if (String(r[4]) !== 'api') return;
+    var ws = toDateString_(r[0]);
+    if (!ws) return;
+    if (!byWeek[ws]) { byWeek[ws] = { sales: 0, days: 0 }; daySets[ws] = {}; }
+    byWeek[ws].sales += parseFloat(r[3]) || 0;
+    daySets[ws][String(r[1])] = true;
+  });
+  Object.keys(byWeek).forEach(function(ws) {
+    byWeek[ws].days = Object.keys(daySets[ws]).length;
+  });
+  return byWeek;
+}
+
+/**
+ * Summary the frontend consumes. Reads only the local actuals_weekly tab —
+ * never the payroll sheet — so page loads stay fast. Returns null when the
+ * feature is unwired (frontend then behaves 100% stock).
+ */
+function buildCalibration_(ss, cfgMap) {
+  if (!PropertiesService.getScriptProperties().getProperty('PAYROLL_SHEET_ID')) return null;
+  var sheet = ss.getSheetByName(ACTUALS_TAB);
+  var result = {
+    ready: false, reason: 'insufficient',
+    actualSplh: 0, weeksUsed: 0, weeksExcluded: 0, newestWeek: '',
+    weight:  clampNum_(parseFloat(cfgMap['splh_cal_weight']),  0, 1,   0.5),
+    floor:   clampNum_(parseFloat(cfgMap['splh_cal_floor']),   0.5, 1, 0.85),
+    ceiling: clampNum_(parseFloat(cfgMap['splh_cal_ceiling']), 1, 1.5, 1.10)
+  };
+  if (!sheet || sheet.getLastRow() < 2) return result;
+
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 8).getValues()
+    .map(function(r) {
+      return { week: toDateString_(r[0]), splh: parseFloat(r[4]) || 0,
+               days: parseInt(r[5], 10) || 0, exclude: String(r[6]).toUpperCase() === 'TRUE' };
+    })
+    .filter(function(r) { return r.week && r.splh > 0 && r.days >= CAL_MIN_DAYS_COVERED; })
+    .sort(function(a, b) { return a.week < b.week ? -1 : 1; });
+
+  result.weeksExcluded = rows.filter(function(r) { return r.exclude; }).length;
+  var qualifying = rows.filter(function(r) { return !r.exclude; }).slice(-CAL_WINDOW_WEEKS);
+  result.weeksUsed = qualifying.length;
+  if (qualifying.length < CAL_MIN_WEEKS) return result; // reason: insufficient
+
+  var newest = qualifying[qualifying.length - 1].week;
+  result.newestWeek = newest;
+  var ageDays = (new Date() - parseLocalDate_(newest)) / 86400000;
+  if (ageDays > CAL_STALE_DAYS) { result.reason = 'stale'; return result; }
+
+  var sum = qualifying.reduce(function(t, r) { return t + r.splh; }, 0);
+  result.actualSplh = Math.round(sum / qualifying.length * 100) / 100;
+  result.ready = true;
+  result.reason = 'ok';
+  return result;
+}
+
+/** Seeds one config key only if absent — reaches existing installs on initSheets() re-run. */
+function seedConfigKeyIfMissing_(ss, key, value) {
+  var sheet = ss.getSheetByName('config');
+  if (!sheet) return;
+  var last = sheet.getLastRow();
+  if (last >= 2) {
+    var keys = sheet.getRange(2, 1, last - 1, 1).getValues();
+    for (var i = 0; i < keys.length; i++) {
+      if (String(keys[i][0]).trim() === key) return;
+    }
+  }
+  sheet.appendRow([key, String(value)]);
+}
+
+function clampNum_(v, lo, hi, fallback) {
+  if (isNaN(v)) return fallback;
+  return Math.min(Math.max(v, lo), hi);
+}
+
+/** Local-noon date from YYYY-MM-DD — never UTC parsing (same rule as payroll's PaydayModule). */
+function parseLocalDate_(s) {
+  var m = String(s).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+}
+
+function localDateString_(d) {
+  var mm = String(d.getMonth() + 1); if (mm.length < 2) mm = '0' + mm;
+  var dd = String(d.getDate());      if (dd.length < 2) dd = '0' + dd;
+  return d.getFullYear() + '-' + mm + '-' + dd;
+}
+
+function addDaysLocal_(d, n) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, 12, 0, 0);
 }

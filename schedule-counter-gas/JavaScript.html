@@ -34,6 +34,9 @@ var includeTraining       = false;
 var managerShifts         = {};
 var managerGridVisible    = false;
 var salesConfig           = null;       // { goals, laborSharesPercent } — set by applyConfig()
+var calibrationData       = null;       // server-computed actuals summary; null = feature unwired
+var calCellsChanged       = 0;          // grid cells whose rec changed under calibration (honesty counter)
+var CAL_ENABLED_KEY       = 'scheduleCounter_calEnabled_v1';
 var salesCurvesByDay      = {};         // { Monday: { '6 AM': 0.018, ... }, ... }
 var _lastLoadedConfig     = null;       // full config object from GAS, used by Settings
 var scheduleWeekDates     = [];         // Date objects from FOH CSV parse — used by detectWeekStart()
@@ -291,6 +294,9 @@ function applyConfig(config, isServerData) {
     trainingSharePercentFoh: (config.laborShares.trainingFoh !== undefined ? config.laborShares.trainingFoh : 3),
     trainingSharePercentBoh: (config.laborShares.trainingBoh !== undefined ? config.laborShares.trainingBoh : 3)
   };
+
+  // Actuals calibration summary (null unless the server is wired to payroll)
+  calibrationData = config.calibration || null;
 
   // Set per-day curves; fill any missing days with defaults
   salesCurvesByDay = config.salesCurves || {};
@@ -726,6 +732,129 @@ function getProductivityGoal() {
   if (currentDepartmentView === 'foh') return goals.foh;
   if (currentDepartmentView === 'boh') return goals.boh;
   return goals.overall;
+}
+
+// ── Actuals calibration (hidden feature — see calibration panel) ──
+// When active, planning math uses a bounded blend of the configured goal and
+// the 8-week actual SPLH from locked payroll data. Displays labeled "goal"
+// keep showing the raw goal; only grid recs + insights use the effective value.
+
+function calibrationActive() {
+  return !!(calibrationData && calibrationData.ready &&
+    localStorage.getItem(CAL_ENABLED_KEY) === '1');
+}
+
+// blend = w×goal + (1−w)×actual, clamped to [floor×goal, ceiling×goal].
+// Contraction mapping (w<1) — converges, cannot run away; clamps are backstop.
+function effectiveGoalValue(goalValue) {
+  if (!calibrationActive() || !goalValue) return goalValue;
+  var c = calibrationData;
+  var blended = c.weight * goalValue + (1 - c.weight) * c.actualSplh;
+  return Math.min(Math.max(blended, goalValue * c.floor), goalValue * c.ceiling);
+}
+
+function getEffectiveGoals() {
+  var g = getConfiguredGoals();
+  return {
+    overall: effectiveGoalValue(g.overall),
+    foh:     effectiveGoalValue(g.foh),
+    boh:     effectiveGoalValue(g.boh)
+  };
+}
+
+function effectiveProductivityGoal() {
+  return effectiveGoalValue(getProductivityGoal());
+}
+
+// ── Calibration unlock + panel + chip ──
+// Hidden feature: 5 rapid clicks on the $/LH metric card open the panel.
+// No menu entry, no settings page — by design.
+
+function setupCalibrationUnlock() {
+  var splhEl = document.getElementById('splh');
+  if (!splhEl || !splhEl.parentElement) return;
+  var clicks = 0, firstClick = 0;
+  splhEl.parentElement.addEventListener('click', function() {
+    var now = Date.now();
+    if (now - firstClick > 3000) { clicks = 0; firstClick = now; }
+    clicks++;
+    if (clicks >= 5) { clicks = 0; toggleCalibrationPanel(); }
+  });
+}
+
+function toggleCalibrationPanel() {
+  var panel = document.getElementById('calPanel');
+  if (panel) { panel.remove(); return; }
+  panel = document.createElement('div');
+  panel.id = 'calPanel';
+  panel.className = 'cal-panel';
+  renderCalibrationPanel_(panel);
+  document.body.appendChild(panel);
+}
+
+function renderCalibrationPanel_(panel) {
+  var c = calibrationData;
+  var enabled = localStorage.getItem(CAL_ENABLED_KEY) === '1';
+  var goal = getProductivityGoal();
+  var html = '<div class="cal-panel-header"><span>Actuals Calibration</span>' +
+    '<button class="cal-close" onclick="document.getElementById(\'calPanel\').remove()">×</button></div>';
+
+  if (!c) {
+    html += '<p class="cal-note">Not wired. Run <code>wireCalibration(\'&lt;payroll sheet id&gt;\')</code> ' +
+      'in the Apps Script editor to connect locked payroll data. The grid is using the configured goal.</p>';
+  } else if (!c.ready) {
+    var why = c.reason === 'stale'
+      ? 'Newest locked week (' + c.newestWeek + ') is over 6 weeks old — upload recent payroll batches.'
+      : 'Only ' + c.weeksUsed + ' qualifying week(s) so far (need 4). Weeks need locked payroll + a full api sales week.';
+    html += '<p class="cal-note">⚠ ' + why + ' The grid is using the configured goal ($' + goal.toFixed(0) + ').</p>' +
+      (c.weeksExcluded ? '<p class="cal-note">' + c.weeksExcluded + ' week(s) manually excluded in actuals_weekly.</p>' : '');
+  } else {
+    var eff = effectiveGoalValue(goal);
+    var effPreview = enabled ? eff : Math.min(Math.max(c.weight * goal + (1 - c.weight) * c.actualSplh, goal * c.floor), goal * c.ceiling);
+    html += '<table class="cal-table">' +
+      '<tr><td>Configured goal</td><td>$' + goal.toFixed(2) + '</td></tr>' +
+      '<tr><td>Actual SPLH (8-wk, locked data)</td><td>$' + c.actualSplh.toFixed(2) + '</td></tr>' +
+      '<tr><td>Effective planning target</td><td><b>$' + effPreview.toFixed(2) + '</b></td></tr>' +
+      '<tr><td>Weeks used / excluded</td><td>' + c.weeksUsed + ' / ' + c.weeksExcluded + '</td></tr>' +
+      '<tr><td>Newest locked week</td><td>' + c.newestWeek + '</td></tr>' +
+      (enabled ? '<tr><td>Grid cells changed</td><td>' + calCellsChanged + '</td></tr>' : '') +
+      '</table>' +
+      '<button class="cal-toggle ' + (enabled ? 'cal-on' : '') + '" onclick="toggleCalibrationEnabled()">' +
+      (enabled ? 'Calibration ON — click to disable' : 'Calibration OFF — click to enable') + '</button>' +
+      '<p class="cal-note">Applies to grid recommendations and insights only. Displays labeled ' +
+      '"goal" keep showing the configured goal. Most cells won’t change — that’s the bounded blend working.</p>';
+  }
+  panel.innerHTML = html;
+}
+
+function toggleCalibrationEnabled() {
+  var enabled = localStorage.getItem(CAL_ENABLED_KEY) === '1';
+  localStorage.setItem(CAL_ENABLED_KEY, enabled ? '0' : '1');
+  if (Object.keys(scheduleData).length > 0) generateReport();
+  var panel = document.getElementById('calPanel');
+  if (panel) renderCalibrationPanel_(panel);
+}
+
+// Small always-visible marker above the grid whenever calibration is shaping recs
+function updateCalibrationChip() {
+  var chip = document.getElementById('calChip');
+  if (!calibrationActive()) { if (chip) chip.remove(); return; }
+  var goal = getProductivityGoal();
+  var eff  = effectiveGoalValue(goal);
+  if (!chip) {
+    var table = document.getElementById('scheduleTable');
+    if (!table || !table.parentElement) return;
+    chip = document.createElement('div');
+    chip.id = 'calChip';
+    chip.className = 'cal-chip';
+    chip.title = 'Staffing recs are calibrated by actual productivity from locked payroll data. 5-click the $/LH card for details.';
+    table.parentElement.insertBefore(chip, table);
+  }
+  chip.textContent = '⚖ calibrated target $' + eff.toFixed(0) +
+    ' (goal $' + goal.toFixed(0) + ' · actual $' + calibrationData.actualSplh.toFixed(0) + ')' +
+    (calCellsChanged ? ' · ' + calCellsChanged + ' cells adjusted' : '');
+  var panel = document.getElementById('calPanel');
+  if (panel) renderCalibrationPanel_(panel);
 }
 
 function getLaborShares() {
@@ -1551,9 +1680,11 @@ function generateScheduleTable() {
   thead.innerHTML = '<th>Hour</th>';
   daysWithData.forEach(function(day) { thead.innerHTML += '<th>' + day + '</th>'; });
 
-  var goals  = getConfiguredGoals();
+  var goalsRaw = getConfiguredGoals();
+  var goals  = getEffectiveGoals(); // = goalsRaw unless calibration is unlocked + active
   var shares = getLaborShares();
   var recFOH = {}, recBOH = {};
+  calCellsChanged = 0;
   if (hasSalesData) {
     daysWithData.forEach(function(day) {
       recFOH[day] = {}; recBOH[day] = {};
@@ -1562,10 +1693,18 @@ function generateScheduleTable() {
         if (sh > 0) {
           recFOH[day][hour] = Math.floor((sh / goals.overall) * shares.fohShare);
           recBOH[day][hour] = Math.floor((sh / goals.overall) * shares.bohShare);
+          // Honesty counter: how many cells actually moved under calibration
+          // (floor() quantization means most cells usually don't)
+          if (calibrationActive()) {
+            var rawF = Math.floor((sh / goalsRaw.overall) * shares.fohShare);
+            var rawB = Math.floor((sh / goalsRaw.overall) * shares.bohShare);
+            if (rawF !== recFOH[day][hour] || rawB !== recBOH[day][hour]) calCellsChanged++;
+          }
         } else { recFOH[day][hour] = 0; recBOH[day][hour] = 0; }
       });
     });
   }
+  updateCalibrationChip();
 
   hours.forEach(function(hour) {
     var row = document.createElement('tr');
@@ -1774,7 +1913,7 @@ function generateInsights() {
       } else {
         var sales = salesData[day] && salesData[day][hour] ? salesData[day][hour] : 0;
         var splh  = staff > 0 ? sales/staff : 0;
-        var goal  = getProductivityGoal();
+        var goal  = effectiveProductivityGoal(); // calibrated when active, else the configured goal
         if (staff > 0 && splh > burnoutThreshold)
           planBurnout.push({ day:day, hour:hour, title:'Burnout Risk ($'+splh.toFixed(0)+'/hr)', desc:staff+' staff handling $'+sales.toFixed(0)+' sales.', score:splh-burnoutThreshold });
         if (staff < 10 && sales > goal*10) {
@@ -1820,7 +1959,7 @@ function generateInsights() {
   grid2.className = 'shift-plan-grid';
   var renderCol = function(title, items, typeClass) {
     var col = document.createElement('div'); col.className = 'plan-column';
-    col.innerHTML = '<div class="plan-column-header"><h3>'+title+'</h3><span class="plan-badge">'+items.length+'</span></div>';
+    col.innerHTML = '<div class="plan-column-header"><h3>'+escHtml(title)+'</h3><span class="plan-badge">'+items.length+'</span></div>';
     var list = document.createElement('div'); list.className = 'plan-list';
     if (items.length === 0) {
       list.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:20px;font-size:13px;">No issues found.</div>';
@@ -3326,6 +3465,7 @@ if (document.getElementById('processBtn')) {
 
 // Load persisted operational data immediately
 loadSalesInputs();
+setupCalibrationUnlock();
 loadManagerShifts();
 setupDragAndDrop();
 updateViewBadge();

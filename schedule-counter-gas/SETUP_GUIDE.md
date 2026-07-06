@@ -120,6 +120,30 @@ Everything operator-editable lives in the **`config`** tab — store name, email
 
 ---
 
+## Optional — Actuals Calibration (advanced)
+
+The staffing grid normally plans against the SPLH goal in `config`. If you also run the payroll tool, the grid can calibrate that target with **real productivity** — actual punched hours from locked payroll uploads ÷ actual weekly sales. Completely optional; the tool is 100% functional without it.
+
+1. Run `initSheets()` once (creates the `actuals_weekly` tab and calibration settings if missing).
+2. **Before wiring, do a one-time sales definition check:** compare one week's `api` sales total in `sales_history` against the CFA Analytics restaurant-sales number for the same week. If they differ (e.g., catering included), decide consciously whether to accept the small bias — the calibration ceiling caps its effect at +10%.
+3. In the Apps Script editor, run `wireCalibration('<payroll spreadsheet id>')`. The account running it needs at least Viewer access to the payroll sheet. It validates access, stores the id in Script Properties, and computes the first batch.
+4. In the web app, click the **$/LH metric card 5 times quickly** to open the hidden calibration panel, and switch it ON. A chip above the grid shows the calibrated target whenever it's active.
+
+Notes:
+- Needs at least 4 complete weeks (locked payroll + full api sales week) before it engages; it reports "insufficient data" until then, and goes back to the plain goal if payroll data goes stale.
+- To drop an anomalous week (school-catering surge, holiday) from the average, set its `exclude` column to `TRUE` on the `actuals_weekly` tab.
+- `unwireCalibration()` turns the whole feature off again.
+
+## Moving to a New Google Account
+
+When transferring this tool (e.g., to a store-owned account), pasted code does **not** bring Script Properties along. After pasting and running `initSheets()`:
+
+- Re-run `wireCalibration('<payroll sheet id>')` if you use calibration — and share the payroll sheet with the new account first.
+- Re-set `ALERT_EMAIL` and `ADOPTION_SHEET_ID` Script Properties if you use pipeline alerts / adoption tracking (Project Settings → Script Properties).
+- Re-install the triggers (Step 6) — triggers belong to the account that created them.
+
+---
+
 ## Troubleshooting
 
 **Blank white screen when opening the web app**
