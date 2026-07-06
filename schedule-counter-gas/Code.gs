@@ -481,7 +481,17 @@ function loadAppCache() {
     if (!sheet) return getConfig();
     var raw = sheet.getRange('A1').getValue();
     if (!raw) return getConfig(); // Cache not yet written — first run before Chunk 3 trigger
-    return JSON.parse(raw);
+    var cfg = JSON.parse(raw);
+    // Calibration must never be served stale: it changes when wiring happens or
+    // payroll batches land, not on the Monday cache cadence. Recompute on every
+    // load — it reads only the local actuals_weekly tab + config (cheap).
+    try {
+      cfg.calibration = buildCalibration_(ss, readConfigMap(ss));
+    } catch (e) {
+      Logger.log('calibration overlay failed (non-fatal): ' + e.message);
+      cfg.calibration = cfg.calibration || null;
+    }
+    return cfg;
   } catch (err) {
     Logger.log('app_cache read failed, falling back to getConfig: ' + err.message);
     return getConfig();
