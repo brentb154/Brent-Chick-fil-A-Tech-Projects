@@ -251,7 +251,26 @@
       </div>
     </div>
   </div>
-  
+
+  <!-- Termination Alert Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2><span class="material-icons-round">person_off</span> Termination Alerts</h2>
+      <label class="toggle-switch" style="margin-left: auto;">
+        <input type="checkbox" id="terminationAlertEnabled">
+        <span class="toggle-slider"></span>
+        <span class="toggle-label" id="terminationAlertLabel">Disabled</span>
+      </label>
+    </div>
+    <div class="card-body" id="terminationAlertSettings">
+      <div class="form-group">
+        <label>Alert Email Address(es)</label>
+        <input type="text" id="terminationAlertEmails" class="form-control" placeholder="admin@example.com, manager@example.com">
+        <small class="form-hint">Sent when an OT upload automatically marks employees Inactive (28+ days absent from all data feeds), listing the last pay period each was seen — so you can terminate them in the payroll provider. Separate recipients from the notification emails above.</small>
+      </div>
+    </div>
+  </div>
+
   <!-- Manager Receiving Passcode Card -->
   <div class="card">
     <div class="card-header">

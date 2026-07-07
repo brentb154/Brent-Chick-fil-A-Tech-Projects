@@ -25,7 +25,8 @@ const SHEET_NAMES = {
   UNIFORM_ORDER_ITEMS: 'Uniform_Order_Items',
   PTO: 'PTO',
   PAYROLL_SETTINGS: 'Payroll_Settings',
-  SYSTEM_COUNTERS: 'System_Counters'
+  SYSTEM_COUNTERS: 'System_Counters',
+  ARCHIVE_EMPLOYEES: 'Archive_Employees'
 };
 
 // Default settings
@@ -52,6 +53,9 @@ const DEFAULT_SETTINGS = {
   notifyOnHighOT: true,
   notifyOnPayrollDue: true,
   notifyOnUniformOrder: false,
+  // Termination alert (separate from admin notifications above)
+  terminationAlertEnabled: false,
+  terminationAlertEmails: '',
   // Uniform settings
   paydayReference: '2024-11-29',  // Friday - bi-weekly pay dates
   // Hint shown under the access-code box on the login screen (customizable per restaurant)
@@ -72,7 +76,7 @@ const DEFAULT_SETTINGS = {
  * This is called automatically when someone visits the web app URL
  */
 // Code version for debugging deployment issues
-const CODE_VERSION = 'v2026.07.03.1'; // bump on deploy — getCodeVersion() verifies a push took effect
+const CODE_VERSION = 'v2026.07.07.1'; // bump on deploy — getCodeVersion() verifies a push took effect
 
 function getCodeVersion() {
   return CODE_VERSION;
@@ -766,8 +770,34 @@ function initializeEmployeesSheet() {
     empSheet.setColumnWidth(7, 100); // Last_Seen
     empSheet.setColumnWidth(8, 120); // Last_Period_End
   }
-  
+
   return empSheet;
+}
+
+/**
+ * Creates Archive_Employees sheet if it doesn't exist (created lazily by the year-end archive)
+ * Same columns as Employees + Archived_Date, Archived_Year
+ * Archived employees are auto-restored (same Employee_ID) if their name reappears in an upload
+ */
+function initializeArchiveEmployeesSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  let archiveSheet = ss.getSheetByName(SHEET_NAMES.ARCHIVE_EMPLOYEES);
+  if (!archiveSheet) {
+    archiveSheet = ss.insertSheet(SHEET_NAMES.ARCHIVE_EMPLOYEES);
+    const headers = [
+      'Employee_ID', 'Full_Name', 'Match_Key', 'Primary_Location',
+      'Status', 'First_Seen', 'Last_Seen', 'Last_Period_End',
+      'Archived_Date', 'Archived_Year'
+    ];
+    archiveSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    archiveSheet.setFrozenRows(1);
+    archiveSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    const protection = archiveSheet.protect().setDescription('Archived employees - auto-restored if they return');
+    protection.setWarningOnly(true);
+  }
+
+  return archiveSheet;
 }
 
 /**
@@ -1542,8 +1572,8 @@ function getSettings() {
       }
       
       // Convert boolean values
-      if (['notificationsEnabled', 'notifyOnPTORequest', 'notifyOnHighOT', 
-           'notifyOnPayrollDue', 'notifyOnUniformOrder'].includes(key)) {
+      if (['notificationsEnabled', 'notifyOnPTORequest', 'notifyOnHighOT',
+           'notifyOnPayrollDue', 'notifyOnUniformOrder', 'terminationAlertEnabled'].includes(key)) {
         value = value === true || value === 'true' || value === 'TRUE';
       }
       
@@ -1962,15 +1992,20 @@ function upsertEmployeesBatch(employees, periodEnd) {
     
     let created = 0;
     let updated = 0;
+    let restored = 0;
     const newRows = [];
     const updateBatches = [];
-    
+    const misses = []; // not in Employees — may be new or archived (resolved below)
+
     for (const emp of employees) {
       if (!emp.matchKey) continue;
-      
+
       const matchKeyLower = emp.matchKey.toLowerCase();
       const existingRow = existingMap.get(matchKeyLower);
-      
+
+      // Same match key twice in one batch — first occurrence already handled
+      if (existingRow === -1) continue;
+
       if (existingRow) {
         // Update existing employee
         // Get current data for this row
@@ -1997,6 +2032,45 @@ function upsertEmployeesBatch(employees, periodEnd) {
         });
         updated++;
       } else {
+        misses.push(emp);
+
+        // Add to existingMap to prevent duplicates in same batch
+        existingMap.set(matchKeyLower, -1);
+      }
+    }
+
+    // Resolve misses against Archive_Employees — returning employees are restored
+    // with their original Employee_ID and First_Seen instead of getting a new row
+    const archiveSheet = ss.getSheetByName(SHEET_NAMES.ARCHIVE_EMPLOYEES);
+    const archiveMap = new Map(); // matchKey -> { rowIndex, data }
+    if (misses.length > 0 && archiveSheet && archiveSheet.getLastRow() > 1) {
+      const archiveData = archiveSheet.getRange(2, 1, archiveSheet.getLastRow() - 1, 8).getValues();
+      archiveData.forEach((row, idx) => {
+        const key = (row[2] || '').toString().toLowerCase();
+        if (key) archiveMap.set(key, { rowIndex: idx + 2, data: row });
+      });
+    }
+
+    const archiveRowsToDelete = [];
+    for (const emp of misses) {
+      const archived = archiveMap.get(emp.matchKey.toLowerCase());
+
+      if (archived) {
+        // Restore returning employee
+        newRows.push([
+          archived.data[0] || emp.employeeId || '', // A: Employee_ID (original)
+          emp.displayName,                          // B: Full_Name
+          emp.matchKey,                             // C: Match_Key
+          emp.location || archived.data[3] || '',   // D: Primary_Location
+          'Active',                                 // E: Status
+          archived.data[5],                         // F: First_Seen (original)
+          now,                                      // G: Last_Seen
+          periodDate                                // H: Last_Period_End
+        ]);
+        archiveRowsToDelete.push(archived.rowIndex);
+        restored++;
+        console.log(`Restored ${emp.displayName} from Archive_Employees`);
+      } else {
         // Create new employee
         newRows.push([
           emp.employeeId || '',    // A: Employee_ID
@@ -2009,26 +2083,33 @@ function upsertEmployeesBatch(employees, periodEnd) {
           periodDate               // H: Last_Period_End
         ]);
         created++;
-        
-        // Add to existingMap to prevent duplicates in same batch
-        existingMap.set(matchKeyLower, -1);
       }
     }
-    
+
     // Batch update existing employees
     for (const update of updateBatches) {
       empSheet.getRange(update.row, 1, 1, 8).setValues([update.values]);
     }
-    
+
     // Batch insert new employees
     if (newRows.length > 0) {
       const insertRow = empSheet.getLastRow() + 1;
       empSheet.getRange(insertRow, 1, newRows.length, 8).setValues(newRows);
     }
+
+    // Remove restored rows from the archive only AFTER the Employees insert has landed,
+    // so a failed insert can't lose the archived record (bottom-up so indices stay valid)
+    if (archiveRowsToDelete.length > 0) {
+      archiveRowsToDelete.sort((a, b) => b - a);
+      for (const rowIndex of archiveRowsToDelete) {
+        archiveSheet.deleteRow(rowIndex);
+      }
+      CacheService.getScriptCache().remove('search_employees_v1');
+    }
     
-    console.log(`Employees upserted: ${created} created, ${updated} updated`);
-    
-    return { success: true, created, updated };
+    console.log(`Employees upserted: ${created} created, ${updated} updated, ${restored} restored from archive`);
+
+    return { success: true, created, updated, restored };
     
   } catch (error) {
     console.error('Error upserting employees:', error);
@@ -2450,6 +2531,25 @@ function searchEmployeesFuzzy(searchTerm) {
 }
 
 /**
+ * Looks up an archived employee by match key
+ * @returns {Object|null} { sheet, rowIndex, data } or null
+ */
+function getArchivedEmployeeByMatchKey_(matchKey) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const archiveSheet = ss.getSheetByName(SHEET_NAMES.ARCHIVE_EMPLOYEES);
+  if (!archiveSheet || archiveSheet.getLastRow() < 2) return null;
+
+  const keyLower = (matchKey || '').toLowerCase();
+  const data = archiveSheet.getRange(2, 1, archiveSheet.getLastRow() - 1, 8).getValues();
+  for (let i = 0; i < data.length; i++) {
+    if ((data[i][2] || '').toString().toLowerCase() === keyLower) {
+      return { sheet: archiveSheet, rowIndex: i + 2, data: data[i] };
+    }
+  }
+  return null;
+}
+
+/**
  * Creates a new employee record with safeguards
  * @param {Object} employeeData - { fullName, location, createdBy, creationMethod }
  * @returns {Object} { success, employee, warnings }
@@ -2476,13 +2576,57 @@ function addNewEmployee(employeeData) {
     // Check for exact duplicate
     const existing = getEmployeeByMatchKey(matchKey);
     if (existing) {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: `Employee "${existing.fullName}" already exists with this name`,
         existingEmployee: existing
       };
     }
-    
+
+    // Returning employee? Restore from Archive_Employees with original ID/First_Seen
+    const archived = getArchivedEmployeeByMatchKey_(matchKey);
+    if (archived) {
+      const restoreNow = new Date();
+      const restoredRow = [
+        archived.data[0] || generateEmployeeId(),        // A: Employee_ID (original, or assign one)
+        fullName,                                        // B: Full_Name
+        matchKey,                                        // C: Match_Key
+        employeeData.location || archived.data[3] || '', // D: Primary_Location
+        'Active',                                        // E: Status
+        archived.data[5],                                // F: First_Seen (original)
+        restoreNow,                                      // G: Last_Seen
+        archived.data[7] || null                         // H: Last_Period_End (last known)
+      ];
+
+      empSheet.appendRow(restoredRow);
+      archived.sheet.deleteRow(archived.rowIndex);
+      CacheService.getScriptCache().remove('search_employees_v1');
+
+      logEmployeeCreation({
+        employeeId: restoredRow[0],
+        fullName: fullName,
+        matchKey: matchKey,
+        location: restoredRow[3],
+        createdBy: employeeData.createdBy || Session.getActiveUser().getEmail() || 'Unknown',
+        creationMethod: 'Restored from Archive',
+        similarWarnings: ''
+      });
+
+      console.log(`Restored employee from archive: ${fullName} (${restoredRow[0]})`);
+
+      return {
+        success: true,
+        restored: true,
+        employee: {
+          employeeId: restoredRow[0],
+          fullName: fullName,
+          matchKey: matchKey,
+          location: restoredRow[3]
+        },
+        warnings: []
+      };
+    }
+
     // Check for similar names (warnings only, don't block)
     const searchResults = searchEmployeesFuzzy(fullName);
     const warnings = searchResults.similar.map(emp => ({
@@ -3154,14 +3298,15 @@ function getEmployeeAuditLog(limit) {
  * Called after each OT save
  * @param {Date} currentPeriodEnd - The period that was just saved
  * @param {Set} activeMatchKeys - Set of match keys for employees who appeared in this save
+ * @returns {Array} Employees newly marked Inactive: [{ name, lastPeriodEnd }]
  */
 function updateEmployeeStatuses(currentPeriodEnd, activeMatchKeys) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const empSheet = ss.getSheetByName(SHEET_NAMES.EMPLOYEES);
-    
+
     if (!empSheet || empSheet.getLastRow() < 2) {
-      return;
+      return [];
     }
     
     const periodDate = new Date(currentPeriodEnd);
@@ -3170,7 +3315,8 @@ function updateEmployeeStatuses(currentPeriodEnd, activeMatchKeys) {
     
     const data = empSheet.getRange(2, 1, empSheet.getLastRow() - 1, 8).getValues();
     const updates = [];
-    
+    const marked = [];
+
     for (let i = 0; i < data.length; i++) {
       const matchKey = (data[i][2] || '').toLowerCase();
       const currentStatus = data[i][4] || 'Active';
@@ -3190,6 +3336,7 @@ function updateEmployeeStatuses(currentPeriodEnd, activeMatchKeys) {
       if (lastPeriodEnd && lastPeriodEnd < cutoffDate) {
         // Mark as inactive
         updates.push({ row: i + 2, status: 'Inactive' });
+        marked.push({ name: data[i][1], lastPeriodEnd: lastPeriodEnd });
         console.log(`Marking ${data[i][1]} as Inactive (last seen: ${lastPeriodEnd.toDateString()})`);
       }
     }
@@ -3203,9 +3350,12 @@ function updateEmployeeStatuses(currentPeriodEnd, activeMatchKeys) {
       empSheet.getRange(2, 5, statusVals.length, 1).setValues(statusVals);
       console.log(`Updated ${updates.length} employees to Inactive status`);
     }
-    
+
+    return marked;
+
   } catch (error) {
     console.error('Error updating employee statuses:', error);
+    return [];
   }
 }
 
@@ -7051,7 +7201,17 @@ function saveOTData(token, employees, periodEnd, overwrite) {
     
     // ========== UPDATE EMPLOYEE STATUSES ==========
     // Check for employees who haven't appeared in 28+ days
-    updateEmployeeStatuses(periodEnd, activeMatchKeys);
+    const newlyInactive = updateEmployeeStatuses(periodEnd, activeMatchKeys);
+
+    // Termination alert for auto-inactivated employees (own toggle/recipients)
+    if (newlyInactive && newlyInactive.length > 0) {
+      try {
+        sendTerminationAlert(newlyInactive);
+      } catch (emailError) {
+        console.error('Failed to send termination alert email:', emailError);
+        // Don't fail the upload if email fails
+      }
+    }
     
     // ========== BACKFILL ==========
     // Try to backfill any missing Employee_IDs in older records
@@ -7099,6 +7259,7 @@ function saveOTData(token, employees, periodEnd, overwrite) {
         wasOverwrite: existingRows.length > 0,
         employeesCreated: upsertResult.created || 0,
         employeesUpdated: upsertResult.updated || 0,
+        employeesRestored: upsertResult.restored || 0,
         highOTCount: highOTEmployees.length
       }
     };
@@ -9330,6 +9491,88 @@ function sendHighOTNotification(otData) {
   `;
   
   return sendNotificationEmail(subject, body, 'highOT');
+}
+
+/**
+ * Sends termination alert when an OT upload auto-marks employees Inactive (28-day rule).
+ * Has its own toggle + recipients (terminationAlertEnabled / terminationAlertEmails) —
+ * deliberately independent of notificationsEnabled / adminEmails.
+ * @param {Array} newlyInactive - [{ name, lastPeriodEnd }] from updateEmployeeStatuses
+ */
+function sendTerminationAlert(newlyInactive) {
+  try {
+    if (!newlyInactive || newlyInactive.length === 0) {
+      return { success: false, reason: 'No newly inactive employees' };
+    }
+
+    const settings = getSettings();
+
+    if (!settings.terminationAlertEnabled) {
+      console.log('Termination alerts disabled, skipping email');
+      return { success: false, reason: 'Termination alerts disabled' };
+    }
+
+    const recipients = (settings.terminationAlertEmails || '')
+      .split(',').map(e => e.trim()).filter(e => e);
+
+    if (recipients.length === 0) {
+      console.log('No termination alert emails configured');
+      return { success: false, reason: 'No termination alert emails configured' };
+    }
+
+    const tz = Session.getScriptTimeZone();
+    let rows = '';
+    newlyInactive.forEach(emp => {
+      const lastPeriod = emp.lastPeriodEnd
+        ? Utilities.formatDate(new Date(emp.lastPeriodEnd), tz, 'MM/dd/yyyy')
+        : 'Unknown';
+      rows += `
+        <tr>
+          <td style="padding: 8px 12px; border-bottom: 1px solid #eee;">${emp.name}</td>
+          <td style="padding: 8px 12px; border-bottom: 1px solid #eee;">${lastPeriod}</td>
+        </tr>`;
+    });
+
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #E51636; color: white; padding: 16px 24px; border-radius: 8px 8px 0 0;">
+          <h2 style="margin: 0; font-size: 18px;">🔔 Termination Alert</h2>
+        </div>
+        <div style="background: #f9f9f9; padding: 24px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
+          <p style="margin-top: 0;">
+            The latest OT upload automatically marked <strong>${newlyInactive.length} employee(s)</strong>
+            as Inactive (not seen in any data feed for 28+ days).
+            <strong>Terminate them in the payroll provider</strong> if they are no longer employed.
+          </p>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <th style="padding: 8px 12px; border-bottom: 2px solid #ccc; text-align: left;">Employee</th>
+              <th style="padding: 8px 12px; border-bottom: 2px solid #ccc; text-align: left;">Last pay period seen in data feeds</th>
+            </tr>
+            ${rows}
+          </table>
+          <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 24px 0;">
+          <p style="color: #666; font-size: 12px; margin: 0;">
+            This is an automated alert from Payroll System.
+            <a href="${ScriptApp.getService().getUrl()}" style="color: #E51636;">Open App</a>
+          </p>
+        </div>
+      </div>
+    `;
+
+    MailApp.sendEmail({
+      to: recipients.join(','),
+      subject: `[Payroll System] Termination Alert: ${newlyInactive.length} Employee(s) Marked Inactive`,
+      htmlBody: htmlBody
+    });
+
+    console.log(`Termination alert sent to ${recipients.length} recipient(s) for ${newlyInactive.length} employee(s)`);
+    return { success: true, recipients: recipients.length };
+
+  } catch (error) {
+    console.error('Error sending termination alert:', error);
+    return { success: false, error: error.message };
+  }
 }
 
 /**
@@ -12059,6 +12302,136 @@ function archiveOTData(dryRun = false) {
 }
 
 /**
+ * Archives Inactive employees not seen since before the closed year (gone the entire prior year).
+ * Rows move to Archive_Employees — never deleted. The OT upload upsert and addNewEmployee
+ * auto-restore an archived employee (same Employee_ID / First_Seen) if their name reappears.
+ * Skips anyone with open uniform orders or pending PTO so payroll validation can still see them.
+ * @param {boolean} dryRun - If true, only preview what would happen
+ */
+function archiveInactiveEmployees(dryRun = false) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const empSheet = ss.getSheetByName(SHEET_NAMES.EMPLOYEES);
+
+    if (!empSheet || empSheet.getLastRow() < 2) {
+      return { success: true, message: 'No employees to archive', archivedCount: 0, skipped: 0 };
+    }
+
+    // Archive runs in January closing the prior year; eligible = not seen during that year at all
+    const closedYear = new Date().getFullYear() - 1;
+    const data = empSheet.getRange(2, 1, empSheet.getLastRow() - 1, 8).getValues();
+
+    // Status/date pass first — skip the Uniform_Orders/PTO reads when nobody qualifies
+    const dateEligible = [];
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      if ((row[4] || 'Active') !== 'Inactive') continue;
+
+      const refDate = row[7] || row[6]; // Last_Period_End, fallback Last_Seen
+      if (!refDate) continue;
+      if (new Date(refDate).getFullYear() >= closedYear) continue;
+
+      dateEligible.push({ rowIndex: i + 2, data: row });
+    }
+
+    if (dateEligible.length === 0) {
+      if (dryRun) {
+        return { success: true, dryRun: true, wouldArchive: 0, skipped: 0, employees: [] };
+      }
+      return { success: true, message: 'No inactive employees eligible to archive', archivedCount: 0, skipped: 0 };
+    }
+
+    // Employees with open uniform orders or pending PTO stay in the live sheet
+    const blocked = buildArchiveBlockSet_(ss);
+    const candidates = [];
+    let skipped = 0;
+
+    for (const cand of dateEligible) {
+      const id = String(cand.data[0] || '');
+      const matchKey = (cand.data[2] || '').toString().toLowerCase();
+      if ((id && blocked.has(id)) || (matchKey && blocked.has(matchKey))) {
+        skipped++;
+        continue;
+      }
+      candidates.push(cand);
+    }
+
+    if (dryRun) {
+      return {
+        success: true,
+        dryRun: true,
+        wouldArchive: candidates.length,
+        skipped: skipped,
+        employees: candidates.map(c => ({ name: c.data[1], lastPeriodEnd: c.data[7] }))
+      };
+    }
+
+    if (candidates.length === 0) {
+      return { success: true, message: 'No inactive employees eligible to archive', archivedCount: 0, skipped: skipped };
+    }
+
+    const archiveSheet = initializeArchiveEmployeesSheet();
+    const now = new Date();
+    const archiveRows = candidates.map(c => c.data.concat([now, closedYear]));
+    archiveSheet.getRange(archiveSheet.getLastRow() + 1, 1, archiveRows.length, 10).setValues(archiveRows);
+
+    // Delete from Employees bottom-up so row indices stay valid
+    const indices = candidates.map(c => c.rowIndex).sort((a, b) => b - a);
+    for (const rowIndex of indices) {
+      empSheet.deleteRow(rowIndex);
+    }
+    SpreadsheetApp.flush();
+
+    CacheService.getScriptCache().remove('search_employees_v1');
+    logActivity('ARCHIVE', 'EMPLOYEE', `Archived ${candidates.length} inactive employees not seen since before ${closedYear}`);
+
+    return {
+      success: true,
+      message: `Archived ${candidates.length} inactive employees` + (skipped ? ` (${skipped} skipped: open orders/PTO)` : ''),
+      archivedCount: candidates.length,
+      skipped: skipped
+    };
+
+  } catch (error) {
+    console.error('Error archiving inactive employees:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Employee_IDs and match keys that must NOT be archived:
+ * open (non-Completed/Cancelled) uniform orders or Pending PTO requests
+ */
+function buildArchiveBlockSet_(ss) {
+  const blocked = new Set();
+
+  const ordersSheet = ss.getSheetByName(SHEET_NAMES.UNIFORM_ORDERS);
+  if (ordersSheet && ordersSheet.getLastRow() > 1) {
+    const orders = ordersSheet.getDataRange().getValues();
+    for (let i = 1; i < orders.length; i++) {
+      const status = orders[i][12]; // M: Status
+      if (status && status !== 'Completed' && status !== 'Cancelled') {
+        if (orders[i][1]) blocked.add(String(orders[i][1]));           // B: Employee_ID
+        if (orders[i][2]) blocked.add(generateMatchKey(orders[i][2])); // C: Employee_Name
+      }
+    }
+  }
+
+  const ptoSheet = ss.getSheetByName(SHEET_NAMES.PTO);
+  if (ptoSheet && ptoSheet.getLastRow() > 1) {
+    const pto = ptoSheet.getDataRange().getValues();
+    for (let i = 1; i < pto.length; i++) {
+      if (pto[i][11] === 'Pending') { // L: Status
+        if (pto[i][1]) blocked.add(String(pto[i][1]));           // B: Employee_ID
+        if (pto[i][2]) blocked.add(generateMatchKey(pto[i][2])); // C: Employee_Name
+      }
+    }
+  }
+
+  return blocked;
+}
+
+/**
  * Get active employees only (filters out inactive)
  * Uses the existing Status column (index 4) in Employees sheet
  * Status can be 'Active', 'Inactive', or blank (treated as Active)
@@ -12151,12 +12524,18 @@ function runAnnualArchive_(dryRun = false) {
   
   const ordersResult = archiveCompletedOrders(dryRun);
   const otResult = archiveOTData(dryRun);
-  
+  const employeesResult = archiveInactiveEmployees(dryRun); // after OT archive so prior-year rows are already out
+
+  // Surface sub-step errors at the top level so the wizard can show what failed
+  const errors = [ordersResult.error, otResult.error, employeesResult.error].filter(Boolean);
+
   return {
-    success: ordersResult.success && otResult.success,
+    success: ordersResult.success && otResult.success && employeesResult.success,
+    error: errors.length > 0 ? errors.join('; ') : undefined,
     dryRun: dryRun,
     orders: ordersResult,
     otData: otResult,
+    employees: employeesResult,
     timestamp: new Date().toISOString()
   };
 }
@@ -12214,6 +12593,7 @@ Annual archive completed on ${new Date().toLocaleDateString()}
 
 Orders Archived: ${result.orders.archivedCount || 0}
 OT Records Archived: ${result.otData.archivedCount || 0}
+Employees Archived: ${result.employees.archivedCount || 0}
 
 ${result.success ? '✅ All archives completed successfully.' : '⚠️ Some errors occurred. Please check the system.'}
 

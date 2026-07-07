@@ -7184,9 +7184,16 @@ function populateSettingsForm() {
   if (notifyHighOT) notifyHighOT.checked = s.notifyOnHighOT !== false;
   if (notifyPayroll) notifyPayroll.checked = s.notifyOnPayrollDue !== false;
   if (notifyUniform) notifyUniform.checked = s.notifyOnUniformOrder === true;
-  
+
+  // Termination Alert Settings
+  const termAlertEnabled = document.getElementById('terminationAlertEnabled');
+  const termAlertEmails = document.getElementById('terminationAlertEmails');
+  if (termAlertEnabled) termAlertEnabled.checked = s.terminationAlertEnabled === true;
+  if (termAlertEmails) termAlertEmails.value = s.terminationAlertEmails || '';
+
   // Update notification UI state
   updateNotificationUIState();
+  updateTerminationAlertUIState();
 
   // Weekly summary schedule
   const weeklyDay = document.getElementById('weeklySummaryDay');
@@ -7207,6 +7214,31 @@ function setupNotificationToggle() {
     toggle.addEventListener('change', function() {
       updateNotificationUIState();
     });
+  }
+
+  const termToggle = document.getElementById('terminationAlertEnabled');
+  if (termToggle) {
+    termToggle.addEventListener('change', function() {
+      updateTerminationAlertUIState();
+    });
+  }
+}
+
+/**
+ * Update termination alert UI based on enabled state
+ */
+function updateTerminationAlertUIState() {
+  const toggle = document.getElementById('terminationAlertEnabled');
+  const label = document.getElementById('terminationAlertLabel');
+  const settingsSection = document.getElementById('terminationAlertSettings');
+
+  if (toggle && label) {
+    label.textContent = toggle.checked ? 'Enabled' : 'Disabled';
+    label.style.color = toggle.checked ? 'var(--success)' : 'var(--gray-500)';
+  }
+
+  if (settingsSection) {
+    settingsSection.classList.toggle('disabled', !toggle?.checked);
   }
 }
 
@@ -7307,7 +7339,11 @@ function saveAllSettings(event) {
     notifyOnHighOT: document.getElementById('notifyHighOT')?.checked || false,
     notifyOnPayrollDue: document.getElementById('notifyPayroll')?.checked || false,
     notifyOnUniformOrder: document.getElementById('notifyUniform')?.checked || false,
-    
+
+    // Termination Alerts
+    terminationAlertEnabled: document.getElementById('terminationAlertEnabled')?.checked || false,
+    terminationAlertEmails: document.getElementById('terminationAlertEmails')?.value || '',
+
     // Weekly Summary Schedule
     weeklySummaryDay: document.getElementById('weeklySummaryDay')?.value || 'Saturday',
     weeklySummaryHour: parseInt(document.getElementById('weeklySummaryHour')?.value, 10) || 13,
@@ -8271,7 +8307,16 @@ function previewArchive() {
       } else {
         message += '📊 No OT data to archive';
       }
-      
+
+      if (result.employees && result.employees.wouldArchive > 0) {
+        message += `<br><br>👤 <strong>${result.employees.wouldArchive}</strong> inactive employees would be archived`;
+        if (result.employees.skipped) {
+          message += `<br><small style="color: var(--gray-500);">${result.employees.skipped} skipped (open orders/PTO)</small>`;
+        }
+      } else {
+        message += '<br><br>👤 No inactive employees to archive';
+      }
+
       showToast(message, 'info', 8000);
     })
     .withFailureHandler(function(error) {
@@ -8285,7 +8330,7 @@ function previewArchive() {
  * Run archive manually
  */
 function runManualArchive() {
-  if (!confirm('This will archive all completed orders and OT data from prior years. Continue?')) {
+  if (!confirm('This will archive all completed orders, OT data from prior years, and long-inactive employees. Continue?')) {
     return;
   }
   
@@ -8299,7 +8344,8 @@ function runManualArchive() {
       if (result.success) {
         let message = '✅ Archive completed!<br><br>';
         message += `📦 Orders archived: ${result.orders?.archivedCount || 0}<br>`;
-        message += `📊 OT records archived: ${result.otData?.archivedCount || 0}`;
+        message += `📊 OT records archived: ${result.otData?.archivedCount || 0}<br>`;
+        message += `👤 Employees archived: ${result.employees?.archivedCount || 0}`;
         showToast(message, 'success', 5000);
       } else {
         showToast('Archive had some issues. Check the sheets.', 'warning');
@@ -12931,15 +12977,21 @@ function runArchive() {
   google.script.run
     .withFailureHandler(handleServerError)
     .withSuccessHandler(function(result) {
-      wizardState.archiveData = result;
-      
+      // Server returns nested results ({orders: {archivedCount}, ...}) — flatten for display/stats
+      wizardState.archiveData = {
+        ordersArchived: (result.orders && result.orders.archivedCount) || 0,
+        otArchived: (result.otData && result.otData.archivedCount) || 0,
+        employeesArchived: (result.employees && result.employees.archivedCount) || 0
+      };
+
       if (resultsEl) {
         resultsEl.style.display = 'block';
         if (result.success) {
           resultsEl.innerHTML = '<div class="success-box">' +
             '<h4>Archive Complete</h4>' +
-            '<p>Orders archived: ' + (result.ordersArchived || 0) + '</p>' +
-            '<p>OT records archived: ' + (result.otArchived || 0) + '</p>' +
+            '<p>Orders archived: ' + wizardState.archiveData.ordersArchived + '</p>' +
+            '<p>OT records archived: ' + wizardState.archiveData.otArchived + '</p>' +
+            '<p>Employees archived: ' + wizardState.archiveData.employeesArchived + '</p>' +
             '</div>';
           
           // Mark step complete and move on
@@ -13049,6 +13101,10 @@ function renderCompletionStats() {
     html += '<div class="completion-stat">';
     html += '<span class="stat-value">' + (wizardState.archiveData.ordersArchived || 0) + '</span>';
     html += '<span class="stat-label">Orders Archived</span>';
+    html += '</div>';
+    html += '<div class="completion-stat">';
+    html += '<span class="stat-value">' + (wizardState.archiveData.employeesArchived || 0) + '</span>';
+    html += '<span class="stat-label">Employees Archived</span>';
     html += '</div>';
   }
   
