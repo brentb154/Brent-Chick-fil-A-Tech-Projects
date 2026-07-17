@@ -271,6 +271,24 @@
     .revision-row:hover{background:var(--gray-50);border-color:var(--gray-200);}
     .revision-banner{background:#FFF7ED;border:1px solid #FDBA74;color:#9A3412;border-radius:var(--radius);padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:12px;}
 
+    /* ── Guided tour (mirrors the payroll walkthrough) ── */
+    .tour-btn{background:transparent;border:1px solid var(--gray-200);color:var(--gray-500);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);}
+    .tour-btn:hover{border-color:var(--cfa-red);color:var(--cfa-red);}
+    #tourOverlay{position:fixed;inset:0;z-index:100000;display:none;}
+    #tourOverlay.active{display:block;}
+    #tourSpot{position:fixed;border-radius:10px;pointer-events:none;box-shadow:0 0 0 9999px rgba(15,23,42,.62);border:3px solid var(--cfa-red);transition:all .25s ease;opacity:0;}
+    #tourSpot.visible{opacity:1;}
+    #tourBubble{position:fixed;max-width:330px;background:#fff;color:var(--gray-900);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.35);padding:18px 18px 14px;z-index:100001;}
+    #tourBubble h4{margin:0 0 6px;font-size:15px;color:var(--cfa-red);}
+    #tourBubble p{margin:0 0 14px;font-size:13.5px;line-height:1.5;color:var(--gray-700);}
+    #tourBubble .tour-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+    #tourBubble .tour-count{font-size:12px;color:var(--gray-400);}
+    #tourBubble .tour-nav{display:flex;gap:8px;}
+    #tourBubble button{border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);}
+    #tourBubble .tour-next{background:var(--cfa-red);color:#fff;}
+    #tourBubble .tour-back{background:var(--gray-100);color:var(--gray-500);}
+    #tourBubble .tour-skip{position:absolute;top:8px;right:10px;background:none;padding:2px 6px;color:var(--gray-400);font-size:18px;line-height:1;}
+
     @media(max-width:768px){
       .top-bar{padding:0 16px;}.top-bar-brand h1{font-size:16px;}.tab-btn{padding:8px 14px;font-size:13px;}
       .main-content{padding:16px;}.form-grid{grid-template-columns:1fr;}.detail-grid{grid-template-columns:1fr;}
@@ -300,6 +318,7 @@
       <button class="tab-btn" data-view="cheatsheet" onclick="switchView('cheatsheet')">Cheat Sheet</button>
       <button class="tab-btn" data-view="taxforms" onclick="switchView('taxforms')">Tax Forms</button>
       <button class="tab-btn" data-view="settings" onclick="switchView('settings')">Settings</button>
+      <button class="tour-btn" onclick="startCateringTour()" title="Take a guided tour">🧭 Tour</button>
     </nav>
   </header>
 
@@ -743,7 +762,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function loadAppData() {
   var loaded = 0;
-  function done() { loaded++; if (loaded >= 4) { hideSpinner(); applySettings(); buildLineItemRows(8); refreshLocationDropdown(); maybeShowPriceCheck(); } }
+  function done() { loaded++; if (loaded >= 4) { hideSpinner(); applySettings(); buildLineItemRows(8); refreshLocationDropdown(); maybeShowPriceCheck(); setTimeout(maybeAutoTour, 1400); } }
   google.script.run.withSuccessHandler(function(s) { appSettings = s || {}; done(); }).withFailureHandler(function(e) { showToast('Settings error: '+e.message,'error'); done(); }).getSettings();
   google.script.run.withSuccessHandler(function(m) { menuItems = m; done(); }).withFailureHandler(function(e) { showToast('Menu error: '+e.message,'error'); done(); }).getMenuItems();
   google.script.run.withSuccessHandler(function(q) { allQuotes = q; done(); }).withFailureHandler(function(e) { showToast('Quotes error: '+e.message,'error'); done(); }).getQuotes();
@@ -2392,6 +2411,111 @@ function formatEventDateTime(eds, ets) {
   if (datePart && timePart) return datePart+' at '+timePart;
   return datePart||timePart||'';
 }
+// ── Guided Tour (dependency-free; mirrors the payroll walkthrough) ──
+var Tour = { steps: [], index: 0 };
+var TOUR_STEPS = [
+  { selector: '[data-view="newQuote"]', title: 'New Quote', body: 'Start here. Build a catering quote — pick pickup or delivery, add the customer and items, then save, email, or make a PDF.' },
+  { view: 'newQuote', selector: '#orderTypeToggle', title: 'Pickup or Delivery', body: 'This sets which prices are used. Switching after you\'ve added items re-prices them to match.' },
+  { view: 'newQuote', selector: '#customerName', title: 'Customer memory', body: 'Start typing a repeat customer (like a school district) and pick them — their contact, email, phone, and usual address fill in automatically.' },
+  { view: 'newQuote', selector: '#taxExemptToggle', title: 'Tax exempt', body: 'Flip this and the tool asks whether their tax-exempt form is on file — with a "look it up" button so you never guess.' },
+  { view: 'newQuote', selector: '.action-bar', title: 'Finish the quote', body: 'Save it, Save & Email a PDF to the customer in one click, or preview and print. Each new quote gets its own number with the contact\'s initials.' },
+  { selector: '[data-view="history"]', title: 'History', body: 'Every past quote — search by name, filter by event date, edit, or one-click Reorder for repeat customers.' },
+  { selector: '[data-view="calendar"]', title: 'Calendar', body: 'See every order by day (month, week, or day view). Red/green dots show PO status, and Day view prints a delivery runsheet for your team.' },
+  { selector: '[data-view="cheatsheet"]', title: 'Cheat Sheet', body: 'Off-menu add-ons (like sliced tomatoes or the package meal). Type the base price once; the delivery price fills in with the markup automatically.' },
+  { selector: '[data-view="taxforms"]', title: 'Tax Forms', body: 'The registry of every organization\'s tax-exempt form, plus guest uploads waiting to be confirmed. Green = on file, orange = requested, red = missing.' },
+  { selector: '[data-view="settings"]', title: 'Settings', body: 'Store info, email and reminder templates, the daily automation switches, and the menu editor all live here. That\'s the tour — you\'re ready!' }
+];
+
+function ensureTourDom() {
+  if (document.getElementById('tourOverlay')) return;
+  var ov = document.createElement('div');
+  ov.id = 'tourOverlay';
+  ov.innerHTML = '<div id="tourSpot"></div><div id="tourBubble">'
+    + '<button class="tour-skip" onclick="endCateringTour()" title="Close">&times;</button>'
+    + '<h4 id="tourTitle"></h4><p id="tourBody"></p>'
+    + '<div class="tour-row"><span class="tour-count" id="tourCount"></span>'
+    + '<div class="tour-nav"><button class="tour-back" id="tourBack" onclick="tourPrev()">Back</button>'
+    + '<button class="tour-next" id="tourNext" onclick="tourNext()">Next</button></div></div></div>';
+  document.body.appendChild(ov);
+  window.addEventListener('resize', tourReposition);
+  window.addEventListener('scroll', tourReposition, true);
+}
+
+var tourTarget = null;
+function tourWaitFor(selector, onFound, onTimeout, tries) {
+  tries = tries || 0;
+  var node = document.querySelector(selector);
+  if (node) { onFound(node); return; }
+  if (tries > 25) { onTimeout(); return; }
+  setTimeout(function() { tourWaitFor(selector, onFound, onTimeout, tries + 1); }, 120);
+}
+function tourRender(step, target) {
+  tourTarget = target;
+  document.getElementById('tourTitle').textContent = step.title || '';
+  document.getElementById('tourBody').textContent = step.body || '';
+  document.getElementById('tourCount').textContent = (Tour.index + 1) + ' of ' + Tour.steps.length;
+  document.getElementById('tourBack').style.visibility = Tour.index === 0 ? 'hidden' : 'visible';
+  document.getElementById('tourNext').textContent = (Tour.index === Tour.steps.length - 1) ? 'Done' : 'Next';
+  tourReposition();
+}
+function tourReposition() {
+  var ov = document.getElementById('tourOverlay');
+  if (!ov || !ov.classList.contains('active')) return;
+  var spot = document.getElementById('tourSpot'), bubble = document.getElementById('tourBubble'), pad = 6;
+  var r = tourTarget && document.body.contains(tourTarget) ? tourTarget.getBoundingClientRect() : null;
+  if (r && (r.width > 0 || r.height > 0)) {
+    spot.classList.add('visible');
+    spot.style.top = (r.top - pad) + 'px'; spot.style.left = (r.left - pad) + 'px';
+    spot.style.width = (r.width + pad * 2) + 'px'; spot.style.height = (r.height + pad * 2) + 'px';
+    var bw = bubble.offsetWidth || 330, bh = bubble.offsetHeight || 150, gap = 14, top, left;
+    if (r.bottom + gap + bh < window.innerHeight) { top = r.bottom + gap; left = r.left; }
+    else { top = Math.max(12, r.top - gap - bh); left = r.left; }
+    left = Math.min(Math.max(12, left), window.innerWidth - bw - 12);
+    top = Math.min(Math.max(12, top), window.innerHeight - bh - 12);
+    bubble.style.top = top + 'px'; bubble.style.left = left + 'px'; bubble.style.transform = 'none';
+  } else {
+    spot.classList.remove('visible');
+    bubble.style.top = '50%'; bubble.style.left = '50%'; bubble.style.transform = 'translate(-50%,-50%)';
+  }
+}
+function tourShow(i) {
+  Tour.index = i;
+  var step = Tour.steps[i];
+  if (!step) { endCateringTour(); return; }
+  var existing = step.selector ? document.querySelector(step.selector) : null;
+  if (step.view && (!existing || !isElementVisible(existing))) {
+    switchView(step.view);
+    tourWaitFor(step.selector, function(node) { node.scrollIntoView({ block: 'center' }); setTimeout(function() { tourRender(step, node); }, 320); }, function() { tourRender(step, null); });
+  } else if (existing) {
+    existing.scrollIntoView({ block: 'center' });
+    setTimeout(function() { tourRender(step, existing); }, 250);
+  } else { tourRender(step, null); }
+}
+function isElementVisible(el) { return !!(el && el.offsetParent !== null); }
+function startCateringTour() {
+  ensureTourDom();
+  switchView('newQuote');
+  Tour.steps = TOUR_STEPS; Tour.index = 0;
+  document.getElementById('tourOverlay').classList.add('active');
+  tourShow(0);
+  try { localStorage.setItem('cateringTourSeen', '1'); } catch (e) {}
+}
+function endCateringTour() {
+  var ov = document.getElementById('tourOverlay');
+  if (ov) ov.classList.remove('active');
+  tourTarget = null;
+}
+function tourNext() { if (Tour.index >= Tour.steps.length - 1) { endCateringTour(); return; } tourShow(Tour.index + 1); }
+function tourPrev() { if (Tour.index > 0) tourShow(Tour.index - 1); }
+// First-run: auto-launch once per browser, but never on top of the price check or a confirm dialog.
+function maybeAutoTour() {
+  try { if (localStorage.getItem('cateringTourSeen')) return; } catch (e) { return; }
+  var pc = document.getElementById('priceCheckOverlay');
+  if (pc && pc.classList.contains('show')) return;
+  if (document.querySelector('.confirm-overlay.show')) return;
+  startCateringTour();
+}
+
 function escHtml(s) { if (!s) return ''; var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 function escAttr(s) { return (s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function showSpinner(){document.getElementById('spinner').classList.add('show');}
