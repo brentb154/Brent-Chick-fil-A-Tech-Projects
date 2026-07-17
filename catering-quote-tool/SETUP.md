@@ -1,16 +1,21 @@
 # Catering Quote Tool — Setup Instructions for New Features
 
-## July 2026 Feature Batch (newest)
+## July 2026 Batch 2 (newest) — customer memory, runsheet, automation, Pipeline retired
 
-The latest update adds: customer phone + email on the PDF, a quote history date filter, a Calendar tab (Month/Week/Day with 🔴/🟢 PO status), a busy-delivery-window warning, Google Maps directions links on deliveries, a 15-minute time dropdown, quote revision history (view + restore), and a quarterly price-check lock.
+This update adds: customer memory (org + contact autofill from past quotes), a **Reorder** button, a printable/emailable daily delivery runsheet, day-before confirmation emails, a daily missing-PO alert digest, a "valid through" date on PDFs, Settings-tunable delivery warning, a collapsible menu editor with CFA Home import instructions — and **removes the Pipeline feature entirely**.
 
 **To deploy it:**
-1. Replace `Code.gs` and the `Index` HTML file (paste `App.html` into it) with the versions from this repo. Also replace `Pipeline` with `Pipeline.gs` (one-line fix). `PipelineView` is unchanged.
-2. Run `initializeSheet()` once (function dropdown → Run). It adds the `Customer Phone` column (W) to Quotes, creates the hidden `Quote_Revisions` tab, and seeds two new Settings rows: `Price Check Interval (Days)` (default 90) and `Price Check Categories` (which menu categories the price spot-check draws from). Safe to re-run; touches no data.
-3. Deploy → Manage deployments → Edit → **New version**.
-4. **Expect a one-time lock on first open:** the app asks you to type the current POS prices for 3 menu items before it unlocks. That sets the baseline; it repeats every `Price Check Interval (Days)`. If a typed price doesn't match, fix the item in the Menu tab first, then re-verify.
+1. Paste the new `Code.gs` into `Code.gs` and the new `App.html` into the `Index` HTML file.
+2. **Delete the `Pipeline` and `PipelineView` files** from the Apps Script project (click the ⋮ next to each → Remove). The old `Pipeline` sheet tab keeps its data — delete the tab by hand whenever you like.
+3. Run `initializeSheet()` once. It creates the hidden `Confirmations_Sent` / `PO_Alerts_Sent` log tabs and seeds the new Settings rows (`Quote Valid For (Days)`, `Delivery Warning Count`, `Delivery Warning Window (Minutes)`, `Confirmation Enabled/Subject/Body`, `PO Alert Enabled/Days Before/Email`). Safe to re-run; touches no data.
+4. Deploy → Manage deployments → Edit → **New version**.
+5. In the app: **Settings → Daily Automation** — flip on the jobs you want and click **⏰ Enable (3pm daily)** once. Confirmations default **off**; PO alerts default **on** (recipient = the deploying account until you set `PO Alert Email`).
 
-Revision history starts at this deploy — edits made before it aren't recoverable.
+## July 2026 Batch 1 — PDF details, Calendar tab, revisions, price check
+
+Added: customer phone + email on the PDF, a quote history date filter, a Calendar tab (Month/Week/Day with 🔴/🟢 PO status), a busy-delivery-window warning, Google Maps directions links on deliveries, a 15-minute time dropdown, quote revision history (view + restore), and a quarterly price-check lock.
+
+Its migration is covered by the same `initializeSheet()` run as Batch 2 (adds the `Customer Phone` column W, the hidden `Quote_Revisions` tab, and the price-check Settings rows). **Expect a one-time lock on first open:** the app asks for the current POS prices of 3 menu items before it unlocks; it repeats every `Price Check Interval (Days)` (default 90). Revision history starts at this deploy — earlier edits aren't recoverable.
 
 ---
 
@@ -56,7 +61,7 @@ Replace these files with the updated versions:
 3. Paste the full contents of the updated `Code.gs` from this repo
 4. Repeat for `App.html`
 
-`Pipeline.gs` and `PipelineView.html` are **unchanged** — do not touch them.
+(`Pipeline.gs` and `PipelineView.html` existed at the time of this deployment but were retired in July 2026 Batch 2 — a current install has neither.)
 
 ---
 

@@ -14,29 +14,25 @@ In your Google Sheet: **Extensions → Apps Script**.
 
 ### Step 3: Add the Code Files
 
-You need **four files** in the Apps Script editor:
+You need **two files** in the Apps Script editor:
 
 | GAS Filename | Source File |
 |---|---|
 | `Code` (auto-created) | `Code.gs` |
 | `Index` (HTML) | `App.html` |
-| `Pipeline` (GS) | `Pipeline.gs` |
-| `PipelineView` (HTML) | `Pipelineview.html` |
 
 **Code.gs:** Replace all code in the existing `Code.gs` with the provided `Code.gs` file.
 
 **Index.html:** Click **+** next to Files → select **HTML** → name it exactly `Index` → paste the contents of `App.html`.
 
-**Pipeline.gs:** Click **+** next to Files → select **Script** → name it `Pipeline` → paste the contents of `Pipeline.gs`.
-
-**PipelineView.html:** Click **+** next to Files → select **HTML** → name it `PipelineView` → paste the contents of `Pipelineview.html`.
+> **Upgrading an older install?** If your project still has `Pipeline` and `PipelineView` files, delete both — the Pipeline feature was retired. The old `Pipeline` sheet tab keeps its data; delete it by hand whenever you like.
 
 > **Important:** `doGet()` uses `HtmlService.createTemplateFromFile('Index')` — the `Index` file name must match exactly.
 
 ### Step 4: Initialize the Spreadsheet
 Select `initializeSheet` from the function dropdown → click **▶ Run** → authorize when prompted.
 
-Your sheet will have five visible tabs — **Settings**, **Menu**, **Quotes**, **Quote_Sequence**, **Pipeline** — plus a hidden **Quote_Revisions** tab that stores prior versions of edited quotes.
+Your sheet will have four visible tabs — **Settings**, **Menu**, **Quotes**, **Quote_Sequence** — plus hidden tabs: **Quote_Revisions** (prior versions of edited quotes), **Confirmations_Sent** and **PO_Alerts_Sent** (automation logs).
 
 ### Step 5: Deploy as a Web App
 **Deploy → New deployment** → Web app → Execute as "Me" → Access "Anyone within [org]" (or "Anyone") → Deploy → copy the `/exec` URL.
@@ -71,7 +67,7 @@ Fill in store names, addresses, phone numbers, contact name, tax rate, logo, and
 
 ## Golden Rules (so it doesn't break)
 
-- **Don't hand-create or rename tabs.** `initializeSheet` builds `Settings`, `Menu`, `Quotes`, `Quote_Sequence`, `Pipeline`, and the hidden `Quote_Revisions` with the exact names the code expects. Renaming one silently breaks that feature.
+- **Don't hand-create or rename tabs.** `initializeSheet` builds `Settings`, `Menu`, `Quotes`, `Quote_Sequence`, and the hidden `Quote_Revisions` / `Confirmations_Sent` / `PO_Alerts_Sent` with the exact names the code expects. Renaming one silently breaks that feature.
 - **The `Index` file must be named exactly `Index`** (it holds the contents of `App.html`). `doGet` loads it by that name.
 - **Redeploy a new version after any code change** — the `/exec` URL serves the last *deployed* version, not your latest save.
 
@@ -117,18 +113,26 @@ Configurable in **Settings → Quote Follow-Up Reminders**:
 - **Enable Daily Auto-Send** button installs a GAS time-based trigger that runs at 9am — no manual action needed after setup
 - Each quote is only reminded once (tracked in the `Reminders_Sent` sheet)
 
-### Sales Pipeline
-The **Pipeline** tab shows all emailed quotes organized by sales stage:
-- **Quoted / Sent** → **Awaiting Response** → **Confirmed / Booked**
-- Stats cards show counts, totals, and overdue follow-ups per stage
-- Update status, follow-up date, and notes from the table
-- Entries are added automatically when a quote is emailed
+### Customer Memory
+- Typing a known organization name suggests it from past quotes
+- Picking an org offers its **known contacts** (name, email, phone, usual delivery address) — one click fills the form; big multi-contact accounts like a school district work naturally
+- The quote popup lists that customer's past orders
+
+### Daily Automation (one 3 PM trigger, two jobs)
+- **Day-before confirmation email** — customers with an email get "we'll see you tomorrow at 11:30" the afternoon before their event; subject/body fully editable in Settings; one email per quote per event date
+- **Missing-PO alert** — one internal digest a day listing every quote inside the alert window (default 7 days) still marked 🔴 NEEDS PO; "No PO Needed" never alerts; each quote alerts once
+- Each job has its own on/off toggle; install the trigger once with the "Enable (3pm daily)" button in Settings
+
+### Delivery Runsheet
+- From the Calendar's Day view: print a one-page runsheet for the day (times in order, contacts, phones, addresses with Maps links, items, PO status) or email it to the catering lead
 
 ### Quote Management
 - Sequential IDs (Q-2026-0001, Q-2026-0002, …) that never repeat
 - Prices frozen at creation time — menu changes don't affect old quotes
 - Edit & Reuse updates the quote in place — and the outgoing version is kept in **revision history**, viewable and restorable from the quote detail popup
+- **Reorder** copies any past quote into a brand-new one (fresh ID, fresh date/time, PO cleared) — built for repeat school/church accounts
 - History view: text search plus an event-date filter to pull up any day's orders
+- Every PDF shows a "valid through" date — `Quote Valid For (Days)` in Settings, default 30, `0` hides it
 - Auto-archive moves quotes older than 120 days to a hidden archive sheet — nothing is deleted (requires trigger setup)
 
 ### Calendar Tab
@@ -172,6 +176,10 @@ Columns A–V cover the quote fields (customer, contact, order type, line items 
 | Price Check Interval (Days) | How often the quarterly price check locks the tool (default 90) |
 | Price Check Categories | Comma-separated menu categories the price spot-check draws from |
 | Last Price Verification | Written automatically when a price check passes — don't edit |
+| Quote Valid For (Days) | "Valid through" date on PDFs (default 30; 0 hides it) |
+| Delivery Warning Count / Window (Minutes) | The busy-delivery-window check: warn at N deliveries within M minutes (default 3 within 60) |
+| Confirmation Enabled / Subject / Body | Day-before customer confirmation email (default off; templates editable) |
+| PO Alert Enabled / Days Before / Email | Daily missing-PO digest: on/off, window (default 7), recipients (blank = deploying account) |
 | Logo (Base64) | Uploaded via the app Settings tab |
 | Email Subject | Template with `{{placeholders}}` |
 | Email Body | Template with `{{placeholders}}` |
@@ -196,11 +204,10 @@ Columns A–V cover the quote fields (customer, contact, order type, line items 
 | Issue | Fix |
 |---|---|
 | App redirects to wrong page on deploy | Make sure the GAS `Index` HTML file contains `App.html` content, not a GitHub page |
-| Pipeline view has white space at top | Ensure `<?!= include('PipelineView'); ?>` is inside `<main class="main-content">` in `Index.html` |
-| `Cannot read properties of null` on Pipeline tab | `doGet()` must use `createTemplateFromFile().evaluate()`, not `createHtmlOutputFromFile()` |
-| Pop-up blocked on PDF | Allow pop-ups for the Apps Script domain |
+| Pop-up blocked on PDF or runsheet | Allow pop-ups for the Apps Script domain |
+| Confirmation / PO alert emails not sending | Check the job's toggle is on in Settings → Daily Automation, and that the 3pm trigger is installed (green "Active" status) |
 | Email not sending | Check daily quota (`MailApp.getRemainingDailyQuota()`); re-authorize if needed |
 | Items not showing in delivery picker | Those items have `N/A` in the Delivery Price column — this is intentional |
 | Reminder trigger not running | Click "Enable (9am daily)" in Settings → Reminders to install the trigger; verify in Apps Script → Triggers |
 | Old Menu tab had 3 columns | Add a `Category` column A and shift existing data right one column |
-| Settings not saving reminder fields | The Settings tab reads up to row 50 — ensure rows aren't beyond that |
+| Settings not saving reminder fields | The Settings tab reads up to row 100 — ensure rows aren't beyond that |

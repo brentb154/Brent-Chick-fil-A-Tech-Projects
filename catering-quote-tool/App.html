@@ -249,6 +249,23 @@
     .cal-week-grid .cal-cell{min-height:200px;}
     .cal-day-list{padding:4px 0;}
 
+    /* ── Customer memory autosuggest ── */
+    .autosuggest{position:absolute;top:100%;left:0;right:0;background:var(--white);border:1px solid var(--gray-200);border-radius:8px;box-shadow:var(--shadow-lg);z-index:60;max-height:280px;overflow-y:auto;display:none;}
+    .autosuggest.open{display:block;}
+    .autosuggest-item{padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-50);}
+    .autosuggest-item:last-child{border-bottom:none;}
+    .autosuggest-item:hover{background:var(--gray-50);}
+    .autosuggest-sub{font-size:11px;color:var(--gray-400);margin-top:2px;}
+    .autosuggest-title{padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--gray-400);background:var(--gray-50);}
+
+    /* ── Menu editor accordion ── */
+    .menu-cat-cell{background:var(--gray-50);font-weight:700;font-size:13px;color:var(--gray-600);padding:10px 14px;cursor:pointer;user-select:none;}
+    .menu-cat-cell:hover{background:var(--gray-100);}
+    .menu-cat-count{font-weight:400;color:var(--gray-400);}
+
+    /* ── Runsheet bar ── */
+    .runsheet-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0 14px;}
+
     /* ── Revision history ── */
     .revision-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--gray-100);border-radius:var(--radius);margin-top:6px;cursor:pointer;font-size:13px;color:var(--gray-600);}
     .revision-row:hover{background:var(--gray-50);border-color:var(--gray-200);}
@@ -281,7 +298,6 @@
       <button class="tab-btn" data-view="history" onclick="switchView('history')">History</button>
       <button class="tab-btn" data-view="calendar" onclick="switchView('calendar')">Calendar</button>
       <button class="tab-btn" data-view="settings" onclick="switchView('settings')">Settings</button>
-      <button class="tab-btn" data-view="pipeline" onclick="showPipelineView()">Pipeline</button>
     </nav>
   </header>
 
@@ -299,8 +315,8 @@
       <div class="card">
         <div class="card-title"><span class="icon red">👤</span> Customer Information</div>
         <div class="form-grid">
-          <div class="form-group"><label class="form-label">Customer / Organization Name *</label><input type="text" class="form-input" id="customerName" placeholder="e.g., Dallas ISD"><span class="error-msg" id="err-customerName">Customer name is required.</span></div>
-          <div class="form-group"><label class="form-label">Contact Person Name *</label><input type="text" class="form-input" id="contactPerson" placeholder="e.g., Jane Smith"><span class="error-msg" id="err-contactPerson">Contact person is required.</span></div>
+          <div class="form-group" style="position:relative;"><label class="form-label">Customer / Organization Name *</label><input type="text" class="form-input" id="customerName" placeholder="e.g., Dallas ISD" autocomplete="off" oninput="custNameInput()" onfocus="custNameInput()" onchange="maybeShowContacts()"><span class="error-msg" id="err-customerName">Customer name is required.</span><div class="autosuggest" id="custSuggest"></div></div>
+          <div class="form-group" style="position:relative;"><label class="form-label">Contact Person Name *</label><input type="text" class="form-input" id="contactPerson" placeholder="e.g., Jane Smith" autocomplete="off"><span class="error-msg" id="err-contactPerson">Contact person is required.</span><div class="autosuggest" id="contactSuggest"></div></div>
           <div class="form-group"><label class="form-label">Customer Email</label><input type="email" class="form-input" id="customerEmail" placeholder="e.g., jane@dallasisd.org"><span class="field-hint">Optional — used to email the quote directly.</span></div>
           <div class="form-group"><label class="form-label">Customer Phone</label><input type="tel" class="form-input" id="customerPhone" placeholder="e.g., 214-555-0123"><span class="field-hint">Optional — shown on the quote PDF if filled in.</span></div>
           <div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="quoteDate"></div>
@@ -410,6 +426,24 @@
           </div>
         </div>
         <div class="field-hint" style="margin-left:172px;">How early to start the Google Calendar event relative to the customer's pickup/delivery time.</div>
+        <div class="settings-field-row">
+          <label>Quote Valid For</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="number" class="form-input" id="settingsQuoteValidDays" min="0" max="365" style="max-width:100px;" onchange="saveSettingField('Quote Valid For (Days)',this.value)">
+            <span style="font-size:14px;color:var(--gray-500);">days — shown as "valid through" on the PDF (0 hides it)</span>
+          </div>
+        </div>
+        <div class="settings-field-row">
+          <label>Delivery Warning</label>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:14px;color:var(--gray-500);">warn at</span>
+            <input type="number" class="form-input" id="settingsDeliveryWarnCount" min="1" max="50" style="max-width:80px;" onchange="saveSettingField('Delivery Warning Count',this.value)">
+            <span style="font-size:14px;color:var(--gray-500);">deliveries within</span>
+            <input type="number" class="form-input" id="settingsDeliveryWarnWindow" min="5" max="480" step="5" style="max-width:80px;" onchange="saveSettingField('Delivery Warning Window (Minutes)',this.value)">
+            <span style="font-size:14px;color:var(--gray-500);">minutes</span>
+          </div>
+        </div>
+        <div class="field-hint" style="margin-left:172px;">The "busy delivery window" check before saving a delivery quote. Set the count high to effectively turn it off.</div>
         <div class="settings-field-row" style="align-items:flex-start;"><label>Logo</label><div><input type="file" id="logoUpload" accept="image/png,image/jpeg" onchange="handleLogoUpload(event)" style="margin-bottom:8px;"><div id="logoPreviewContainer"></div></div></div>
       </div>
       <div class="card">
@@ -481,7 +515,67 @@
       </div>
 
       <div class="card">
+        <div class="card-title"><span class="icon blue">🤖</span> Daily Automation — Confirmations &amp; PO Alerts</div>
+        <p class="field-hint" style="margin-bottom:14px;">One daily 3&nbsp;PM run handles both jobs below. Each has its own on/off switch.</p>
+
+        <p style="font-size:13px;font-weight:700;color:var(--gray-500);text-transform:uppercase;margin:6px 0 10px;">Day-Before Confirmation Email</p>
+        <div class="settings-field-row">
+          <label>Send Confirmations</label>
+          <div class="tax-exempt-toggle" id="confirmationEnabledToggle" onclick="toggleConfirmationEnabled()">
+            <div class="toggle-indicator">✓</div>
+            <span class="tax-exempt-label" id="confirmationEnabledLabel">Disabled</span>
+          </div>
+        </div>
+        <div class="field-hint" style="margin-left:172px;">Emails every customer (with an email on the quote) the day before their order: "we'll see you tomorrow at 11:30." One email per quote per event date.</div>
+        <div class="settings-field-row" style="align-items:flex-start;">
+          <label>Confirmation Subject</label>
+          <input class="form-input" id="settingsConfirmationSubject" onchange="saveSettingField('Confirmation Subject',this.value)">
+        </div>
+        <div class="settings-field-row" style="align-items:flex-start;">
+          <label>Confirmation Body</label>
+          <textarea class="form-textarea" id="settingsConfirmationBody" rows="7" onchange="saveSettingField('Confirmation Body',this.value)"></textarea>
+        </div>
+        <div class="template-vars" style="margin-left:172px;">Placeholders: <code>{{contactPerson}}</code> <code>{{customer}}</code> <code>{{when}}</code> <code>{{date}}</code> <code>{{time}}</code> <code>{{quoteId}}</code> <code>{{total}}</code> <code>{{contact}}</code> <code>{{location}}</code> <code>{{phone}}</code></div>
+
+        <hr style="border:none;border-top:1px solid var(--gray-100);margin:20px 0;">
+        <p style="font-size:13px;font-weight:700;color:var(--gray-500);text-transform:uppercase;margin:6px 0 10px;">Missing-PO Alert</p>
+        <div class="settings-field-row">
+          <label>Send PO Alerts</label>
+          <div class="tax-exempt-toggle" id="poAlertEnabledToggle" onclick="togglePoAlertEnabled()">
+            <div class="toggle-indicator">✓</div>
+            <span class="tax-exempt-label" id="poAlertEnabledLabel">Disabled</span>
+          </div>
+        </div>
+        <div class="settings-field-row">
+          <label>Alert Window</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="number" class="form-input" id="settingsPoAlertDays" min="1" max="60" style="max-width:80px;" onchange="saveSettingField('PO Alert Days Before',this.value)">
+            <span style="font-size:14px;color:var(--gray-500);">days out — quotes inside this window with no PO get flagged</span>
+          </div>
+        </div>
+        <div class="settings-field-row">
+          <label>Alert Email(s)</label>
+          <input class="form-input" id="settingsPoAlertEmail" placeholder="you@example.com, manager@example.com" onchange="saveSettingField('PO Alert Email',this.value)">
+        </div>
+        <div class="field-hint" style="margin-left:172px;">One digest email per day listing every upcoming quote still marked 🔴 NEEDS PO. "No PO Needed" quotes never alert. Blank = sent to the account that deployed the app.</div>
+
+        <hr style="border:none;border-top:1px solid var(--gray-100);margin:20px 0;">
+        <div class="settings-field-row" style="align-items:center;">
+          <label>Daily Run</label>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <span id="automationTriggerStatus" style="font-size:13px;color:var(--gray-400);">Checking…</span>
+            <button class="btn btn-secondary btn-sm" onclick="installAutomationTrigger()">⏰ Enable (3pm daily)</button>
+            <button class="btn btn-danger btn-sm" onclick="uninstallAutomationTrigger()">✕ Remove</button>
+          </div>
+        </div>
+        <div class="field-hint" style="margin-left:172px;">Install once. The run does nothing for any job whose switch above is off.</div>
+      </div>
+
+      <div class="card">
         <div class="card-title"><span class="icon green">🍔</span> Menu Catalog</div>
+        <div style="background:var(--gray-50);border:1px solid var(--gray-100);border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--gray-600);line-height:1.6;margin-bottom:14px;">
+          <strong>Pulling real prices from CFA Home:</strong> Backoffice → search your restaurant → <strong>Menu Price Group</strong> → <em>« Select a different price group</em> → click your location → <strong>Export this to an Excel spreadsheet</strong>. Then open the <strong>Menu tab of the Google Sheet</strong> and paste the four columns (Category | Item Name | Pickup Price | Delivery Price) under the headers — the export's columns already line up in that order. <code>N/A</code> in Delivery Price hides an item from delivery quotes. Click a category below to expand and edit items one at a time.
+        </div>
         <div class="table-scroll-wrapper">
           <table class="menu-editor-table" id="menuEditorTable">
             <thead><tr><th class="cat-col">Category</th><th>Item Name</th><th class="price-col">Pickup</th><th class="price-col">Delivery</th><th class="action-col"></th></tr></thead>
@@ -491,8 +585,6 @@
         <button class="btn btn-secondary btn-sm" style="margin-top:12px;" onclick="addMenuItemUI()">＋ Add Item</button>
       </div>
     </section>
-
-    <?!= include('PipelineView'); ?>
 
   </main>
 </div>
@@ -574,6 +666,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!e.target.closest('.item-picker')) {
       document.querySelectorAll('.item-picker.open').forEach(function(p) { p.classList.remove('open'); });
     }
+    if (!e.target.closest('.autosuggest') && e.target.id !== 'customerName') {
+      document.getElementById('custSuggest').classList.remove('open');
+      document.getElementById('contactSuggest').classList.remove('open');
+    }
   });
 });
 
@@ -605,6 +701,7 @@ function applySettings() {
   document.getElementById('logoPreviewContainer').innerHTML = l ? '<img src="'+l+'" class="logo-preview" alt="Logo">' : '<p style="font-size:13px;color:var(--gray-400);">No logo uploaded.</p>';
   buildMenuEditor();
   applyReminderSettings();
+  applyAutomationSettings();
   buildCalendarColorSettings();
 }
 
@@ -635,19 +732,10 @@ function setQuoteTimeValue(v) {
 function switchView(v) {
   document.querySelectorAll('.view').forEach(function(el) { el.classList.remove('active'); });
   document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-  document.getElementById('pipelineView').style.display = 'none';
   document.getElementById('view-'+v).classList.add('active');
   document.querySelector('.tab-btn[data-view="'+v+'"]').classList.add('active');
   if (v === 'history') renderHistory();
   if (v === 'calendar') renderCalendarView();
-}
-
-function showPipelineView() {
-  document.querySelectorAll('.view').forEach(function(el) { el.classList.remove('active'); });
-  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-  document.getElementById('pipelineView').style.display = 'block';
-  document.querySelector('.tab-btn[data-view="pipeline"]').classList.add('active');
-  loadPipeline();
 }
 
 // ── Order Type ──
@@ -1036,21 +1124,26 @@ function timeToMinutes(t) {
   var m = /^(\d{1,2}):(\d{2})/.exec(t||'');
   return m ? parseInt(m[1],10)*60 + parseInt(m[2],10) : null;
 }
-// Warn before stacking a 4th delivery within an hour of this one. Resolves true = proceed.
+// Warn before stacking too many deliveries in one window. Resolves true = proceed.
+// Count and window are Settings-driven ("Delivery Warning Count" / "Delivery Warning Window (Minutes)").
 // Same-date only (catering windows never cross midnight); counts against allQuotes as of last load.
 function warnIfDeliveryCluster() {
   if (currentOrderType !== 'Delivery') return Promise.resolve(true);
   var dv = document.getElementById('quoteDate').value, nm = timeToMinutes(document.getElementById('quoteTime').value);
   if (!dv || nm === null) return Promise.resolve(true);
+  var maxCount = parseInt(appSettings['Delivery Warning Count'], 10);
+  if (isNaN(maxCount) || maxCount < 1) maxCount = 3;
+  var windowMin = parseInt(appSettings['Delivery Warning Window (Minutes)'], 10);
+  if (isNaN(windowMin) || windowMin < 1) windowMin = 60;
   var count = 0;
   allQuotes.forEach(function(q) {
     if (q.orderType !== 'Delivery') return;
     if (editingQuoteId && q.quoteId === editingQuoteId) return;
     if (q.eventDate !== dv) return;
     var m = timeToMinutes(q.eventTime);
-    if (m !== null && Math.abs(m - nm) <= 60) count++;
+    if (m !== null && Math.abs(m - nm) <= windowMin) count++;
   });
-  if (count >= 3) return showConfirm('Busy delivery window', count + ' deliveries are already scheduled within an hour of this time. Are you sure you want to add this one?');
+  if (count >= maxCount) return showConfirm('Busy delivery window', count + ' deliveries are already scheduled within ' + windowMin + ' minutes of this time. Are you sure you want to add this one?');
   return Promise.resolve(true);
 }
 
@@ -1093,7 +1186,7 @@ function previewAndPrint() { if (!validateForm()) return;
 function generatePDFFromQuote(q) { showSpinner();
   var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){}
   var oda=computeOrderDiscount(li, q.orderDiscountValue, q.orderDiscountType);
-  var d={customerName:q.customerName,contactName:q.contactName,customerEmail:q.customerEmail||'',customerPhone:q.customerPhone||'',orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:q.eventTime||'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId,poNumber:q.poNumber||'',orderDiscountValue:parseFloat(q.orderDiscountValue)||0,orderDiscountType:q.orderDiscountType||'percent',orderDiscountAmount:oda,quoteNotes:q.quoteNotes||''};
+  var d={customerName:q.customerName,contactName:q.contactName,customerEmail:q.customerEmail||'',customerPhone:q.customerPhone||'',createdDate:q.createdDate||'',orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:q.eventTime||'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId,poNumber:q.poNumber||'',orderDiscountValue:parseFloat(q.orderDiscountValue)||0,orderDiscountType:q.orderDiscountType||'percent',orderDiscountAmount:oda,quoteNotes:q.quoteNotes||''};
   google.script.run.withSuccessHandler(function(pd) { hideSpinner(); pd.quoteId=q.quoteId; pd.poNumber=q.poNumber||''; openPrintWindow(pd); }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).getPrintData(d);
 }
 function computeOrderDiscount(lineItems, value, type) {
@@ -1153,7 +1246,7 @@ function sendEmailFromModal() {
   var q = currentModalQuote; if (!q) return;
   var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){}
   var oda=computeOrderDiscount(li, q.orderDiscountValue, q.orderDiscountType);
-  var d={customerName:q.customerName,contactName:q.contactName,customerEmail:email,customerPhone:q.customerPhone||'',orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:q.eventTime||'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId,orderDiscountValue:parseFloat(q.orderDiscountValue)||0,orderDiscountType:q.orderDiscountType||'percent',orderDiscountAmount:oda,quoteNotes:q.quoteNotes||''};
+  var d={customerName:q.customerName,contactName:q.contactName,customerEmail:email,customerPhone:q.customerPhone||'',createdDate:q.createdDate||'',orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:q.eventTime||'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId,orderDiscountValue:parseFloat(q.orderDiscountValue)||0,orderDiscountType:q.orderDiscountType||'percent',orderDiscountAmount:oda,quoteNotes:q.quoteNotes||''};
   closeModal();
   openEmailPreview(d, function() { google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(q){allQuotes=q;}).getQuotes(); });
 }
@@ -1182,7 +1275,7 @@ function openPrintWindow(data) {
   var lo=data.logo?'<img src="'+data.logo+'" style="max-width:140px;max-height:80px;margin-bottom:8px;" alt="Logo">':'<div style="font-size:24px;font-weight:800;color:#E51636;margin-bottom:8px;">Chick-fil-A</div>';
   var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Quote '+escHtml(data.quoteId||'')+'</title><style>@page{size:letter;margin:0.6in;}body{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1F2937;margin:0;padding:40px;}@media print{body{padding:0;}.no-print{display:none!important;}}.print-btn{background:#E51636;color:white;border:none;padding:12px 32px;font-size:15px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;}.print-btn:hover{background:#C41230;}</style></head><body>'+
     '<div class="no-print" style="text-align:center;margin-bottom:24px;padding:16px;background:#F9FAFB;border-radius:10px;"><button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button><p style="font-size:13px;color:#6B7280;margin-top:8px;">Use "Save as PDF" in the print dialog.</p></div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+lo+'<div style="font-size:16px;font-weight:700;">'+escHtml(data.storeName||'')+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+escHtml(data.storeAddress||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.storePhone||'')+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:monospace;">'+escHtml(data.quoteId||'')+'</div>'+(data.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+escHtml(data.poNumber)+'</div>':'')+(function(){var w=formatEventDateTime(data.date,data.time);return w?'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Event: '+escHtml(w)+'</div>':'';})()+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+escHtml(data.customerName||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.orderType||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(ad)+'</div>'+(data.directionsUrl?'<div style="font-size:12px;"><a href="'+data.directionsUrl+'" style="color:#2563EB;">Get Directions (Google Maps)</a></div>':'')+'<div style="font-size:13px;font-weight:600;margin-top:4px;">'+escHtml(data.contactPerson||'')+'</div>'+(data.customerEmail?'<div style="font-size:13px;color:#6B7280;">'+escHtml(data.customerEmail)+'</div>':'')+(data.customerPhone?'<div style="font-size:13px;color:#6B7280;">'+escHtml(data.customerPhone)+'</div>':'')+'</div></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+lo+'<div style="font-size:16px;font-weight:700;">'+escHtml(data.storeName||'')+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+escHtml(data.storeAddress||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.storePhone||'')+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:monospace;">'+escHtml(data.quoteId||'')+'</div>'+(data.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+escHtml(data.poNumber)+'</div>':'')+(function(){var w=formatEventDateTime(data.date,data.time);return w?'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Event: '+escHtml(w)+'</div>':'';})()+(data.validThrough?'<div style="font-size:12px;color:#9CA3AF;margin-top:2px;">Quote valid through '+escHtml(data.validThrough)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+escHtml(data.customerName||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.orderType||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(ad)+'</div>'+(data.directionsUrl?'<div style="font-size:12px;"><a href="'+data.directionsUrl+'" style="color:#2563EB;">Get Directions (Google Maps)</a></div>':'')+'<div style="font-size:13px;font-weight:600;margin-top:4px;">'+escHtml(data.contactPerson||'')+'</div>'+(data.customerEmail?'<div style="font-size:13px;color:#6B7280;">'+escHtml(data.customerEmail)+'</div>':'')+(data.customerPhone?'<div style="font-size:13px;color:#6B7280;">'+escHtml(data.customerPhone)+'</div>':'')+'</div></div>'+
     '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><thead><tr style="background:#F3F4F6;"><th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:10%;">QTY</th><th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:50%;">DESCRIPTION</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:18%;">PRICE/ITEM</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:22%;">AMOUNT</th></tr></thead><tbody>'+liH+'</tbody></table>'+
     notesHtml+
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;"><div style="font-size:13px;color:#6B7280;max-width:320px;">If you have any questions concerning this Quote, contact:<br><strong style="color:#1F2937;">'+escHtml(data.contactName||'')+' at '+escHtml(data.storePhone||'')+'</strong></div><table style="width:280px;background:#F9FAFB;border-radius:8px;overflow:hidden;"><tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SUBTOTAL</td><td style="padding:8px 16px;text-align:right;font-family:monospace;font-size:14px;">$'+(data.subtotal||0).toFixed(2)+'</td></tr>'+discRowsHtml+tl+'<tr style="background:#E5E7EB;"><td style="padding:10px 16px;font-size:15px;font-weight:700;">TOTAL</td><td style="padding:10px 16px;text-align:right;font-family:monospace;font-size:16px;font-weight:700;">$'+(data.total||0).toFixed(2)+'</td></tr></table></div></body></html>';
@@ -1332,13 +1425,152 @@ function drawCalendar() {
     key=dateKey(calAnchor); qs=map[key]||[];
     title.textContent=calAnchor.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
     if (!qs.length) { grid.innerHTML='<div class="empty-state"><div class="empty-icon">📭</div><p>No orders scheduled for this day.</p></div>'; return; }
-    h='<div class="cal-day-list">';
+    var defEmail=((appSettings['PO Alert Email']||'').toString().split(',')[0]||'').trim();
+    h='<div class="runsheet-bar"><button class="btn btn-secondary btn-sm" onclick="openRunsheetWindow(\''+key+'\')">🖨 Print Runsheet</button><input type="email" class="form-input" id="runsheetEmail" value="'+escAttr(defEmail)+'" placeholder="email the runsheet to…" style="max-width:240px;"><button class="btn btn-blue btn-sm" onclick="sendRunsheet(\''+key+'\')">✉ Send</button></div>';
+    h+='<div class="cal-day-list">';
     qs.forEach(function(q) {
       var t=q.eventTime?formatEventDateTime('',q.eventTime):'No time set';
       h+='<div class="quote-list-item" onclick="openQuoteDetailById(\''+escAttr(q.quoteId)+'\')"><div class="quote-list-meta"><span class="quote-list-id">'+calPoDot(q)+' '+escHtml(q.quoteId)+'</span><span class="quote-list-customer">'+escHtml(q.customerName)+'</span><span class="quote-list-details">'+escHtml(t)+' · '+escHtml(q.contactName||'')+'</span></div><div class="quote-list-right"><span class="quote-list-type '+(q.orderType||'').toLowerCase()+'">'+escHtml(q.orderType||'')+'</span><span class="quote-list-total">$'+(parseFloat(q.total)||0).toFixed(2)+'</span></div></div>';
     });
     grid.innerHTML=h+'</div>';
   }
+}
+
+// ── Customer Memory ──
+// Derived live from allQuotes — no extra storage. Orgs are suggested by name;
+// picking one offers that org's known contacts (DISD has many different people).
+var custContactOptions = [];
+var custOrgOptions = [];
+
+function custQuotesFor(orgName) {
+  var key = (orgName || '').toLowerCase().trim();
+  return allQuotes.filter(function(q) { return (q.customerName || '').toLowerCase().trim() === key; });
+}
+
+function custNameInput() {
+  var inp = document.getElementById('customerName');
+  var box = document.getElementById('custSuggest');
+  hideContactSuggest();
+  var f = inp.value.toLowerCase().trim();
+  if (!f) { box.classList.remove('open'); return; }
+  var seen = {}, matches = [];
+  allQuotes.forEach(function(q) {
+    var n = (q.customerName || '').trim();
+    if (!n) return;
+    var k = n.toLowerCase();
+    if (seen[k] || k.indexOf(f) < 0) return;
+    seen[k] = true;
+    matches.push(n);
+  });
+  if (!matches.length || (matches.length === 1 && matches[0].toLowerCase() === f)) {
+    box.classList.remove('open');
+    if (matches.length === 1) maybeShowContacts();
+    return;
+  }
+  custOrgOptions = matches.slice(0, 8); // indices in onclick, not names — names can contain quotes
+  box.innerHTML = custOrgOptions.map(function(n, i) {
+    return '<div class="autosuggest-item" onclick="pickCustomerOrg(' + i + ')">' + escHtml(n) + '<div class="autosuggest-sub">' + custQuotesFor(n).length + ' past order(s)</div></div>';
+  }).join('');
+  box.classList.add('open');
+}
+
+function pickCustomerOrg(i) {
+  if (custOrgOptions[i] === undefined) return;
+  document.getElementById('customerName').value = custOrgOptions[i];
+  document.getElementById('custSuggest').classList.remove('open');
+  maybeShowContacts();
+}
+
+// If the typed org is known, offer its contacts under the Contact Person field.
+function maybeShowContacts() {
+  document.getElementById('custSuggest').classList.remove('open');
+  var org = document.getElementById('customerName').value;
+  var qs = custQuotesFor(org);
+  if (!qs.length) { hideContactSuggest(); return; }
+  var seen = {};
+  custContactOptions = [];
+  qs.forEach(function(q) { // allQuotes is newest-first, so first hit per contact is their latest info
+    var cn = (q.contactName || '').trim();
+    if (!cn) return;
+    var k = cn.toLowerCase() + '|' + (q.customerEmail || '').toLowerCase();
+    if (seen[k]) return;
+    seen[k] = true;
+    custContactOptions.push({
+      contactName: cn, customerEmail: q.customerEmail || '', customerPhone: q.customerPhone || '',
+      deliveryAddress: q.orderType === 'Delivery' ? (q.deliveryAddress || '') : '',
+      taxExempt: q.taxExempt === 'TRUE' || q.taxExempt === true
+    });
+  });
+  if (!custContactOptions.length) { hideContactSuggest(); return; }
+  var box = document.getElementById('contactSuggest');
+  box.innerHTML = '<div class="autosuggest-title">Known contacts — click to fill</div>' + custContactOptions.slice(0, 6).map(function(c, i) {
+    var sub = [c.customerEmail, c.customerPhone, c.deliveryAddress].filter(function(x) { return x; }).join(' · ');
+    return '<div class="autosuggest-item" onclick="pickCustomerContact(' + i + ')">' + escHtml(c.contactName) + (sub ? '<div class="autosuggest-sub">' + escHtml(sub) + '</div>' : '') + '</div>';
+  }).join('');
+  box.classList.add('open');
+}
+
+function pickCustomerContact(i) {
+  var c = custContactOptions[i];
+  if (!c) return;
+  document.getElementById('contactPerson').value = c.contactName;
+  document.getElementById('customerEmail').value = c.customerEmail;
+  document.getElementById('customerPhone').value = c.customerPhone;
+  if (currentOrderType === 'Delivery' && c.deliveryAddress) document.getElementById('orderAddress').value = c.deliveryAddress;
+  if (c.taxExempt !== isTaxExempt) {
+    isTaxExempt = c.taxExempt;
+    document.getElementById('taxExemptToggle').classList.toggle('active', isTaxExempt);
+    recalcTotals();
+  }
+  hideContactSuggest();
+  showToast('Filled from ' + c.contactName + '’s last order.', 'info');
+}
+
+function hideContactSuggest() { document.getElementById('contactSuggest').classList.remove('open'); }
+
+// ── Delivery Runsheet ──
+function openRunsheetWindow(dayKey) {
+  var qs = (quotesByDate()[dayKey] || []);
+  if (!qs.length) { showToast('No orders that day.', 'info'); return; }
+  var win = window.open('', '_blank', 'width=900,height=1100');
+  if (!win) { showToast('Pop-up blocked! Allow pop-ups for this site.', 'error'); return; }
+  var dayLabel = formatEventDateTime(dayKey, '');
+  var rows = qs.map(function(q) {
+    var li = []; try { li = JSON.parse(q.lineItems) || []; } catch(e) {}
+    var itemsHtml = li.map(function(i) { return escHtml(i.quantity + '× ' + i.description); }).join('<br>');
+    var t = q.eventTime ? formatEventDateTime('', q.eventTime) : 'No time';
+    var po = q.poNumber === 'NO_PO_NEEDED' ? '🟢 No PO needed' : (q.poNumber ? '🟢 PO: ' + escHtml(q.poNumber) : '🔴 NEEDS PO');
+    var addr = q.orderType === 'Delivery' && q.deliveryAddress
+      ? escHtml(q.deliveryAddress) + '<br><a href="https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(q.deliveryAddress) + '">Directions</a>'
+      : escHtml(q.orderType || '');
+    return '<tr>'
+      + '<td style="padding:8px;border-bottom:1px solid #ddd;white-space:nowrap;vertical-align:top;"><b>' + escHtml(t) + '</b></td>'
+      + '<td style="padding:8px;border-bottom:1px solid #ddd;vertical-align:top;"><b>' + escHtml(q.customerName) + '</b><br>' + escHtml(q.contactName || '') + (q.customerPhone ? '<br>' + escHtml(q.customerPhone) : '') + '</td>'
+      + '<td style="padding:8px;border-bottom:1px solid #ddd;vertical-align:top;">' + escHtml(q.orderType || '') + '</td>'
+      + '<td style="padding:8px;border-bottom:1px solid #ddd;vertical-align:top;">' + addr + '</td>'
+      + '<td style="padding:8px;border-bottom:1px solid #ddd;vertical-align:top;font-size:12px;">' + itemsHtml + '</td>'
+      + '<td style="padding:8px;border-bottom:1px solid #ddd;white-space:nowrap;vertical-align:top;">' + po + '</td>'
+      + '<td style="padding:8px;border-bottom:1px solid #ddd;text-align:right;vertical-align:top;">$' + (parseFloat(q.total) || 0).toFixed(2) + '</td></tr>';
+  }).join('');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Runsheet ' + escHtml(dayKey) + '</title>'
+    + '<style>@page{size:letter landscape;margin:0.5in;}body{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1F2937;padding:24px;}@media print{.no-print{display:none!important;}}</style></head><body>'
+    + '<div class="no-print" style="text-align:center;margin-bottom:16px;"><button style="background:#E51636;color:#fff;border:none;padding:10px 28px;font-size:15px;font-weight:700;border-radius:8px;cursor:pointer;" onclick="window.print()">🖨️ Print</button></div>'
+    + '<h2 style="margin:0 0 4px;">Catering Runsheet — ' + escHtml(dayLabel) + '</h2>'
+    + '<p style="margin:0 0 16px;color:#6B7280;font-size:13px;">' + qs.length + ' order' + (qs.length === 1 ? '' : 's') + '</p>'
+    + '<table style="border-collapse:collapse;width:100%;font-size:14px;"><tr style="background:#F3F4F6;"><th style="padding:8px;text-align:left;">Time</th><th style="padding:8px;text-align:left;">Customer</th><th style="padding:8px;text-align:left;">Type</th><th style="padding:8px;text-align:left;">Address</th><th style="padding:8px;text-align:left;">Items</th><th style="padding:8px;text-align:left;">PO</th><th style="padding:8px;text-align:right;">Total</th></tr>'
+    + rows + '</table></body></html>');
+  win.document.close();
+}
+
+function sendRunsheet(dayKey) {
+  var inp = document.getElementById('runsheetEmail');
+  var email = inp ? inp.value.trim() : '';
+  if (!email) { showToast('Enter an email for the runsheet.', 'error'); if (inp) inp.focus(); return; }
+  showSpinner();
+  google.script.run.withSuccessHandler(function(res) {
+    hideSpinner();
+    showToast(res && res.message ? res.message : 'Runsheet sent.', res && res.success ? 'success' : 'error');
+  }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: ' + e.message, 'error'); }).emailRunsheet(dayKey, email);
 }
 
 // ── Quote Detail Modal ──
@@ -1393,10 +1625,20 @@ function openQuoteDetail(q) {
     discRows+='<div class="totals-row"><span class="totals-label">'+odLabel+'</span><span class="totals-amount">−$'+orderDiscAmt.toFixed(2)+'</span></div>';
   }
   h+='<div style="display:flex;justify-content:flex-end;margin-top:12px;"><div class="totals-table"><div class="totals-row subtotal"><span class="totals-label">Subtotal</span><span class="totals-amount">$'+(parseFloat(q.subtotal)||0).toFixed(2)+'</span></div>'+discRows+'<div class="totals-row tax"><span class="totals-label">'+(te?'Tax Exempt':'Tax ('+q.taxRateUsed+'%)')+'</span><span class="totals-amount">$'+(parseFloat(q.taxAmount)||0).toFixed(2)+'</span></div><div class="totals-row total"><span class="totals-label">Total</span><span class="totals-amount">$'+(parseFloat(q.total)||0).toFixed(2)+'</span></div></div></div>';
+  // Past orders from the same customer — built locally from allQuotes, no server call
+  var pastOrders=allQuotes.filter(function(o){ return o.quoteId!==q.quoteId && (o.customerName||'').toLowerCase().trim()===(q.customerName||'').toLowerCase().trim(); });
+  if (pastOrders.length) {
+    h+='<div class="detail-field" style="margin-top:16px;"><label>Past Orders from '+escHtml(q.customerName)+' ('+pastOrders.length+')</label></div>';
+    pastOrders.slice(0,5).forEach(function(o) {
+      var when=formatEventDateTime(o.eventDate,o.eventTime)||('Created '+(o.createdDate?new Date(o.createdDate).toLocaleDateString():''));
+      h+='<div class="revision-row" onclick="openQuoteDetailById(\''+escAttr(o.quoteId)+'\')"><span>'+escHtml(o.quoteId)+' · '+escHtml(when)+(o.contactName?' · '+escHtml(o.contactName):'')+'</span><span style="font-family:var(--mono);font-weight:600;">$'+(parseFloat(o.total)||0).toFixed(2)+'</span></div>';
+    });
+    if (pastOrders.length>5) h+='<div class="autosuggest-sub" style="padding:6px 2px;">Showing the 5 most recent — search History for the rest.</div>';
+  }
   h+='<div id="modalRevisions"></div>';
   document.getElementById('modalBody').innerHTML=h;
   loadQuoteRevisions(q.quoteId);
-  document.getElementById('modalActions').innerHTML='<button class="btn btn-danger btn-sm" onclick="deleteQuoteAction('+q.sheetRow+')">🗑 Delete</button><button class="btn btn-secondary btn-sm" onclick="editAndReuse()">✏️ Edit &amp; Reuse</button><button class="btn btn-blue btn-sm" onclick="showModalEmailPrompt(currentModalQuote)">✉️ Email</button><button class="btn btn-primary btn-sm" onclick="generatePDFFromQuote(currentModalQuote);closeModal();">📄 PDF</button>';
+  document.getElementById('modalActions').innerHTML='<button class="btn btn-danger btn-sm" onclick="deleteQuoteAction('+q.sheetRow+')">🗑 Delete</button><button class="btn btn-secondary btn-sm" onclick="editAndReuse()">✏️ Edit &amp; Reuse</button><button class="btn btn-secondary btn-sm" onclick="reorderQuote()">🔁 Reorder</button><button class="btn btn-blue btn-sm" onclick="showModalEmailPrompt(currentModalQuote)">✉️ Email</button><button class="btn btn-primary btn-sm" onclick="generatePDFFromQuote(currentModalQuote);closeModal();">📄 PDF</button>';
   document.getElementById('modalEmailPrompt').classList.remove('show');
   document.getElementById('quoteDetailModal').classList.add('show');
 }
@@ -1462,6 +1704,22 @@ function editAndReuse() {
   document.getElementById('orderDiscountTypeInput').value=q.orderDiscountType||'percent';
   document.getElementById('quoteNotes').value=q.quoteNotes||'';
   recalcTotals();
+}
+
+// Same order, brand-new quote: reuse editAndReuse's form fill, then detach it
+// from the original (fresh ID on save) and reset PO/date/time for the new event.
+function reorderQuote() {
+  var q=currentModalQuote; if (!q) return;
+  editAndReuse();
+  editingQuoteId='';
+  noPONeeded=false;
+  document.getElementById('noPOToggle').classList.remove('active');
+  var po=document.getElementById('poNumber');
+  po.value=''; po.disabled=false; po.placeholder='e.g., PO-2026-001';
+  document.getElementById('quoteDate').value=dateKey(new Date());
+  setQuoteTimeValue('');
+  document.getElementById('quoteDate').focus();
+  showToast('New quote copied from '+q.quoteId+' — set the date and time.','info');
 }
 
 // ── Revision History ──
@@ -1627,6 +1885,54 @@ function toggleReminderInternal() {
   setReminderToggle('reminderInternalToggle', 'reminderInternalLabel', reminderToInternal, 'Yes', 'No');
   saveSettingField('Reminder Send To Internal', reminderToInternal ? 'TRUE' : 'FALSE');
 }
+// ── Daily Automation Settings (confirmations + PO alerts) ──
+var confirmationEnabled = false, poAlertEnabled = false;
+
+function applyAutomationSettings() {
+  confirmationEnabled = appSettings['Confirmation Enabled'] === 'TRUE';
+  poAlertEnabled      = appSettings['PO Alert Enabled'] === 'TRUE';
+  setReminderToggle('confirmationEnabledToggle', 'confirmationEnabledLabel', confirmationEnabled, 'Enabled', 'Disabled');
+  setReminderToggle('poAlertEnabledToggle', 'poAlertEnabledLabel', poAlertEnabled, 'Enabled', 'Disabled');
+  document.getElementById('settingsConfirmationSubject').value = appSettings['Confirmation Subject'] || 'See you tomorrow — your Chick-fil-A catering order {{quoteId}}';
+  document.getElementById('settingsConfirmationBody').value = appSettings['Confirmation Body'] || 'Hi {{contactPerson}},\n\nJust confirming your catering order for {{customer}} — we\'ll see you {{when}}.\n\nOrder total: {{total}}\n\nIf anything has changed, reply to this email or call us at {{phone}} and we\'ll take care of it.\n\nSee you soon!\n{{contact}}\nChick-fil-A {{location}}';
+  document.getElementById('settingsPoAlertDays').value = appSettings['PO Alert Days Before'] || 7;
+  document.getElementById('settingsPoAlertEmail').value = appSettings['PO Alert Email'] || '';
+  document.getElementById('settingsQuoteValidDays').value = (appSettings['Quote Valid For (Days)'] !== undefined && appSettings['Quote Valid For (Days)'] !== '') ? appSettings['Quote Valid For (Days)'] : 30;
+  document.getElementById('settingsDeliveryWarnCount').value = appSettings['Delivery Warning Count'] || 3;
+  document.getElementById('settingsDeliveryWarnWindow').value = appSettings['Delivery Warning Window (Minutes)'] || 60;
+  google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(active) {
+    var el = document.getElementById('automationTriggerStatus');
+    el.textContent = active ? '✅ Active — runs daily at 3pm' : '⚪ Not installed';
+    el.style.color = active ? 'var(--success)' : 'var(--gray-400)';
+  }).getAutomationTriggerStatus();
+}
+function toggleConfirmationEnabled() {
+  confirmationEnabled = !confirmationEnabled;
+  setReminderToggle('confirmationEnabledToggle', 'confirmationEnabledLabel', confirmationEnabled, 'Enabled', 'Disabled');
+  saveSettingField('Confirmation Enabled', confirmationEnabled ? 'TRUE' : 'FALSE');
+}
+function togglePoAlertEnabled() {
+  poAlertEnabled = !poAlertEnabled;
+  setReminderToggle('poAlertEnabledToggle', 'poAlertEnabledLabel', poAlertEnabled, 'Enabled', 'Disabled');
+  saveSettingField('PO Alert Enabled', poAlertEnabled ? 'TRUE' : 'FALSE');
+}
+function installAutomationTrigger() {
+  showSpinner();
+  google.script.run.withSuccessHandler(function(msg) {
+    hideSpinner(); showToast(msg, 'success');
+    var el = document.getElementById('automationTriggerStatus');
+    el.textContent = '✅ Active — runs daily at 3pm'; el.style.color = 'var(--success)';
+  }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message, 'error'); }).setupAutomationTrigger();
+}
+function uninstallAutomationTrigger() {
+  showSpinner();
+  google.script.run.withSuccessHandler(function(msg) {
+    hideSpinner(); showToast(msg, 'info');
+    var el = document.getElementById('automationTriggerStatus');
+    el.textContent = '⚪ Not installed'; el.style.color = 'var(--gray-400)';
+  }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message, 'error'); }).removeAutomationTrigger();
+}
+
 function installReminderTrigger() {
   showSpinner();
   google.script.run.withSuccessHandler(function(msg) {
@@ -1651,15 +1957,30 @@ function refreshLocationDropdown() {
   s.innerHTML='<option value="'+escHtml(l1)+'"'+(a===l1?' selected':'')+'>'+escHtml(l1)+'</option><option value="'+escHtml(l2)+'"'+(a===l2?' selected':'')+'>'+escHtml(l2)+'</option>';
 }
 
-// ── Menu Editor (with Category column) ──
+// ── Menu Editor (accordion by category — collapsed by default) ──
+var menuExpandedCats = {};
 function buildMenuEditor() {
   var body=document.getElementById('menuEditorBody'); body.innerHTML='';
+  var groups={}, order=[];
   menuItems.forEach(function(item) {
-    var tr=document.createElement('tr');
-    tr.innerHTML='<td class="cat-col"><input class="menu-cat-input" value="'+escAttr(item.category)+'" data-row="'+item.row+'"></td><td><input class="menu-name-input" value="'+escAttr(item.name)+'" data-row="'+item.row+'"></td><td class="price-col"><input class="menu-pickup-input" type="number" step="0.01" min="0" value="'+item.pickupPrice.toFixed(2)+'" data-row="'+item.row+'"></td><td class="price-col"><input class="menu-delivery-input" type="number" step="0.01" min="0" value="'+item.deliveryPrice.toFixed(2)+'" data-row="'+item.row+'"></td><td class="action-col"><button class="btn btn-danger btn-sm" style="padding:5px 8px;" onclick="deleteMenuItemUI('+item.row+')" title="Delete">✕</button></td>';
-    var ci=tr.querySelector('.menu-cat-input'), ni=tr.querySelector('.menu-name-input'), pi=tr.querySelector('.menu-pickup-input'), di=tr.querySelector('.menu-delivery-input');
-    [ci,ni,pi,di].forEach(function(inp) { inp.addEventListener('change',function() { saveMenuItemInline(parseInt(ni.dataset.row),ci.value,ni.value,pi.value,di.value); }); });
-    body.appendChild(tr);
+    var c=(item.category||'').trim()||'(No category)';
+    if (!groups[c]) { groups[c]=[]; order.push(c); }
+    groups[c].push(item);
+  });
+  order.forEach(function(cat) {
+    var open=!!menuExpandedCats[cat];
+    var hdr=document.createElement('tr');
+    hdr.innerHTML='<td colspan="5" class="menu-cat-cell">'+(open?'▾ ':'▸ ')+escHtml(cat)+' <span class="menu-cat-count">('+groups[cat].length+')</span></td>';
+    hdr.addEventListener('click', function() { menuExpandedCats[cat]=!menuExpandedCats[cat]; buildMenuEditor(); });
+    body.appendChild(hdr);
+    if (!open) return;
+    groups[cat].forEach(function(item) {
+      var tr=document.createElement('tr');
+      tr.innerHTML='<td class="cat-col"><input class="menu-cat-input" value="'+escAttr(item.category)+'" data-row="'+item.row+'"></td><td><input class="menu-name-input" value="'+escAttr(item.name)+'" data-row="'+item.row+'"></td><td class="price-col"><input class="menu-pickup-input" type="number" step="0.01" min="0" value="'+item.pickupPrice.toFixed(2)+'" data-row="'+item.row+'"></td><td class="price-col"><input class="menu-delivery-input" type="number" step="0.01" min="0" value="'+item.deliveryPrice.toFixed(2)+'" data-row="'+item.row+'"></td><td class="action-col"><button class="btn btn-danger btn-sm" style="padding:5px 8px;" onclick="deleteMenuItemUI('+item.row+')" title="Delete">✕</button></td>';
+      var ci=tr.querySelector('.menu-cat-input'), ni=tr.querySelector('.menu-name-input'), pi=tr.querySelector('.menu-pickup-input'), di=tr.querySelector('.menu-delivery-input');
+      [ci,ni,pi,di].forEach(function(inp) { inp.addEventListener('change',function() { saveMenuItemInline(parseInt(ni.dataset.row),ci.value,ni.value,pi.value,di.value); }); });
+      body.appendChild(tr);
+    });
   });
 }
 function saveMenuItemInline(row,cat,name,pickup,delivery) {
@@ -1669,6 +1990,7 @@ function saveMenuItemInline(row,cat,name,pickup,delivery) {
 }
 function addMenuItemUI() { showSpinner();
   google.script.run.withSuccessHandler(function() { hideSpinner(); showToast('Item added.','success');
+    menuExpandedCats['(No category)']=true; // so the new blank-category item is visible
     google.script.run.withSuccessHandler(function(m){menuItems=m;buildMenuEditor();}).getMenuItems();
   }).withFailureHandler(function(e){hideSpinner();showToast('Error: '+e.message,'error');}).addMenuItem('','New Item',0,0);
 }

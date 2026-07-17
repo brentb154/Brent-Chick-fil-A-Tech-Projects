@@ -62,7 +62,7 @@ function include(filename) {
 
 function getSettings() {
   var sheet = getSpreadsheet().getSheetByName(TAB_SETTINGS);
-  var data  = sheet.getRange('A1:B50').getValues();
+  var data  = sheet.getRange('A1:B100').getValues();
   var tz = Session.getScriptTimeZone();
   var settings = {};
   data.forEach(function(row) {
@@ -426,7 +426,6 @@ function deleteQuote(sheetRow) {
   var sheet = getSpreadsheet().getSheetByName(TAB_QUOTES);
   var quoteId = sheet.getRange(sheetRow, 1).getValue().toString().trim();
   sheet.deleteRow(sheetRow);
-  if (quoteId) deletePipelineEntry(quoteId);
   return true;
 }
 
@@ -512,6 +511,15 @@ function initializeSheet() {
     ['Archive After Days',           120],
     ['Price Check Interval (Days)',  90],
     ['Price Check Categories',      'Catering Items, Catering - Bulk Drinks'],
+    ['Quote Valid For (Days)',       30],
+    ['Delivery Warning Count',       3],
+    ['Delivery Warning Window (Minutes)', 60],
+    ['Confirmation Enabled',        'FALSE'],
+    ['Confirmation Subject',        'See you tomorrow — your Chick-fil-A catering order {{quoteId}}'],
+    ['Confirmation Body',           'Hi {{contactPerson}},\n\nJust confirming your catering order for {{customer}} — we\'ll see you {{when}}.\n\nOrder total: {{total}}\n\nIf anything has changed, reply to this email or call us at {{phone}} and we\'ll take care of it.\n\nSee you soon!\n{{contact}}\nChick-fil-A {{location}}'],
+    ['PO Alert Enabled',            'TRUE'],
+    ['PO Alert Days Before',         7],
+    ['PO Alert Email',              ''],
     ['Logo (Base64)',                ''],
     ['Email Subject',               'Your Catering Quote from Chick-fil-A {{location}}'],
     ['Email Body',                  'Hi {{customer}},\n\nThank you for considering Chick-fil-A {{location}} for your catering needs! We appreciate you reaching out and would love to help make your event something special.\n\nPlease find your catering quote attached. If you have any questions or would like to make any changes, don\'t hesitate to reach out — we\'re happy to help.\n\nWe look forward to serving you!\n\nWarm regards,\n{{contact}}\nChick-fil-A {{location}}\n{{phone}}'],
@@ -582,6 +590,10 @@ function initializeSheet() {
   // Revisions — prior versions of edited quotes, hidden. Created by the shared helper.
   getRevisionsSheet_();
 
+  // Hidden automation logs (day-before confirmations, missing-PO alerts)
+  initLogSheet_(TAB_CONFIRMATIONS, ['Quote ID', 'Event Date', 'Sent At']);
+  initLogSheet_(TAB_PO_ALERTS, ['Quote ID', 'Alerted At']);
+
   // Sequence
   var seqSheet = ss.getSheetByName(TAB_QUOTE_SEQUENCE);
   if (!seqSheet) seqSheet = ss.insertSheet(TAB_QUOTE_SEQUENCE);
@@ -601,6 +613,16 @@ function initializeSheet() {
 
 function getPrintData(quoteData) {
   var settings = getSettings();
+  // "Valid through" — anchored to the quote's created date (today for brand-new quotes).
+  // Blank or 0 in the setting hides the line entirely.
+  var validThrough = '';
+  var validDays = parseInt(settings['Quote Valid For (Days)'], 10);
+  if (!isNaN(validDays) && validDays > 0) {
+    var base = quoteData.createdDate ? new Date(quoteData.createdDate) : new Date();
+    if (isNaN(base.getTime())) base = new Date();
+    base.setDate(base.getDate() + validDays);
+    validThrough = Utilities.formatDate(base, Session.getScriptTimeZone(), 'M/d/yyyy');
+  }
   var storeName = quoteData.locationName || settings['Store Name (Active)'] || '';
   var storeAddress = '', storePhone = '';
   if (storeName === (settings['Location 1 Name'] || '')) {
@@ -616,6 +638,7 @@ function getPrintData(quoteData) {
     contactName: settings['Quote Contact Name'] || '',
     customerName: quoteData.customerName || '', contactPerson: quoteData.contactName || '',
     customerEmail: quoteData.customerEmail || '', customerPhone: quoteData.customerPhone || '',
+    validThrough: validThrough,
     orderType: quoteData.orderType || 'Pickup', deliveryAddress: quoteData.deliveryAddress || '',
     directionsUrl: (quoteData.orderType === 'Delivery' && quoteData.deliveryAddress) ? mapsDirectionsUrl_(quoteData.deliveryAddress) : '',
     date: quoteData.date || new Date().toLocaleDateString(), time: quoteData.time || '',
@@ -672,7 +695,7 @@ function buildPdfHtml(pd) {
   var addr = pd.orderType === 'Delivery' ? (pd.deliveryAddress||'') : (pd.storeAddress||'');
   var logo = pd.logo ? '<img src="'+pd.logo+'" style="max-width:140px;max-height:80px;margin-bottom:8px;">' : '<div style="font-size:24px;font-weight:800;color:#E51636;margin-bottom:8px;">Chick-fil-A</div>';
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>@page{size:letter;margin:0.6in;}body{font-family:Helvetica,Arial,sans-serif;color:#1F2937;margin:0;padding:40px;}</style></head><body>' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+logo+'<div style="font-size:16px;font-weight:700;">'+esc(pd.storeName)+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+esc(pd.storeAddress)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.storePhone)+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:Courier New,monospace;">'+esc(pd.quoteId)+'</div>'+(pd.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+esc(pd.poNumber)+'</div>':'')+'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Date: '+esc(pd.date)+'</div>'+(pd.time?'<div style="font-size:13px;color:#6B7280;">Time: '+esc(pd.time)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+esc(pd.customerName)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.orderType)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(addr)+'</div>'+(pd.directionsUrl?'<div style="font-size:12px;"><a href="'+pd.directionsUrl+'" style="color:#2563EB;">Get Directions (Google Maps)</a></div>':'')+'<div style="font-size:13px;font-weight:600;margin-top:4px;">'+esc(pd.contactPerson)+'</div>'+(pd.customerEmail?'<div style="font-size:13px;color:#6B7280;">'+esc(pd.customerEmail)+'</div>':'')+(pd.customerPhone?'<div style="font-size:13px;color:#6B7280;">'+esc(pd.customerPhone)+'</div>':'')+'</div></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+logo+'<div style="font-size:16px;font-weight:700;">'+esc(pd.storeName)+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+esc(pd.storeAddress)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.storePhone)+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:Courier New,monospace;">'+esc(pd.quoteId)+'</div>'+(pd.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+esc(pd.poNumber)+'</div>':'')+'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Date: '+esc(pd.date)+'</div>'+(pd.time?'<div style="font-size:13px;color:#6B7280;">Time: '+esc(pd.time)+'</div>':'')+(pd.validThrough?'<div style="font-size:12px;color:#9CA3AF;margin-top:2px;">Quote valid through '+esc(pd.validThrough)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+esc(pd.customerName)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.orderType)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(addr)+'</div>'+(pd.directionsUrl?'<div style="font-size:12px;"><a href="'+pd.directionsUrl+'" style="color:#2563EB;">Get Directions (Google Maps)</a></div>':'')+'<div style="font-size:13px;font-weight:600;margin-top:4px;">'+esc(pd.contactPerson)+'</div>'+(pd.customerEmail?'<div style="font-size:13px;color:#6B7280;">'+esc(pd.customerEmail)+'</div>':'')+(pd.customerPhone?'<div style="font-size:13px;color:#6B7280;">'+esc(pd.customerPhone)+'</div>':'')+'</div></div>' +
     '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><thead><tr style="background:#F3F4F6;"><th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:10%;">QTY</th><th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:50%;">DESCRIPTION</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:18%;">PRICE/ITEM</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:22%;">AMOUNT</th></tr></thead><tbody>'+liHtml+'</tbody></table>' +
     notesHtml +
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;"><div style="font-size:13px;color:#6B7280;max-width:320px;">If you have any questions concerning this Quote, contact:<br><strong style="color:#1F2937;">'+esc(pd.contactName)+' at '+esc(pd.storePhone)+'</strong></div><table style="width:280px;background:#F9FAFB;border-radius:8px;overflow:hidden;"><tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SUBTOTAL</td><td style="padding:8px 16px;text-align:right;font-family:Courier New,monospace;font-size:14px;">$'+(pd.subtotal||0).toFixed(2)+'</td></tr>'+discRows+taxLine+'<tr style="background:#E5E7EB;"><td style="padding:10px 16px;font-size:15px;font-weight:700;">TOTAL</td><td style="padding:10px 16px;text-align:right;font-family:Courier New,monospace;font-size:16px;font-weight:700;">$'+(pd.total||0).toFixed(2)+'</td></tr></table></div></body></html>';
@@ -703,7 +726,6 @@ function sendQuoteEmail(quoteData, recipientEmail) {
   var opts = { attachments: [generatePdfBlob(quoteData)], name: 'Chick-fil-A ' + storeName };
   if (bcc) opts.bcc = bcc;
   MailApp.sendEmail(recipientEmail, subj, body, opts);
-  addPipelineEntry({ ...quoteData, recipientEmail: recipientEmail });
   return { success: true, message: 'Email sent to ' + recipientEmail };
 }
 
@@ -714,7 +736,6 @@ function sendQuoteEmailDirect(quoteData, recipientEmail, subject, body) {
   var opts = { attachments: [generatePdfBlob(quoteData)], name: 'Chick-fil-A ' + storeName };
   if (bcc) opts.bcc = bcc;
   MailApp.sendEmail(recipientEmail, subject, body, opts);
-  addPipelineEntry({ ...quoteData, recipientEmail: recipientEmail });
   return { success: true };
 }
 
@@ -1033,13 +1054,220 @@ function getReminderTriggerStatus() {
 }
 
 
-// ── Pipeline Data Wrapper ─────────────────────────────────────
-// Called by the UI to load the pipeline view.
-// Returns both entries and stats in one round-trip.
+// ── DAILY AUTOMATION: day-before confirmations + missing-PO alerts ──
+// One trigger (3pm daily) runs both sweeps; each is gated by its own Settings toggle.
 
-function getPipelineData() {
-  return {
-    entries: getPipelineEntries(),
-    stats:   getPipelineStats()
-  };
+const TAB_CONFIRMATIONS = 'Confirmations_Sent';
+const TAB_PO_ALERTS     = 'PO_Alerts_Sent';
+
+// Get-or-create a hidden log tab. Same pattern as initRemindersSheet.
+function initLogSheet_(tabName, headers) {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(tabName);
+  if (!sheet) {
+    sheet = ss.insertSheet(tabName);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    sheet.hideSheet();
+  }
+  return sheet;
 }
+
+// "Sat, Jul 18 at 11:30 AM" from stored yyyy-MM-dd + HH:mm.
+function formatWhen_(eventDate, eventTime, tz) {
+  if (!eventDate) return '';
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(eventDate);
+  if (!m) return eventDate;
+  var d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+  var out = Utilities.formatDate(d, tz, 'EEE, MMM d');
+  var t = /^(\d{1,2}):(\d{2})/.exec(eventTime || '');
+  if (t) {
+    var h = parseInt(t[1], 10), mn = parseInt(t[2], 10);
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12; if (h12 === 0) h12 = 12;
+    out += ' at ' + h12 + ':' + (mn < 10 ? '0' + mn : mn) + ' ' + ampm;
+  }
+  return out;
+}
+
+function poAlertRecipients_(settings) {
+  var raw = (settings['PO Alert Email'] || '').toString().trim();
+  if (raw) return raw;
+  try { return Session.getEffectiveUser().getEmail(); } catch(e) { return ''; }
+}
+
+function dailyCateringAutomation() {
+  var alertTo = '';
+  try { alertTo = poAlertRecipients_(getSettings()); } catch(e) {}
+  try { _sendDayBeforeConfirmations(); } catch(e) {
+    try { MailApp.sendEmail(alertTo, 'Catering Automation Error', 'Day-before confirmations failed:\n\n' + e.message + '\n\n' + e.stack); } catch(e2) {}
+  }
+  try { _sendPoAlerts(); } catch(e) {
+    try { MailApp.sendEmail(alertTo, 'Catering Automation Error', 'Missing-PO sweep failed:\n\n' + e.message + '\n\n' + e.stack); } catch(e2) {}
+  }
+}
+
+function _sendDayBeforeConfirmations() {
+  var settings = getSettings();
+  if (settings['Confirmation Enabled'] !== 'TRUE') return 'Confirmations are disabled.';
+  var tz = Session.getScriptTimeZone();
+  var tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  var tomorrowKey = Utilities.formatDate(tomorrow, tz, 'yyyy-MM-dd');
+
+  var logSheet = initLogSheet_(TAB_CONFIRMATIONS, ['Quote ID', 'Event Date', 'Sent At']);
+  var sentKeys = {};
+  if (logSheet.getLastRow() > 1) {
+    logSheet.getRange(2, 1, logSheet.getLastRow() - 1, 2).getValues().forEach(function(r) {
+      sentKeys[r[0] + '|' + normalizeEventDate_(r[1], tz)] = true;
+    });
+  }
+
+  var storeName = settings['Store Name (Active)'] || '';
+  var storePhone = '';
+  if (storeName === (settings['Location 2 Name'] || '')) storePhone = settings['Location 2 Phone'] || '';
+  else storePhone = settings['Location 1 Phone'] || '';
+  var subjectTpl = settings['Confirmation Subject'] || 'See you tomorrow — your Chick-fil-A catering order {{quoteId}}';
+  var bodyTpl = settings['Confirmation Body'] || 'Hi {{contactPerson}},\n\nJust confirming your catering order for {{customer}} — we\'ll see you {{when}}.\n\n{{contact}}\nChick-fil-A {{location}}';
+  var bcc = (settings['BCC Email'] || '').toString().trim();
+
+  var count = 0;
+  getQuotes().forEach(function(q) {
+    if (q.eventDate !== tomorrowKey) return;
+    var email = (q.customerEmail || '').toString().trim();
+    if (!email) return;
+    if (sentKeys[q.quoteId + '|' + q.eventDate]) return;
+    var reps = {
+      '{{contactPerson}}': q.contactName || '',
+      '{{customer}}': q.customerName || '',
+      '{{contact}}': settings['Quote Contact Name'] || '',
+      '{{location}}': storeName,
+      '{{phone}}': storePhone,
+      '{{quoteId}}': q.quoteId || '',
+      '{{total}}': '$' + (parseFloat(q.total) || 0).toFixed(2),
+      '{{when}}': formatWhen_(q.eventDate, q.eventTime, tz),
+      '{{date}}': formatWhen_(q.eventDate, '', tz),
+      '{{time}}': formatWhen_(q.eventDate, q.eventTime, tz).split(' at ')[1] || ''
+    };
+    var subj = subjectTpl, body = bodyTpl;
+    for (var k in reps) { subj = subj.split(k).join(reps[k]); body = body.split(k).join(reps[k]); }
+    var opts = { name: 'Chick-fil-A ' + storeName };
+    if (bcc) opts.bcc = bcc;
+    MailApp.sendEmail(email, subj, body, opts);
+    logSheet.appendRow([q.quoteId, q.eventDate, new Date()]);
+    count++;
+  });
+  SpreadsheetApp.flush();
+  return 'Sent ' + count + ' confirmation(s).';
+}
+
+function _sendPoAlerts() {
+  var settings = getSettings();
+  if (settings['PO Alert Enabled'] !== 'TRUE') return 'PO alerts are disabled.';
+  var days = parseInt(settings['PO Alert Days Before'], 10);
+  if (isNaN(days) || days < 1) days = 7;
+  var tz = Session.getScriptTimeZone();
+  var todayKey = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var max = new Date();
+  max.setDate(max.getDate() + days);
+  var maxKey = Utilities.formatDate(max, tz, 'yyyy-MM-dd');
+
+  var logSheet = initLogSheet_(TAB_PO_ALERTS, ['Quote ID', 'Alerted At']);
+  var alerted = {};
+  if (logSheet.getLastRow() > 1) {
+    logSheet.getRange(2, 1, logSheet.getLastRow() - 1, 1).getValues().forEach(function(r) {
+      if (r[0]) alerted[r[0].toString().trim()] = true;
+    });
+  }
+
+  var missing = getQuotes().filter(function(q) {
+    if (!q.eventDate || q.eventDate < todayKey || q.eventDate > maxKey) return false;
+    if ((q.poNumber || '').toString().trim() !== '') return false; // HAVE PO and NO_PO_NEEDED both count as handled
+    return !alerted[q.quoteId];
+  });
+  if (!missing.length) return 'No missing-PO quotes in the next ' + days + ' days.';
+
+  var to = poAlertRecipients_(settings);
+  if (!to) return 'No PO alert recipient configured.';
+
+  var lines = missing.map(function(q) {
+    var daysOut = Math.round((new Date(q.eventDate + 'T12:00:00') - new Date(todayKey + 'T12:00:00')) / 86400000);
+    return '• ' + q.quoteId + ' — ' + q.customerName
+      + (q.contactName ? ' (' + q.contactName + (q.customerPhone ? ', ' + q.customerPhone : '') + ')' : '')
+      + ' — ' + formatWhen_(q.eventDate, q.eventTime, tz)
+      + ' — $' + (parseFloat(q.total) || 0).toFixed(2)
+      + ' — ' + (daysOut === 0 ? 'TODAY' : daysOut + ' day' + (daysOut === 1 ? '' : 's') + ' out');
+  });
+  var subj = '🔴 ' + missing.length + ' catering quote' + (missing.length === 1 ? '' : 's') + ' missing a PO (next ' + days + ' days)';
+  var body = 'These upcoming orders have no PO on file yet:\n\n' + lines.join('\n')
+    + '\n\nAdd the PO (or mark "No PO Needed") from the quote\'s popup in the catering tool. Each quote is alerted once.';
+  MailApp.sendEmail(to, subj, body, { name: 'Catering Quote Tool' });
+  missing.forEach(function(q) { logSheet.appendRow([q.quoteId, new Date()]); });
+  SpreadsheetApp.flush();
+  return 'Alerted on ' + missing.length + ' quote(s).';
+}
+
+function setupAutomationTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'dailyCateringAutomation') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('dailyCateringAutomation').timeBased().everyDays(1).atHour(15).create();
+  return 'Daily automation enabled (runs at 3pm).';
+}
+
+function removeAutomationTrigger() {
+  var removed = 0;
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'dailyCateringAutomation') { ScriptApp.deleteTrigger(t); removed++; }
+  });
+  return removed > 0 ? 'Automation trigger removed.' : 'No active automation trigger found.';
+}
+
+function getAutomationTriggerStatus() {
+  return ScriptApp.getProjectTriggers().some(function(t) {
+    return t.getHandlerFunction() === 'dailyCateringAutomation';
+  });
+}
+
+
+// ── DELIVERY RUNSHEET EMAIL ──────────────────────────────────
+
+function emailRunsheet(dateStr, recipient) {
+  recipient = (recipient || '').toString().trim();
+  if (!recipient) return { success: false, message: 'No recipient given.' };
+  var tz = Session.getScriptTimeZone();
+  var quotes = getQuotes().filter(function(q) { return q.eventDate === dateStr; });
+  if (!quotes.length) return { success: false, message: 'No orders on that day.' };
+  quotes.sort(function(a, b) { return (a.eventTime || '').localeCompare(b.eventTime || ''); });
+
+  var rows = quotes.map(function(q) {
+    var items = [];
+    try { items = JSON.parse(q.lineItems) || []; } catch(e) {}
+    var itemsHtml = items.map(function(i) { return esc(i.quantity + '× ' + i.description); }).join('<br>');
+    var when = formatWhen_(q.eventDate, q.eventTime, tz);
+    var time = when.indexOf(' at ') >= 0 ? when.split(' at ')[1] : 'No time';
+    var po = q.poNumber === 'NO_PO_NEEDED' ? '🟢 No PO needed' : (q.poNumber ? '🟢 PO: ' + esc(q.poNumber) : '🔴 NEEDS PO');
+    var addr = q.orderType === 'Delivery' && q.deliveryAddress
+      ? esc(q.deliveryAddress) + '<br><a href="' + mapsDirectionsUrl_(q.deliveryAddress) + '">Directions</a>'
+      : esc(q.orderType || '');
+    return '<tr>'
+      + '<td style="padding:8px;border-bottom:1px solid #ddd;white-space:nowrap;"><b>' + esc(time) + '</b></td>'
+      + '<td style="padding:8px;border-bottom:1px solid #ddd;"><b>' + esc(q.customerName) + '</b><br>' + esc(q.contactName || '') + (q.customerPhone ? '<br>' + esc(q.customerPhone) : '') + '</td>'
+      + '<td style="padding:8px;border-bottom:1px solid #ddd;">' + esc(q.orderType || '') + '</td>'
+      + '<td style="padding:8px;border-bottom:1px solid #ddd;">' + addr + '</td>'
+      + '<td style="padding:8px;border-bottom:1px solid #ddd;font-size:12px;">' + itemsHtml + '</td>'
+      + '<td style="padding:8px;border-bottom:1px solid #ddd;white-space:nowrap;">' + po + '</td>'
+      + '<td style="padding:8px;border-bottom:1px solid #ddd;text-align:right;">$' + (parseFloat(q.total) || 0).toFixed(2) + '</td>'
+      + '</tr>';
+  });
+  var dayLabel = formatWhen_(dateStr, '', tz);
+  var html = '<h2 style="font-family:Arial,sans-serif;">Catering Runsheet — ' + esc(dayLabel) + '</h2>'
+    + '<table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;width:100%;">'
+    + '<tr style="background:#f3f4f6;"><th style="padding:8px;text-align:left;">Time</th><th style="padding:8px;text-align:left;">Customer</th><th style="padding:8px;text-align:left;">Type</th><th style="padding:8px;text-align:left;">Address</th><th style="padding:8px;text-align:left;">Items</th><th style="padding:8px;text-align:left;">PO</th><th style="padding:8px;text-align:right;">Total</th></tr>'
+    + rows.join('') + '</table>';
+  MailApp.sendEmail(recipient, 'Catering Runsheet — ' + dayLabel + ' (' + quotes.length + ' order' + (quotes.length === 1 ? '' : 's') + ')',
+    'Runsheet for ' + dayLabel + ' — open in an HTML mail client.', { htmlBody: html, name: 'Catering Quote Tool' });
+  return { success: true, message: 'Runsheet sent to ' + recipient };
+}
+
+

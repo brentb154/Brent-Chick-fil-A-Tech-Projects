@@ -159,8 +159,12 @@
                 <li>Separate pickup and delivery pricing per item</li>
                 <li>Sequential quote IDs (Q-2026-0001, Q-2026-0002, &hellip;) that never repeat</li>
                 <li>Save &amp; Email — generates a PDF and emails it in one click</li>
-                <li>Quote history with search, event-date filter, and Edit &amp; Reuse</li>
+                <li>Quote history with search, event-date filter, Edit &amp; Reuse, and one-click <strong>Reorder</strong> for repeat customers</li>
+                <li>Customer memory — known organizations and their contacts autofill from past quotes</li>
                 <li>Revision history — every edit keeps the old version, viewable and restorable from the quote popup</li>
+                <li>Printable/emailable daily <strong>delivery runsheet</strong> straight from the calendar</li>
+                <li>Optional automated day-before confirmation emails + daily missing-PO alert digest</li>
+                <li>"Valid through" expiration date on every quote PDF (Settings-tunable)</li>
                 <li>Calendar tab (Month / Week / Day) showing every order by event date, color-coded 🔴 needs PO / 🟢 PO handled</li>
                 <li>Optional customer phone; customer email and phone print on the PDF when present</li>
                 <li>Google Maps directions link on delivery quotes — PDF, quote popup, and calendar event</li>
@@ -175,7 +179,7 @@
 
         <div class="section" id="setup-guide">
             <h2>Full Step-by-Step Setup Guide</h2>
-            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6; margin-bottom:0.5rem;">About 25 minutes, no coding needed. You copy four files, run one setup function, add your menu, and deploy.</p>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6; margin-bottom:0.5rem;">About 25 minutes, no coding needed. You copy three files, run one setup function, add your menu, and deploy.</p>
             <div class="note" style="background:rgba(255,193,7,0.1); border-color:rgba(255,193,7,0.4); margin:0.75rem 0 1.5rem;"><strong style="color:#FFD54F;">&#9888;&#65039; Two rules that keep it working:</strong> don't create or rename tabs by hand (the setup function builds them), and make sure the HTML file holding <code>App.html</code> is named exactly <code>Index</code>. Those two mistakes cause almost every "it won't load."</div>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">1. Create the Google Sheet</h3>
@@ -184,12 +188,12 @@
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">2. Open Apps Script</h3>
             <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Click <strong>Extensions &rarr; Apps Script</strong>. The script is bound to this Sheet, so you never paste a Sheet ID.</p>
 
-            <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">3. Paste the Four Files</h3>
-            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Names must match exactly. Replace the starter <code>Code.gs</code> with the project's <code>Code.gs</code>; add an <strong>HTML</strong> file named <code>Index</code> holding <strong><code>App.html</code></strong>; add a <strong>Script</strong> file <code>Pipeline</code> holding <code>Pipeline.gs</code>; add an <strong>HTML</strong> file <code>PipelineView</code> holding <code>Pipelineview.html</code>. Save.</p>
+            <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">3. Paste the Three Files</h3>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Names must match exactly. Replace the starter <code>Code.gs</code> with the project's <code>Code.gs</code>; add an <strong>HTML</strong> file named <code>Index</code> holding <strong><code>App.html</code></strong>. (Upgrading an older install that still has <code>Pipeline</code> / <code>PipelineView</code> files? Delete both — the Pipeline feature was retired.) Save.</p>
             <div class="note" style="background:rgba(255,193,7,0.1); border-color:rgba(255,193,7,0.4);"><strong style="color:#FFD54F;">Most common mistake:</strong> the file holding <code>App.html</code> must be named exactly <code>Index</code> &mdash; <code>doGet</code> loads the page by that name. Wrong name = blank page.</div>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">4. Run the Setup Function</h3>
-            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Pick <code>initializeSheet</code> in the function dropdown &rarr; <strong>Run</strong>. Authorize when asked (<strong>Advanced &rarr; Go to (project) &rarr; Allow</strong>) &mdash; it needs Gmail, Drive, and Calendar to email PDFs and create events. This builds the visible tabs <strong>Settings</strong>, <strong>Menu</strong>, <strong>Quotes</strong>, <strong>Quote_Sequence</strong>, <strong>Pipeline</strong> plus a hidden <strong>Quote_Revisions</strong> tab that stores prior versions of edited quotes. Safe to re-run.</p>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Pick <code>initializeSheet</code> in the function dropdown &rarr; <strong>Run</strong>. Authorize when asked (<strong>Advanced &rarr; Go to (project) &rarr; Allow</strong>) &mdash; it needs Gmail, Drive, and Calendar to email PDFs and create events. This builds the visible tabs <strong>Settings</strong>, <strong>Menu</strong>, <strong>Quotes</strong>, <strong>Quote_Sequence</strong> plus hidden tabs (<strong>Quote_Revisions</strong> for prior versions of edited quotes, <strong>Confirmations_Sent</strong> and <strong>PO_Alerts_Sent</strong> for the automated emails). Safe to re-run.</p>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">5. Deploy as a Web App</h3>
             <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;"><strong>Deploy &rarr; New deployment &rarr;</strong> gear &rarr; <strong>Web app</strong>. Execute as <strong>Me</strong>, access <strong>Anyone within your domain</strong>. Deploy and copy the URL &mdash; that's the tool. First load is slow (10&ndash;20 sec). After any code change, redeploy via <strong>Manage deployments &rarr; Edit &rarr; New version</strong>.</p>
@@ -212,10 +216,10 @@
             <div class="note"><strong>The columns line up:</strong> <code>Category &rarr; Category</code>, <code>Menu Item Name &rarr; Item Name</code>, <code>Inside Sales Price &rarr; Pickup Price</code>, <code>Outside Sales Price &rarr; Delivery Price</code>. So paste them in that order under the existing headers. Any item with <code>N/A</code> for Outside Sales Price simply won't show on delivery quotes &mdash; which is exactly what you want.</div>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">7. Fill in Settings</h3>
-            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In the <strong>Settings</strong> tab, enter store name, address, phone, contact, tax rate, logo, email template, and (optionally) the follow-up reminder config. It's also where you tune operational settings like <code>Archive After Days</code> (default 120), <code>Calendar Lead Time (Minutes)</code> (default 30, how far before the order the calendar event starts), <code>Price Check Interval (Days)</code> (default 90, how often the tool locks for a price verification), and <code>Price Check Categories</code> (which menu categories the spot-check draws from). The app reads all of these at runtime &mdash; no code edits.</p>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In the <strong>Settings</strong> tab, enter store name, address, phone, contact, tax rate, logo, email template, and (optionally) the follow-up reminder config. It's also where you tune operational settings like <code>Archive After Days</code> (default 120), <code>Calendar Lead Time (Minutes)</code> (default 30, how far before the order the calendar event starts), <code>Price Check Interval (Days)</code> (default 90, how often the tool locks for a price verification), <code>Price Check Categories</code> (which menu categories the spot-check draws from), <code>Quote Valid For (Days)</code> (the "valid through" date on PDFs), the <strong>delivery warning</strong> count/window, and the <strong>Daily Automation</strong> section &mdash; day-before confirmation emails and the missing-PO alert digest, each with its own on/off switch and a one-click "Enable (3pm daily)" button. The app reads all of these at runtime &mdash; no code edits.</p>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">8. Send a Test Quote</h3>
-            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Open the Web app URL. <strong>First open shows a one-time price check</strong> &mdash; type the current POS prices for the 3 menu items it picks and it unlocks (it repeats quarterly to keep quote prices honest). Then build a quote and hit <strong>Save &amp; Email</strong> to yourself. A PDF in your inbox and a new card on the <strong>Pipeline</strong> board means you're live.</p>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Open the Web app URL. <strong>First open shows a one-time price check</strong> &mdash; type the current POS prices for the 3 menu items it picks and it unlocks (it repeats quarterly to keep quote prices honest). Then build a quote and hit <strong>Save &amp; Email</strong> to yourself. A PDF in your inbox and the order showing on the <strong>Calendar</strong> tab means you're live.</p>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.5rem 0 0.4rem;">Optional Extras</h3>
             <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Nightly archive of old quotes (moved to a hidden archive sheet, never deleted): add a time-driven trigger for <code>cleanOldQuotes</code> daily at midnight. How old before they archive is set in the <strong>Settings</strong> tab under <code>Archive After Days</code> (defaults to 120). Calendar events and follow-up reminder emails are separate feature deployments &mdash; see <a href="SETUP.md" style="color:#4DD0E1;">SETUP.md</a>.</p>
@@ -230,9 +234,7 @@
             </div>
             <div class="file-grid">
                 <a href="Code.gs" class="file-item gs" target="_blank">Code.gs</a>
-                <a href="Pipeline.gs" class="file-item gs" target="_blank">Pipeline.gs</a>
                 <a href="App.html" class="file-item html" target="_blank">App.html</a>
-                <a href="Pipelineview.html" class="file-item html" target="_blank">Pipelineview.html</a>
                 <a href="README.md" class="file-item md" target="_blank">README.md</a>
             </div>
         </div>
@@ -247,7 +249,7 @@
             btn.disabled = true;
             btn.style.opacity = '0.7';
 
-            const files = ['Code.gs', 'Pipeline.gs', 'App.html', 'Pipelineview.html', 'README.md'];
+            const files = ['Code.gs', 'App.html', 'README.md'];
 
             try {
                 const zip = new JSZip();
