@@ -21,6 +21,7 @@ const TAB_MENU           = 'Menu';
 const TAB_QUOTES         = 'Quotes';
 const TAB_QUOTES_ARCHIVE = 'Quotes_Archive';
 const TAB_QUOTE_SEQUENCE = 'Quote_Sequence';
+const TAB_QUOTE_REVISIONS = 'Quote_Revisions';
 
 
 // ── WEB APP ENTRY POINT ──────────────────────────────────────
@@ -62,26 +63,36 @@ function include(filename) {
 function getSettings() {
   var sheet = getSpreadsheet().getSheetByName(TAB_SETTINGS);
   var data  = sheet.getRange('A1:B50').getValues();
+  var tz = Session.getScriptTimeZone();
   var settings = {};
   data.forEach(function(row) {
     if (row[0] && row[0].toString().trim() !== '') {
-      settings[row[0].toString().trim()] = row[1];
+      var v = row[1];
+      // Sheets auto-converts date-like strings (e.g. "2026-07-16") into Date cells,
+      // and google.script.run nulls the ENTIRE return value if it contains a Date.
+      if (Object.prototype.toString.call(v) === '[object Date]') {
+        v = Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+      }
+      settings[row[0].toString().trim()] = v;
     }
   });
   return settings;
 }
 
-function updateSetting(label, value) {
+function updateSetting(label, value, asText) {
   var sheet = getSpreadsheet().getSheetByName(TAB_SETTINGS);
   var lastRow = Math.max(sheet.getLastRow(), 1);
   var data = sheet.getRange(1, 1, lastRow, 1).getValues();
   for (var i = 0; i < data.length; i++) {
     if (data[i][0].toString().trim() === label) {
-      sheet.getRange(i + 1, 2).setValue(value);
+      var cell = sheet.getRange(i + 1, 2);
+      if (asText) cell.setNumberFormat('@'); // stop Sheets auto-converting date-like strings
+      cell.setValue(value);
       return true;
     }
   }
   // Label not found — append a new row instead of silently dropping the save
+  if (asText) sheet.getRange(lastRow + 1, 2).setNumberFormat('@');
   sheet.getRange(lastRow + 1, 1, 1, 2).setValues([[label, value]]);
   return true;
 }
@@ -114,6 +125,75 @@ function getMenuItems() {
   return items;
 }
 
+// ── QUARTERLY PRICE VERIFICATION ─────────────────────────────
+// Every "Price Check Interval (Days)" (default 90) the app locks on load until
+// the operator confirms 3 random menu prices against the POS. The client decides
+// "due" from Settings; these functions serve the items and check the answers.
+
+// 3 random items to spot-check — always includes a delivery-priced item when one exists.
+// Draws only from the categories listed in Settings "Price Check Categories" (comma-separated),
+// matched by category name — never by row — so items can move around freely.
+// Falls back to the whole menu if the list is blank or matches fewer than 3 items.
+function getPriceCheckItems() {
+  var pool = getMenuItems();
+  if (!pool.length) return [];
+  var raw = (getSettings()['Price Check Categories'] || '').toString();
+  var cats = raw.split(',').map(function(c) { return c.trim().toLowerCase(); }).filter(function(c) { return c !== ''; });
+  if (cats.length) {
+    var inCats = pool.filter(function(it) { return cats.indexOf((it.category || '').toLowerCase()) >= 0; });
+    if (inCats.length >= 3) pool = inCats;
+  }
+  var picked = [];
+  var withDelivery = pool.filter(function(it) { return it.deliveryAvailable; });
+  if (withDelivery.length) {
+    var d = withDelivery[Math.floor(Math.random() * withDelivery.length)];
+    picked.push(d);
+    pool = pool.filter(function(it) { return it.name !== d.name; });
+  }
+  while (picked.length < 3 && pool.length) {
+    picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  }
+  // Names only — answers are checked server-side against the Menu tab
+  return picked.map(function(it) {
+    return { name: it.name, category: it.category, pickupAvailable: it.pickupAvailable, deliveryAvailable: it.deliveryAvailable };
+  });
+}
+
+// entries: [{name, pickup, delivery}] typed from the POS. Match within a cent.
+// An item name can appear on multiple menu rows (same item, two categories) —
+// the typed prices pass if they match ANY row with that name, so duplicates can't wedge the lock.
+function submitPriceVerification(entries) {
+  var rowsByName = {};
+  getMenuItems().forEach(function(it) {
+    if (!rowsByName[it.name]) rowsByName[it.name] = [];
+    rowsByName[it.name].push(it);
+  });
+  function priceMatches(typed, expected) {
+    var n = parseFloat(typed);
+    if (isNaN(n)) return false; // blank never passes — even for $0 items, they have to type it
+    return Math.abs(n - expected) <= 0.005;
+  }
+  var mismatches = [];
+  (entries || []).forEach(function(e) {
+    var rows = rowsByName[e.name];
+    if (!rows) { mismatches.push(e.name); return; }
+    var ok = rows.some(function(it) {
+      if (it.pickupAvailable && !priceMatches(e.pickup, it.pickupPrice)) return false;
+      if (it.deliveryAvailable && !priceMatches(e.delivery, it.deliveryPrice)) return false;
+      return true;
+    });
+    if (!ok) mismatches.push(e.name);
+  });
+  if (mismatches.length) return { ok: false, mismatches: mismatches };
+  markPricesVerified_();
+  return { ok: true };
+}
+
+function markPricesVerified_() {
+  // asText keeps Sheets from converting the yyyy-MM-dd string into a Date cell
+  updateSetting('Last Price Verification', Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'), true);
+}
+
 function addMenuItem(category, name, pickupPrice, deliveryPrice) {
   var sheet = getSpreadsheet().getSheetByName(TAB_MENU);
   sheet.getRange(sheet.getLastRow() + 1, 1, 1, 4).setValues([
@@ -144,7 +224,7 @@ function getQuotes() {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
   var lastCol = sheet.getLastColumn();
-  var width = Math.max(19, Math.min(22, lastCol));
+  var width = Math.max(19, Math.min(23, lastCol));
   var data = sheet.getRange(2, 1, lastRow - 1, width).getValues();
   var tz = Session.getScriptTimeZone();
   var quotes = [];
@@ -164,6 +244,7 @@ function getQuotes() {
         orderDiscountValue: row[19] != null ? row[19] : 0,
         orderDiscountType: row[20] ? row[20].toString().trim() : 'percent',
         quoteNotes: row[21] ? row[21].toString() : '',
+        customerPhone: row[22] ? row[22].toString().trim() : '',
         sheetRow: index + 2
       });
     }
@@ -237,8 +318,11 @@ function saveQuote(quoteData) {
 
   if (existingRow > 0) {
     // Edit: overwrite existing row, preserve original created date
-    var existing = sheet.getRange(existingRow, 1, 1, 22).getValues()[0];
+    var existing = sheet.getRange(existingRow, 1, 1, 23).getValues()[0];
     var eventId = existing[16] ? existing[16].toString().trim() : '';
+
+    // Keep the outgoing version in Quote_Revisions before overwriting
+    try { appendQuoteRevision_(existing); } catch(e) {}
 
     // Update existing calendar event, or create one if it doesn't exist yet
     if (eventId) {
@@ -247,7 +331,7 @@ function saveQuote(quoteData) {
       try { eventId = createCalendarEvent(quoteData, existingQuoteId) || ''; } catch(e) { eventId = ''; }
     }
 
-    sheet.getRange(existingRow, 1, 1, 22).setValues([[
+    sheet.getRange(existingRow, 1, 1, 23).setValues([[
       existingQuoteId, existing[1], quoteData.customerName, quoteData.contactName,
       quoteData.orderType, quoteData.deliveryAddress || '',
       JSON.stringify(quoteData.lineItems),
@@ -256,7 +340,8 @@ function saveQuote(quoteData) {
       quoteData.taxExempt ? 'TRUE' : 'FALSE', quoteData.locationName || '',
       quoteData.customerEmail || '', quoteData.poNumber || '', quoteData.date || '',
       eventId, new Date(), quoteData.time || '',
-      parseFloat(quoteData.orderDiscountValue) || 0, quoteData.orderDiscountType || 'percent', quoteData.quoteNotes || ''
+      parseFloat(quoteData.orderDiscountValue) || 0, quoteData.orderDiscountType || 'percent', quoteData.quoteNotes || '',
+      quoteData.customerPhone || ''
     ]]);
     return existingQuoteId;
   }
@@ -274,9 +359,67 @@ function saveQuote(quoteData) {
     quoteData.taxExempt ? 'TRUE' : 'FALSE', quoteData.locationName || '',
     quoteData.customerEmail || '', quoteData.poNumber || '', quoteData.date || '',
     eventId, '', quoteData.time || '',
-    parseFloat(quoteData.orderDiscountValue) || 0, quoteData.orderDiscountType || 'percent', quoteData.quoteNotes || ''
+    parseFloat(quoteData.orderDiscountValue) || 0, quoteData.orderDiscountType || 'percent', quoteData.quoteNotes || '',
+    quoteData.customerPhone || ''
   ]);
   return quoteId;
+}
+
+// ── QUOTE REVISIONS ──────────────────────────────────────────
+
+// One source of truth for the revisions tab: Quotes' 23 columns + Revised At.
+// Creates the hidden tab if missing — used by both saveQuote and initializeSheet.
+function getRevisionsSheet_() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(TAB_QUOTE_REVISIONS);
+  if (!sheet) {
+    sheet = ss.insertSheet(TAB_QUOTE_REVISIONS);
+    var rh = ['Quote ID','Created Date','Customer Name','Contact Name','Order Type','Delivery Address','Line Items (JSON)','Subtotal','Tax Rate Used','Tax Amount','Total','Tax Exempt','Location Name','Customer Email','PO Number','Event Date','Calendar Event ID','Last Modified','Event Time','Order Discount Value','Order Discount Type','Quote Notes','Customer Phone','Revised At'];
+    sheet.getRange(1, 1, 1, rh.length).setValues([rh]).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    sheet.hideSheet();
+  }
+  return sheet;
+}
+
+// Append a pre-edit Quotes row (23 values) + timestamp to the hidden revisions tab.
+function appendQuoteRevision_(rowValues) {
+  var row = rowValues.slice(0, 23);
+  while (row.length < 23) row.push('');
+  row.push(new Date());
+  getRevisionsSheet_().appendRow(row);
+}
+
+// All prior versions of one quote, newest first. Same field names as getQuotes plus revisedAt.
+function getQuoteRevisions(quoteId) {
+  var sheet = getSpreadsheet().getSheetByName(TAB_QUOTE_REVISIONS);
+  if (!sheet) return [];
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var data = sheet.getRange(2, 1, lastRow - 1, 24).getValues();
+  var tz = Session.getScriptTimeZone();
+  var wanted = (quoteId || '').toString().trim();
+  var revisions = [];
+  data.forEach(function(row) {
+    if (!row[0] || row[0].toString().trim() !== wanted) return;
+    revisions.push({
+      quoteId: row[0], createdDate: row[1] ? new Date(row[1]).toISOString() : '',
+      customerName: row[2], contactName: row[3], orderType: row[4],
+      deliveryAddress: row[5], lineItems: row[6], subtotal: row[7],
+      taxRateUsed: row[8], taxAmount: row[9], total: row[10],
+      taxExempt: row[11], locationName: row[12], customerEmail: row[13] || '',
+      poNumber: row[14] ? row[14].toString().trim() : '',
+      eventDate: normalizeEventDate_(row[15], tz),
+      eventTime: normalizeEventTime_(row[18], tz),
+      orderDiscountValue: row[19] != null ? row[19] : 0,
+      orderDiscountType: row[20] ? row[20].toString().trim() : 'percent',
+      quoteNotes: row[21] ? row[21].toString() : '',
+      customerPhone: row[22] ? row[22].toString().trim() : '',
+      revisedAt: row[23] ? new Date(row[23]).toISOString() : ''
+    });
+  });
+  revisions.sort(function(a, b) { return new Date(b.revisedAt) - new Date(a.revisedAt); });
+  return revisions;
 }
 
 function deleteQuote(sheetRow) {
@@ -367,10 +510,24 @@ function initializeSheet() {
     ['Default Tax Rate (%)',         8.25],
     ['Calendar Lead Time (Minutes)', 30],
     ['Archive After Days',           120],
+    ['Price Check Interval (Days)',  90],
+    ['Price Check Categories',      'Catering Items, Catering - Bulk Drinks'],
     ['Logo (Base64)',                ''],
     ['Email Subject',               'Your Catering Quote from Chick-fil-A {{location}}'],
     ['Email Body',                  'Hi {{customer}},\n\nThank you for considering Chick-fil-A {{location}} for your catering needs! We appreciate you reaching out and would love to help make your event something special.\n\nPlease find your catering quote attached. If you have any questions or would like to make any changes, don\'t hesitate to reach out — we\'re happy to help.\n\nWe look forward to serving you!\n\nWarm regards,\n{{contact}}\nChick-fil-A {{location}}\n{{phone}}'],
-    ['BCC Email',                   '']
+    ['BCC Email',                   ''],
+    // Custom display names for the calendar color picker (e.g. a client name, "Delivery", "Pickup")
+    ['Calendar Color: Lavender',    'Lavender'],
+    ['Calendar Color: Sage',        'Sage'],
+    ['Calendar Color: Grape',       'Grape'],
+    ['Calendar Color: Flamingo',    'Flamingo'],
+    ['Calendar Color: Banana',      'Banana'],
+    ['Calendar Color: Tangerine',   'Tangerine'],
+    ['Calendar Color: Peacock',     'Peacock'],
+    ['Calendar Color: Graphite',    'Graphite'],
+    ['Calendar Color: Blueberry',   'Blueberry'],
+    ['Calendar Color: Basil',       'Basil'],
+    ['Calendar Color: Tomato',      'Tomato']
   ];
   if (!sSheet.getRange('A1').getValue()) {
     sSheet.getRange(1, 1, seedSettings.length, 2).setValues(seedSettings);
@@ -406,20 +563,24 @@ function initializeSheet() {
   var qSheet = ss.getSheetByName(TAB_QUOTES);
   if (!qSheet) qSheet = ss.insertSheet(TAB_QUOTES);
   if (!qSheet.getRange('A1').getValue()) {
-    var h = ['Quote ID','Created Date','Customer Name','Contact Name','Order Type','Delivery Address','Line Items (JSON)','Subtotal','Tax Rate Used','Tax Amount','Total','Tax Exempt','Location Name','Customer Email','PO Number','Event Date','Calendar Event ID','Last Modified','Event Time','Order Discount Value','Order Discount Type','Quote Notes'];
+    var h = ['Quote ID','Created Date','Customer Name','Contact Name','Order Type','Delivery Address','Line Items (JSON)','Subtotal','Tax Rate Used','Tax Amount','Total','Tax Exempt','Location Name','Customer Email','PO Number','Event Date','Calendar Event ID','Last Modified','Event Time','Order Discount Value','Order Discount Type','Quote Notes','Customer Phone'];
     qSheet.getRange(1, 1, 1, h.length).setValues([h]);
     qSheet.getRange(1, 1, 1, h.length).setFontWeight('bold');
     qSheet.setFrozenRows(1);
   } else {
     // Migrate: add new column headers if missing
+    if (qSheet.getMaxColumns() < 23) qSheet.insertColumnsAfter(qSheet.getMaxColumns(), 23 - qSheet.getMaxColumns()); // a trimmed grid would make the col-23 write throw
     var lastCol = qSheet.getLastColumn();
-    var newHeaders = {'Calendar Event ID': 17, 'Last Modified': 18, 'Event Time': 19, 'Order Discount Value': 20, 'Order Discount Type': 21, 'Quote Notes': 22};
+    var newHeaders = {'Calendar Event ID': 17, 'Last Modified': 18, 'Event Time': 19, 'Order Discount Value': 20, 'Order Discount Type': 21, 'Quote Notes': 22, 'Customer Phone': 23};
     for (var label in newHeaders) {
       if (lastCol < newHeaders[label]) {
         qSheet.getRange(1, newHeaders[label]).setValue(label).setFontWeight('bold');
       }
     }
   }
+
+  // Revisions — prior versions of edited quotes, hidden. Created by the shared helper.
+  getRevisionsSheet_();
 
   // Sequence
   var seqSheet = ss.getSheetByName(TAB_QUOTE_SEQUENCE);
@@ -454,7 +615,9 @@ function getPrintData(quoteData) {
     storeAddress: storeAddress, storePhone: storePhone,
     contactName: settings['Quote Contact Name'] || '',
     customerName: quoteData.customerName || '', contactPerson: quoteData.contactName || '',
+    customerEmail: quoteData.customerEmail || '', customerPhone: quoteData.customerPhone || '',
     orderType: quoteData.orderType || 'Pickup', deliveryAddress: quoteData.deliveryAddress || '',
+    directionsUrl: (quoteData.orderType === 'Delivery' && quoteData.deliveryAddress) ? mapsDirectionsUrl_(quoteData.deliveryAddress) : '',
     date: quoteData.date || new Date().toLocaleDateString(), time: quoteData.time || '',
     lineItems: quoteData.lineItems || [], subtotal: quoteData.subtotal || 0,
     taxRate: quoteData.taxRate || 0, taxAmount: quoteData.taxAmount || 0,
@@ -466,6 +629,12 @@ function getPrintData(quoteData) {
     orderDiscountAmount: parseFloat(quoteData.orderDiscountAmount) || 0,
     quoteNotes: quoteData.quoteNotes || ''
   };
+}
+
+
+// Google Maps directions link for a delivery address — no API key needed.
+function mapsDirectionsUrl_(addr) {
+  return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(addr);
 }
 
 
@@ -503,7 +672,7 @@ function buildPdfHtml(pd) {
   var addr = pd.orderType === 'Delivery' ? (pd.deliveryAddress||'') : (pd.storeAddress||'');
   var logo = pd.logo ? '<img src="'+pd.logo+'" style="max-width:140px;max-height:80px;margin-bottom:8px;">' : '<div style="font-size:24px;font-weight:800;color:#E51636;margin-bottom:8px;">Chick-fil-A</div>';
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>@page{size:letter;margin:0.6in;}body{font-family:Helvetica,Arial,sans-serif;color:#1F2937;margin:0;padding:40px;}</style></head><body>' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+logo+'<div style="font-size:16px;font-weight:700;">'+esc(pd.storeName)+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+esc(pd.storeAddress)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.storePhone)+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:Courier New,monospace;">'+esc(pd.quoteId)+'</div>'+(pd.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+esc(pd.poNumber)+'</div>':'')+'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Date: '+esc(pd.date)+'</div>'+(pd.time?'<div style="font-size:13px;color:#6B7280;">Time: '+esc(pd.time)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+esc(pd.customerName)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.orderType)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(addr)+'</div><div style="font-size:13px;font-weight:600;margin-top:4px;">'+esc(pd.contactPerson)+'</div></div></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+logo+'<div style="font-size:16px;font-weight:700;">'+esc(pd.storeName)+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+esc(pd.storeAddress)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.storePhone)+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:Courier New,monospace;">'+esc(pd.quoteId)+'</div>'+(pd.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+esc(pd.poNumber)+'</div>':'')+'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Date: '+esc(pd.date)+'</div>'+(pd.time?'<div style="font-size:13px;color:#6B7280;">Time: '+esc(pd.time)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+esc(pd.customerName)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.orderType)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(addr)+'</div>'+(pd.directionsUrl?'<div style="font-size:12px;"><a href="'+pd.directionsUrl+'" style="color:#2563EB;">Get Directions (Google Maps)</a></div>':'')+'<div style="font-size:13px;font-weight:600;margin-top:4px;">'+esc(pd.contactPerson)+'</div>'+(pd.customerEmail?'<div style="font-size:13px;color:#6B7280;">'+esc(pd.customerEmail)+'</div>':'')+(pd.customerPhone?'<div style="font-size:13px;color:#6B7280;">'+esc(pd.customerPhone)+'</div>':'')+'</div></div>' +
     '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><thead><tr style="background:#F3F4F6;"><th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:10%;">QTY</th><th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:50%;">DESCRIPTION</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:18%;">PRICE/ITEM</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:22%;">AMOUNT</th></tr></thead><tbody>'+liHtml+'</tbody></table>' +
     notesHtml +
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;"><div style="font-size:13px;color:#6B7280;max-width:320px;">If you have any questions concerning this Quote, contact:<br><strong style="color:#1F2937;">'+esc(pd.contactName)+' at '+esc(pd.storePhone)+'</strong></div><table style="width:280px;background:#F9FAFB;border-radius:8px;overflow:hidden;"><tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SUBTOTAL</td><td style="padding:8px 16px;text-align:right;font-family:Courier New,monospace;font-size:14px;">$'+(pd.subtotal||0).toFixed(2)+'</td></tr>'+discRows+taxLine+'<tr style="background:#E5E7EB;"><td style="padding:10px 16px;font-size:15px;font-weight:700;">TOTAL</td><td style="padding:10px 16px;text-align:right;font-family:Courier New,monospace;font-size:16px;font-weight:700;">$'+(pd.total||0).toFixed(2)+'</td></tr></table></div></body></html>';
@@ -611,7 +780,7 @@ function createCalendarEvent(quoteData, quoteId) {
     + 'Contact: ' + (quoteData.contactName || '') + '\n'
     + (quoteData.customerEmail ? 'Email: ' + quoteData.customerEmail + '\n' : '')
     + 'Order Type: ' + (quoteData.orderType || 'Pickup') + '\n'
-    + (quoteData.orderType === 'Delivery' && quoteData.deliveryAddress ? 'Delivery Address: ' + quoteData.deliveryAddress + '\n' : '')
+    + (quoteData.orderType === 'Delivery' && quoteData.deliveryAddress ? 'Delivery Address: ' + quoteData.deliveryAddress + '\nDirections: ' + mapsDirectionsUrl_(quoteData.deliveryAddress) + '\n' : '')
     + 'Location: ' + storeName + '\n'
     + 'PO: ' + (quoteData.poNumber === 'NO_PO_NEEDED' ? 'Not Required' : (quoteData.poNumber || 'PENDING')) + '\n'
     + '\n--- Order Details ---\n' + (itemLines || '(no items)') + '\n'
@@ -690,7 +859,7 @@ function updateCalendarEvent(quoteData, quoteId, calendarEventId) {
       + 'Contact: ' + (quoteData.contactName || '') + '\n'
       + (quoteData.customerEmail ? 'Email: ' + quoteData.customerEmail + '\n' : '')
       + 'Order Type: ' + (quoteData.orderType || 'Pickup') + '\n'
-      + (quoteData.orderType === 'Delivery' && quoteData.deliveryAddress ? 'Delivery Address: ' + quoteData.deliveryAddress + '\n' : '')
+      + (quoteData.orderType === 'Delivery' && quoteData.deliveryAddress ? 'Delivery Address: ' + quoteData.deliveryAddress + '\nDirections: ' + mapsDirectionsUrl_(quoteData.deliveryAddress) + '\n' : '')
       + 'Location: ' + storeName + '\n'
       + 'PO: ' + (quoteData.poNumber === 'NO_PO_NEEDED' ? 'Not Required' : (quoteData.poNumber || 'PENDING')) + '\n'
       + '\n--- Order Details ---\n' + (itemLines || '(no items)') + '\n'

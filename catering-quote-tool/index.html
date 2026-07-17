@@ -159,7 +159,13 @@
                 <li>Separate pickup and delivery pricing per item</li>
                 <li>Sequential quote IDs (Q-2026-0001, Q-2026-0002, &hellip;) that never repeat</li>
                 <li>Save &amp; Email — generates a PDF and emails it in one click</li>
-                <li>Quote history with Edit &amp; Reuse — originals are never modified</li>
+                <li>Quote history with search, event-date filter, and Edit &amp; Reuse</li>
+                <li>Revision history — every edit keeps the old version, viewable and restorable from the quote popup</li>
+                <li>Calendar tab (Month / Week / Day) showing every order by event date, color-coded 🔴 needs PO / 🟢 PO handled</li>
+                <li>Optional customer phone; customer email and phone print on the PDF when present</li>
+                <li>Google Maps directions link on delivery quotes — PDF, quote popup, and calendar event</li>
+                <li>"Busy delivery window" warning before booking a 4th delivery within an hour</li>
+                <li>Quarterly price check — locks the tool every 90 days until 3 menu prices are verified against the POS</li>
                 <li>Fully customizable email subject and body templates</li>
                 <li>Optional BCC on every sent quote</li>
                 <li>Auto-archive moves quotes older than 120 days to a hidden sheet (nothing deleted)</li>
@@ -183,7 +189,7 @@
             <div class="note" style="background:rgba(255,193,7,0.1); border-color:rgba(255,193,7,0.4);"><strong style="color:#FFD54F;">Most common mistake:</strong> the file holding <code>App.html</code> must be named exactly <code>Index</code> &mdash; <code>doGet</code> loads the page by that name. Wrong name = blank page.</div>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">4. Run the Setup Function</h3>
-            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Pick <code>initializeSheet</code> in the function dropdown &rarr; <strong>Run</strong>. Authorize when asked (<strong>Advanced &rarr; Go to (project) &rarr; Allow</strong>) &mdash; it needs Gmail, Drive, and Calendar to email PDFs and create events. This builds the five tabs: <strong>Settings</strong>, <strong>Menu</strong>, <strong>Quotes</strong>, <strong>Quote_Sequence</strong>, <strong>Pipeline</strong>. Safe to re-run.</p>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Pick <code>initializeSheet</code> in the function dropdown &rarr; <strong>Run</strong>. Authorize when asked (<strong>Advanced &rarr; Go to (project) &rarr; Allow</strong>) &mdash; it needs Gmail, Drive, and Calendar to email PDFs and create events. This builds the visible tabs <strong>Settings</strong>, <strong>Menu</strong>, <strong>Quotes</strong>, <strong>Quote_Sequence</strong>, <strong>Pipeline</strong> plus a hidden <strong>Quote_Revisions</strong> tab that stores prior versions of edited quotes. Safe to re-run.</p>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">5. Deploy as a Web App</h3>
             <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;"><strong>Deploy &rarr; New deployment &rarr;</strong> gear &rarr; <strong>Web app</strong>. Execute as <strong>Me</strong>, access <strong>Anyone within your domain</strong>. Deploy and copy the URL &mdash; that's the tool. First load is slow (10&ndash;20 sec). After any code change, redeploy via <strong>Manage deployments &rarr; Edit &rarr; New version</strong>.</p>
@@ -206,10 +212,10 @@
             <div class="note"><strong>The columns line up:</strong> <code>Category &rarr; Category</code>, <code>Menu Item Name &rarr; Item Name</code>, <code>Inside Sales Price &rarr; Pickup Price</code>, <code>Outside Sales Price &rarr; Delivery Price</code>. So paste them in that order under the existing headers. Any item with <code>N/A</code> for Outside Sales Price simply won't show on delivery quotes &mdash; which is exactly what you want.</div>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">7. Fill in Settings</h3>
-            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In the <strong>Settings</strong> tab, enter store name, address, phone, contact, tax rate, logo, email template, and (optionally) the follow-up reminder config. It's also where you tune operational settings like <code>Archive After Days</code> (default 120) and <code>Calendar Lead Time (Minutes)</code> (default 30, how far before the order the calendar event starts). The app reads all of these at runtime &mdash; no code edits.</p>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">In the <strong>Settings</strong> tab, enter store name, address, phone, contact, tax rate, logo, email template, and (optionally) the follow-up reminder config. It's also where you tune operational settings like <code>Archive After Days</code> (default 120), <code>Calendar Lead Time (Minutes)</code> (default 30, how far before the order the calendar event starts), <code>Price Check Interval (Days)</code> (default 90, how often the tool locks for a price verification), and <code>Price Check Categories</code> (which menu categories the spot-check draws from). The app reads all of these at runtime &mdash; no code edits.</p>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">8. Send a Test Quote</h3>
-            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Open the Web app URL, build a quote, and hit <strong>Save &amp; Email</strong> to yourself. A PDF in your inbox and a new card on the <strong>Pipeline</strong> board means you're live.</p>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Open the Web app URL. <strong>First open shows a one-time price check</strong> &mdash; type the current POS prices for the 3 menu items it picks and it unlocks (it repeats quarterly to keep quote prices honest). Then build a quote and hit <strong>Save &amp; Email</strong> to yourself. A PDF in your inbox and a new card on the <strong>Pipeline</strong> board means you're live.</p>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.5rem 0 0.4rem;">Optional Extras</h3>
             <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Nightly archive of old quotes (moved to a hidden archive sheet, never deleted): add a time-driven trigger for <code>cleanOldQuotes</code> daily at midnight. How old before they archive is set in the <strong>Settings</strong> tab under <code>Archive After Days</code> (defaults to 120). Calendar events and follow-up reminder emails are separate feature deployments &mdash; see <a href="SETUP.md" style="color:#4DD0E1;">SETUP.md</a>.</p>

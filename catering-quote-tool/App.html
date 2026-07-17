@@ -225,6 +225,35 @@
     .confirm-box p{font-size:14px;color:var(--gray-500);margin-bottom:20px;}
     .confirm-actions{display:flex;gap:10px;justify-content:center;}
 
+    /* ── Calendar view ── */
+    .cal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .cal-toolbar-group{display:flex;gap:6px;}
+    .cal-title{font-size:16px;font-weight:700;color:var(--gray-800);flex:1;text-align:center;min-width:160px;}
+    .cal-mode-toggle{display:flex;background:var(--gray-100);border-radius:8px;padding:3px;}
+    .cal-mode-btn{border:none;background:transparent;padding:6px 14px;font-size:13px;font-weight:600;color:var(--gray-500);border-radius:6px;cursor:pointer;font-family:var(--font);}
+    .cal-mode-btn.active{background:var(--white);color:var(--cfa-red);box-shadow:var(--shadow-sm);}
+    .cal-dow-row{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin-bottom:1px;}
+    .cal-dow{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--gray-400);text-align:center;padding:6px 0;}
+    .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--gray-100);border:1px solid var(--gray-100);border-radius:var(--radius);overflow:hidden;}
+    .cal-cell{background:var(--white);min-height:96px;padding:5px;font-size:12px;overflow:hidden;}
+    .cal-cell.other-month{opacity:.45;}
+    .cal-day-num{font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:3px;}
+    .cal-cell.today{background:var(--cfa-red-light);}
+    .cal-cell.today .cal-day-num{color:var(--cfa-red);font-weight:800;}
+    .cal-chip{border-radius:4px;padding:2px 6px;margin-top:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;font-weight:600;}
+    .cal-chip.delivery{background:#FEF3C7;color:#92400E;}
+    .cal-chip.pickup{background:#DBEAFE;color:#1E40AF;}
+    .cal-chip:hover{filter:brightness(0.95);}
+    .cal-more{font-size:11px;font-weight:700;color:var(--cfa-red);cursor:pointer;margin-top:2px;padding:1px 6px;}
+    .cal-week-grid{min-height:220px;}
+    .cal-week-grid .cal-cell{min-height:200px;}
+    .cal-day-list{padding:4px 0;}
+
+    /* ── Revision history ── */
+    .revision-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--gray-100);border-radius:var(--radius);margin-top:6px;cursor:pointer;font-size:13px;color:var(--gray-600);}
+    .revision-row:hover{background:var(--gray-50);border-color:var(--gray-200);}
+    .revision-banner{background:#FFF7ED;border:1px solid #FDBA74;color:#9A3412;border-radius:var(--radius);padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:12px;}
+
     @media(max-width:768px){
       .top-bar{padding:0 16px;}.top-bar-brand h1{font-size:16px;}.tab-btn{padding:8px 14px;font-size:13px;}
       .main-content{padding:16px;}.form-grid{grid-template-columns:1fr;}.detail-grid{grid-template-columns:1fr;}
@@ -250,6 +279,7 @@
     <nav class="tab-nav">
       <button class="tab-btn active" data-view="newQuote" onclick="switchView('newQuote')">＋ New Quote</button>
       <button class="tab-btn" data-view="history" onclick="switchView('history')">History</button>
+      <button class="tab-btn" data-view="calendar" onclick="switchView('calendar')">Calendar</button>
       <button class="tab-btn" data-view="settings" onclick="switchView('settings')">Settings</button>
       <button class="tab-btn" data-view="pipeline" onclick="showPipelineView()">Pipeline</button>
     </nav>
@@ -272,8 +302,9 @@
           <div class="form-group"><label class="form-label">Customer / Organization Name *</label><input type="text" class="form-input" id="customerName" placeholder="e.g., Dallas ISD"><span class="error-msg" id="err-customerName">Customer name is required.</span></div>
           <div class="form-group"><label class="form-label">Contact Person Name *</label><input type="text" class="form-input" id="contactPerson" placeholder="e.g., Jane Smith"><span class="error-msg" id="err-contactPerson">Contact person is required.</span></div>
           <div class="form-group"><label class="form-label">Customer Email</label><input type="email" class="form-input" id="customerEmail" placeholder="e.g., jane@dallasisd.org"><span class="field-hint">Optional — used to email the quote directly.</span></div>
+          <div class="form-group"><label class="form-label">Customer Phone</label><input type="tel" class="form-input" id="customerPhone" placeholder="e.g., 214-555-0123"><span class="field-hint">Optional — shown on the quote PDF if filled in.</span></div>
           <div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="quoteDate"></div>
-          <div class="form-group"><label class="form-label">Time</label><input type="time" class="form-input" id="quoteTime"></div>
+          <div class="form-group"><label class="form-label">Time</label><select class="form-select" id="quoteTime"><option value="">No time set</option></select></div>
           <div class="form-group"><label class="form-label">PO Number</label><input type="text" class="form-input" id="poNumber" placeholder="e.g., PO-2026-001"><div style="margin-top:6px;"><div class="tax-exempt-toggle" id="noPOToggle" onclick="toggleNoPO()"><div class="toggle-indicator">✓</div><span class="tax-exempt-label">No PO Needed</span></div></div><span class="field-hint">Optional — check the box if this order doesn't require a PO.</span></div>
           <div class="form-group full-width"><label class="form-label" id="addressLabel">Pickup Location</label><input type="text" class="form-input" id="orderAddress" readonly><span class="error-msg" id="err-orderAddress">Delivery address is required.</span></div>
         </div>
@@ -319,8 +350,34 @@
     <section id="view-history" class="view">
       <div class="card">
         <div class="card-title"><span class="icon red">📁</span> Quote History</div>
-        <div class="search-bar"><span class="search-icon">🔍</span><input type="text" placeholder="Search by customer, contact, or quote ID…" id="historySearch" oninput="filterHistory()"></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <div class="search-bar" style="flex:1;min-width:220px;"><span class="search-icon">🔍</span><input type="text" placeholder="Search by customer, contact, or quote ID…" id="historySearch" oninput="filterHistory()"></div>
+          <input type="date" class="form-input" id="historyDateFilter" style="max-width:170px;" title="Show only quotes for this event date" onchange="filterHistory()">
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('historyDateFilter').value='';filterHistory()">Clear Date</button>
+        </div>
         <div id="historyList"><div class="empty-state"><div class="empty-icon">📭</div><p>No quotes yet.</p></div></div>
+      </div>
+    </section>
+
+    <!-- ═══ VIEW: CALENDAR ═══ -->
+    <section id="view-calendar" class="view">
+      <div class="card">
+        <div class="card-title"><span class="icon red">📅</span> Order Calendar</div>
+        <div class="cal-toolbar">
+          <div class="cal-toolbar-group">
+            <button class="btn btn-secondary btn-sm" onclick="calNav(-1)">‹</button>
+            <button class="btn btn-secondary btn-sm" onclick="calToday()">Today</button>
+            <button class="btn btn-secondary btn-sm" onclick="calNav(1)">›</button>
+          </div>
+          <div class="cal-title" id="calTitle"></div>
+          <div class="cal-mode-toggle" id="calModeToggle">
+            <button class="cal-mode-btn active" data-mode="month" onclick="setCalMode('month')">Month</button>
+            <button class="cal-mode-btn" data-mode="week" onclick="setCalMode('week')">Week</button>
+            <button class="cal-mode-btn" data-mode="day" onclick="setCalMode('day')">Day</button>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--gray-400);margin-bottom:10px;">🔴 Needs PO &nbsp;·&nbsp; 🟢 PO handled &nbsp;·&nbsp; <span class="cal-chip pickup" style="cursor:default;display:inline;">Pickup</span> <span class="cal-chip delivery" style="cursor:default;display:inline;">Delivery</span></div>
+        <div id="calGrid"></div>
       </div>
     </section>
 
@@ -354,6 +411,11 @@
         </div>
         <div class="field-hint" style="margin-left:172px;">How early to start the Google Calendar event relative to the customer's pickup/delivery time.</div>
         <div class="settings-field-row" style="align-items:flex-start;"><label>Logo</label><div><input type="file" id="logoUpload" accept="image/png,image/jpeg" onchange="handleLogoUpload(event)" style="margin-bottom:8px;"><div id="logoPreviewContainer"></div></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="icon green">🎨</span> Calendar Color Names</div>
+        <p class="field-hint" style="margin-bottom:14px;">Rename each calendar color to what it means for your team — a client name, "Pickup", "Delivery", etc. These names appear when picking a color for a new quote's calendar event.</p>
+        <div id="calColorSettings"></div>
       </div>
       <div class="card">
         <div class="card-title"><span class="icon blue">✉️</span> Email Template</div>
@@ -438,6 +500,19 @@
 <!-- Overlays -->
 <div class="spinner-overlay" id="spinner"><div class="spinner"></div></div>
 <div class="toast" id="toast"></div>
+<!-- Quarterly price verification lock (no close button on purpose — verifying is the only way out) -->
+<div class="confirm-overlay" id="priceCheckOverlay">
+  <div class="confirm-box" style="max-width:540px;text-align:left;max-height:90vh;overflow-y:auto;">
+    <h3 style="text-align:center;">🔒 Quarterly Price Check</h3>
+    <p style="text-align:center;">Time to make sure quote prices still match the POS. Look up these items on the POS and type their current prices to unlock the tool.</p>
+    <div id="priceCheckBody"></div>
+    <div id="priceCheckError" style="display:none;background:var(--cfa-red-light);color:var(--cfa-red-dark);border-radius:8px;padding:10px 14px;font-size:13px;margin-top:12px;line-height:1.5;"></div>
+    <div class="confirm-actions" id="priceCheckActions" style="margin-top:16px;">
+      <button class="btn btn-primary" onclick="submitPriceCheck()">Verify Prices</button>
+    </div>
+  </div>
+</div>
+
 <div class="confirm-overlay" id="confirmOverlay"><div class="confirm-box"><h3 id="confirmTitle">Are you sure?</h3><p id="confirmMsg"></p><div class="confirm-actions"><button class="btn btn-secondary" onclick="closeConfirm(false)">Cancel</button><button class="btn btn-primary" onclick="closeConfirm(true)">Confirm</button></div></div></div>
 <div class="modal-overlay" id="emailPreviewModal">
   <div class="modal-box" style="max-width:620px;">
@@ -491,7 +566,8 @@ var editingQuoteId = '';
 // ── Init ──
 document.addEventListener('DOMContentLoaded', function() {
   showSpinner();
-  document.getElementById('quoteDate').value = new Date().toISOString().split('T')[0];
+  buildTimeOptions();
+  document.getElementById('quoteDate').value = dateKey(new Date()); // local date — toISOString flips to tomorrow after ~6pm CT
   loadAppData();
   // Close any open pickers when clicking outside
   document.addEventListener('click', function(e) {
@@ -503,8 +579,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function loadAppData() {
   var loaded = 0;
-  function done() { loaded++; if (loaded >= 3) { hideSpinner(); applySettings(); buildLineItemRows(8); refreshLocationDropdown(); } }
-  google.script.run.withSuccessHandler(function(s) { appSettings = s; done(); }).withFailureHandler(function(e) { showToast('Settings error: '+e.message,'error'); done(); }).getSettings();
+  function done() { loaded++; if (loaded >= 3) { hideSpinner(); applySettings(); buildLineItemRows(8); refreshLocationDropdown(); maybeShowPriceCheck(); } }
+  google.script.run.withSuccessHandler(function(s) { appSettings = s || {}; done(); }).withFailureHandler(function(e) { showToast('Settings error: '+e.message,'error'); done(); }).getSettings();
   google.script.run.withSuccessHandler(function(m) { menuItems = m; done(); }).withFailureHandler(function(e) { showToast('Menu error: '+e.message,'error'); done(); }).getMenuItems();
   google.script.run.withSuccessHandler(function(q) { allQuotes = q; done(); }).withFailureHandler(function(e) { showToast('Quotes error: '+e.message,'error'); done(); }).getQuotes();
 }
@@ -529,6 +605,30 @@ function applySettings() {
   document.getElementById('logoPreviewContainer').innerHTML = l ? '<img src="'+l+'" class="logo-preview" alt="Logo">' : '<p style="font-size:13px;color:var(--gray-400);">No logo uploaded.</p>';
   buildMenuEditor();
   applyReminderSettings();
+  buildCalendarColorSettings();
+}
+
+// ── Time dropdown (15-min steps, 6:00 AM – 9:00 PM) ──
+function buildTimeOptions() {
+  var sel = document.getElementById('quoteTime');
+  var opts = '<option value="">No time set</option>';
+  for (var mins = 5*60; mins <= 22*60; mins += 15) {
+    var h = Math.floor(mins/60), m = mins%60;
+    var v = (h<10?'0'+h:h)+':'+(m<10?'0'+m:m);
+    opts += '<option value="'+v+'">'+formatEventDateTime('', v)+'</option>';
+  }
+  sel.innerHTML = opts;
+}
+// Select a stored time; off-grid legacy values (e.g. 13:37) get their own option so they round-trip.
+function setQuoteTimeValue(v) {
+  var sel = document.getElementById('quoteTime');
+  sel.value = v || '';
+  if (v && sel.value !== v) {
+    var o = document.createElement('option');
+    o.value = v; o.textContent = formatEventDateTime('', v);
+    sel.appendChild(o);
+    sel.value = v;
+  }
 }
 
 // ── View Switching ──
@@ -539,6 +639,7 @@ function switchView(v) {
   document.getElementById('view-'+v).classList.add('active');
   document.querySelector('.tab-btn[data-view="'+v+'"]').classList.add('active');
   if (v === 'history') renderHistory();
+  if (v === 'calendar') renderCalendarView();
 }
 
 function showPipelineView() {
@@ -856,6 +957,7 @@ function collectFormData() {
     customerName:document.getElementById('customerName').value.trim(),
     contactName:document.getElementById('contactPerson').value.trim(),
     customerEmail:document.getElementById('customerEmail').value.trim(),
+    customerPhone:document.getElementById('customerPhone').value.trim(),
     orderType:currentOrderType, deliveryAddress:document.getElementById('orderAddress').value.trim(),
     date:document.getElementById('quoteDate').value, time:document.getElementById('quoteTime').value,
     lineItems:li, subtotal:subGross, taxRate:tr, taxAmount:ta, total:taxable+ta,
@@ -884,11 +986,27 @@ var CALENDAR_COLORS = [
 ];
 var pendingCalendarCallback = null;
 
+// Custom display name from Settings ("Calendar Color: Sage" → "Delivery"), falls back to the Google name
+function calColorLabel(c) {
+  var custom = (appSettings['Calendar Color: ' + c.label] || '').toString().trim();
+  return custom || c.label;
+}
+
 function buildCalColorGrid() {
   var g = document.getElementById('calColorGrid');
-  if (!g || g.childNodes.length) return;
+  if (!g) return;
+  // Rebuilt on every open so renames in Settings show up without a reload
   g.innerHTML = CALENDAR_COLORS.map(function(c) {
-    return '<div class="cal-color-swatch" onclick="pickCalendarColor(\''+escAttr(c.name)+'\')"><div class="cal-color-dot" style="background:'+c.hex+';"></div><div class="cal-color-name">'+escHtml(c.label)+'</div></div>';
+    return '<div class="cal-color-swatch" onclick="pickCalendarColor(\''+escAttr(c.name)+'\')"><div class="cal-color-dot" style="background:'+c.hex+';"></div><div class="cal-color-name">'+escHtml(calColorLabel(c))+'</div></div>';
+  }).join('');
+}
+
+function buildCalendarColorSettings() {
+  var box = document.getElementById('calColorSettings');
+  if (!box) return;
+  box.innerHTML = CALENDAR_COLORS.map(function(c) {
+    return '<div class="settings-field-row"><label style="display:flex;align-items:center;gap:8px;"><span style="width:18px;height:18px;border-radius:50%;background:'+c.hex+';border:1px solid rgba(0,0,0,.15);flex-shrink:0;"></span>'+escHtml(c.label)+'</label>'+
+      '<input class="form-input" value="'+escAttr(calColorLabel(c))+'" onchange="saveSettingField(\'Calendar Color: '+c.label+'\',this.value)"></div>';
   }).join('');
 }
 
@@ -913,17 +1031,43 @@ function skipCalendar() {
   if (cb) cb('skip');
 }
 
+// ── Delivery density check ──
+function timeToMinutes(t) {
+  var m = /^(\d{1,2}):(\d{2})/.exec(t||'');
+  return m ? parseInt(m[1],10)*60 + parseInt(m[2],10) : null;
+}
+// Warn before stacking a 4th delivery within an hour of this one. Resolves true = proceed.
+// Same-date only (catering windows never cross midnight); counts against allQuotes as of last load.
+function warnIfDeliveryCluster() {
+  if (currentOrderType !== 'Delivery') return Promise.resolve(true);
+  var dv = document.getElementById('quoteDate').value, nm = timeToMinutes(document.getElementById('quoteTime').value);
+  if (!dv || nm === null) return Promise.resolve(true);
+  var count = 0;
+  allQuotes.forEach(function(q) {
+    if (q.orderType !== 'Delivery') return;
+    if (editingQuoteId && q.quoteId === editingQuoteId) return;
+    if (q.eventDate !== dv) return;
+    var m = timeToMinutes(q.eventTime);
+    if (m !== null && Math.abs(m - nm) <= 60) count++;
+  });
+  if (count >= 3) return showConfirm('Busy delivery window', count + ' deliveries are already scheduled within an hour of this time. Are you sure you want to add this one?');
+  return Promise.resolve(true);
+}
+
 // ── Save / Email / Print ──
 function saveQuoteOnly() { if (!validateForm()) return;
+  warnIfDeliveryCluster().then(function(go) { if (!go) return;
   withCalendarChoice(function(color) {
     var isEdit=!!editingQuoteId; var d = collectFormData(); if (color) d.eventColor = color;
     showSpinner();
     google.script.run.withSuccessHandler(function(id) { hideSpinner(); showToast('Quote '+id+(isEdit?' updated!':' saved!'),'success'); resetForm(); google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes();
     }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).saveQuote(d);
   });
+  });
 }
 function saveAndEmail() { if (!validateForm()) return;
   if (!document.getElementById('customerEmail').value.trim()) { showToast('Enter a customer email to send the quote.','error'); document.getElementById('customerEmail').focus(); return; }
+  warnIfDeliveryCluster().then(function(go) { if (!go) return;
   withCalendarChoice(function(color) {
     var d = collectFormData(); if (color) d.eventColor = color;
     showSpinner();
@@ -933,8 +1077,10 @@ function saveAndEmail() { if (!validateForm()) return;
       openEmailPreview(d, function() { resetForm(); google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes(); });
     }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).saveQuote(d);
   });
+  });
 }
 function previewAndPrint() { if (!validateForm()) return;
+  warnIfDeliveryCluster().then(function(go) { if (!go) return;
   withCalendarChoice(function(color) {
     var d = collectFormData(); if (color) d.eventColor = color; showSpinner();
     google.script.run.withSuccessHandler(function(id) { d.quoteId=id;
@@ -942,11 +1088,12 @@ function previewAndPrint() { if (!validateForm()) return;
       }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).getPrintData(d);
     }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).saveQuote(d);
   });
+  });
 }
 function generatePDFFromQuote(q) { showSpinner();
   var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){}
   var oda=computeOrderDiscount(li, q.orderDiscountValue, q.orderDiscountType);
-  var d={customerName:q.customerName,contactName:q.contactName,orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:q.eventTime||'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId,poNumber:q.poNumber||'',orderDiscountValue:parseFloat(q.orderDiscountValue)||0,orderDiscountType:q.orderDiscountType||'percent',orderDiscountAmount:oda,quoteNotes:q.quoteNotes||''};
+  var d={customerName:q.customerName,contactName:q.contactName,customerEmail:q.customerEmail||'',customerPhone:q.customerPhone||'',orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:q.eventTime||'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId,poNumber:q.poNumber||'',orderDiscountValue:parseFloat(q.orderDiscountValue)||0,orderDiscountType:q.orderDiscountType||'percent',orderDiscountAmount:oda,quoteNotes:q.quoteNotes||''};
   google.script.run.withSuccessHandler(function(pd) { hideSpinner(); pd.quoteId=q.quoteId; pd.poNumber=q.poNumber||''; openPrintWindow(pd); }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).getPrintData(d);
 }
 function computeOrderDiscount(lineItems, value, type) {
@@ -1006,7 +1153,7 @@ function sendEmailFromModal() {
   var q = currentModalQuote; if (!q) return;
   var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){}
   var oda=computeOrderDiscount(li, q.orderDiscountValue, q.orderDiscountType);
-  var d={customerName:q.customerName,contactName:q.contactName,customerEmail:email,orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:q.eventTime||'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId,orderDiscountValue:parseFloat(q.orderDiscountValue)||0,orderDiscountType:q.orderDiscountType||'percent',orderDiscountAmount:oda,quoteNotes:q.quoteNotes||''};
+  var d={customerName:q.customerName,contactName:q.contactName,customerEmail:email,customerPhone:q.customerPhone||'',orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:q.eventTime||'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId,orderDiscountValue:parseFloat(q.orderDiscountValue)||0,orderDiscountType:q.orderDiscountType||'percent',orderDiscountAmount:oda,quoteNotes:q.quoteNotes||''};
   closeModal();
   openEmailPreview(d, function() { google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(q){allQuotes=q;}).getQuotes(); });
 }
@@ -1035,7 +1182,7 @@ function openPrintWindow(data) {
   var lo=data.logo?'<img src="'+data.logo+'" style="max-width:140px;max-height:80px;margin-bottom:8px;" alt="Logo">':'<div style="font-size:24px;font-weight:800;color:#E51636;margin-bottom:8px;">Chick-fil-A</div>';
   var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Quote '+escHtml(data.quoteId||'')+'</title><style>@page{size:letter;margin:0.6in;}body{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1F2937;margin:0;padding:40px;}@media print{body{padding:0;}.no-print{display:none!important;}}.print-btn{background:#E51636;color:white;border:none;padding:12px 32px;font-size:15px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;}.print-btn:hover{background:#C41230;}</style></head><body>'+
     '<div class="no-print" style="text-align:center;margin-bottom:24px;padding:16px;background:#F9FAFB;border-radius:10px;"><button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button><p style="font-size:13px;color:#6B7280;margin-top:8px;">Use "Save as PDF" in the print dialog.</p></div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+lo+'<div style="font-size:16px;font-weight:700;">'+escHtml(data.storeName||'')+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+escHtml(data.storeAddress||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.storePhone||'')+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:monospace;">'+escHtml(data.quoteId||'')+'</div>'+(data.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+escHtml(data.poNumber)+'</div>':'')+(function(){var w=formatEventDateTime(data.date,data.time);return w?'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Event: '+escHtml(w)+'</div>':'';})()+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+escHtml(data.customerName||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.orderType||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(ad)+'</div><div style="font-size:13px;font-weight:600;margin-top:4px;">'+escHtml(data.contactPerson||'')+'</div></div></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+lo+'<div style="font-size:16px;font-weight:700;">'+escHtml(data.storeName||'')+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+escHtml(data.storeAddress||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.storePhone||'')+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:monospace;">'+escHtml(data.quoteId||'')+'</div>'+(data.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+escHtml(data.poNumber)+'</div>':'')+(function(){var w=formatEventDateTime(data.date,data.time);return w?'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Event: '+escHtml(w)+'</div>':'';})()+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+escHtml(data.customerName||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.orderType||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(ad)+'</div>'+(data.directionsUrl?'<div style="font-size:12px;"><a href="'+data.directionsUrl+'" style="color:#2563EB;">Get Directions (Google Maps)</a></div>':'')+'<div style="font-size:13px;font-weight:600;margin-top:4px;">'+escHtml(data.contactPerson||'')+'</div>'+(data.customerEmail?'<div style="font-size:13px;color:#6B7280;">'+escHtml(data.customerEmail)+'</div>':'')+(data.customerPhone?'<div style="font-size:13px;color:#6B7280;">'+escHtml(data.customerPhone)+'</div>':'')+'</div></div>'+
     '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><thead><tr style="background:#F3F4F6;"><th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:10%;">QTY</th><th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:50%;">DESCRIPTION</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:18%;">PRICE/ITEM</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:22%;">AMOUNT</th></tr></thead><tbody>'+liH+'</tbody></table>'+
     notesHtml+
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;"><div style="font-size:13px;color:#6B7280;max-width:320px;">If you have any questions concerning this Quote, contact:<br><strong style="color:#1F2937;">'+escHtml(data.contactName||'')+' at '+escHtml(data.storePhone||'')+'</strong></div><table style="width:280px;background:#F9FAFB;border-radius:8px;overflow:hidden;"><tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SUBTOTAL</td><td style="padding:8px 16px;text-align:right;font-family:monospace;font-size:14px;">$'+(data.subtotal||0).toFixed(2)+'</td></tr>'+discRowsHtml+tl+'<tr style="background:#E5E7EB;"><td style="padding:10px 16px;font-size:15px;font-weight:700;">TOTAL</td><td style="padding:10px 16px;text-align:right;font-family:monospace;font-size:16px;font-weight:700;">$'+(data.total||0).toFixed(2)+'</td></tr></table></div></body></html>';
@@ -1047,7 +1194,8 @@ function clearFormConfirm() { showConfirm('Clear the form?','All unsaved changes
 function resetForm() {
   editingQuoteId = '';
   document.getElementById('customerName').value=''; document.getElementById('contactPerson').value='';
-  document.getElementById('customerEmail').value=''; document.getElementById('quoteDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('customerEmail').value=''; document.getElementById('customerPhone').value='';
+  document.getElementById('quoteDate').value=dateKey(new Date());
   document.getElementById('quoteTime').value=''; document.getElementById('poNumber').value=''; document.getElementById('poNumber').disabled=false; document.getElementById('poNumber').placeholder='e.g., PO-2026-001'; currentOrderType='Pickup'; isTaxExempt=false; noPONeeded=false;
   document.getElementById('taxExemptToggle').classList.remove('active');
   document.getElementById('noPOToggle').classList.remove('active');
@@ -1063,7 +1211,7 @@ function resetForm() {
 
 // ── History ──
 function renderHistory() { showSpinner();
-  google.script.run.withSuccessHandler(function(q) { allQuotes=q; hideSpinner(); displayHistory(q); }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).getQuotes();
+  google.script.run.withSuccessHandler(function(q) { allQuotes=q; hideSpinner(); filterHistory(); }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).getQuotes();
 }
 function displayHistory(quotes) {
   var c = document.getElementById('historyList');
@@ -1077,8 +1225,120 @@ function displayHistory(quotes) {
 }
 function filterHistory() {
   var f=document.getElementById('historySearch').value.toLowerCase().trim();
-  if (!f) { displayHistory(allQuotes); return; }
-  displayHistory(allQuotes.filter(function(q) { return (q.customerName||'').toLowerCase().indexOf(f)>=0||(q.contactName||'').toLowerCase().indexOf(f)>=0||(q.quoteId||'').toLowerCase().indexOf(f)>=0; }));
+  var df=document.getElementById('historyDateFilter').value; // yyyy-MM-dd
+  displayHistory(allQuotes.filter(function(q) {
+    if (df && (q.eventDate||'') !== df) return false;
+    if (!f) return true;
+    return (q.customerName||'').toLowerCase().indexOf(f)>=0||(q.contactName||'').toLowerCase().indexOf(f)>=0||(q.quoteId||'').toLowerCase().indexOf(f)>=0;
+  }));
+}
+
+// ── Calendar View ──
+var calMode = 'month';
+var calAnchor = new Date();
+var CAL_DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function renderCalendarView() {
+  // Draw instantly from what's in memory, then refresh quietly in the background
+  if (allQuotes.length) {
+    drawCalendar();
+    google.script.run.withSuccessHandler(function(q) { allQuotes=q; if (document.getElementById('view-calendar').classList.contains('active')) drawCalendar(); }).withFailureHandler(function(){}).getQuotes();
+    return;
+  }
+  showSpinner();
+  google.script.run.withSuccessHandler(function(q) { allQuotes=q; hideSpinner(); drawCalendar(); }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).getQuotes();
+}
+// Local yyyy-MM-dd — never toISOString(), which shifts to UTC and lands on the wrong day in the evening.
+function dateKey(d) {
+  var m=d.getMonth()+1, day=d.getDate();
+  return d.getFullYear()+'-'+(m<10?'0'+m:m)+'-'+(day<10?'0'+day:day);
+}
+function quotesByDate() {
+  var map={};
+  allQuotes.forEach(function(q) {
+    if (!q.eventDate) return;
+    if (!map[q.eventDate]) map[q.eventDate]=[];
+    map[q.eventDate].push(q);
+  });
+  for (var k in map) map[k].sort(function(a,b){ return (a.eventTime||'').localeCompare(b.eventTime||''); });
+  return map;
+}
+function setCalMode(m) {
+  calMode=m;
+  document.querySelectorAll('.cal-mode-btn').forEach(function(b){b.classList.toggle('active',b.dataset.mode===m);});
+  drawCalendar();
+}
+function calNav(dir) {
+  if (calMode==='month') { calAnchor.setDate(1); calAnchor.setMonth(calAnchor.getMonth()+dir); } // day 1 first, or a day-31 anchor overflows past short months
+  else if (calMode==='week') calAnchor.setDate(calAnchor.getDate()+7*dir);
+  else calAnchor.setDate(calAnchor.getDate()+dir);
+  drawCalendar();
+}
+function calToday() { calAnchor=new Date(); drawCalendar(); }
+function calJumpToDay(key) {
+  var p=key.split('-');
+  calAnchor=new Date(parseInt(p[0],10), parseInt(p[1],10)-1, parseInt(p[2],10));
+  setCalMode('day');
+}
+// Same PO color language as the Google Calendar event titles: 🔴 needs PO, 🟢 PO handled.
+function calPoDot(q) {
+  return (q.poNumber && q.poNumber.toString().trim() !== '') ? '🟢' : '🔴';
+}
+function calChipHtml(q) {
+  var t=q.eventTime?formatEventDateTime('',q.eventTime):'';
+  var label=(t?t+' · ':'')+(q.customerName||'');
+  var poTitle=(q.poNumber&&q.poNumber.toString().trim()!=='')?(q.poNumber==='NO_PO_NEEDED'?'No PO needed':'Has PO'):'Needs PO';
+  return '<div class="cal-chip '+((q.orderType||'').toLowerCase())+'" title="'+escAttr(poTitle+' — '+label)+'" onclick="openQuoteDetailById(\''+escAttr(q.quoteId)+'\')">'+calPoDot(q)+' '+escHtml(label)+'</div>';
+}
+function drawCalendar() {
+  var grid=document.getElementById('calGrid');
+  var title=document.getElementById('calTitle');
+  var map=quotesByDate();
+  var todayKey=dateKey(new Date());
+  var h, cur, key, qs, d;
+  if (calMode==='month') {
+    var y=calAnchor.getFullYear(), mo=calAnchor.getMonth();
+    title.textContent=calAnchor.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+    var start=new Date(y, mo, 1); start.setDate(1-start.getDay()); // back to Sunday
+    h='<div class="cal-dow-row">'+CAL_DOW.map(function(n){return '<div class="cal-dow">'+n+'</div>';}).join('')+'</div><div class="cal-grid">';
+    cur=new Date(start);
+    for (var i=0;i<42;i++) {
+      key=dateKey(cur); qs=map[key]||[];
+      h+='<div class="cal-cell'+(cur.getMonth()!==mo?' other-month':'')+(key===todayKey?' today':'')+'"><div class="cal-day-num">'+cur.getDate()+'</div>';
+      qs.slice(0,3).forEach(function(q){h+=calChipHtml(q);});
+      if (qs.length>3) h+='<div class="cal-more" onclick="calJumpToDay(\''+key+'\')">+'+(qs.length-3)+' more</div>';
+      h+='</div>';
+      cur.setDate(cur.getDate()+1);
+    }
+    grid.innerHTML=h+'</div>';
+  } else if (calMode==='week') {
+    var ws=new Date(calAnchor); ws.setDate(ws.getDate()-ws.getDay());
+    var we=new Date(ws); we.setDate(we.getDate()+6);
+    title.textContent=ws.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' – '+we.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+    h='<div class="cal-dow-row">';
+    cur=new Date(ws);
+    for (d=0;d<7;d++) { h+='<div class="cal-dow">'+CAL_DOW[d]+' '+cur.getDate()+'</div>'; cur.setDate(cur.getDate()+1); }
+    h+='</div><div class="cal-grid cal-week-grid">';
+    cur=new Date(ws);
+    for (d=0;d<7;d++) {
+      key=dateKey(cur); qs=map[key]||[];
+      h+='<div class="cal-cell'+(key===todayKey?' today':'')+'">';
+      qs.forEach(function(q){h+=calChipHtml(q);});
+      h+='</div>';
+      cur.setDate(cur.getDate()+1);
+    }
+    grid.innerHTML=h+'</div>';
+  } else {
+    key=dateKey(calAnchor); qs=map[key]||[];
+    title.textContent=calAnchor.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+    if (!qs.length) { grid.innerHTML='<div class="empty-state"><div class="empty-icon">📭</div><p>No orders scheduled for this day.</p></div>'; return; }
+    h='<div class="cal-day-list">';
+    qs.forEach(function(q) {
+      var t=q.eventTime?formatEventDateTime('',q.eventTime):'No time set';
+      h+='<div class="quote-list-item" onclick="openQuoteDetailById(\''+escAttr(q.quoteId)+'\')"><div class="quote-list-meta"><span class="quote-list-id">'+calPoDot(q)+' '+escHtml(q.quoteId)+'</span><span class="quote-list-customer">'+escHtml(q.customerName)+'</span><span class="quote-list-details">'+escHtml(t)+' · '+escHtml(q.contactName||'')+'</span></div><div class="quote-list-right"><span class="quote-list-type '+(q.orderType||'').toLowerCase()+'">'+escHtml(q.orderType||'')+'</span><span class="quote-list-total">$'+(parseFloat(q.total)||0).toFixed(2)+'</span></div></div>';
+    });
+    grid.innerHTML=h+'</div>';
+  }
 }
 
 // ── Quote Detail Modal ──
@@ -1107,7 +1367,7 @@ function openQuoteDetail(q) {
     var poStatus = isNoPO ? '\uD83D\uDFE2 NO PO NEEDED' : (q.poNumber&&q.poNumber.trim()!=='')?'\uD83D\uDFE2 HAVE PO':'\uD83D\uDD34 NEEDS PO';
     calHtml='<div class="detail-field" style="grid-column:1/-1;"><label>Calendar Event</label><p style="margin-top:4px;">'+poStatus+' \u2014 Event synced to calendar</p></div>';
   }
-  var h='<div class="detail-grid"><div class="detail-field"><label>Customer</label><p>'+escHtml(q.customerName)+'</p></div><div class="detail-field"><label>Contact</label><p>'+escHtml(q.contactName)+'</p></div><div class="detail-field"><label>Event Date</label><p>'+escHtml(eventWhen||'—')+'</p></div><div class="detail-field"><label>Quote Created</label><p>'+ds+'</p></div><div class="detail-field"><label>Order Type</label><p>'+escHtml(q.orderType)+'</p></div><div class="detail-field"><label>Location</label><p>'+escHtml(q.locationName||'')+'</p></div>'+(q.customerEmail?'<div class="detail-field"><label>Email</label><p>'+escHtml(q.customerEmail)+'</p></div>':'')+(q.orderType==='Delivery'?'<div class="detail-field"><label>Delivery Address</label><p>'+escHtml(q.deliveryAddress)+'</p></div>':'')+poHtml+calHtml+'</div>';
+  var h='<div class="detail-grid"><div class="detail-field"><label>Customer</label><p>'+escHtml(q.customerName)+'</p></div><div class="detail-field"><label>Contact</label><p>'+escHtml(q.contactName)+'</p></div><div class="detail-field"><label>Event Date</label><p>'+escHtml(eventWhen||'—')+'</p></div><div class="detail-field"><label>Quote Created</label><p>'+ds+'</p></div><div class="detail-field"><label>Order Type</label><p>'+escHtml(q.orderType)+'</p></div><div class="detail-field"><label>Location</label><p>'+escHtml(q.locationName||'')+'</p></div>'+(q.customerEmail?'<div class="detail-field"><label>Email</label><p>'+escHtml(q.customerEmail)+'</p></div>':'')+(q.customerPhone?'<div class="detail-field"><label>Phone</label><p>'+escHtml(q.customerPhone)+'</p></div>':'')+(q.orderType==='Delivery'?'<div class="detail-field"><label>Delivery Address</label><p>'+escHtml(q.deliveryAddress)+'</p>'+(q.deliveryAddress?'<a href="https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(q.deliveryAddress)+'" target="_blank" rel="noopener" style="font-size:12px;">Get Directions ↗</a>':'')+'</div>':'')+poHtml+calHtml+'</div>';
   if (li.length) { h+='<table class="detail-items-table"><thead><tr><th>Qty</th><th>Description</th><th>Price</th><th>Amount</th></tr></thead><tbody>'; li.forEach(function(i){
     var da=parseFloat(i.discountAmount)||0;
     var net=(parseFloat(i.amount)||0)-da;
@@ -1133,7 +1393,9 @@ function openQuoteDetail(q) {
     discRows+='<div class="totals-row"><span class="totals-label">'+odLabel+'</span><span class="totals-amount">−$'+orderDiscAmt.toFixed(2)+'</span></div>';
   }
   h+='<div style="display:flex;justify-content:flex-end;margin-top:12px;"><div class="totals-table"><div class="totals-row subtotal"><span class="totals-label">Subtotal</span><span class="totals-amount">$'+(parseFloat(q.subtotal)||0).toFixed(2)+'</span></div>'+discRows+'<div class="totals-row tax"><span class="totals-label">'+(te?'Tax Exempt':'Tax ('+q.taxRateUsed+'%)')+'</span><span class="totals-amount">$'+(parseFloat(q.taxAmount)||0).toFixed(2)+'</span></div><div class="totals-row total"><span class="totals-label">Total</span><span class="totals-amount">$'+(parseFloat(q.total)||0).toFixed(2)+'</span></div></div></div>';
+  h+='<div id="modalRevisions"></div>';
   document.getElementById('modalBody').innerHTML=h;
+  loadQuoteRevisions(q.quoteId);
   document.getElementById('modalActions').innerHTML='<button class="btn btn-danger btn-sm" onclick="deleteQuoteAction('+q.sheetRow+')">🗑 Delete</button><button class="btn btn-secondary btn-sm" onclick="editAndReuse()">✏️ Edit &amp; Reuse</button><button class="btn btn-blue btn-sm" onclick="showModalEmailPrompt(currentModalQuote)">✉️ Email</button><button class="btn btn-primary btn-sm" onclick="generatePDFFromQuote(currentModalQuote);closeModal();">📄 PDF</button>';
   document.getElementById('modalEmailPrompt').classList.remove('show');
   document.getElementById('quoteDetailModal').classList.add('show');
@@ -1165,12 +1427,13 @@ function editAndReuse() {
   document.getElementById('customerName').value=q.customerName||'';
   document.getElementById('contactPerson').value=q.contactName||'';
   document.getElementById('customerEmail').value=q.customerEmail||'';
+  document.getElementById('customerPhone').value=q.customerPhone||'';
   noPONeeded = q.poNumber === 'NO_PO_NEEDED';
   document.getElementById('noPOToggle').classList.toggle('active', noPONeeded);
   if (noPONeeded) { document.getElementById('poNumber').value=''; document.getElementById('poNumber').disabled=true; document.getElementById('poNumber').placeholder='No PO needed for this order'; }
   else { document.getElementById('poNumber').value=q.poNumber||''; document.getElementById('poNumber').disabled=false; document.getElementById('poNumber').placeholder='e.g., PO-2026-001'; }
-  document.getElementById('quoteDate').value=q.eventDate||new Date().toISOString().split('T')[0];
-  document.getElementById('quoteTime').value=q.eventTime||'';
+  document.getElementById('quoteDate').value=q.eventDate||dateKey(new Date());
+  setQuoteTimeValue(q.eventTime||'');
   currentOrderType=q.orderType||'Pickup';
   document.querySelectorAll('.order-type-btn').forEach(function(b){b.classList.toggle('active',b.dataset.type===currentOrderType);});
   updateAddressField();
@@ -1199,6 +1462,130 @@ function editAndReuse() {
   document.getElementById('orderDiscountTypeInput').value=q.orderDiscountType||'percent';
   document.getElementById('quoteNotes').value=q.quoteNotes||'';
   recalcTotals();
+}
+
+// ── Revision History ──
+var currentRevisions = [];
+
+// Lazy-loaded when the detail modal opens. Empty history renders nothing.
+function loadQuoteRevisions(quoteId) {
+  var box=document.getElementById('modalRevisions');
+  if (!box) return;
+  box.innerHTML='';
+  // Revisions only exist once a quote has been edited — skip the round trip otherwise
+  if (!currentModalQuote || !currentModalQuote.lastModified) return;
+  google.script.run.withSuccessHandler(function(revs) {
+    var target=document.getElementById('modalRevisions');
+    // Modal may have closed or moved to another quote while this loaded —
+    // bail BEFORE touching currentRevisions or a stale response could make
+    // viewRevision/restoreRevision act on the wrong quote's versions
+    if (!target||!currentModalQuote||currentModalQuote.quoteId!==quoteId) return;
+    currentRevisions=revs||[];
+    if (!currentRevisions.length) return;
+    var h='<div class="detail-field" style="margin-top:16px;"><label>Previous Versions ('+currentRevisions.length+')</label></div>';
+    currentRevisions.forEach(function(r,i) {
+      var when=r.revisedAt?new Date(r.revisedAt).toLocaleString():'';
+      h+='<div class="revision-row" onclick="viewRevision('+i+')"><span>Replaced '+escHtml(when)+'</span><span style="font-family:var(--mono);font-weight:600;">$'+(parseFloat(r.total)||0).toFixed(2)+'</span></div>';
+    });
+    target.innerHTML=h;
+  }).withFailureHandler(function(){}).getQuoteRevisions(quoteId);
+}
+
+function viewRevision(i) {
+  var r=currentRevisions[i]; if (!r) return;
+  var li=[]; try{li=JSON.parse(r.lineItems);}catch(e){}
+  var te=r.taxExempt==='TRUE'||r.taxExempt===true;
+  var when=r.revisedAt?new Date(r.revisedAt).toLocaleString():'';
+  var eventWhen=formatEventDateTime(r.eventDate,r.eventTime);
+  var h='<div class="revision-banner">Viewing a previous version of '+escHtml(r.quoteId)+' (replaced '+escHtml(when)+'). Read-only — restore it to make it current again.</div>';
+  h+='<div class="detail-grid"><div class="detail-field"><label>Customer</label><p>'+escHtml(r.customerName)+'</p></div><div class="detail-field"><label>Contact</label><p>'+escHtml(r.contactName)+'</p></div><div class="detail-field"><label>Event Date</label><p>'+escHtml(eventWhen||'—')+'</p></div><div class="detail-field"><label>Order Type</label><p>'+escHtml(r.orderType)+'</p></div>'+(r.customerEmail?'<div class="detail-field"><label>Email</label><p>'+escHtml(r.customerEmail)+'</p></div>':'')+(r.customerPhone?'<div class="detail-field"><label>Phone</label><p>'+escHtml(r.customerPhone)+'</p></div>':'')+(r.orderType==='Delivery'?'<div class="detail-field"><label>Delivery Address</label><p>'+escHtml(r.deliveryAddress)+'</p></div>':'')+'</div>';
+  if (li.length) { h+='<table class="detail-items-table"><thead><tr><th>Qty</th><th>Description</th><th>Price</th><th>Amount</th></tr></thead><tbody>'; li.forEach(function(it){
+    var da=parseFloat(it.discountAmount)||0;
+    var net=(parseFloat(it.amount)||0)-da;
+    h+='<tr><td>'+it.quantity+'</td><td>'+escHtml(it.description)+(da>0?'<div style="font-size:11px;color:#9CA3AF;font-style:italic;margin-top:2px;">Discount: −$'+da.toFixed(2)+'</div>':'')+'</td><td style="font-family:var(--mono);">$'+(it.price||0).toFixed(2)+'</td><td style="font-family:var(--mono);">$'+net.toFixed(2)+'</td></tr>';
+  }); h+='</tbody></table>'; }
+  if (r.quoteNotes) h+='<div style="background:#FFFBEB;border-left:3px solid #D97706;padding:12px 16px;margin-top:12px;font-size:13px;color:#374151;border-radius:4px;"><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#6B7280;margin-bottom:4px;">Notes</div>'+escHtml(r.quoteNotes).split('\n').join('<br>')+'</div>';
+  h+='<div style="display:flex;justify-content:flex-end;margin-top:12px;"><div class="totals-table"><div class="totals-row subtotal"><span class="totals-label">Subtotal</span><span class="totals-amount">$'+(parseFloat(r.subtotal)||0).toFixed(2)+'</span></div><div class="totals-row tax"><span class="totals-label">'+(te?'Tax Exempt':'Tax ('+r.taxRateUsed+'%)')+'</span><span class="totals-amount">$'+(parseFloat(r.taxAmount)||0).toFixed(2)+'</span></div><div class="totals-row total"><span class="totals-label">Total</span><span class="totals-amount">$'+(parseFloat(r.total)||0).toFixed(2)+'</span></div></div></div>';
+  document.getElementById('modalBody').innerHTML=h;
+  document.getElementById('modalActions').innerHTML='<button class="btn btn-secondary btn-sm" onclick="backToCurrentVersion()">← Back to Current</button><button class="btn btn-primary btn-sm" onclick="restoreRevision('+i+')">↩ Restore This Version</button>';
+}
+
+function backToCurrentVersion() { if (currentModalQuote) openQuoteDetail(currentModalQuote); }
+
+// Restore = a normal edit-save of the old values, so the current version
+// is archived to the history first and the calendar event re-syncs.
+function restoreRevision(i) {
+  var r=currentRevisions[i]; if (!r) return;
+  showConfirm('Restore this version?','The current version is kept in Previous Versions, and this older version becomes the live quote.').then(function(ok) {
+    if (!ok) return;
+    var li=[]; try{li=JSON.parse(r.lineItems);}catch(e){}
+    var d={quoteId:r.quoteId,customerName:r.customerName,contactName:r.contactName,customerEmail:r.customerEmail||'',customerPhone:r.customerPhone||'',orderType:r.orderType,deliveryAddress:r.deliveryAddress||'',lineItems:li,subtotal:parseFloat(r.subtotal)||0,taxRate:parseFloat(r.taxRateUsed)||0,taxAmount:parseFloat(r.taxAmount)||0,total:parseFloat(r.total)||0,taxExempt:r.taxExempt==='TRUE'||r.taxExempt===true,locationName:r.locationName||'',poNumber:r.poNumber||'',date:r.eventDate||'',time:r.eventTime||'',orderDiscountValue:parseFloat(r.orderDiscountValue)||0,orderDiscountType:r.orderDiscountType||'percent',quoteNotes:r.quoteNotes||''};
+    closeModal(); showSpinner();
+    google.script.run.withSuccessHandler(function(id) {
+      google.script.run.withSuccessHandler(function(q){ allQuotes=q; hideSpinner(); showToast('Quote '+id+' restored to the selected version.','success'); openQuoteDetailById(id); }).withFailureHandler(function(e){hideSpinner();showToast('Error: '+e.message,'error');}).getQuotes();
+    }).withFailureHandler(function(e){hideSpinner();showToast('Error: '+e.message,'error');}).saveQuote(d);
+  });
+}
+
+// ── Quarterly Price Verification ──
+var priceCheckItems = [];
+
+function priceCheckDue() {
+  if (!menuItems.length) return false; // nothing to verify on a fresh install
+  var interval = parseInt(appSettings['Price Check Interval (Days)'], 10);
+  if (isNaN(interval) || interval < 1) interval = 90;
+  var last = (appSettings['Last Price Verification'] || '').toString().trim();
+  if (!last) return true; // never verified — establish a baseline
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(last);
+  if (!m) return true;
+  var lastDate = new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
+  return (new Date() - lastDate) / 86400000 >= interval;
+}
+
+function maybeShowPriceCheck() {
+  if (!priceCheckDue()) return;
+  google.script.run.withSuccessHandler(function(items) {
+    if (!items || !items.length) return;
+    priceCheckItems = items;
+    var h = '';
+    items.forEach(function(it, i) {
+      h += '<div style="border:1px solid var(--gray-100);border-radius:8px;padding:12px;margin-top:10px;">'
+        + '<div style="font-weight:700;font-size:14px;">'+escHtml(it.name)+'</div>'
+        + '<div style="font-size:12px;color:var(--gray-400);margin-bottom:8px;">'+escHtml(it.category||'')+'</div>'
+        + '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;">'
+        + (it.pickupAvailable !== false ? '<label style="font-size:12px;font-weight:600;color:var(--gray-500);">Pickup $ <input type="number" step="0.01" min="0" class="form-input" style="width:110px;display:inline-block;margin-left:2px;" id="pc-pickup-'+i+'"></label>' : '')
+        + (it.deliveryAvailable ? '<label style="font-size:12px;font-weight:600;color:var(--gray-500);">Delivery $ <input type="number" step="0.01" min="0" class="form-input" style="width:110px;display:inline-block;margin-left:2px;" id="pc-delivery-'+i+'"></label>' : '<span style="font-size:12px;color:var(--gray-400);">Delivery: N/A</span>')
+        + '</div></div>';
+    });
+    document.getElementById('priceCheckBody').innerHTML = h;
+    document.getElementById('priceCheckError').style.display = 'none';
+    document.getElementById('priceCheckOverlay').classList.add('show');
+  }).withFailureHandler(function(){}).getPriceCheckItems();
+}
+
+function collectPriceCheckEntries() {
+  return priceCheckItems.map(function(it, i) {
+    var p = document.getElementById('pc-pickup-'+i), d = document.getElementById('pc-delivery-'+i);
+    return { name: it.name, pickup: p ? p.value : '', delivery: d ? d.value : '' };
+  });
+}
+
+function submitPriceCheck() {
+  var entries = collectPriceCheckEntries();
+  showSpinner();
+  google.script.run.withSuccessHandler(function(res) {
+    hideSpinner();
+    if (res && res.ok) {
+      appSettings['Last Price Verification'] = dateKey(new Date());
+      document.getElementById('priceCheckOverlay').classList.remove('show');
+      showToast('Prices verified — you\'re good for another quarter!','success');
+      return;
+    }
+    var names = (res && res.mismatches) || [];
+    var err = document.getElementById('priceCheckError');
+    err.textContent = 'Didn\'t match the stored prices: ' + names.join(', ') + '. Double-check the POS and verify again. If the POS price really has changed, update that item in the Menu tab of the Google Sheet first, then re-verify.';
+    err.style.display = 'block';
+  }).withFailureHandler(function(e){ hideSpinner(); showToast('Error: '+e.message,'error'); }).submitPriceVerification(entries);
 }
 
 // ── Reminder Settings ──

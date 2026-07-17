@@ -36,7 +36,7 @@ You need **four files** in the Apps Script editor:
 ### Step 4: Initialize the Spreadsheet
 Select `initializeSheet` from the function dropdown → click **▶ Run** → authorize when prompted.
 
-Your sheet will have five tabs: **Settings**, **Menu**, **Quotes**, **Quote_Sequence**, **Pipeline**.
+Your sheet will have five visible tabs — **Settings**, **Menu**, **Quotes**, **Quote_Sequence**, **Pipeline** — plus a hidden **Quote_Revisions** tab that stores prior versions of edited quotes.
 
 ### Step 5: Deploy as a Web App
 **Deploy → New deployment** → Web app → Execute as "Me" → Access "Anyone within [org]" (or "Anyone") → Deploy → copy the `/exec` URL.
@@ -71,7 +71,7 @@ Fill in store names, addresses, phone numbers, contact name, tax rate, logo, and
 
 ## Golden Rules (so it doesn't break)
 
-- **Don't hand-create or rename tabs.** `initializeSheet` builds `Settings`, `Menu`, `Quotes`, `Quote_Sequence`, and `Pipeline` with the exact names the code expects. Renaming one silently breaks that feature.
+- **Don't hand-create or rename tabs.** `initializeSheet` builds `Settings`, `Menu`, `Quotes`, `Quote_Sequence`, `Pipeline`, and the hidden `Quote_Revisions` with the exact names the code expects. Renaming one silently breaks that feature.
 - **The `Index` file must be named exactly `Index`** (it holds the contents of `App.html`). `doGet` loads it by that name.
 - **Redeploy a new version after any code change** — the `/exec` URL serves the last *deployed* version, not your latest save.
 
@@ -119,16 +119,31 @@ Configurable in **Settings → Quote Follow-Up Reminders**:
 
 ### Sales Pipeline
 The **Pipeline** tab shows all emailed quotes organized by sales stage:
-- **Sent** → **Confirmed** → **Closed / Won** / **Cancelled**
-- Stats cards show counts and totals per stage
-- Drag entries through stages or update them from the table
+- **Quoted / Sent** → **Awaiting Response** → **Confirmed / Booked**
+- Stats cards show counts, totals, and overdue follow-ups per stage
+- Update status, follow-up date, and notes from the table
 - Entries are added automatically when a quote is emailed
 
 ### Quote Management
 - Sequential IDs (Q-2026-0001, Q-2026-0002, …) that never repeat
 - Prices frozen at creation time — menu changes don't affect old quotes
-- Edit & Reuse creates a new quote; originals are never modified
+- Edit & Reuse updates the quote in place — and the outgoing version is kept in **revision history**, viewable and restorable from the quote detail popup
+- History view: text search plus an event-date filter to pull up any day's orders
 - Auto-archive moves quotes older than 120 days to a hidden archive sheet — nothing is deleted (requires trigger setup)
+
+### Calendar Tab
+- Month / Week / Day views of every order by event date
+- Chips are color-coded pickup vs delivery and prefixed 🔴 (needs PO) / 🟢 (PO handled), matching the Google Calendar event titles
+- Click any order to open its detail popup
+
+### Delivery Helpers
+- Google Maps directions link on delivery quotes — on the PDF, in the detail popup, and in the calendar event description (no API key needed)
+- "Busy delivery window" warning before saving a 4th delivery within ±60 minutes of an existing one
+
+### Quarterly Price Check
+- Every **Price Check Interval (Days)** (default 90) the app locks on open until the operator types the current POS prices for 3 randomly chosen menu items (pickup and delivery both checked)
+- Items are drawn from the categories listed in **Price Check Categories** — matched by category name, so menu rows can move freely
+- A mismatch means the Menu tab is stale: fix the item's price there, then re-verify
 
 ---
 
@@ -142,8 +157,8 @@ The **Pipeline** tab shows all emailed quotes organized by sales stage:
 | **Pickup Price** | Price for pickup orders; use `N/A` if pickup is not available |
 | **Delivery Price** | Price for delivery orders; use `N/A` if delivery is not available |
 
-### Quotes Tab (15 columns)
-Columns A–N are original fields. Column O (**PO Number**) was added and is auto-populated when a PO is entered on the quote.
+### Quotes Tab (23 columns)
+Columns A–V cover the quote fields (customer, contact, order type, line items JSON, totals, tax, PO, event date/time, calendar event ID, discounts, notes); column W is **Customer Phone**. All columns are written by the app — nobody edits this tab by hand. The hidden **Quote_Revisions** tab mirrors these columns plus a **Revised At** timestamp.
 
 ### Settings Tab
 | Label | Description |
@@ -154,6 +169,9 @@ Columns A–N are original fields. Column O (**PO Number**) was added and is aut
 | Default Tax Rate (%) | Pre-filled on new quotes |
 | Archive After Days | How old a quote gets before `cleanOldQuotes` archives it (default 120) |
 | Calendar Lead Time (Minutes) | How many minutes before the order time the calendar event starts (default 30) |
+| Price Check Interval (Days) | How often the quarterly price check locks the tool (default 90) |
+| Price Check Categories | Comma-separated menu categories the price spot-check draws from |
+| Last Price Verification | Written automatically when a price check passes — don't edit |
 | Logo (Base64) | Uploaded via the app Settings tab |
 | Email Subject | Template with `{{placeholders}}` |
 | Email Body | Template with `{{placeholders}}` |

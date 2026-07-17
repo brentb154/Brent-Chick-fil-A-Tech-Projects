@@ -1,6 +1,22 @@
 # Catering Quote Tool — Setup Instructions for New Features
 
-These instructions cover deploying three new features:
+## July 2026 Feature Batch (newest)
+
+The latest update adds: customer phone + email on the PDF, a quote history date filter, a Calendar tab (Month/Week/Day with 🔴/🟢 PO status), a busy-delivery-window warning, Google Maps directions links on deliveries, a 15-minute time dropdown, quote revision history (view + restore), and a quarterly price-check lock.
+
+**To deploy it:**
+1. Replace `Code.gs` and the `Index` HTML file (paste `App.html` into it) with the versions from this repo. Also replace `Pipeline` with `Pipeline.gs` (one-line fix). `PipelineView` is unchanged.
+2. Run `initializeSheet()` once (function dropdown → Run). It adds the `Customer Phone` column (W) to Quotes, creates the hidden `Quote_Revisions` tab, and seeds two new Settings rows: `Price Check Interval (Days)` (default 90) and `Price Check Categories` (which menu categories the price spot-check draws from). Safe to re-run; touches no data.
+3. Deploy → Manage deployments → Edit → **New version**.
+4. **Expect a one-time lock on first open:** the app asks you to type the current POS prices for 3 menu items before it unlocks. That sets the baseline; it repeats every `Price Check Interval (Days)`. If a typed price doesn't match, fix the item in the Menu tab first, then re-verify.
+
+Revision history starts at this deploy — edits made before it aren't recoverable.
+
+---
+
+## Earlier Feature Deployment (calendar events, edit persistence, reminder fix)
+
+These instructions cover deploying three earlier features:
 1. **Calendar Event Creation** — auto-creates a Google Calendar event when a quote is saved
 2. **Quote Edit Persistence** — editing an existing quote overwrites the original row instead of creating a duplicate
 3. **Reminder Email Fix** — fixes silent failure in the follow-up reminder trigger

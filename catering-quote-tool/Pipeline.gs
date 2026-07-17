@@ -111,7 +111,7 @@ function addPipelineEntry(quoteData) {
     quoteData.recipientEmail || '',
     quoteData.locationName   || '',
     parseFloat(quoteData.total) || 0,
-    quoteData.eventDate      || '',
+    quoteData.eventDate      || quoteData.date || '',  // save flow sends `date`, history sends `eventDate`
     now,
     'Quoted / Sent',
     followUpDate,
