@@ -192,14 +192,14 @@
             <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Click <strong>Extensions &rarr; Apps Script</strong>. The script is bound to this Sheet, so you never paste a Sheet ID.</p>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">3. Paste the Three Files</h3>
-            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Names must match exactly. Replace the starter <code>Code.gs</code> with the project's <code>Code.gs</code>; add an <strong>HTML</strong> file named <code>Index</code> holding <strong><code>App.html</code></strong>. (Upgrading an older install that still has <code>Pipeline</code> / <code>PipelineView</code> files? Delete both — the Pipeline feature was retired.) Save.</p>
-            <div class="note" style="background:rgba(255,193,7,0.1); border-color:rgba(255,193,7,0.4);"><strong style="color:#FFD54F;">Most common mistake:</strong> the file holding <code>App.html</code> must be named exactly <code>Index</code> &mdash; <code>doGet</code> loads the page by that name. Wrong name = blank page.</div>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Names must match exactly. Replace the starter <code>Code.gs</code> with the project's <code>Code.gs</code>; add an <strong>HTML</strong> file named <code>Index</code> holding <strong><code>App.html</code></strong>; add an <strong>HTML</strong> file named <code>TaxForm</code> holding <strong><code>TaxForm.html</code></strong> (the public guest upload page). (Upgrading an older install that still has <code>Pipeline</code> / <code>PipelineView</code> files? Delete both — the Pipeline feature was retired.) Save.</p>
+            <div class="note" style="background:rgba(255,193,7,0.1); border-color:rgba(255,193,7,0.4);"><strong style="color:#FFD54F;">Most common mistake:</strong> the HTML files must be named exactly <code>Index</code> and <code>TaxForm</code> &mdash; <code>doGet</code> loads them by those names. Wrong name = blank page.</div>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">4. Run the Setup Function</h3>
-            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Pick <code>initializeSheet</code> in the function dropdown &rarr; <strong>Run</strong>. Authorize when asked (<strong>Advanced &rarr; Go to (project) &rarr; Allow</strong>) &mdash; it needs Gmail, Drive, and Calendar to email PDFs and create events. This builds the visible tabs <strong>Settings</strong>, <strong>Menu</strong>, <strong>Quotes</strong>, <strong>Quote_Sequence</strong>, <strong>Off_Menu</strong> plus hidden tabs (<strong>Quote_Revisions</strong> for prior versions of edited quotes, <strong>Confirmations_Sent</strong> and <strong>PO_Alerts_Sent</strong> for the automated emails). Safe to re-run.</p>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">Pick <code>initializeSheet</code> in the function dropdown &rarr; <strong>Run</strong>. Authorize when asked (<strong>Advanced &rarr; Go to (project) &rarr; Allow</strong>) &mdash; it needs Gmail, Drive, and Calendar to email PDFs and create events. This builds the visible tabs <strong>Settings</strong>, <strong>Menu</strong>, <strong>Quotes</strong>, <strong>Quote_Sequence</strong>, <strong>Off_Menu</strong>, and <strong>Tax_Exempt_Registry</strong>, plus hidden log tabs (revisions, sent emails, tax uploads). It needs Gmail, Drive, and Calendar access. Safe to re-run.</p>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">5. Deploy as a Web App</h3>
-            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;"><strong>Deploy &rarr; New deployment &rarr;</strong> gear &rarr; <strong>Web app</strong>. Execute as <strong>Me</strong>, access <strong>Anyone within your domain</strong>. Deploy and copy the URL &mdash; that's the tool. First load is slow (10&ndash;20 sec). After any code change, redeploy via <strong>Manage deployments &rarr; Edit &rarr; New version</strong>.</p>
+            <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;"><strong>Deploy &rarr; New deployment &rarr;</strong> gear &rarr; <strong>Web app</strong>. Execute as <strong>Me</strong>, access <strong>Anyone</strong> (this is required so external catering guests can reach the tax-form upload page). Deploy and copy the URL. Your team uses <code>&hellip;/exec?view=app</code> (bookmark it); guests get the <code>?view=taxform</code> link automatically in the request email; the bare URL just shows a harmless landing page. First load is slow (10&ndash;20 sec). After any code change, redeploy via <strong>Manage deployments &rarr; Edit &rarr; New version</strong>.</p>
 
             <h3 style="color:#4DD0E1; font-size:1.05rem; margin:1.25rem 0 0.4rem;">6. Add Your Menu</h3>
             <p style="color:#c0c0c0; font-size:0.92rem; line-height:1.6;">The <strong>Menu</strong> tab has four columns: <strong>Category | Item Name | Pickup Price | Delivery Price</strong>. Same category groups items together in the picker, and <code>N/A</code> in Delivery Price hides an item from delivery quotes. You can type items in by hand, but the fastest way is to pull your real prices straight from CFA Home:</p>
@@ -238,6 +238,7 @@
             <div class="file-grid">
                 <a href="Code.gs" class="file-item gs" target="_blank">Code.gs</a>
                 <a href="App.html" class="file-item html" target="_blank">App.html</a>
+                <a href="TaxForm.html" class="file-item html" target="_blank">TaxForm.html</a>
                 <a href="README.md" class="file-item md" target="_blank">README.md</a>
             </div>
         </div>
@@ -252,7 +253,7 @@
             btn.disabled = true;
             btn.style.opacity = '0.7';
 
-            const files = ['Code.gs', 'App.html', 'README.md'];
+            const files = ['Code.gs', 'App.html', 'TaxForm.html', 'README.md'];
 
             try {
                 const zip = new JSZip();
