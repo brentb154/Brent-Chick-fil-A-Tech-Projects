@@ -32,7 +32,7 @@ You need **two files** in the Apps Script editor:
 ### Step 4: Initialize the Spreadsheet
 Select `initializeSheet` from the function dropdown → click **▶ Run** → authorize when prompted.
 
-Your sheet will have four visible tabs — **Settings**, **Menu**, **Quotes**, **Quote_Sequence** — plus hidden tabs: **Quote_Revisions** (prior versions of edited quotes), **Confirmations_Sent** and **PO_Alerts_Sent** (automation logs).
+Your sheet will have five visible tabs — **Settings**, **Menu**, **Quotes**, **Quote_Sequence**, **Off_Menu** (the cheat-sheet list, team-editable) — plus hidden tabs: **Quote_Revisions** (prior versions of edited quotes), **Confirmations_Sent** and **PO_Alerts_Sent** (automation logs).
 
 ### Step 5: Deploy as a Web App
 **Deploy → New deployment** → Web app → Execute as "Me" → Access "Anyone within [org]" (or "Anyone") → Deploy → copy the `/exec` URL.
@@ -122,6 +122,11 @@ Configurable in **Settings → Quote Follow-Up Reminders**:
 - **Day-before confirmation email** — customers with an email get "we'll see you tomorrow at 11:30" the afternoon before their event; subject/body fully editable in Settings; one email per quote per event date
 - **Missing-PO alert** — one internal digest a day listing every quote inside the alert window (default 7 days) still marked 🔴 NEEDS PO; "No PO Needed" never alerts; each quote alerts once
 - Each job has its own on/off toggle; install the trigger once with the "Enable (3pm daily)" button in Settings
+
+### Off-Menu Cheat Sheet
+- A **Cheat Sheet** tab lists common off-menu items and add-ons (sliced tomatoes, folded eggs, package meals…) for building custom delivery quotes
+- The team enters each item's **base price** once; the tool shows the **delivery price** = base + `Off-Menu Markup (%)` (default 30, editable right on the page)
+- Fully team-editable — add, rename, reprice, delete; data lives on the visible `Off_Menu` sheet tab
 
 ### Delivery Runsheet
 - From the Calendar's Day view: print a one-page runsheet for the day (times in order, contacts, phones, addresses with Maps links, items, PO status) or email it to the catering lead

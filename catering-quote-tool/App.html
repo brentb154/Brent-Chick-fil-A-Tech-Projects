@@ -297,6 +297,7 @@
       <button class="tab-btn active" data-view="newQuote" onclick="switchView('newQuote')">＋ New Quote</button>
       <button class="tab-btn" data-view="history" onclick="switchView('history')">History</button>
       <button class="tab-btn" data-view="calendar" onclick="switchView('calendar')">Calendar</button>
+      <button class="tab-btn" data-view="cheatsheet" onclick="switchView('cheatsheet')">Cheat Sheet</button>
       <button class="tab-btn" data-view="settings" onclick="switchView('settings')">Settings</button>
     </nav>
   </header>
@@ -394,6 +395,30 @@
         </div>
         <div style="font-size:12px;color:var(--gray-400);margin-bottom:10px;">🔴 Needs PO &nbsp;·&nbsp; 🟢 PO handled &nbsp;·&nbsp; <span class="cal-chip pickup" style="cursor:default;display:inline;">Pickup</span> <span class="cal-chip delivery" style="cursor:default;display:inline;">Delivery</span></div>
         <div id="calGrid"></div>
+      </div>
+    </section>
+
+    <!-- ═══ VIEW: OFF-MENU CHEAT SHEET ═══ -->
+    <section id="view-cheatsheet" class="view">
+      <div class="card">
+        <div class="card-title"><span class="icon amber">📝</span> Off-Menu Cheat Sheet — Delivery Pricing</div>
+        <div style="background:var(--gray-50);border:1px solid var(--gray-100);border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--gray-600);line-height:1.6;margin-bottom:14px;">
+          Common off-menu items and add-ons for building custom delivery quotes — bacon biscuits with egg and cheese, salads with items removed, package meals, and so on. Enter each item's everyday <strong>base price</strong> once; the <strong>delivery price</strong> column adds the markup automatically. Add your own items with the button below — everything here is team-editable (it lives on the <code>Off_Menu</code> tab of the Google Sheet).
+        </div>
+        <div class="settings-field-row" style="margin-bottom:12px;">
+          <label>Delivery Markup</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="number" class="form-input" id="cheatMarkupInput" min="0" max="200" step="1" style="max-width:90px;" onchange="saveCheatMarkup(this.value)">
+            <span style="font-size:14px;color:var(--gray-500);">% added to the base price for delivery</span>
+          </div>
+        </div>
+        <div class="table-scroll-wrapper">
+          <table class="menu-editor-table">
+            <thead><tr><th>Item</th><th class="price-col">Base Price</th><th class="price-col">Delivery Price</th><th class="action-col"></th></tr></thead>
+            <tbody id="cheatSheetBody"><tr><td colspan="4" style="padding:24px;text-align:center;color:var(--gray-400);">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:12px;" onclick="addCheatItemUI()">＋ Add Item</button>
       </div>
     </section>
 
@@ -736,6 +761,7 @@ function switchView(v) {
   document.querySelector('.tab-btn[data-view="'+v+'"]').classList.add('active');
   if (v === 'history') renderHistory();
   if (v === 'calendar') renderCalendarView();
+  if (v === 'cheatsheet') renderCheatSheet();
 }
 
 // ── Order Type ──
@@ -1955,6 +1981,84 @@ function saveSettingField(l,v) { google.script.run.withSuccessHandler(function()
 function refreshLocationDropdown() {
   var s=document.getElementById('settingsActiveLocation'), l1=appSettings['Location 1 Name']||'Location 1', l2=appSettings['Location 2 Name']||'Location 2', a=appSettings['Store Name (Active)']||l1;
   s.innerHTML='<option value="'+escHtml(l1)+'"'+(a===l1?' selected':'')+'>'+escHtml(l1)+'</option><option value="'+escHtml(l2)+'"'+(a===l2?' selected':'')+'>'+escHtml(l2)+'</option>';
+}
+
+// ── Off-Menu Cheat Sheet ──
+// Storage: Off_Menu sheet tab (Item | Base Price). Delivery price is base × (1 + markup%),
+// markup lives in Settings "Off-Menu Markup (%)" so the team can change it without code.
+var cheatItems = [];
+
+function cheatMarkupPct() {
+  var n = parseFloat(appSettings['Off-Menu Markup (%)']);
+  if (isNaN(n) || n < 0) n = 30;
+  return n;
+}
+
+function renderCheatSheet() {
+  document.getElementById('cheatMarkupInput').value = cheatMarkupPct();
+  showSpinner();
+  google.script.run.withSuccessHandler(function(items) {
+    cheatItems = items || [];
+    hideSpinner();
+    buildCheatSheetTable();
+  }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).getOffMenuItems();
+}
+
+function buildCheatSheetTable() {
+  var body = document.getElementById('cheatSheetBody');
+  body.innerHTML = '';
+  if (!cheatItems.length) {
+    body.innerHTML = '<tr><td colspan="4" style="padding:24px;text-align:center;color:var(--gray-400);">No items yet — click ＋ Add Item below.</td></tr>';
+    return;
+  }
+  var pct = cheatMarkupPct();
+  cheatItems.forEach(function(item) {
+    var tr = document.createElement('tr');
+    var delivery = item.hasPrice ? '$' + (item.basePrice * (1 + pct/100)).toFixed(2) : '<span style="color:var(--gray-400);">enter base price</span>';
+    tr.innerHTML = '<td><input class="menu-name-input" value="'+escAttr(item.name)+'" data-row="'+item.row+'"></td>'
+      + '<td class="price-col"><input class="menu-pickup-input" type="number" step="0.01" min="0" value="'+(item.hasPrice ? item.basePrice.toFixed(2) : '')+'" placeholder="0.00" data-row="'+item.row+'"></td>'
+      + '<td class="price-col" style="font-family:var(--mono);font-weight:600;">'+delivery+'</td>'
+      + '<td class="action-col"><button class="btn btn-danger btn-sm" style="padding:5px 8px;" onclick="deleteCheatItemUI('+item.row+')" title="Delete">✕</button></td>';
+    var ni = tr.querySelector('.menu-name-input'), pi = tr.querySelector('.menu-pickup-input');
+    [ni, pi].forEach(function(inp) {
+      inp.addEventListener('change', function() { saveCheatItemInline(parseInt(ni.dataset.row, 10), ni.value, pi.value); });
+    });
+    body.appendChild(tr);
+  });
+}
+
+function saveCheatItemInline(row, name, base) {
+  google.script.run.withSuccessHandler(function() {
+    showToast('Updated.', 'success');
+    google.script.run.withSuccessHandler(function(items) { cheatItems = items || []; buildCheatSheetTable(); }).getOffMenuItems();
+  }).withFailureHandler(function(e) { showToast('Error: '+e.message,'error'); }).updateOffMenuItem(row, name, parseFloat(base) || 0);
+}
+
+function addCheatItemUI() {
+  showSpinner();
+  google.script.run.withSuccessHandler(function() {
+    hideSpinner(); showToast('Item added — name it and set the base price.', 'success');
+    google.script.run.withSuccessHandler(function(items) { cheatItems = items || []; buildCheatSheetTable(); }).getOffMenuItems();
+  }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).addOffMenuItem('New Item', 0);
+}
+
+function deleteCheatItemUI(row) {
+  showConfirm('Delete this item?', 'Remove it from the cheat sheet.').then(function(ok) {
+    if (!ok) return;
+    showSpinner();
+    google.script.run.withSuccessHandler(function() {
+      hideSpinner(); showToast('Deleted.', 'success');
+      google.script.run.withSuccessHandler(function(items) { cheatItems = items || []; buildCheatSheetTable(); }).getOffMenuItems();
+    }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).deleteOffMenuItem(row);
+  });
+}
+
+function saveCheatMarkup(v) {
+  var n = parseFloat(v);
+  if (isNaN(n) || n < 0) { showToast('Enter a markup of 0 or more.', 'error'); document.getElementById('cheatMarkupInput').value = cheatMarkupPct(); return; }
+  saveSettingField('Off-Menu Markup (%)', n);
+  appSettings['Off-Menu Markup (%)'] = n;
+  buildCheatSheetTable(); // recompute the delivery column with the new markup
 }
 
 // ── Menu Editor (accordion by category — collapsed by default) ──

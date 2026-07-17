@@ -22,6 +22,7 @@ const TAB_QUOTES         = 'Quotes';
 const TAB_QUOTES_ARCHIVE = 'Quotes_Archive';
 const TAB_QUOTE_SEQUENCE = 'Quote_Sequence';
 const TAB_QUOTE_REVISIONS = 'Quote_Revisions';
+const TAB_OFF_MENU = 'Off_Menu';
 
 
 // ── WEB APP ENTRY POINT ──────────────────────────────────────
@@ -192,6 +193,59 @@ function submitPriceVerification(entries) {
 function markPricesVerified_() {
   // asText keeps Sheets from converting the yyyy-MM-dd string into a Date cell
   updateSetting('Last Price Verification', Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'), true);
+}
+
+// ── OFF-MENU CHEAT SHEET ─────────────────────────────────────
+// Off_Menu tab: A=Item Name | B=Base Price. Delivery price is computed
+// in the app as base × (1 + "Off-Menu Markup (%)" / 100), delivery only.
+
+function getOffMenuItems() {
+  var sheet = getSpreadsheet().getSheetByName(TAB_OFF_MENU);
+  if (!sheet) return [];
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+  var items = [];
+  data.forEach(function(row, index) {
+    if (row[0] && row[0].toString().trim() !== '') {
+      var raw = (row[1] !== null && row[1] !== undefined) ? row[1].toString().trim() : '';
+      items.push({
+        name: row[0].toString().trim(),
+        basePrice: parseFloat(raw) || 0,
+        hasPrice: raw !== '' && !isNaN(parseFloat(raw)),
+        row: index + 2
+      });
+    }
+  });
+  return items;
+}
+
+function addOffMenuItem(name, basePrice) {
+  var sheet = getSpreadsheet().getSheetByName(TAB_OFF_MENU);
+  if (!sheet) sheet = createOffMenuSheet_();
+  var r = sheet.getLastRow() + 1;
+  sheet.getRange(r, 1, 1, 2).setValues([[name, parseFloat(basePrice) || 0]]);
+  sheet.getRange(r, 2).setNumberFormat('$#,##0.00');
+  return true;
+}
+
+// Fallback creator if someone deleted the tab — same shape as initializeSheet builds.
+function createOffMenuSheet_() {
+  var sheet = getSpreadsheet().insertSheet(TAB_OFF_MENU);
+  sheet.getRange(1, 1, 1, 2).setValues([['Item Name', 'Base Price']]).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+  return sheet;
+}
+
+function updateOffMenuItem(row, name, basePrice) {
+  var sheet = getSpreadsheet().getSheetByName(TAB_OFF_MENU);
+  sheet.getRange(row, 1, 1, 2).setValues([[name, parseFloat(basePrice) || 0]]);
+  return true;
+}
+
+function deleteOffMenuItem(row) {
+  getSpreadsheet().getSheetByName(TAB_OFF_MENU).deleteRow(row);
+  return true;
 }
 
 function addMenuItem(category, name, pickupPrice, deliveryPrice) {
@@ -520,6 +574,7 @@ function initializeSheet() {
     ['PO Alert Enabled',            'TRUE'],
     ['PO Alert Days Before',         7],
     ['PO Alert Email',              ''],
+    ['Off-Menu Markup (%)',          30],
     ['Logo (Base64)',                ''],
     ['Email Subject',               'Your Catering Quote from Chick-fil-A {{location}}'],
     ['Email Body',                  'Hi {{customer}},\n\nThank you for considering Chick-fil-A {{location}} for your catering needs! We appreciate you reaching out and would love to help make your event something special.\n\nPlease find your catering quote attached. If you have any questions or would like to make any changes, don\'t hesitate to reach out — we\'re happy to help.\n\nWe look forward to serving you!\n\nWarm regards,\n{{contact}}\nChick-fil-A {{location}}\n{{phone}}'],
@@ -593,6 +648,20 @@ function initializeSheet() {
   // Hidden automation logs (day-before confirmations, missing-PO alerts)
   initLogSheet_(TAB_CONFIRMATIONS, ['Quote ID', 'Event Date', 'Sent At']);
   initLogSheet_(TAB_PO_ALERTS, ['Quote ID', 'Alerted At']);
+
+  // Off-menu cheat sheet — visible tab, team-editable. Base prices start blank
+  // on purpose: fill them from the POS; the app computes delivery price (+markup).
+  var oSheet = ss.getSheetByName(TAB_OFF_MENU);
+  if (!oSheet) oSheet = ss.insertSheet(TAB_OFF_MENU);
+  if (!oSheet.getRange('A1').getValue()) {
+    oSheet.getRange(1, 1, 1, 2).setValues([['Item Name', 'Base Price']]).setFontWeight('bold');
+    oSheet.setFrozenRows(1);
+    oSheet.setColumnWidth(1, 300);
+    oSheet.setColumnWidth(2, 120);
+    var offMenuSeed = ['Sliced Tomatoes', 'Lettuce', 'Sliced Cheese', 'Folded Yellow Egg', 'Folded White Egg', 'English Muffins', 'Shredded Cheese', 'Blue Cheese Crumbles', 'Bacon Crumbles', 'Sliced Hardboiled Egg', '12ct Regular Nugget Package Meal (chips & cookie)', 'Strawberries', 'Blueberries', 'Apples'];
+    oSheet.getRange(2, 1, offMenuSeed.length, 2).setValues(offMenuSeed.map(function(n) { return [n, '']; }));
+    oSheet.getRange(2, 2, offMenuSeed.length, 1).setNumberFormat('$#,##0.00');
+  }
 
   // Sequence
   var seqSheet = ss.getSheetByName(TAB_QUOTE_SEQUENCE);
