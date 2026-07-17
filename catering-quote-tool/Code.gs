@@ -343,12 +343,23 @@ function getArchiveAfterDays_(settings) {
   return n;
 }
 
-function getNextQuoteId() {
+// "Jane Smith" → "JS". First letter of the first and last words, letters only.
+function contactInitials_(contactName) {
+  var words = (contactName || '').toString().trim().split(/\s+/).filter(function(w) { return /[A-Za-z]/.test(w); });
+  if (!words.length) return '';
+  var first = words[0].replace(/[^A-Za-z]/g, '').charAt(0);
+  var last = words.length > 1 ? words[words.length - 1].replace(/[^A-Za-z]/g, '').charAt(0) : '';
+  return (first + last).toUpperCase();
+}
+
+function getNextQuoteId(contactName) {
   var sheet = getSpreadsheet().getSheetByName(TAB_QUOTE_SEQUENCE);
   var current = parseInt(sheet.getRange('B1').getValue()) || 0;
   var next = current + 1;
   sheet.getRange('B1').setValue(next);
-  return 'Q-' + new Date().getFullYear() + '-' + ('0000' + next).slice(-4);
+  var initials = contactInitials_(contactName);
+  // Initials are a label riding on the serial — uniqueness comes from the counter alone
+  return 'Q-' + new Date().getFullYear() + '-' + ('0000' + next).slice(-4) + (initials ? '-' + initials : '');
 }
 
 function saveQuote(quoteData) {
@@ -401,7 +412,7 @@ function saveQuote(quoteData) {
   }
 
   // New quote
-  var quoteId = getNextQuoteId();
+  var quoteId = getNextQuoteId(quoteData.contactName);
   var eventId = '';
   try { eventId = createCalendarEvent(quoteData, quoteId) || ''; } catch(e) { eventId = ''; }
   sheet.appendRow([
@@ -575,6 +586,8 @@ function initializeSheet() {
     ['PO Alert Days Before',         7],
     ['PO Alert Email',              ''],
     ['Off-Menu Markup (%)',          30],
+    ['Tax Form Request Subject',    'Tax-exempt form needed for your catering quote {{quoteId}}'],
+    ['Tax Form Request Body',       'Hi {{contactPerson}},\n\nThanks for your catering order with Chick-fil-A {{location}}! To honor the tax exemption on quote {{quoteId}}, we need a copy of your organization\'s tax-exempt form on file.\n\nCould you reply to this email with a PDF of the form? Please include your name and your quote number ({{quoteId}}) so we can match it up.\n\nThank you!\n{{contact}}\nChick-fil-A {{location}}\n{{phone}}'],
     ['Logo (Base64)',                ''],
     ['Email Subject',               'Your Catering Quote from Chick-fil-A {{location}}'],
     ['Email Body',                  'Hi {{customer}},\n\nThank you for considering Chick-fil-A {{location}} for your catering needs! We appreciate you reaching out and would love to help make your event something special.\n\nPlease find your catering quote attached. If you have any questions or would like to make any changes, don\'t hesitate to reach out — we\'re happy to help.\n\nWe look forward to serving you!\n\nWarm regards,\n{{contact}}\nChick-fil-A {{location}}\n{{phone}}'],
@@ -648,6 +661,7 @@ function initializeSheet() {
   // Hidden automation logs (day-before confirmations, missing-PO alerts)
   initLogSheet_(TAB_CONFIRMATIONS, ['Quote ID', 'Event Date', 'Sent At']);
   initLogSheet_(TAB_PO_ALERTS, ['Quote ID', 'Alerted At']);
+  initLogSheet_(TAB_TAX_FORMS, ['Quote ID', 'Status', 'Updated At']);
 
   // Off-menu cheat sheet — visible tab, team-editable. Base prices start blank
   // on purpose: fill them from the POS; the app computes delivery price (+markup).
@@ -682,15 +696,18 @@ function initializeSheet() {
 
 function getPrintData(quoteData) {
   var settings = getSettings();
-  // "Valid through" — anchored to the quote's created date (today for brand-new quotes).
-  // Blank or 0 in the setting hides the line entirely.
+  // "Quoted on" + "valid through" — both anchored to the quote's created date
+  // (today for brand-new quotes). Valid-through hides if the setting is blank/0.
+  var tz = Session.getScriptTimeZone();
+  var createdBase = quoteData.createdDate ? new Date(quoteData.createdDate) : new Date();
+  if (isNaN(createdBase.getTime())) createdBase = new Date();
+  var quotedOn = Utilities.formatDate(createdBase, tz, 'M/d/yyyy');
   var validThrough = '';
   var validDays = parseInt(settings['Quote Valid For (Days)'], 10);
   if (!isNaN(validDays) && validDays > 0) {
-    var base = quoteData.createdDate ? new Date(quoteData.createdDate) : new Date();
-    if (isNaN(base.getTime())) base = new Date();
-    base.setDate(base.getDate() + validDays);
-    validThrough = Utilities.formatDate(base, Session.getScriptTimeZone(), 'M/d/yyyy');
+    var expiry = new Date(createdBase);
+    expiry.setDate(expiry.getDate() + validDays);
+    validThrough = Utilities.formatDate(expiry, tz, 'M/d/yyyy');
   }
   var storeName = quoteData.locationName || settings['Store Name (Active)'] || '';
   var storeAddress = '', storePhone = '';
@@ -707,7 +724,7 @@ function getPrintData(quoteData) {
     contactName: settings['Quote Contact Name'] || '',
     customerName: quoteData.customerName || '', contactPerson: quoteData.contactName || '',
     customerEmail: quoteData.customerEmail || '', customerPhone: quoteData.customerPhone || '',
-    validThrough: validThrough,
+    validThrough: validThrough, quotedOn: quotedOn,
     orderType: quoteData.orderType || 'Pickup', deliveryAddress: quoteData.deliveryAddress || '',
     directionsUrl: (quoteData.orderType === 'Delivery' && quoteData.deliveryAddress) ? mapsDirectionsUrl_(quoteData.deliveryAddress) : '',
     date: quoteData.date || new Date().toLocaleDateString(), time: quoteData.time || '',
@@ -764,7 +781,7 @@ function buildPdfHtml(pd) {
   var addr = pd.orderType === 'Delivery' ? (pd.deliveryAddress||'') : (pd.storeAddress||'');
   var logo = pd.logo ? '<img src="'+pd.logo+'" style="max-width:140px;max-height:80px;margin-bottom:8px;">' : '<div style="font-size:24px;font-weight:800;color:#E51636;margin-bottom:8px;">Chick-fil-A</div>';
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>@page{size:letter;margin:0.6in;}body{font-family:Helvetica,Arial,sans-serif;color:#1F2937;margin:0;padding:40px;}</style></head><body>' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+logo+'<div style="font-size:16px;font-weight:700;">'+esc(pd.storeName)+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+esc(pd.storeAddress)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.storePhone)+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:Courier New,monospace;">'+esc(pd.quoteId)+'</div>'+(pd.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+esc(pd.poNumber)+'</div>':'')+'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Date: '+esc(pd.date)+'</div>'+(pd.time?'<div style="font-size:13px;color:#6B7280;">Time: '+esc(pd.time)+'</div>':'')+(pd.validThrough?'<div style="font-size:12px;color:#9CA3AF;margin-top:2px;">Quote valid through '+esc(pd.validThrough)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+esc(pd.customerName)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.orderType)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(addr)+'</div>'+(pd.directionsUrl?'<div style="font-size:12px;"><a href="'+pd.directionsUrl+'" style="color:#2563EB;">Get Directions (Google Maps)</a></div>':'')+'<div style="font-size:13px;font-weight:600;margin-top:4px;">'+esc(pd.contactPerson)+'</div>'+(pd.customerEmail?'<div style="font-size:13px;color:#6B7280;">'+esc(pd.customerEmail)+'</div>':'')+(pd.customerPhone?'<div style="font-size:13px;color:#6B7280;">'+esc(pd.customerPhone)+'</div>':'')+'</div></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+logo+'<div style="font-size:16px;font-weight:700;">'+esc(pd.storeName)+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+esc(pd.storeAddress)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.storePhone)+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:Courier New,monospace;">'+esc(pd.quoteId)+'</div>'+(pd.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+esc(pd.poNumber)+'</div>':'')+'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Date: '+esc(pd.date)+'</div>'+(pd.time?'<div style="font-size:13px;color:#6B7280;">Time: '+esc(pd.time)+'</div>':'')+(pd.quotedOn?'<div style="font-size:12px;color:#9CA3AF;margin-top:2px;">Quoted on '+esc(pd.quotedOn)+'</div>':'')+(pd.validThrough?'<div style="font-size:12px;color:#9CA3AF;">Quote valid through '+esc(pd.validThrough)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+esc(pd.customerName)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.orderType)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(addr)+'</div>'+(pd.directionsUrl?'<div style="font-size:12px;"><a href="'+pd.directionsUrl+'" style="color:#2563EB;">Get Directions (Google Maps)</a></div>':'')+'<div style="font-size:13px;font-weight:600;margin-top:4px;">'+esc(pd.contactPerson)+'</div>'+(pd.customerEmail?'<div style="font-size:13px;color:#6B7280;">'+esc(pd.customerEmail)+'</div>':'')+(pd.customerPhone?'<div style="font-size:13px;color:#6B7280;">'+esc(pd.customerPhone)+'</div>':'')+'</div></div>' +
     '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><thead><tr style="background:#F3F4F6;"><th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:10%;">QTY</th><th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:50%;">DESCRIPTION</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:18%;">PRICE/ITEM</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:22%;">AMOUNT</th></tr></thead><tbody>'+liHtml+'</tbody></table>' +
     notesHtml +
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;"><div style="font-size:13px;color:#6B7280;max-width:320px;">If you have any questions concerning this Quote, contact:<br><strong style="color:#1F2937;">'+esc(pd.contactName)+' at '+esc(pd.storePhone)+'</strong></div><table style="width:280px;background:#F9FAFB;border-radius:8px;overflow:hidden;"><tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SUBTOTAL</td><td style="padding:8px 16px;text-align:right;font-family:Courier New,monospace;font-size:14px;">$'+(pd.subtotal||0).toFixed(2)+'</td></tr>'+discRows+taxLine+'<tr style="background:#E5E7EB;"><td style="padding:10px 16px;font-size:15px;font-weight:700;">TOTAL</td><td style="padding:10px 16px;text-align:right;font-family:Courier New,monospace;font-size:16px;font-weight:700;">$'+(pd.total||0).toFixed(2)+'</td></tr></table></div></body></html>';
@@ -1174,6 +1191,9 @@ function dailyCateringAutomation() {
   try { _sendPoAlerts(); } catch(e) {
     try { MailApp.sendEmail(alertTo, 'Catering Automation Error', 'Missing-PO sweep failed:\n\n' + e.message + '\n\n' + e.stack); } catch(e2) {}
   }
+  try { _sendYearEndTaxReview(); } catch(e) {
+    try { MailApp.sendEmail(alertTo, 'Catering Automation Error', 'Year-end tax review failed:\n\n' + e.message + '\n\n' + e.stack); } catch(e2) {}
+  }
 }
 
 function _sendDayBeforeConfirmations() {
@@ -1296,6 +1316,127 @@ function getAutomationTriggerStatus() {
   return ScriptApp.getProjectTriggers().some(function(t) {
     return t.getHandlerFunction() === 'dailyCateringAutomation';
   });
+}
+
+
+// ── TAX-EXEMPT FORM TRACKING ─────────────────────────────────
+// Status lives in the hidden Tax_Forms tab (Quote ID | Status | Updated At),
+// separate from the Quotes columns so nothing else shifts. Statuses:
+// '' (never asked) / 'REQUESTED' (email sent) / 'ON_FILE' (form in the Drive folder).
+
+const TAB_TAX_FORMS = 'Tax_Forms';
+const TAX_FORM_FOLDER_NAME = 'Catering Tax Exempt Forms';
+
+// Find-or-create the Drive folder; remember its ID so renames don't orphan it.
+function ensureTaxFormFolder_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('TAX_FORM_FOLDER_ID');
+  if (id) {
+    try { return DriveApp.getFolderById(id); } catch(e) {} // deleted — fall through and recreate
+  }
+  var it = DriveApp.getFoldersByName(TAX_FORM_FOLDER_NAME);
+  var folder = it.hasNext() ? it.next() : DriveApp.createFolder(TAX_FORM_FOLDER_NAME);
+  props.setProperty('TAX_FORM_FOLDER_ID', folder.getId());
+  return folder;
+}
+
+// One call for the client: every quote's status plus the folder link.
+function getTaxFormStatuses() {
+  var out = { folderUrl: '', statuses: {} };
+  try { out.folderUrl = ensureTaxFormFolder_().getUrl(); } catch(e) {} // Drive not authorized yet — statuses still work
+  var sheet = getSpreadsheet().getSheetByName(TAB_TAX_FORMS);
+  if (!sheet || sheet.getLastRow() < 2) return out;
+  sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues().forEach(function(r) {
+    if (r[0]) out.statuses[r[0].toString().trim()] = (r[1] || '').toString().trim();
+  });
+  return out;
+}
+
+function setTaxFormStatus(quoteId, status) {
+  quoteId = (quoteId || '').toString().trim();
+  if (!quoteId) return false;
+  var sheet = initLogSheet_(TAB_TAX_FORMS, ['Quote ID', 'Status', 'Updated At']);
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (ids[i][0].toString().trim() === quoteId) {
+        sheet.getRange(i + 2, 2, 1, 2).setValues([[status, new Date()]]);
+        return true;
+      }
+    }
+  }
+  sheet.appendRow([quoteId, status, new Date()]);
+  return true;
+}
+
+// Emails the guest asking them to reply with their form PDF, then marks REQUESTED.
+function sendTaxFormRequest(quoteId, recipientEmail) {
+  recipientEmail = (recipientEmail || '').toString().trim();
+  if (!recipientEmail) return { success: false, message: 'No customer email on this quote.' };
+  var quote = null;
+  getQuotes().some(function(q) { if (q.quoteId === quoteId) { quote = q; return true; } return false; });
+  if (!quote) return { success: false, message: 'Quote ' + quoteId + ' not found.' };
+  var settings = getSettings();
+  var storeName = quote.locationName || settings['Store Name (Active)'] || '';
+  var storePhone = '';
+  if (storeName === (settings['Location 2 Name'] || '')) storePhone = settings['Location 2 Phone'] || '';
+  else storePhone = settings['Location 1 Phone'] || '';
+  var reps = {
+    '{{contactPerson}}': quote.contactName || '',
+    '{{customer}}': quote.customerName || '',
+    '{{contact}}': settings['Quote Contact Name'] || '',
+    '{{location}}': storeName,
+    '{{phone}}': storePhone,
+    '{{quoteId}}': quote.quoteId || ''
+  };
+  var subj = settings['Tax Form Request Subject'] || 'Tax-exempt form needed for your catering quote {{quoteId}}';
+  var body = settings['Tax Form Request Body'] || 'Hi {{contactPerson}},\n\nPlease reply with a PDF of your tax-exempt form, including your name and quote number {{quoteId}}.\n\nThank you!\n{{contact}}';
+  for (var k in reps) { subj = subj.split(k).join(reps[k]); body = body.split(k).join(reps[k]); }
+  var opts = { name: 'Chick-fil-A ' + storeName };
+  var bcc = (settings['BCC Email'] || '').toString().trim();
+  if (bcc) opts.bcc = bcc;
+  MailApp.sendEmail(recipientEmail, subj, body, opts);
+  setTaxFormStatus(quoteId, 'REQUESTED');
+  return { success: true, message: 'Form request sent to ' + recipientEmail };
+}
+
+// Year-end review: on the last business day of December, one email to the
+// PO-alert recipients listing the year's tax-exempt quotes and their form status.
+function isLastBusinessDayOfYear_(d) {
+  if (d.getMonth() !== 11) return false;
+  var last = new Date(d.getFullYear(), 11, 31);
+  while (last.getDay() === 0 || last.getDay() === 6) last.setDate(last.getDate() - 1);
+  return d.getDate() === last.getDate();
+}
+
+function _sendYearEndTaxReview() {
+  var today = new Date();
+  if (!isLastBusinessDayOfYear_(today)) return 'Not the last business day of the year.';
+  var props = PropertiesService.getScriptProperties();
+  var guard = 'TAX_REVIEW_SENT_' + today.getFullYear();
+  if (props.getProperty(guard)) return 'Already sent this year.';
+  var settings = getSettings();
+  var to = poAlertRecipients_(settings);
+  if (!to) return 'No recipient configured.';
+  var statuses = getTaxFormStatuses();
+  var year = today.getFullYear();
+  var exempt = getQuotes().filter(function(q) {
+    var te = q.taxExempt === 'TRUE' || q.taxExempt === true;
+    return te && q.createdDate && new Date(q.createdDate).getFullYear() === year;
+  });
+  var lines = exempt.map(function(q) {
+    var s = statuses.statuses[q.quoteId] || '';
+    var label = s === 'ON_FILE' ? '🟢 on file' : (s === 'REQUESTED' ? '🟠 requested, not received' : '🔴 never collected');
+    return '• ' + q.quoteId + ' — ' + q.customerName + ' — ' + label;
+  });
+  var body = 'It\'s the last business day of ' + year + ' — time to review the tax-exempt forms.\n\n'
+    + (exempt.length ? 'Tax-exempt quotes this year:\n\n' + lines.join('\n') : 'No tax-exempt quotes were created this year.')
+    + (statuses.folderUrl ? '\n\nForms folder: ' + statuses.folderUrl : '')
+    + '\n\nMake sure every 🟢 has a matching PDF in the folder, and chase anything 🟠 or 🔴 before the auditors do.';
+  MailApp.sendEmail(to, '📋 Year-end review: catering tax-exempt forms (' + year + ')', body, { name: 'Catering Quote Tool' });
+  props.setProperty(guard, 'sent');
+  return 'Year-end tax review sent.';
 }
 
 

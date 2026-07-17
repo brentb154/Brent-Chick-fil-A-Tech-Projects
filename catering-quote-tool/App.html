@@ -345,6 +345,14 @@
           <div>
             <div class="card-title"><span class="icon amber">💰</span> Totals</div>
             <div class="tax-exempt-toggle" id="taxExemptToggle" onclick="toggleTaxExempt()"><div class="toggle-indicator">✓</div><span class="tax-exempt-label">Tax Exempt</span></div>
+            <div id="taxFormQuestion" style="display:none;margin-top:10px;padding:10px 12px;background:var(--gray-50);border:1px solid var(--gray-100);border-radius:var(--radius);max-width:280px;">
+              <div style="font-size:12px;font-weight:700;color:var(--gray-500);margin-bottom:6px;">Tax-exempt form on file?</div>
+              <div style="display:flex;gap:8px;">
+                <button type="button" class="btn btn-sm" id="taxFormYesBtn" onclick="setTaxFormAnswer('yes')" style="border:1px solid var(--gray-200);background:var(--white);">✓ Yes</button>
+                <button type="button" class="btn btn-sm" id="taxFormNoBtn" onclick="setTaxFormAnswer('no')" style="border:1px solid var(--gray-200);background:var(--white);">✗ No</button>
+              </div>
+              <div class="field-hint" style="margin-top:6px;">Answer "No" and we'll offer to email the guest for it after saving.</div>
+            </div>
           </div>
           <div class="totals-table">
             <div class="totals-row subtotal"><span class="totals-label">Subtotal</span><span class="totals-amount" id="subtotalDisplay">$0.00</span></div>
@@ -700,10 +708,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function loadAppData() {
   var loaded = 0;
-  function done() { loaded++; if (loaded >= 3) { hideSpinner(); applySettings(); buildLineItemRows(8); refreshLocationDropdown(); maybeShowPriceCheck(); } }
+  function done() { loaded++; if (loaded >= 4) { hideSpinner(); applySettings(); buildLineItemRows(8); refreshLocationDropdown(); maybeShowPriceCheck(); } }
   google.script.run.withSuccessHandler(function(s) { appSettings = s || {}; done(); }).withFailureHandler(function(e) { showToast('Settings error: '+e.message,'error'); done(); }).getSettings();
   google.script.run.withSuccessHandler(function(m) { menuItems = m; done(); }).withFailureHandler(function(e) { showToast('Menu error: '+e.message,'error'); done(); }).getMenuItems();
   google.script.run.withSuccessHandler(function(q) { allQuotes = q; done(); }).withFailureHandler(function(e) { showToast('Quotes error: '+e.message,'error'); done(); }).getQuotes();
+  google.script.run.withSuccessHandler(function(t) { taxFormStatuses = (t && t.statuses) || {}; taxFolderUrl = (t && t.folderUrl) || ''; done(); }).withFailureHandler(function(e) { done(); }).getTaxFormStatuses();
 }
 
 function applySettings() {
@@ -1011,7 +1020,64 @@ function recalcTotals() {
   document.getElementById('taxDisplay').textContent = isTaxExempt?'$0.00':'$'+ta.toFixed(2);
   document.getElementById('totalDisplay').textContent = '$'+(taxable+ta).toFixed(2);
 }
-function toggleTaxExempt() { isTaxExempt = !isTaxExempt; document.getElementById('taxExemptToggle').classList.toggle('active',isTaxExempt); recalcTotals(); }
+function toggleTaxExempt() { isTaxExempt = !isTaxExempt; document.getElementById('taxExemptToggle').classList.toggle('active',isTaxExempt); updateTaxFormQuestion(); recalcTotals(); }
+
+// ── Tax-Exempt Form Tracking ──
+var taxFormStatuses = {};   // quoteId → '' | 'REQUESTED' | 'ON_FILE'
+var taxFolderUrl = '';
+var taxFormAnswer = '';     // this form's answer: '' | 'yes' | 'no'
+
+function updateTaxFormQuestion() {
+  document.getElementById('taxFormQuestion').style.display = isTaxExempt ? 'block' : 'none';
+  if (!isTaxExempt) setTaxFormAnswer('');
+}
+function setTaxFormAnswer(v) {
+  taxFormAnswer = v;
+  document.getElementById('taxFormYesBtn').style.background = v === 'yes' ? 'var(--cfa-red)' : 'var(--white)';
+  document.getElementById('taxFormYesBtn').style.color = v === 'yes' ? '#fff' : '';
+  document.getElementById('taxFormNoBtn').style.background = v === 'no' ? 'var(--cfa-red)' : 'var(--white)';
+  document.getElementById('taxFormNoBtn').style.color = v === 'no' ? '#fff' : '';
+}
+
+// After any save: record "on file", or offer to email the guest for the form.
+function afterSaveTaxForm(quoteId, wasExempt, answer, email) {
+  if (!wasExempt || !answer) return;
+  if (answer === 'yes') {
+    google.script.run.withSuccessHandler(function() { taxFormStatuses[quoteId] = 'ON_FILE'; }).withFailureHandler(function(){}).setTaxFormStatus(quoteId, 'ON_FILE');
+    return;
+  }
+  if (!email) { showToast('No customer email on the quote — request the tax form another way.', 'info'); return; }
+  showConfirm('Request the tax-exempt form?', 'Email ' + email + ' asking them to reply with a PDF of their tax-exempt form (name + quote number included).').then(function(ok) {
+    if (!ok) return;
+    showSpinner();
+    google.script.run.withSuccessHandler(function(res) {
+      hideSpinner();
+      if (res && res.success) taxFormStatuses[quoteId] = 'REQUESTED';
+      showToast(res && res.message ? res.message : 'Request sent.', res && res.success ? 'success' : 'error');
+    }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: ' + e.message, 'error'); }).sendTaxFormRequest(quoteId, email);
+  });
+}
+
+function markTaxFormOnFile(quoteId) {
+  showSpinner();
+  google.script.run.withSuccessHandler(function() {
+    hideSpinner(); taxFormStatuses[quoteId] = 'ON_FILE';
+    showToast('Marked on file — remember to drop the PDF in the Drive folder.', 'success');
+    if (currentModalQuote && currentModalQuote.quoteId === quoteId) openQuoteDetail(currentModalQuote);
+  }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: ' + e.message, 'error'); }).setTaxFormStatus(quoteId, 'ON_FILE');
+}
+function requestTaxFormEmail(quoteId) {
+  var q = currentModalQuote;
+  var email = q && q.customerEmail ? q.customerEmail : '';
+  if (!email) { showToast('No customer email on this quote — add one via Edit & Reuse first.', 'error'); return; }
+  showSpinner();
+  google.script.run.withSuccessHandler(function(res) {
+    hideSpinner();
+    if (res && res.success) taxFormStatuses[quoteId] = 'REQUESTED';
+    showToast(res && res.message ? res.message : 'Request sent.', res && res.success ? 'success' : 'error');
+    if (currentModalQuote && currentModalQuote.quoteId === quoteId) openQuoteDetail(currentModalQuote);
+  }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: ' + e.message, 'error'); }).sendTaxFormRequest(quoteId, email);
+}
 function toggleNoPO() {
   noPONeeded = !noPONeeded;
   document.getElementById('noPOToggle').classList.toggle('active', noPONeeded);
@@ -1178,8 +1244,9 @@ function saveQuoteOnly() { if (!validateForm()) return;
   warnIfDeliveryCluster().then(function(go) { if (!go) return;
   withCalendarChoice(function(color) {
     var isEdit=!!editingQuoteId; var d = collectFormData(); if (color) d.eventColor = color;
+    var tfAnswer=taxFormAnswer;
     showSpinner();
-    google.script.run.withSuccessHandler(function(id) { hideSpinner(); showToast('Quote '+id+(isEdit?' updated!':' saved!'),'success'); resetForm(); google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes();
+    google.script.run.withSuccessHandler(function(id) { hideSpinner(); showToast('Quote '+id+(isEdit?' updated!':' saved!'),'success'); resetForm(); afterSaveTaxForm(id, d.taxExempt, tfAnswer, d.customerEmail); google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes();
     }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).saveQuote(d);
   });
   });
@@ -1189,11 +1256,12 @@ function saveAndEmail() { if (!validateForm()) return;
   warnIfDeliveryCluster().then(function(go) { if (!go) return;
   withCalendarChoice(function(color) {
     var d = collectFormData(); if (color) d.eventColor = color;
+    var tfAnswer=taxFormAnswer;
     showSpinner();
     google.script.run.withSuccessHandler(function(id) {
       hideSpinner(); d.quoteId=id;
       google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes();
-      openEmailPreview(d, function() { resetForm(); google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes(); });
+      openEmailPreview(d, function() { resetForm(); afterSaveTaxForm(id, d.taxExempt, tfAnswer, d.customerEmail); google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes(); });
     }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).saveQuote(d);
   });
   });
@@ -1201,9 +1269,11 @@ function saveAndEmail() { if (!validateForm()) return;
 function previewAndPrint() { if (!validateForm()) return;
   warnIfDeliveryCluster().then(function(go) { if (!go) return;
   withCalendarChoice(function(color) {
-    var d = collectFormData(); if (color) d.eventColor = color; showSpinner();
+    var d = collectFormData(); if (color) d.eventColor = color;
+    var tfAnswer=taxFormAnswer;
+    showSpinner();
     google.script.run.withSuccessHandler(function(id) { d.quoteId=id;
-      google.script.run.withSuccessHandler(function(pd) { hideSpinner(); pd.quoteId=id; openPrintWindow(pd); showToast('Quote '+id+' saved!','success'); google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes();
+      google.script.run.withSuccessHandler(function(pd) { hideSpinner(); pd.quoteId=id; openPrintWindow(pd); showToast('Quote '+id+' saved!','success'); afterSaveTaxForm(id, d.taxExempt, tfAnswer, d.customerEmail); google.script.run.withSuccessHandler(function(q){allQuotes=q;}).getQuotes();
       }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).getPrintData(d);
     }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).saveQuote(d);
   });
@@ -1301,7 +1371,7 @@ function openPrintWindow(data) {
   var lo=data.logo?'<img src="'+data.logo+'" style="max-width:140px;max-height:80px;margin-bottom:8px;" alt="Logo">':'<div style="font-size:24px;font-weight:800;color:#E51636;margin-bottom:8px;">Chick-fil-A</div>';
   var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Quote '+escHtml(data.quoteId||'')+'</title><style>@page{size:letter;margin:0.6in;}body{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1F2937;margin:0;padding:40px;}@media print{body{padding:0;}.no-print{display:none!important;}}.print-btn{background:#E51636;color:white;border:none;padding:12px 32px;font-size:15px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;}.print-btn:hover{background:#C41230;}</style></head><body>'+
     '<div class="no-print" style="text-align:center;margin-bottom:24px;padding:16px;background:#F9FAFB;border-radius:10px;"><button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button><p style="font-size:13px;color:#6B7280;margin-top:8px;">Use "Save as PDF" in the print dialog.</p></div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+lo+'<div style="font-size:16px;font-weight:700;">'+escHtml(data.storeName||'')+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+escHtml(data.storeAddress||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.storePhone||'')+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:monospace;">'+escHtml(data.quoteId||'')+'</div>'+(data.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+escHtml(data.poNumber)+'</div>':'')+(function(){var w=formatEventDateTime(data.date,data.time);return w?'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Event: '+escHtml(w)+'</div>':'';})()+(data.validThrough?'<div style="font-size:12px;color:#9CA3AF;margin-top:2px;">Quote valid through '+escHtml(data.validThrough)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+escHtml(data.customerName||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.orderType||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(ad)+'</div>'+(data.directionsUrl?'<div style="font-size:12px;"><a href="'+data.directionsUrl+'" style="color:#2563EB;">Get Directions (Google Maps)</a></div>':'')+'<div style="font-size:13px;font-weight:600;margin-top:4px;">'+escHtml(data.contactPerson||'')+'</div>'+(data.customerEmail?'<div style="font-size:13px;color:#6B7280;">'+escHtml(data.customerEmail)+'</div>':'')+(data.customerPhone?'<div style="font-size:13px;color:#6B7280;">'+escHtml(data.customerPhone)+'</div>':'')+'</div></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+lo+'<div style="font-size:16px;font-weight:700;">'+escHtml(data.storeName||'')+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+escHtml(data.storeAddress||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.storePhone||'')+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:monospace;">'+escHtml(data.quoteId||'')+'</div>'+(data.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+escHtml(data.poNumber)+'</div>':'')+(function(){var w=formatEventDateTime(data.date,data.time);return w?'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Event: '+escHtml(w)+'</div>':'';})()+(data.quotedOn?'<div style="font-size:12px;color:#9CA3AF;margin-top:2px;">Quoted on '+escHtml(data.quotedOn)+'</div>':'')+(data.validThrough?'<div style="font-size:12px;color:#9CA3AF;">Quote valid through '+escHtml(data.validThrough)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+escHtml(data.customerName||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.orderType||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(ad)+'</div>'+(data.directionsUrl?'<div style="font-size:12px;"><a href="'+data.directionsUrl+'" style="color:#2563EB;">Get Directions (Google Maps)</a></div>':'')+'<div style="font-size:13px;font-weight:600;margin-top:4px;">'+escHtml(data.contactPerson||'')+'</div>'+(data.customerEmail?'<div style="font-size:13px;color:#6B7280;">'+escHtml(data.customerEmail)+'</div>':'')+(data.customerPhone?'<div style="font-size:13px;color:#6B7280;">'+escHtml(data.customerPhone)+'</div>':'')+'</div></div>'+
     '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><thead><tr style="background:#F3F4F6;"><th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:10%;">QTY</th><th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:50%;">DESCRIPTION</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:18%;">PRICE/ITEM</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:22%;">AMOUNT</th></tr></thead><tbody>'+liH+'</tbody></table>'+
     notesHtml+
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;"><div style="font-size:13px;color:#6B7280;max-width:320px;">If you have any questions concerning this Quote, contact:<br><strong style="color:#1F2937;">'+escHtml(data.contactName||'')+' at '+escHtml(data.storePhone||'')+'</strong></div><table style="width:280px;background:#F9FAFB;border-radius:8px;overflow:hidden;"><tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SUBTOTAL</td><td style="padding:8px 16px;text-align:right;font-family:monospace;font-size:14px;">$'+(data.subtotal||0).toFixed(2)+'</td></tr>'+discRowsHtml+tl+'<tr style="background:#E5E7EB;"><td style="padding:10px 16px;font-size:15px;font-weight:700;">TOTAL</td><td style="padding:10px 16px;text-align:right;font-family:monospace;font-size:16px;font-weight:700;">$'+(data.total||0).toFixed(2)+'</td></tr></table></div></body></html>';
@@ -1317,6 +1387,7 @@ function resetForm() {
   document.getElementById('quoteDate').value=dateKey(new Date());
   document.getElementById('quoteTime').value=''; document.getElementById('poNumber').value=''; document.getElementById('poNumber').disabled=false; document.getElementById('poNumber').placeholder='e.g., PO-2026-001'; currentOrderType='Pickup'; isTaxExempt=false; noPONeeded=false;
   document.getElementById('taxExemptToggle').classList.remove('active');
+  updateTaxFormQuestion();
   document.getElementById('noPOToggle').classList.remove('active');
   document.querySelectorAll('.order-type-btn').forEach(function(b){b.classList.toggle('active',b.dataset.type==='Pickup');});
   updateAddressField(); document.getElementById('taxRateInput').value=appSettings['Default Tax Rate (%)']||8.25;
@@ -1625,7 +1696,17 @@ function openQuoteDetail(q) {
     var poStatus = isNoPO ? '\uD83D\uDFE2 NO PO NEEDED' : (q.poNumber&&q.poNumber.trim()!=='')?'\uD83D\uDFE2 HAVE PO':'\uD83D\uDD34 NEEDS PO';
     calHtml='<div class="detail-field" style="grid-column:1/-1;"><label>Calendar Event</label><p style="margin-top:4px;">'+poStatus+' \u2014 Event synced to calendar</p></div>';
   }
-  var h='<div class="detail-grid"><div class="detail-field"><label>Customer</label><p>'+escHtml(q.customerName)+'</p></div><div class="detail-field"><label>Contact</label><p>'+escHtml(q.contactName)+'</p></div><div class="detail-field"><label>Event Date</label><p>'+escHtml(eventWhen||'—')+'</p></div><div class="detail-field"><label>Quote Created</label><p>'+ds+'</p></div><div class="detail-field"><label>Order Type</label><p>'+escHtml(q.orderType)+'</p></div><div class="detail-field"><label>Location</label><p>'+escHtml(q.locationName||'')+'</p></div>'+(q.customerEmail?'<div class="detail-field"><label>Email</label><p>'+escHtml(q.customerEmail)+'</p></div>':'')+(q.customerPhone?'<div class="detail-field"><label>Phone</label><p>'+escHtml(q.customerPhone)+'</p></div>':'')+(q.orderType==='Delivery'?'<div class="detail-field"><label>Delivery Address</label><p>'+escHtml(q.deliveryAddress)+'</p>'+(q.deliveryAddress?'<a href="https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(q.deliveryAddress)+'" target="_blank" rel="noopener" style="font-size:12px;">Get Directions ↗</a>':'')+'</div>':'')+poHtml+calHtml+'</div>';
+  var tfHtml='';
+  if (te) {
+    var tfSt=taxFormStatuses[q.quoteId]||'';
+    var tfLabel=tfSt==='ON_FILE'?'🟢 On file':(tfSt==='REQUESTED'?'🟠 Requested — waiting on guest':'🔴 Not on file');
+    tfHtml='<div class="detail-field" style="grid-column:1/-1;"><label>Tax-Exempt Form</label><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;"><span style="font-weight:600;">'+tfLabel+'</span>'
+      +(tfSt!=='ON_FILE'?'<button class="btn btn-secondary btn-sm" onclick="markTaxFormOnFile(\''+escAttr(q.quoteId)+'\')">✓ Mark On File</button>':'')
+      +(tfSt!=='ON_FILE'&&q.customerEmail?'<button class="btn btn-blue btn-sm" onclick="requestTaxFormEmail(\''+escAttr(q.quoteId)+'\')">✉ Request from Guest</button>':'')
+      +(taxFolderUrl?'<a href="'+escAttr(taxFolderUrl)+'" target="_blank" rel="noopener" style="font-size:12px;">Forms folder ↗</a>':'')
+      +'</div></div>';
+  }
+  var h='<div class="detail-grid"><div class="detail-field"><label>Customer</label><p>'+escHtml(q.customerName)+'</p></div><div class="detail-field"><label>Contact</label><p>'+escHtml(q.contactName)+'</p></div><div class="detail-field"><label>Event Date</label><p>'+escHtml(eventWhen||'—')+'</p></div><div class="detail-field"><label>Quote Created</label><p>'+ds+'</p></div><div class="detail-field"><label>Order Type</label><p>'+escHtml(q.orderType)+'</p></div><div class="detail-field"><label>Location</label><p>'+escHtml(q.locationName||'')+'</p></div>'+(q.customerEmail?'<div class="detail-field"><label>Email</label><p>'+escHtml(q.customerEmail)+'</p></div>':'')+(q.customerPhone?'<div class="detail-field"><label>Phone</label><p>'+escHtml(q.customerPhone)+'</p></div>':'')+(q.orderType==='Delivery'?'<div class="detail-field"><label>Delivery Address</label><p>'+escHtml(q.deliveryAddress)+'</p>'+(q.deliveryAddress?'<a href="https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(q.deliveryAddress)+'" target="_blank" rel="noopener" style="font-size:12px;">Get Directions ↗</a>':'')+'</div>':'')+tfHtml+poHtml+calHtml+'</div>';
   if (li.length) { h+='<table class="detail-items-table"><thead><tr><th>Qty</th><th>Description</th><th>Price</th><th>Amount</th></tr></thead><tbody>'; li.forEach(function(i){
     var da=parseFloat(i.discountAmount)||0;
     var net=(parseFloat(i.amount)||0)-da;
@@ -1708,6 +1789,11 @@ function editAndReuse() {
   if (currentOrderType==='Delivery') document.getElementById('orderAddress').value=q.deliveryAddress||'';
   isTaxExempt=q.taxExempt==='TRUE'||q.taxExempt===true;
   document.getElementById('taxExemptToggle').classList.toggle('active',isTaxExempt);
+  updateTaxFormQuestion();
+  if (isTaxExempt) {
+    var tfSt=taxFormStatuses[q.quoteId]||'';
+    setTaxFormAnswer(tfSt==='ON_FILE'?'yes':(tfSt==='REQUESTED'?'no':''));
+  }
   document.getElementById('taxRateInput').value=q.taxRateUsed||appSettings['Default Tax Rate (%)']||8.25;
   var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){}
   var body=document.getElementById('lineItemsBody'); body.innerHTML='';
@@ -2014,7 +2100,7 @@ function buildCheatSheetTable() {
   var pct = cheatMarkupPct();
   cheatItems.forEach(function(item) {
     var tr = document.createElement('tr');
-    var delivery = item.hasPrice ? '$' + (item.basePrice * (1 + pct/100)).toFixed(2) : '<span style="color:var(--gray-400);">enter base price</span>';
+    var delivery = item.hasPrice ? '$' + (Math.round(item.basePrice * (1 + pct/100) * 10) / 10).toFixed(2) : '<span style="color:var(--gray-400);">enter base price</span>'; // rounded to the nearest tenth (4-down / 5-up)
     tr.innerHTML = '<td><input class="menu-name-input" value="'+escAttr(item.name)+'" data-row="'+item.row+'"></td>'
       + '<td class="price-col"><input class="menu-pickup-input" type="number" step="0.01" min="0" value="'+(item.hasPrice ? item.basePrice.toFixed(2) : '')+'" placeholder="0.00" data-row="'+item.row+'"></td>'
       + '<td class="price-col" style="font-family:var(--mono);font-weight:600;">'+delivery+'</td>'

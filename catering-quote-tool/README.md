@@ -32,7 +32,9 @@ You need **two files** in the Apps Script editor:
 ### Step 4: Initialize the Spreadsheet
 Select `initializeSheet` from the function dropdown → click **▶ Run** → authorize when prompted.
 
-Your sheet will have five visible tabs — **Settings**, **Menu**, **Quotes**, **Quote_Sequence**, **Off_Menu** (the cheat-sheet list, team-editable) — plus hidden tabs: **Quote_Revisions** (prior versions of edited quotes), **Confirmations_Sent** and **PO_Alerts_Sent** (automation logs).
+Your sheet will have five visible tabs — **Settings**, **Menu**, **Quotes**, **Quote_Sequence**, **Off_Menu** (the cheat-sheet list, team-editable) — plus hidden tabs: **Quote_Revisions** (prior versions of edited quotes), **Confirmations_Sent**, **PO_Alerts_Sent**, and **Tax_Forms** (automation logs and tax-form statuses).
+
+> The tax-form feature uses Google Drive (it creates a "Catering Tax Exempt Forms" folder) — the first run after this update will ask for a Drive permission. Click Allow.
 
 ### Step 5: Deploy as a Web App
 **Deploy → New deployment** → Web app → Execute as "Me" → Access "Anyone within [org]" (or "Anyone") → Deploy → copy the `/exec` URL.
@@ -125,8 +127,14 @@ Configurable in **Settings → Quote Follow-Up Reminders**:
 
 ### Off-Menu Cheat Sheet
 - A **Cheat Sheet** tab lists common off-menu items and add-ons (sliced tomatoes, folded eggs, package meals…) for building custom delivery quotes
-- The team enters each item's **base price** once; the tool shows the **delivery price** = base + `Off-Menu Markup (%)` (default 30, editable right on the page)
+- The team enters each item's **base price** once; the tool shows the **delivery price** = base + `Off-Menu Markup (%)` (default 30, editable right on the page), rounded to the nearest tenth
 - Fully team-editable — add, rename, reprice, delete; data lives on the visible `Off_Menu` sheet tab
+
+### Tax-Exempt Form Tracking
+- Flipping **Tax Exempt** on a quote asks: "form on file?" — answer No and the tool offers to email the guest a request (editable template in Settings) asking them to reply with a PDF, their name, and their quote number
+- Every tax-exempt quote shows 🟢 on file / 🟠 requested / 🔴 not on file in its popup, with **Mark On File** and **Request from Guest** buttons and a link to the auto-created **"Catering Tax Exempt Forms"** Drive folder (drop received PDFs there)
+- On the **last business day of December**, the daily automation emails the team a year-end review: every tax-exempt quote from the year and its form status
+- Quote IDs now carry the contact's initials (`Q-2026-0042-KD`); uniqueness still comes from the counter, so repeated initials are fine. PDFs show a "Quoted on" date alongside "valid through"
 
 ### Delivery Runsheet
 - From the Calendar's Day view: print a one-page runsheet for the day (times in order, contacts, phones, addresses with Maps links, items, PO status) or email it to the catering lead
@@ -185,6 +193,8 @@ Columns A–V cover the quote fields (customer, contact, order type, line items 
 | Delivery Warning Count / Window (Minutes) | The busy-delivery-window check: warn at N deliveries within M minutes (default 3 within 60) |
 | Confirmation Enabled / Subject / Body | Day-before customer confirmation email (default off; templates editable) |
 | PO Alert Enabled / Days Before / Email | Daily missing-PO digest: on/off, window (default 7), recipients (blank = deploying account) |
+| Off-Menu Markup (%) | Delivery markup on the Cheat Sheet tab (default 30) |
+| Tax Form Request Subject / Body | The email sent to guests asking for their tax-exempt form (templates editable) |
 | Logo (Base64) | Uploaded via the app Settings tab |
 | Email Subject | Template with `{{placeholders}}` |
 | Email Body | Template with `{{placeholders}}` |
