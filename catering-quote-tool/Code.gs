@@ -45,11 +45,39 @@ function logAdoptionPing_(toolName) {
   }
 }
 
-function doGet() {
-  logAdoptionPing_('catering-quote-tool');
-  return HtmlService.createTemplateFromFile('Index')
-    .evaluate()
-    .setTitle('CFA Catering Quotes')
+// The app is deployed "Anyone" so external guests can reach the tax-form upload
+// page. Routing keeps the internal tool behind an obscure key:
+//   ?view=taxform&quote=Q-...  → public guest upload page (no gate)
+//   ?view=app                  → internal quote tool
+//   anything else / bare URL   → bland landing (don't expose Index to the public)
+function doGet(e) {
+  var view = (e && e.parameter && e.parameter.view) ? e.parameter.view : '';
+
+  if (view === 'taxform') {
+    var tpl = HtmlService.createTemplateFromFile('TaxForm');
+    tpl.quoteParam = (e && e.parameter && e.parameter.quote) ? e.parameter.quote : '';
+    return tpl.evaluate()
+      .setTitle('Upload Your Tax-Exempt Form')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
+  }
+
+  if (view === 'app') {
+    logAdoptionPing_('catering-quote-tool');
+    return HtmlService.createTemplateFromFile('Index')
+      .evaluate()
+      .setTitle('CFA Catering Quotes')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+
+  return HtmlService.createHtmlOutput(
+      '<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:460px;margin:80px auto;padding:0 24px;text-align:center;color:#374151;">'
+    + '<div style="font-size:40px;">🍽️</div>'
+    + '<h2 style="color:#E51636;">Chick-fil-A Catering</h2>'
+    + '<p style="line-height:1.6;">This link isn\'t valid on its own. If a team member sent you here to upload a tax-exempt form, please use the exact link from your email.</p>'
+    + '</div>')
+    .setTitle('Chick-fil-A Catering')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
@@ -587,7 +615,7 @@ function initializeSheet() {
     ['PO Alert Email',              ''],
     ['Off-Menu Markup (%)',          30],
     ['Tax Form Request Subject',    'Tax-exempt form needed for your catering quote {{quoteId}}'],
-    ['Tax Form Request Body',       'Hi {{contactPerson}},\n\nThanks for your catering order with Chick-fil-A {{location}}! To honor the tax exemption on quote {{quoteId}}, we need a copy of your organization\'s tax-exempt form on file.\n\nCould you reply to this email with a PDF of the form? Please include your name and your quote number ({{quoteId}}) so we can match it up.\n\nThank you!\n{{contact}}\nChick-fil-A {{location}}\n{{phone}}'],
+    ['Tax Form Request Body',       'Hi {{contactPerson}},\n\nThanks for your catering order with Chick-fil-A {{location}}! To honor the tax exemption on quote {{quoteId}}, we need a copy of your organization\'s tax-exempt form on file.\n\nPlease upload a PDF of the form using this secure link:\n{{uploadLink}}\n\nIt takes about a minute and asks for your name and quote number ({{quoteId}}) so we can match it up.\n\nThank you!\n{{contact}}\nChick-fil-A {{location}}\n{{phone}}'],
     ['Logo (Base64)',                ''],
     ['Email Subject',               'Your Catering Quote from Chick-fil-A {{location}}'],
     ['Email Body',                  'Hi {{customer}},\n\nThank you for considering Chick-fil-A {{location}} for your catering needs! We appreciate you reaching out and would love to help make your event something special.\n\nPlease find your catering quote attached. If you have any questions or would like to make any changes, don\'t hesitate to reach out — we\'re happy to help.\n\nWe look forward to serving you!\n\nWarm regards,\n{{contact}}\nChick-fil-A {{location}}\n{{phone}}'],
@@ -662,6 +690,8 @@ function initializeSheet() {
   initLogSheet_(TAB_CONFIRMATIONS, ['Quote ID', 'Event Date', 'Sent At']);
   initLogSheet_(TAB_PO_ALERTS, ['Quote ID', 'Alerted At']);
   initLogSheet_(TAB_TAX_FORMS, ['Quote ID', 'Status', 'Updated At']);
+  initLogSheet_(TAB_TAX_PENDING, ['Submitted At', 'Organization', 'Contact Name', 'Quote ID', 'PDF Link', 'PDF File ID', 'Status']);
+  ensureTaxRegistrySheet_();
 
   // Off-menu cheat sheet — visible tab, team-editable. Base prices start blank
   // on purpose: fill them from the POS; the app computes delivery price (+markup).
@@ -1324,8 +1354,11 @@ function getAutomationTriggerStatus() {
 // separate from the Quotes columns so nothing else shifts. Statuses:
 // '' (never asked) / 'REQUESTED' (email sent) / 'ON_FILE' (form in the Drive folder).
 
-const TAB_TAX_FORMS = 'Tax_Forms';
+const TAB_TAX_FORMS = 'Tax_Forms';               // per-quote answer (quote popup color)
+const TAB_TAX_REGISTRY = 'Tax_Exempt_Registry';  // org-level master list (visible tab)
+const TAB_TAX_PENDING = 'Tax_Form_Uploads';      // raw guest uploads awaiting review
 const TAX_FORM_FOLDER_NAME = 'Catering Tax Exempt Forms';
+const TAX_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;   // 10 MB cap on guest uploads
 
 // Find-or-create the Drive folder; remember its ID so renames don't orphan it.
 function ensureTaxFormFolder_() {
@@ -1338,6 +1371,16 @@ function ensureTaxFormFolder_() {
   var folder = it.hasNext() ? it.next() : DriveApp.createFolder(TAX_FORM_FOLDER_NAME);
   props.setProperty('TAX_FORM_FOLDER_ID', folder.getId());
   return folder;
+}
+
+// Decode a base64 PDF and drop it in the folder. Files stay private to the
+// Drive owner (these are sensitive tax docs) — the team opens them via the folder.
+function saveTaxPdf_(baseName, mimeType, dataBase64) {
+  var bytes = Utilities.base64Decode(dataBase64);
+  if (bytes.length > TAX_MAX_UPLOAD_BYTES) throw new Error('File is too large (10 MB max).');
+  var safe = (baseName || 'Tax Exempt Form').replace(/[\\/:*?"<>|]/g, '-').slice(0, 120);
+  var blob = Utilities.newBlob(bytes, mimeType || 'application/pdf', safe + '.pdf');
+  return ensureTaxFormFolder_().createFile(blob);
 }
 
 // One call for the client: every quote's status plus the folder link.
@@ -1382,13 +1425,16 @@ function sendTaxFormRequest(quoteId, recipientEmail) {
   var storePhone = '';
   if (storeName === (settings['Location 2 Name'] || '')) storePhone = settings['Location 2 Phone'] || '';
   else storePhone = settings['Location 1 Phone'] || '';
+  var uploadLink = '';
+  try { uploadLink = ScriptApp.getService().getUrl() + '?view=taxform&quote=' + encodeURIComponent(quote.quoteId || ''); } catch(e) {}
   var reps = {
     '{{contactPerson}}': quote.contactName || '',
     '{{customer}}': quote.customerName || '',
     '{{contact}}': settings['Quote Contact Name'] || '',
     '{{location}}': storeName,
     '{{phone}}': storePhone,
-    '{{quoteId}}': quote.quoteId || ''
+    '{{quoteId}}': quote.quoteId || '',
+    '{{uploadLink}}': uploadLink
   };
   var subj = settings['Tax Form Request Subject'] || 'Tax-exempt form needed for your catering quote {{quoteId}}';
   var body = settings['Tax Form Request Body'] || 'Hi {{contactPerson}},\n\nPlease reply with a PDF of your tax-exempt form, including your name and quote number {{quoteId}}.\n\nThank you!\n{{contact}}';
@@ -1419,24 +1465,170 @@ function _sendYearEndTaxReview() {
   var settings = getSettings();
   var to = poAlertRecipients_(settings);
   if (!to) return 'No recipient configured.';
-  var statuses = getTaxFormStatuses();
   var year = today.getFullYear();
-  var exempt = getQuotes().filter(function(q) {
+  var reg = getTaxRegistry();
+  var regLines = reg.entries.map(function(e) {
+    var dot = e.status === 'ON_FILE' ? '🟢' : (e.status === 'REQUESTED' ? '🟠' : '🔴');
+    return '• ' + dot + ' ' + e.organization + (e.dateOnFile ? ' — on file ' + e.dateOnFile : '') + (e.pdfUrl ? ' — ' + e.pdfUrl : '');
+  });
+  var exemptCount = getQuotes().filter(function(q) {
     var te = q.taxExempt === 'TRUE' || q.taxExempt === true;
     return te && q.createdDate && new Date(q.createdDate).getFullYear() === year;
-  });
-  var lines = exempt.map(function(q) {
-    var s = statuses.statuses[q.quoteId] || '';
-    var label = s === 'ON_FILE' ? '🟢 on file' : (s === 'REQUESTED' ? '🟠 requested, not received' : '🔴 never collected');
-    return '• ' + q.quoteId + ' — ' + q.customerName + ' — ' + label;
-  });
+  }).length;
   var body = 'It\'s the last business day of ' + year + ' — time to review the tax-exempt forms.\n\n'
-    + (exempt.length ? 'Tax-exempt quotes this year:\n\n' + lines.join('\n') : 'No tax-exempt quotes were created this year.')
-    + (statuses.folderUrl ? '\n\nForms folder: ' + statuses.folderUrl : '')
-    + '\n\nMake sure every 🟢 has a matching PDF in the folder, and chase anything 🟠 or 🔴 before the auditors do.';
+    + 'You created ' + exemptCount + ' tax-exempt quote(s) this year.\n\n'
+    + (reg.entries.length ? 'Tax-Exempt Registry (' + reg.entries.length + ' organizations):\n\n' + regLines.join('\n') : 'The registry is empty — nothing recorded yet.')
+    + (reg.pending.length ? '\n\n⚠ ' + reg.pending.length + ' guest upload(s) still awaiting review in the app.' : '')
+    + (reg.folderUrl ? '\n\nForms folder: ' + reg.folderUrl : '')
+    + '\n\nOpen each 🟢 to confirm the form is current; chase anything 🟠 or 🔴 before the next order.';
   MailApp.sendEmail(to, '📋 Year-end review: catering tax-exempt forms (' + year + ')', body, { name: 'Catering Quote Tool' });
   props.setProperty(guard, 'sent');
   return 'Year-end tax review sent.';
+}
+
+
+// ── TAX-EXEMPT REGISTRY + GUEST UPLOADS ──────────────────────
+// Registry (Tax_Exempt_Registry): one row per organization —
+//   Organization | Status | PDF Link | PDF File ID | Date On File | Notes | Updated At
+// Guest uploads land in Tax_Form_Uploads as PENDING; a human confirms each into
+// the registry (they pick the matching org — the system never auto-matches names).
+
+// Visible, team-reviewable tab (unlike the hidden log tabs).
+function ensureTaxRegistrySheet_() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(TAB_TAX_REGISTRY);
+  if (!sheet) {
+    sheet = ss.insertSheet(TAB_TAX_REGISTRY);
+    sheet.getRange(1, 1, 1, 7).setValues([['Organization', 'Status', 'PDF Link', 'PDF File ID', 'Date On File', 'Notes', 'Updated At']]).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(1, 260);
+    sheet.setColumnWidth(3, 260);
+  }
+  return sheet;
+}
+
+function getTaxRegistry() {
+  var out = { folderUrl: '', entries: [], pending: [] };
+  try { out.folderUrl = ensureTaxFormFolder_().getUrl(); } catch(e) {}
+  var reg = getSpreadsheet().getSheetByName(TAB_TAX_REGISTRY);
+  if (reg && reg.getLastRow() > 1) {
+    reg.getRange(2, 1, reg.getLastRow() - 1, 7).getValues().forEach(function(r, i) {
+      if (!r[0] || r[0].toString().trim() === '') return;
+      out.entries.push({
+        organization: r[0].toString().trim(),
+        status: (r[1] || '').toString().trim() || 'ON_FILE',
+        pdfUrl: (r[2] || '').toString().trim(),
+        dateOnFile: normalizeEventDate_(r[4], Session.getScriptTimeZone()),
+        notes: (r[5] || '').toString(),
+        row: i + 2
+      });
+    });
+    out.entries.sort(function(a, b) { return a.organization.toLowerCase() < b.organization.toLowerCase() ? -1 : 1; });
+  }
+  var pend = getSpreadsheet().getSheetByName(TAB_TAX_PENDING);
+  if (pend && pend.getLastRow() > 1) {
+    pend.getRange(2, 1, pend.getLastRow() - 1, 7).getValues().forEach(function(r, i) {
+      if ((r[6] || '').toString().trim() !== 'PENDING') return;
+      out.pending.push({
+        submittedAt: r[0] ? new Date(r[0]).toISOString() : '',
+        organization: (r[1] || '').toString().trim(),
+        contactName: (r[2] || '').toString().trim(),
+        quoteId: (r[3] || '').toString().trim(),
+        pdfUrl: (r[4] || '').toString().trim(),
+        row: i + 2
+      });
+    });
+  }
+  return out;
+}
+
+// Add or update a registry row. row>0 updates that row; otherwise appends.
+function saveTaxRegistryEntry(entry) {
+  var org = (entry.organization || '').toString().trim();
+  if (!org) return { success: false, message: 'Organization name is required.' };
+  var sheet = ensureTaxRegistrySheet_();
+  var vals = [org, entry.status || 'ON_FILE', entry.pdfUrl || '', entry.pdfFileId || '', entry.dateOnFile || '', entry.notes || '', new Date()];
+  var row = parseInt(entry.row, 10);
+  if (row && row > 1) {
+    // Preserve the existing PDF link/id if this update didn't supply new ones
+    var cur = sheet.getRange(row, 1, 1, 7).getValues()[0];
+    if (!vals[2]) vals[2] = cur[2];
+    if (!vals[3]) vals[3] = cur[3];
+    sheet.getRange(row, 1, 1, 7).setValues([vals]);
+  } else {
+    sheet.appendRow(vals);
+  }
+  return { success: true };
+}
+
+function deleteTaxRegistryEntry(row) {
+  var sheet = getSpreadsheet().getSheetByName(TAB_TAX_REGISTRY);
+  if (sheet && row > 1) sheet.deleteRow(row);
+  return true;
+}
+
+// PUBLIC — called by the guest upload page (anonymous users on the public deployment).
+// Stores the PDF and logs a PENDING row for internal review. Never touches the registry directly.
+function submitGuestTaxForm(payload) {
+  payload = payload || {};
+  var org = (payload.organization || '').toString().trim();
+  var name = (payload.contactName || '').toString().trim();
+  var quoteId = (payload.quoteId || '').toString().trim();
+  var data = (payload.dataBase64 || '').toString();
+  if (!org || !name) return { success: false, message: 'Please enter your name and organization.' };
+  if (!data) return { success: false, message: 'Please attach a PDF of your form.' };
+  var mime = (payload.mimeType || '').toString();
+  if (mime && mime.indexOf('pdf') < 0) return { success: false, message: 'Please upload a PDF file.' };
+  var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var file;
+  try {
+    file = saveTaxPdf_(org + ' - ' + name + (quoteId ? ' - ' + quoteId : '') + ' - ' + stamp, 'application/pdf', data);
+  } catch (err) {
+    return { success: false, message: err.message || 'Upload failed — please try again.' };
+  }
+  var sheet = initLogSheet_(TAB_TAX_PENDING, ['Submitted At', 'Organization', 'Contact Name', 'Quote ID', 'PDF Link', 'PDF File ID', 'Status']);
+  sheet.appendRow([new Date(), org, name, quoteId, file.getUrl(), file.getId(), 'PENDING']);
+  return { success: true, message: 'Thank you! We\'ve received your tax-exempt form.' };
+}
+
+// Internal: confirm a pending guest upload into the registry under a chosen org name.
+function confirmPendingTaxUpload(pendingRow, organization) {
+  var org = (organization || '').toString().trim();
+  if (!org) return { success: false, message: 'Pick an organization name.' };
+  var pend = getSpreadsheet().getSheetByName(TAB_TAX_PENDING);
+  if (!pend || pendingRow < 2) return { success: false, message: 'Upload not found.' };
+  var r = pend.getRange(pendingRow, 1, 1, 7).getValues()[0];
+  var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  saveTaxRegistryEntry({ organization: org, status: 'ON_FILE', pdfUrl: r[4], pdfFileId: r[5], dateOnFile: stamp, notes: 'Uploaded by ' + (r[2] || 'guest') });
+  pend.getRange(pendingRow, 7).setValue('CONFIRMED');
+  return { success: true };
+}
+
+function dismissPendingTaxUpload(pendingRow) {
+  var pend = getSpreadsheet().getSheetByName(TAB_TAX_PENDING);
+  if (pend && pendingRow > 1) pend.getRange(pendingRow, 7).setValue('DISMISSED');
+  return { success: true };
+}
+
+// Internal backfill: upload a PDF we already have on file straight into the registry.
+function backfillTaxForm(payload) {
+  payload = payload || {};
+  var org = (payload.organization || '').toString().trim();
+  if (!org) return { success: false, message: 'Organization name is required.' };
+  var pdfUrl = '', pdfFileId = '';
+  if (payload.dataBase64) {
+    var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    var file;
+    try { file = saveTaxPdf_(org + ' - ' + stamp, payload.mimeType || 'application/pdf', payload.dataBase64); }
+    catch (err) { return { success: false, message: err.message || 'Upload failed.' }; }
+    pdfUrl = file.getUrl(); pdfFileId = file.getId();
+  }
+  saveTaxRegistryEntry({
+    organization: org, status: 'ON_FILE', pdfUrl: pdfUrl, pdfFileId: pdfFileId,
+    dateOnFile: payload.dateOnFile || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'),
+    notes: payload.notes || 'Backfilled'
+  });
+  return { success: true, message: 'Added ' + org + ' to the registry.' };
 }
 
 

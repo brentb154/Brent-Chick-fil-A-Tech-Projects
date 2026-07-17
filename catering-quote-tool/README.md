@@ -14,30 +14,41 @@ In your Google Sheet: **Extensions → Apps Script**.
 
 ### Step 3: Add the Code Files
 
-You need **two files** in the Apps Script editor:
+You need **three files** in the Apps Script editor:
 
 | GAS Filename | Source File |
 |---|---|
 | `Code` (auto-created) | `Code.gs` |
 | `Index` (HTML) | `App.html` |
+| `TaxForm` (HTML) | `TaxForm.html` |
 
 **Code.gs:** Replace all code in the existing `Code.gs` with the provided `Code.gs` file.
 
 **Index.html:** Click **+** next to Files → select **HTML** → name it exactly `Index` → paste the contents of `App.html`.
 
+**TaxForm.html:** Click **+** next to Files → select **HTML** → name it exactly `TaxForm` → paste the contents of `TaxForm.html`. This is the public page guests use to upload their tax-exempt form.
+
 > **Upgrading an older install?** If your project still has `Pipeline` and `PipelineView` files, delete both — the Pipeline feature was retired. The old `Pipeline` sheet tab keeps its data; delete it by hand whenever you like.
 
-> **Important:** `doGet()` uses `HtmlService.createTemplateFromFile('Index')` — the `Index` file name must match exactly.
+> **Important:** the HTML files must be named exactly `Index` and `TaxForm` — `doGet` loads them by those names.
+
+### How the app is reached (routing)
+The app is one web app that serves two audiences by URL:
+- **Your team:** `…/exec?view=app` — the quote tool. Bookmark this exact URL.
+- **Guests:** `…/exec?view=taxform&quote=Q-…` — the tax-form upload page (auto-embedded in the request email; you never share it by hand).
+- The **bare** `…/exec` shows a harmless "use your direct link" page, so a stranger who finds the base URL doesn't land in the internal tool.
 
 ### Step 4: Initialize the Spreadsheet
 Select `initializeSheet` from the function dropdown → click **▶ Run** → authorize when prompted.
 
-Your sheet will have five visible tabs — **Settings**, **Menu**, **Quotes**, **Quote_Sequence**, **Off_Menu** (the cheat-sheet list, team-editable) — plus hidden tabs: **Quote_Revisions** (prior versions of edited quotes), **Confirmations_Sent**, **PO_Alerts_Sent**, and **Tax_Forms** (automation logs and tax-form statuses).
+Your sheet will have six visible tabs — **Settings**, **Menu**, **Quotes**, **Quote_Sequence**, **Off_Menu** (the cheat-sheet list), **Tax_Exempt_Registry** (the tax-form list, team-editable) — plus hidden tabs: **Quote_Revisions**, **Confirmations_Sent**, **PO_Alerts_Sent**, **Tax_Forms**, **Tax_Form_Uploads** (logs and status).
 
 > The tax-form feature uses Google Drive (it creates a "Catering Tax Exempt Forms" folder) — the first run after this update will ask for a Drive permission. Click Allow.
 
 ### Step 5: Deploy as a Web App
-**Deploy → New deployment** → Web app → Execute as "Me" → Access "Anyone within [org]" (or "Anyone") → Deploy → copy the `/exec` URL.
+**Deploy → New deployment** → Web app → Execute as "Me" → Access **"Anyone"** → Deploy → copy the `/exec` URL.
+
+> **Access must be "Anyone,"** not "Anyone within your domain" — external catering guests (school districts, churches) are outside your Google domain and otherwise can't reach the upload page. The internal tool is protected by URL: the team uses `…/exec?view=app`, and the bare URL shows a harmless landing page. (This is a deliberate tradeoff — the internal tool is link-obscured, not login-walled. Don't post the `?view=app` link publicly.)
 
 > After any code change, create a **new deployment version** — the `/exec` URL always serves the last deployed version, not the latest saved code. Use `/dev` during testing to always see the latest save.
 
@@ -131,10 +142,11 @@ Configurable in **Settings → Quote Follow-Up Reminders**:
 - Fully team-editable — add, rename, reprice, delete; data lives on the visible `Off_Menu` sheet tab
 
 ### Tax-Exempt Form Tracking
-- Flipping **Tax Exempt** on a quote asks: "form on file?" — answer No and the tool offers to email the guest a request (editable template in Settings) asking them to reply with a PDF, their name, and their quote number
-- Every tax-exempt quote shows 🟢 on file / 🟠 requested / 🔴 not on file in its popup, with **Mark On File** and **Request from Guest** buttons and a link to the auto-created **"Catering Tax Exempt Forms"** Drive folder (drop received PDFs there)
-- On the **last business day of December**, the daily automation emails the team a year-end review: every tax-exempt quote from the year and its form status
-- Quote IDs now carry the contact's initials (`Q-2026-0042-KD`); uniqueness still comes from the counter, so repeated initials are fine. PDFs show a "Quoted on" date alongside "valid through"
+- Flipping **Tax Exempt** on a quote asks: "form on file?" with a **Look it up** button that opens the searchable registry (so you're never guessing from memory). Answer No and the tool emails the guest a secure **upload link** (editable template in Settings)
+- Guests upload their PDF on a public page (`?view=taxform`) — **no Google login needed**. It lands in the **"Catering Tax Exempt Forms"** Drive folder and appears in the app as a **pending review**; a team member confirms it into the registry under the right organization (a human always does the name-matching — nothing is auto-matched)
+- The **Tax Forms** tab / **Tax_Exempt_Registry** sheet lists every organization: 🟢 on file / 🟠 requested / 🔴 not on file, with a link to each PDF. **Add Existing Form** backfills the ones you already have
+- On the **last business day of December**, the daily automation emails the team a year-end review built from the registry (every organization, status, and PDF link)
+- Quote IDs carry the contact's initials (`Q-2026-0042-KD`); uniqueness still comes from the counter, so repeated initials are fine. PDFs show a "Quoted on" date alongside "valid through"
 
 ### Delivery Runsheet
 - From the Calendar's Day view: print a one-page runsheet for the day (times in order, contacts, phones, addresses with Maps links, items, PO status) or email it to the catering lead

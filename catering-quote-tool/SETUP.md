@@ -1,6 +1,18 @@
 # Catering Quote Tool — Setup Instructions for New Features
 
-## July 2026 Batch 2 (newest) — customer memory, runsheet, automation, Pipeline retired
+## July 2026 Batch 3 (newest) — tax-exempt registry + guest upload page
+
+This adds a guest-facing tax-form upload page and an organization-level registry, and **changes how the app is deployed.**
+
+**What changed in deployment (important):**
+1. Add a **third HTML file** named exactly `TaxForm` holding `TaxForm.html` (alongside `Code` and `Index`).
+2. Redeploy with **Access = "Anyone"** (not "Anyone within your domain") so external guests can reach the upload page. Edit the existing deployment → Access → Anyone → new version.
+3. The team's URL is now `…/exec?view=app` (bookmark it). Guests get `…/exec?view=taxform&quote=…` automatically inside the request email. The bare `…/exec` shows a harmless landing page.
+4. Run `initializeSheet()` — it creates the visible **Tax_Exempt_Registry** tab and hidden **Tax_Form_Uploads** tab. First run prompts a Drive permission — Allow.
+
+**How it works:** on a tax-exempt quote, "Look it up" opens the registry; "Request from Guest" emails an upload link. Guests upload a PDF (no login) → it lands in the Drive folder as a **pending review** on the **Tax Forms** tab → a team member confirms it into the registry under the right organization. **Add Existing Form** backfills what you already have. The Dec year-end reminder now summarizes the registry.
+
+## July 2026 Batch 2 — customer memory, runsheet, automation, Pipeline retired
 
 This update adds: customer memory (org + contact autofill from past quotes), a **Reorder** button, a printable/emailable daily delivery runsheet, day-before confirmation emails, a daily missing-PO alert digest, a "valid through" date on PDFs, Settings-tunable delivery warning, a collapsible menu editor with CFA Home import instructions — and **removes the Pipeline feature entirely**.
 

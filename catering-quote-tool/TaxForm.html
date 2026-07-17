@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    :root { --cfa-red:#E51636; --cfa-red-dark:#C41230; --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB; --gray-400:#9CA3AF; --gray-500:#6B7280; --gray-700:#374151; --gray-900:#111827; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif; background:var(--gray-100); color:var(--gray-900); padding:24px 16px; line-height:1.5; }
+    .card { max-width:520px; margin:0 auto; background:#fff; border-radius:16px; box-shadow:0 4px 24px rgba(0,0,0,.08); overflow:hidden; }
+    .head { background:var(--cfa-red); color:#fff; padding:24px; text-align:center; }
+    .head .logo { font-size:34px; }
+    .head h1 { font-size:20px; margin-top:6px; font-weight:700; }
+    .head p { font-size:13px; opacity:.92; margin-top:6px; }
+    .body { padding:24px; }
+    .field { margin-bottom:16px; }
+    .field label { display:block; font-size:13px; font-weight:600; color:var(--gray-700); margin-bottom:6px; }
+    .field input[type=text] { width:100%; border:1px solid var(--gray-200); border-radius:8px; padding:11px 13px; font-size:15px; font-family:inherit; outline:none; }
+    .field input[type=text]:focus { border-color:var(--cfa-red); }
+    .req:after { content:' *'; color:var(--cfa-red); }
+    .filewrap { border:2px dashed var(--gray-200); border-radius:10px; padding:20px; text-align:center; cursor:pointer; transition:border-color .15s,background .15s; }
+    .filewrap:hover { border-color:var(--cfa-red); background:var(--gray-50); }
+    .filewrap.has { border-color:var(--cfa-red); background:#FFF0F2; }
+    .filewrap .icon { font-size:26px; }
+    .filewrap .txt { font-size:13px; color:var(--gray-500); margin-top:6px; }
+    .filewrap .name { font-size:14px; color:var(--gray-900); font-weight:600; margin-top:6px; word-break:break-all; }
+    #fileInput { display:none; }
+    .hint { font-size:12px; color:var(--gray-400); margin-top:6px; }
+    .btn { width:100%; margin-top:8px; background:var(--cfa-red); color:#fff; border:none; border-radius:10px; padding:14px; font-size:16px; font-weight:700; cursor:pointer; font-family:inherit; }
+    .btn:hover { background:var(--cfa-red-dark); }
+    .btn:disabled { opacity:.6; cursor:not-allowed; }
+    .msg { padding:12px 14px; border-radius:8px; font-size:14px; margin-bottom:16px; display:none; }
+    .msg.err { background:#FEF2F2; color:#991B1B; border:1px solid #FECACA; display:block; }
+    .done { text-align:center; padding:16px 0; }
+    .done .big { font-size:48px; }
+    .done h2 { color:var(--cfa-red); font-size:22px; margin:10px 0 6px; }
+    .done p { color:var(--gray-500); font-size:14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="head">
+      <div class="logo">🍽️</div>
+      <h1>Tax-Exempt Form Upload</h1>
+      <p>Chick-fil-A Catering</p>
+    </div>
+    <div class="body" id="formWrap">
+      <p style="font-size:14px;color:var(--gray-500);margin-bottom:18px;">Please upload a PDF of your organization's tax-exempt form so we can keep it on file for your catering orders.</p>
+      <div class="msg" id="msg"></div>
+      <div class="field"><label class="req">Your Name</label><input type="text" id="name" placeholder="e.g., Jane Smith" autocomplete="name"></div>
+      <div class="field"><label class="req">Organization</label><input type="text" id="org" placeholder="e.g., Dallas ISD"></div>
+      <div class="field"><label>Quote Number</label><input type="text" id="quote" placeholder="e.g., Q-2026-0042"><div class="hint">Pre-filled from your email link — leave as-is if it's already correct.</div></div>
+      <div class="field">
+        <label class="req">Tax-Exempt Form (PDF)</label>
+        <div class="filewrap" id="fileWrap" onclick="document.getElementById('fileInput').click()">
+          <div class="icon">📎</div>
+          <div class="txt" id="fileTxt">Tap to choose your PDF file</div>
+          <div class="name" id="fileName" style="display:none;"></div>
+        </div>
+        <input type="file" id="fileInput" accept="application/pdf,.pdf" onchange="onFile()">
+        <div class="hint">PDF only, up to 10 MB.</div>
+      </div>
+      <button class="btn" id="submitBtn" onclick="submitForm()">Submit Form</button>
+    </div>
+  </div>
+  <span id="quoteParam" style="display:none;"><?= quoteParam ?></span>
+
+  <script>
+    var quoteParam = (document.getElementById('quoteParam').textContent || '').trim();
+    var fileData = null, fileMime = '';
+    document.addEventListener('DOMContentLoaded', function() {
+      if (quoteParam) document.getElementById('quote').value = quoteParam;
+    });
+
+    function showErr(m) { var el = document.getElementById('msg'); el.textContent = m; el.className = 'msg err'; }
+    function clearErr() { document.getElementById('msg').className = 'msg'; }
+
+    function onFile() {
+      var f = document.getElementById('fileInput').files[0];
+      if (!f) return;
+      if (f.type.indexOf('pdf') < 0 && !/\.pdf$/i.test(f.name)) { showErr('Please choose a PDF file.'); return; }
+      if (f.size > 10 * 1024 * 1024) { showErr('That file is larger than 10 MB. Please upload a smaller PDF.'); return; }
+      clearErr();
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        fileData = e.target.result.split(',')[1]; // strip data: prefix → base64
+        fileMime = f.type || 'application/pdf';
+      };
+      reader.readAsDataURL(f);
+      document.getElementById('fileWrap').classList.add('has');
+      document.getElementById('fileTxt').style.display = 'none';
+      var nm = document.getElementById('fileName');
+      nm.textContent = f.name; nm.style.display = 'block';
+    }
+
+    function submitForm() {
+      var name = document.getElementById('name').value.trim();
+      var org = document.getElementById('org').value.trim();
+      var quote = document.getElementById('quote').value.trim();
+      if (!name || !org) { showErr('Please fill in your name and organization.'); return; }
+      if (!fileData) { showErr('Please attach a PDF of your tax-exempt form.'); return; }
+      clearErr();
+      var btn = document.getElementById('submitBtn');
+      btn.disabled = true; btn.textContent = 'Uploading…';
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res && res.success) { showDone(); }
+          else { showErr((res && res.message) || 'Something went wrong. Please try again.'); btn.disabled = false; btn.textContent = 'Submit Form'; }
+        })
+        .withFailureHandler(function(err) {
+          showErr('Upload failed: ' + (err && err.message ? err.message : 'please try again.'));
+          btn.disabled = false; btn.textContent = 'Submit Form';
+        })
+        .submitGuestTaxForm({ contactName: name, organization: org, quoteId: quote, mimeType: fileMime, dataBase64: fileData });
+    }
+
+    function showDone() {
+      document.getElementById('formWrap').innerHTML =
+        '<div class="done"><div class="big">✅</div><h2>Thank you!</h2>' +
+        '<p>We\'ve received your tax-exempt form. Our team will review it and keep it on file for your catering orders. You can close this page.</p></div>';
+    }
+  </script>
+</body>
+</html>

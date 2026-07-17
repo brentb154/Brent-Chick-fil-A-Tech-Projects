@@ -298,6 +298,7 @@
       <button class="tab-btn" data-view="history" onclick="switchView('history')">History</button>
       <button class="tab-btn" data-view="calendar" onclick="switchView('calendar')">Calendar</button>
       <button class="tab-btn" data-view="cheatsheet" onclick="switchView('cheatsheet')">Cheat Sheet</button>
+      <button class="tab-btn" data-view="taxforms" onclick="switchView('taxforms')">Tax Forms</button>
       <button class="tab-btn" data-view="settings" onclick="switchView('settings')">Settings</button>
     </nav>
   </header>
@@ -347,11 +348,12 @@
             <div class="tax-exempt-toggle" id="taxExemptToggle" onclick="toggleTaxExempt()"><div class="toggle-indicator">✓</div><span class="tax-exempt-label">Tax Exempt</span></div>
             <div id="taxFormQuestion" style="display:none;margin-top:10px;padding:10px 12px;background:var(--gray-50);border:1px solid var(--gray-100);border-radius:var(--radius);max-width:280px;">
               <div style="font-size:12px;font-weight:700;color:var(--gray-500);margin-bottom:6px;">Tax-exempt form on file?</div>
-              <div style="display:flex;gap:8px;">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button type="button" class="btn btn-sm" id="taxFormYesBtn" onclick="setTaxFormAnswer('yes')" style="border:1px solid var(--gray-200);background:var(--white);">✓ Yes</button>
                 <button type="button" class="btn btn-sm" id="taxFormNoBtn" onclick="setTaxFormAnswer('no')" style="border:1px solid var(--gray-200);background:var(--white);">✗ No</button>
+                <button type="button" class="btn btn-sm" onclick="openTaxLookup()" style="border:1px solid var(--gray-200);background:var(--white);">🔍 Look it up</button>
               </div>
-              <div class="field-hint" style="margin-top:6px;">Answer "No" and we'll offer to email the guest for it after saving.</div>
+              <div class="field-hint" style="margin-top:6px;">Not sure? "Look it up" checks the registry. Answer "No" and we'll offer to email the guest for it after saving.</div>
             </div>
           </div>
           <div class="totals-table">
@@ -427,6 +429,25 @@
           </table>
         </div>
         <button class="btn btn-secondary btn-sm" style="margin-top:12px;" onclick="addCheatItemUI()">＋ Add Item</button>
+      </div>
+    </section>
+
+    <!-- ═══ VIEW: TAX-EXEMPT REGISTRY ═══ -->
+    <section id="view-taxforms" class="view">
+      <div class="card" id="taxPendingCard" style="display:none;border-top:4px solid #F59E0B;">
+        <div class="card-title"><span class="icon amber">📥</span> New Uploads to Review (<span id="taxPendingCount">0</span>)</div>
+        <p class="field-hint" style="margin-bottom:12px;">Guests uploaded these. Confirm each into the registry under the correct organization name — you pick the name, so a slightly different spelling never creates a duplicate by accident.</p>
+        <div id="taxPendingList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon green">🗂️</span> Tax-Exempt Registry</div>
+        <p class="field-hint" style="margin-bottom:12px;">Every organization whose tax-exempt form we have. <span id="taxFolderLink"></span></p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+          <div class="search-bar" style="flex:1;min-width:200px;"><span class="search-icon">🔍</span><input type="text" placeholder="Search organizations…" id="taxRegSearch" oninput="renderTaxRegistryList()"></div>
+          <button class="btn btn-secondary btn-sm" onclick="openBackfill()">＋ Add Existing Form</button>
+        </div>
+        <div id="taxRegistryList"><div class="empty-state"><div class="empty-icon">🗂️</div><p>Loading…</p></div></div>
       </div>
     </section>
 
@@ -666,6 +687,20 @@
 
 <div class="modal-overlay" id="quoteDetailModal"><div class="modal-box"><div class="modal-header"><h2 id="modalQuoteId">Quote Details</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div id="modalBody"></div><div class="modal-actions" id="modalActions"></div><div class="email-prompt" id="modalEmailPrompt"><div style="font-weight:600;font-size:14px;margin-bottom:10px;color:var(--gray-700);">✉️ Send Quote by Email</div><div class="email-prompt-row"><div class="form-group"><label class="form-label">Recipient Email</label><input type="email" class="form-input" id="modalEmailInput" placeholder="customer@example.com"></div><button class="btn btn-blue" onclick="sendEmailFromModal()">Send</button></div></div></div></div>
 
+<!-- Tax registry lookup (read-only, from a quote) -->
+<div class="modal-overlay" id="taxLookupModal"><div class="modal-box"><div class="modal-header"><h2>Tax-Exempt Registry</h2><button class="modal-close" onclick="document.getElementById('taxLookupModal').classList.remove('show')">✕</button></div>
+  <div class="search-bar" style="margin-bottom:12px;"><span class="search-icon">🔍</span><input type="text" placeholder="Search organizations…" id="taxLookupSearch" oninput="renderTaxLookup()"></div>
+  <div id="taxLookupList" style="max-height:50vh;overflow-y:auto;"></div>
+</div></div>
+
+<!-- Backfill: add an existing form we already have -->
+<div class="modal-overlay" id="backfillModal"><div class="modal-box"><div class="modal-header"><h2>Add Existing Form</h2><button class="modal-close" onclick="document.getElementById('backfillModal').classList.remove('show')">✕</button></div>
+  <div class="form-group"><label class="form-label">Organization *</label><input type="text" class="form-input" id="bfOrg" placeholder="e.g., Dallas ISD"></div>
+  <div class="form-group"><label class="form-label">Form PDF (optional)</label><input type="file" id="bfFile" accept="application/pdf,.pdf"><span class="field-hint">Attach the PDF to store it in the Drive folder, or leave empty to just record that it's on file.</span></div>
+  <div class="form-group"><label class="form-label">Notes (optional)</label><input type="text" class="form-input" id="bfNotes" placeholder="e.g., expires 2027, cert #12345"></div>
+  <div class="modal-actions"><button class="btn btn-primary" onclick="submitBackfill()">Add to Registry</button></div>
+</div></div>
+
 <script>
   // Generic server error handler
   function handleServerError(error) {
@@ -771,6 +806,7 @@ function switchView(v) {
   if (v === 'history') renderHistory();
   if (v === 'calendar') renderCalendarView();
   if (v === 'cheatsheet') renderCheatSheet();
+  if (v === 'taxforms') renderTaxRegistry();
 }
 
 // ── Order Type ──
@@ -1047,7 +1083,7 @@ function afterSaveTaxForm(quoteId, wasExempt, answer, email) {
     return;
   }
   if (!email) { showToast('No customer email on the quote — request the tax form another way.', 'info'); return; }
-  showConfirm('Request the tax-exempt form?', 'Email ' + email + ' asking them to reply with a PDF of their tax-exempt form (name + quote number included).').then(function(ok) {
+  showConfirm('Request the tax-exempt form?', 'Email ' + email + ' a secure link where they can upload a PDF of their tax-exempt form.').then(function(ok) {
     if (!ok) return;
     showSpinner();
     google.script.run.withSuccessHandler(function(res) {
@@ -1078,6 +1114,140 @@ function requestTaxFormEmail(quoteId) {
     if (currentModalQuote && currentModalQuote.quoteId === quoteId) openQuoteDetail(currentModalQuote);
   }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: ' + e.message, 'error'); }).sendTaxFormRequest(quoteId, email);
 }
+
+// ── Tax-Exempt Registry (Tax Forms tab + lookup popup) ──
+var taxRegistry = { entries: [], pending: [], folderUrl: '' };
+
+function renderTaxRegistry() {
+  document.getElementById('taxRegistryList').innerHTML = '<div class="empty-state"><div class="empty-icon">🗂️</div><p>Loading…</p></div>';
+  google.script.run.withSuccessHandler(function(reg) {
+    taxRegistry = reg || { entries: [], pending: [], folderUrl: '' };
+    taxFolderUrl = taxRegistry.folderUrl || taxFolderUrl;
+    var link = document.getElementById('taxFolderLink');
+    if (link) link.innerHTML = taxRegistry.folderUrl ? '<a href="' + escAttr(taxRegistry.folderUrl) + '" target="_blank" rel="noopener">Open the Drive folder ↗</a>' : '';
+    renderTaxPending();
+    renderTaxRegistryList();
+  }).withFailureHandler(function(e) { document.getElementById('taxRegistryList').innerHTML = '<div class="empty-state"><p>Error: ' + escHtml(e.message) + '</p></div>'; }).getTaxRegistry();
+}
+
+function renderTaxPending() {
+  var card = document.getElementById('taxPendingCard');
+  var list = document.getElementById('taxPendingList');
+  document.getElementById('taxPendingCount').textContent = taxRegistry.pending.length;
+  if (!taxRegistry.pending.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  list.innerHTML = taxRegistry.pending.map(function(p) {
+    var when = p.submittedAt ? new Date(p.submittedAt).toLocaleDateString() : '';
+    return '<div style="border:1px solid var(--gray-100);border-radius:var(--radius);padding:12px;margin-bottom:10px;">'
+      + '<div style="font-weight:600;">' + escHtml(p.organization || '(no org given)') + '</div>'
+      + '<div class="field-hint">From ' + escHtml(p.contactName || '?') + (p.quoteId ? ' · quote ' + escHtml(p.quoteId) : '') + (when ? ' · ' + escHtml(when) : '') + (p.pdfUrl ? ' · <a href="' + escAttr(p.pdfUrl) + '" target="_blank" rel="noopener">View PDF ↗</a>' : '') + '</div>'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">'
+      + '<input type="text" class="form-input" id="pend-org-' + p.row + '" value="' + escAttr(p.organization || '') + '" style="max-width:240px;" placeholder="Confirm the organization name">'
+      + '<button class="btn btn-primary btn-sm" onclick="confirmPending(' + p.row + ')">✓ Confirm into Registry</button>'
+      + '<button class="btn btn-danger btn-sm" onclick="dismissPending(' + p.row + ')">Dismiss</button>'
+      + '</div></div>';
+  }).join('');
+}
+
+function confirmPending(row) {
+  var org = (document.getElementById('pend-org-' + row).value || '').trim();
+  if (!org) { showToast('Enter the organization name.', 'error'); return; }
+  showSpinner();
+  google.script.run.withSuccessHandler(function(res) {
+    hideSpinner();
+    if (res && res.success) { showToast('Added to the registry.', 'success'); renderTaxRegistry(); }
+    else { showToast((res && res.message) || 'Could not confirm.', 'error'); }
+  }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: ' + e.message, 'error'); }).confirmPendingTaxUpload(row, org);
+}
+function dismissPending(row) {
+  showConfirm('Dismiss this upload?', 'It stays in the Drive folder but drops off the review list.').then(function(ok) {
+    if (!ok) return;
+    showSpinner();
+    google.script.run.withSuccessHandler(function() { hideSpinner(); renderTaxRegistry(); }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: ' + e.message, 'error'); }).dismissPendingTaxUpload(row);
+  });
+}
+
+function taxStatusDot(s) { return s === 'ON_FILE' ? '🟢' : (s === 'REQUESTED' ? '🟠' : '🔴'); }
+function taxStatusLabel(s) { return s === 'ON_FILE' ? 'On file' : (s === 'REQUESTED' ? 'Requested' : 'Not on file'); }
+
+function filteredRegistry(term) {
+  var f = (term || '').toLowerCase().trim();
+  if (!f) return taxRegistry.entries;
+  return taxRegistry.entries.filter(function(e) { return e.organization.toLowerCase().indexOf(f) >= 0; });
+}
+
+function renderTaxRegistryList() {
+  var list = document.getElementById('taxRegistryList');
+  var rows = filteredRegistry(document.getElementById('taxRegSearch').value);
+  if (!rows.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">🗂️</div><p>' + (taxRegistry.entries.length ? 'No matches.' : 'No forms recorded yet. Use “Add Existing Form” to backfill the ones you have.') + '</p></div>'; return; }
+  list.innerHTML = rows.map(function(e) {
+    return '<div class="revision-row" style="cursor:default;">'
+      + '<div><span style="font-weight:600;">' + taxStatusDot(e.status) + ' ' + escHtml(e.organization) + '</span>'
+      + '<div class="field-hint">' + taxStatusLabel(e.status) + (e.dateOnFile ? ' · on file ' + escHtml(e.dateOnFile) : '') + (e.notes ? ' · ' + escHtml(e.notes) : '') + '</div></div>'
+      + '<div style="display:flex;gap:8px;align-items:center;white-space:nowrap;">'
+      + (e.pdfUrl ? '<a href="' + escAttr(e.pdfUrl) + '" target="_blank" rel="noopener" style="font-size:12px;">PDF ↗</a>' : '')
+      + '<button class="btn btn-danger btn-sm" style="padding:4px 8px;" onclick="deleteRegistryEntry(' + e.row + ')">✕</button>'
+      + '</div></div>';
+  }).join('');
+}
+
+function deleteRegistryEntry(row) {
+  showConfirm('Remove from registry?', 'This only removes the registry entry. The PDF stays in the Drive folder.').then(function(ok) {
+    if (!ok) return;
+    showSpinner();
+    google.script.run.withSuccessHandler(function() { hideSpinner(); renderTaxRegistry(); }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: ' + e.message, 'error'); }).deleteTaxRegistryEntry(row);
+  });
+}
+
+// Lookup popup from a quote (read-only). Loads the registry if the tab hasn't been opened yet.
+function openTaxLookup(prefill) {
+  var term = (prefill !== undefined && prefill !== null) ? prefill : (document.getElementById('customerName') ? document.getElementById('customerName').value : '');
+  document.getElementById('taxLookupSearch').value = term;
+  document.getElementById('taxLookupModal').classList.add('show');
+  if (!taxRegistry.entries.length && !taxRegistry.pending.length) {
+    google.script.run.withSuccessHandler(function(reg) { taxRegistry = reg || taxRegistry; renderTaxLookup(); }).withFailureHandler(function(){ renderTaxLookup(); }).getTaxRegistry();
+  } else { renderTaxLookup(); }
+}
+function renderTaxLookup() {
+  var rows = filteredRegistry(document.getElementById('taxLookupSearch').value);
+  var el = document.getElementById('taxLookupList');
+  if (!rows.length) { el.innerHTML = '<div class="empty-state" style="padding:24px;"><p>' + (taxRegistry.entries.length ? 'No matches — we may not have this one on file.' : 'The registry is empty.') + '</p></div>'; return; }
+  el.innerHTML = rows.map(function(e) {
+    return '<div class="revision-row" style="cursor:default;"><div><span style="font-weight:600;">' + taxStatusDot(e.status) + ' ' + escHtml(e.organization) + '</span>'
+      + '<div class="field-hint">' + taxStatusLabel(e.status) + (e.dateOnFile ? ' · on file ' + escHtml(e.dateOnFile) : '') + '</div></div>'
+      + (e.pdfUrl ? '<a href="' + escAttr(e.pdfUrl) + '" target="_blank" rel="noopener" style="font-size:12px;">PDF ↗</a>' : '') + '</div>';
+  }).join('');
+}
+
+// Backfill: add a form we already have
+function openBackfill() {
+  document.getElementById('bfOrg').value = '';
+  document.getElementById('bfNotes').value = '';
+  document.getElementById('bfFile').value = '';
+  document.getElementById('backfillModal').classList.add('show');
+}
+function submitBackfill() {
+  var org = document.getElementById('bfOrg').value.trim();
+  if (!org) { showToast('Enter the organization name.', 'error'); return; }
+  var notes = document.getElementById('bfNotes').value.trim();
+  var f = document.getElementById('bfFile').files[0];
+  function send(mime, b64) {
+    showSpinner();
+    google.script.run.withSuccessHandler(function(res) {
+      hideSpinner();
+      document.getElementById('backfillModal').classList.remove('show');
+      showToast((res && res.message) || 'Added.', res && res.success ? 'success' : 'error');
+      renderTaxRegistry();
+    }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: ' + e.message, 'error'); }).backfillTaxForm({ organization: org, notes: notes, mimeType: mime, dataBase64: b64 });
+  }
+  if (f) {
+    if (f.size > 10 * 1024 * 1024) { showToast('PDF is larger than 10 MB.', 'error'); return; }
+    var reader = new FileReader();
+    reader.onload = function(e) { send(f.type || 'application/pdf', e.target.result.split(',')[1]); };
+    reader.readAsDataURL(f);
+  } else { send('', ''); }
+}
+
 function toggleNoPO() {
   noPONeeded = !noPONeeded;
   document.getElementById('noPOToggle').classList.toggle('active', noPONeeded);
@@ -1703,6 +1873,7 @@ function openQuoteDetail(q) {
     tfHtml='<div class="detail-field" style="grid-column:1/-1;"><label>Tax-Exempt Form</label><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;"><span style="font-weight:600;">'+tfLabel+'</span>'
       +(tfSt!=='ON_FILE'?'<button class="btn btn-secondary btn-sm" onclick="markTaxFormOnFile(\''+escAttr(q.quoteId)+'\')">✓ Mark On File</button>':'')
       +(tfSt!=='ON_FILE'&&q.customerEmail?'<button class="btn btn-blue btn-sm" onclick="requestTaxFormEmail(\''+escAttr(q.quoteId)+'\')">✉ Request from Guest</button>':'')
+      +'<button class="btn btn-secondary btn-sm" onclick="openTaxLookup(\''+escAttr(q.customerName||'')+'\')">🔍 Look up in registry</button>'
       +(taxFolderUrl?'<a href="'+escAttr(taxFolderUrl)+'" target="_blank" rel="noopener" style="font-size:12px;">Forms folder ↗</a>':'')
       +'</div></div>';
   }
