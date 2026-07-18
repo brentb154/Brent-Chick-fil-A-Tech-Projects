@@ -1,6 +1,18 @@
 # Catering Quote Tool — Setup Instructions for New Features
 
-## July 2026 Batch 3 (newest) — tax-exempt registry + guest upload page
+## July 2026 Batch 4 (newest) — two-restaurant switching
+
+Run one location or two from the same tool. Store 1 keeps everything it has today; Store 2 gets its own menu and cheat sheet.
+
+**To deploy:** paste the updated `Code.gs` and `Index` (`App.html`), run `initializeSheet()` once, then redeploy (**Manage deployments → Edit → New version**). No new files or permissions.
+
+The tabs are **store-labeled** so nobody edits the wrong restaurant's prices. `initializeSheet()` **renames your existing tabs in place** — `Menu` → **CH Menu**, `Off_Menu` → **CH Off-Menu** — so all your current Cockrell Hill prices move with them (nothing is lost). It then creates **DBU Menu** and **DBU Off-Menu** (empty) for Dallas Baptist University; fill DBU Menu the same way you filled the old Menu (CFA Home export → paste). Safe to re-run — the rename only happens once, and it never touches Cockrell Hill's data. It also adds a per-store `Last Price Verification 2` Settings row (written automatically the first time you verify DBU's prices).
+
+**How it works:** the quote form has a **Restaurant** toggle above Order Type — it switches the menu, the cheat sheet, and the pickup address to that store, and re-prices any items already on the quote (with a confirm). The **Menu Catalog** editor and **Cheat Sheet** each have their own Store 1 / Store 2 switch so you edit the right menu. **Settings → Default store for new quotes** sets which store the form opens on the first time; after that it remembers whichever store you last used. Editing or reordering a past quote automatically switches to that quote's store. Tax rate stays shared (still editable per quote). The quarterly price check now runs per store — each store's menu is verified on its own 90-day clock, and an empty/unconfigured Store 2 never triggers the lock.
+
+**Also in this deploy:** the **Tax Forms** tab now shows a copyable **Guest Upload Link** (the public tax-exempt upload page) you can hand to anyone directly; the **Get Directions** link was removed from the quote PDF (it stays on the internal quote popup and the delivery runsheet); and menu lookups on the quote form now use an in-memory index so repricing and edit/reorder are instant on large menus.
+
+## July 2026 Batch 3 — tax-exempt registry + guest upload page
 
 This adds a guest-facing tax-form upload page and an organization-level registry, and **changes how the app is deployed.**
 

@@ -17,12 +17,36 @@ function getSpreadsheet() {
 }
 
 const TAB_SETTINGS       = 'Settings';
-const TAB_MENU           = 'Menu';
+const TAB_MENU           = 'CH Menu';
 const TAB_QUOTES         = 'Quotes';
 const TAB_QUOTES_ARCHIVE = 'Quotes_Archive';
 const TAB_QUOTE_SEQUENCE = 'Quote_Sequence';
 const TAB_QUOTE_REVISIONS = 'Quote_Revisions';
-const TAB_OFF_MENU = 'Off_Menu';
+const TAB_OFF_MENU = 'CH Off-Menu';
+// Tabs are store-labeled so nobody edits the wrong restaurant's prices:
+// CH = Cockrell Hill (store 1), DBU = Dallas Baptist University (store 2).
+// A store arg of '2' resolves to the DBU tabs; anything else = the CH tabs.
+// initializeSheet() renames legacy Menu/Off_Menu/Menu_2/Off_Menu_2 tabs into
+// these in place, so existing price data is preserved (see migrateTabNames_).
+const TAB_MENU_2     = 'DBU Menu';
+const TAB_OFF_MENU_2 = 'DBU Off-Menu';
+function menuTabForStore_(store)    { return String(store) === '2' ? TAB_MENU_2     : TAB_MENU; }
+function offMenuTabForStore_(store) { return String(store) === '2' ? TAB_OFF_MENU_2 : TAB_OFF_MENU; }
+
+// One-time rename of the old generic tab names to the store-labeled ones. Renames
+// in place (keeps all rows/prices). Safe to re-run: skips if the old tab is gone
+// or the new name already exists.
+function renameSheetIfExists_(ss, oldName, newName) {
+  if (oldName === newName) return;
+  var oldSheet = ss.getSheetByName(oldName);
+  if (oldSheet && !ss.getSheetByName(newName)) oldSheet.setName(newName);
+}
+function migrateTabNames_(ss) {
+  renameSheetIfExists_(ss, 'Menu',       TAB_MENU);        // Cockrell Hill menu
+  renameSheetIfExists_(ss, 'Off_Menu',   TAB_OFF_MENU);    // Cockrell Hill cheat sheet
+  renameSheetIfExists_(ss, 'Menu_2',     TAB_MENU_2);      // DBU menu
+  renameSheetIfExists_(ss, 'Off_Menu_2', TAB_OFF_MENU_2);  // DBU cheat sheet
+}
 
 
 // ── WEB APP ENTRY POINT ──────────────────────────────────────
@@ -130,8 +154,9 @@ function updateSetting(label, value, asText) {
 // ── MENU (now with Category column) ──────────────────────────
 // Menu tab columns: A=Category | B=Item Name | C=Pickup Price | D=Delivery Price
 
-function getMenuItems() {
-  var sheet = getSpreadsheet().getSheetByName(TAB_MENU);
+function getMenuItems(store) {
+  var sheet = getSpreadsheet().getSheetByName(menuTabForStore_(store));
+  if (!sheet) return []; // Store 2 tab may not exist on an un-migrated sheet
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
   var data = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
@@ -163,8 +188,8 @@ function getMenuItems() {
 // Draws only from the categories listed in Settings "Price Check Categories" (comma-separated),
 // matched by category name — never by row — so items can move around freely.
 // Falls back to the whole menu if the list is blank or matches fewer than 3 items.
-function getPriceCheckItems() {
-  var pool = getMenuItems();
+function getPriceCheckItems(store) {
+  var pool = getMenuItems(store);
   if (!pool.length) return [];
   var raw = (getSettings()['Price Check Categories'] || '').toString();
   var cats = raw.split(',').map(function(c) { return c.trim().toLowerCase(); }).filter(function(c) { return c !== ''; });
@@ -191,9 +216,9 @@ function getPriceCheckItems() {
 // entries: [{name, pickup, delivery}] typed from the POS. Match within a cent.
 // An item name can appear on multiple menu rows (same item, two categories) —
 // the typed prices pass if they match ANY row with that name, so duplicates can't wedge the lock.
-function submitPriceVerification(entries) {
+function submitPriceVerification(entries, store) {
   var rowsByName = {};
-  getMenuItems().forEach(function(it) {
+  getMenuItems(store).forEach(function(it) {
     if (!rowsByName[it.name]) rowsByName[it.name] = [];
     rowsByName[it.name].push(it);
   });
@@ -214,21 +239,23 @@ function submitPriceVerification(entries) {
     if (!ok) mismatches.push(e.name);
   });
   if (mismatches.length) return { ok: false, mismatches: mismatches };
-  markPricesVerified_();
+  markPricesVerified_(store);
   return { ok: true };
 }
 
-function markPricesVerified_() {
+// Per-store verification date so each store's menu is checked on its own clock.
+function markPricesVerified_(store) {
+  var key = String(store) === '2' ? 'Last Price Verification 2' : 'Last Price Verification';
   // asText keeps Sheets from converting the yyyy-MM-dd string into a Date cell
-  updateSetting('Last Price Verification', Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'), true);
+  updateSetting(key, Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'), true);
 }
 
 // ── OFF-MENU CHEAT SHEET ─────────────────────────────────────
 // Off_Menu tab: A=Item Name | B=Base Price. Delivery price is computed
 // in the app as base × (1 + "Off-Menu Markup (%)" / 100), delivery only.
 
-function getOffMenuItems() {
-  var sheet = getSpreadsheet().getSheetByName(TAB_OFF_MENU);
+function getOffMenuItems(store) {
+  var sheet = getSpreadsheet().getSheetByName(offMenuTabForStore_(store));
   if (!sheet) return [];
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
@@ -248,9 +275,9 @@ function getOffMenuItems() {
   return items;
 }
 
-function addOffMenuItem(name, basePrice) {
-  var sheet = getSpreadsheet().getSheetByName(TAB_OFF_MENU);
-  if (!sheet) sheet = createOffMenuSheet_();
+function addOffMenuItem(name, basePrice, store) {
+  var sheet = getSpreadsheet().getSheetByName(offMenuTabForStore_(store));
+  if (!sheet) sheet = createOffMenuSheet_(store);
   var r = sheet.getLastRow() + 1;
   sheet.getRange(r, 1, 1, 2).setValues([[name, parseFloat(basePrice) || 0]]);
   sheet.getRange(r, 2).setNumberFormat('$#,##0.00');
@@ -258,42 +285,42 @@ function addOffMenuItem(name, basePrice) {
 }
 
 // Fallback creator if someone deleted the tab — same shape as initializeSheet builds.
-function createOffMenuSheet_() {
-  var sheet = getSpreadsheet().insertSheet(TAB_OFF_MENU);
+function createOffMenuSheet_(store) {
+  var sheet = getSpreadsheet().insertSheet(offMenuTabForStore_(store));
   sheet.getRange(1, 1, 1, 2).setValues([['Item Name', 'Base Price']]).setFontWeight('bold');
   sheet.setFrozenRows(1);
   return sheet;
 }
 
-function updateOffMenuItem(row, name, basePrice) {
-  var sheet = getSpreadsheet().getSheetByName(TAB_OFF_MENU);
+function updateOffMenuItem(row, name, basePrice, store) {
+  var sheet = getSpreadsheet().getSheetByName(offMenuTabForStore_(store));
   sheet.getRange(row, 1, 1, 2).setValues([[name, parseFloat(basePrice) || 0]]);
   return true;
 }
 
-function deleteOffMenuItem(row) {
-  getSpreadsheet().getSheetByName(TAB_OFF_MENU).deleteRow(row);
+function deleteOffMenuItem(row, store) {
+  getSpreadsheet().getSheetByName(offMenuTabForStore_(store)).deleteRow(row);
   return true;
 }
 
-function addMenuItem(category, name, pickupPrice, deliveryPrice) {
-  var sheet = getSpreadsheet().getSheetByName(TAB_MENU);
+function addMenuItem(category, name, pickupPrice, deliveryPrice, store) {
+  var sheet = getSpreadsheet().getSheetByName(menuTabForStore_(store));
   sheet.getRange(sheet.getLastRow() + 1, 1, 1, 4).setValues([
     [category || '', name, parseFloat(pickupPrice) || 0, parseFloat(deliveryPrice) || 0]
   ]);
   return true;
 }
 
-function updateMenuItem(row, category, name, pickupPrice, deliveryPrice) {
-  var sheet = getSpreadsheet().getSheetByName(TAB_MENU);
+function updateMenuItem(row, category, name, pickupPrice, deliveryPrice, store) {
+  var sheet = getSpreadsheet().getSheetByName(menuTabForStore_(store));
   sheet.getRange(row, 1, 1, 4).setValues([
     [category || '', name, parseFloat(pickupPrice) || 0, parseFloat(deliveryPrice) || 0]
   ]);
   return true;
 }
 
-function deleteMenuItem(row) {
-  var sheet = getSpreadsheet().getSheetByName(TAB_MENU);
+function deleteMenuItem(row, store) {
+  var sheet = getSpreadsheet().getSheetByName(menuTabForStore_(store));
   sheet.deleteRow(row);
   return true;
 }
@@ -415,11 +442,11 @@ function saveQuote(quoteData) {
     var eventId = existing[16] ? existing[16].toString().trim() : '';
 
     // Keep the outgoing version in Quote_Revisions before overwriting
-    try { appendQuoteRevision_(existing); } catch(e) {}
+    try { appendQuoteRevision_(existing); } catch(e) { /* revision archiving is best-effort — never block a save */ }
 
     // Update existing calendar event, or create one if it doesn't exist yet
     if (eventId) {
-      try { eventId = updateCalendarEvent(quoteData, existingQuoteId, eventId) || eventId; } catch(e) {}
+      try { eventId = updateCalendarEvent(quoteData, existingQuoteId, eventId) || eventId; } catch(e) { /* calendar sync best-effort — keep the existing eventId */ }
     } else if (quoteData.date && quoteData.time) {
       try { eventId = createCalendarEvent(quoteData, existingQuoteId) || ''; } catch(e) { eventId = ''; }
     }
@@ -523,7 +550,8 @@ function deleteQuote(sheetRow) {
 }
 
 function updateQuotePO(sheetRow, poNumber, calendarEventId) {
-  getSpreadsheet().getSheetByName(TAB_QUOTES).getRange(sheetRow, 15).setValue(poNumber || '');
+  var qSheet = getSpreadsheet().getSheetByName(TAB_QUOTES);
+  if (qSheet) qSheet.getRange(sheetRow, 15).setValue(poNumber || '');
   var status = { poSaved: true, calendarUpdated: false, calendarReason: '' };
   if (!calendarEventId) {
     status.calendarReason = 'No calendar event linked to this quote';
@@ -586,6 +614,11 @@ function cleanOldQuotes() {
 
 function initializeSheet() {
   var ss = getSpreadsheet();
+
+  // Rename legacy generic tabs to the store-labeled names IN PLACE so existing
+  // price data moves with them (no data loss). Idempotent: only renames when the
+  // old tab exists and the new one doesn't.
+  migrateTabNames_(ss);
 
   // Settings
   var sSheet = ss.getSheetByName(TAB_SETTINGS);
@@ -663,6 +696,20 @@ function initializeSheet() {
     mSheet.getRange(2, 3, 30, 2).setNumberFormat('$#,##0.00');
   }
 
+  // Menu (Store 2) — same shape, starts empty. Team fills it from Store 2's POS.
+  var m2Sheet = ss.getSheetByName(TAB_MENU_2);
+  if (!m2Sheet) m2Sheet = ss.insertSheet(TAB_MENU_2);
+  if (!m2Sheet.getRange('A1').getValue()) {
+    m2Sheet.getRange(1, 1, 1, 4).setValues([['Category', 'Item Name', 'Pickup Price', 'Delivery Price']]);
+    m2Sheet.getRange(1, 1, 1, 4).setFontWeight('bold');
+    m2Sheet.setFrozenRows(1);
+    m2Sheet.setColumnWidth(1, 160);
+    m2Sheet.setColumnWidth(2, 300);
+    m2Sheet.setColumnWidth(3, 120);
+    m2Sheet.setColumnWidth(4, 120);
+    m2Sheet.getRange(2, 3, 30, 2).setNumberFormat('$#,##0.00');
+  }
+
   // Quotes
   var qSheet = ss.getSheetByName(TAB_QUOTES);
   if (!qSheet) qSheet = ss.insertSheet(TAB_QUOTES);
@@ -707,6 +754,17 @@ function initializeSheet() {
     oSheet.getRange(2, 2, offMenuSeed.length, 1).setNumberFormat('$#,##0.00');
   }
 
+  // Off-menu cheat sheet (Store 2) — headers only; team fills its own list.
+  var o2Sheet = ss.getSheetByName(TAB_OFF_MENU_2);
+  if (!o2Sheet) o2Sheet = ss.insertSheet(TAB_OFF_MENU_2);
+  if (!o2Sheet.getRange('A1').getValue()) {
+    o2Sheet.getRange(1, 1, 1, 2).setValues([['Item Name', 'Base Price']]).setFontWeight('bold');
+    o2Sheet.setFrozenRows(1);
+    o2Sheet.setColumnWidth(1, 300);
+    o2Sheet.setColumnWidth(2, 120);
+    o2Sheet.getRange(2, 2, 30, 1).setNumberFormat('$#,##0.00');
+  }
+
   // Sequence
   var seqSheet = ss.getSheetByName(TAB_QUOTE_SEQUENCE);
   if (!seqSheet) seqSheet = ss.insertSheet(TAB_QUOTE_SEQUENCE);
@@ -717,7 +775,7 @@ function initializeSheet() {
     seqSheet.setColumnWidth(1, 220);
   }
 
-  try { var d = ss.getSheetByName('Sheet1'); if (d && d.getLastRow() <= 1 && d.getLastColumn() <= 1) ss.deleteSheet(d); } catch(e) {}
+  try { var d = ss.getSheetByName('Sheet1'); if (d && d.getLastRow() <= 1 && d.getLastColumn() <= 1) ss.deleteSheet(d); } catch(e) { /* Sheet1 already gone or protected — non-fatal cleanup */ }
   return 'Sheet initialized successfully!';
 }
 
@@ -811,7 +869,7 @@ function buildPdfHtml(pd) {
   var addr = pd.orderType === 'Delivery' ? (pd.deliveryAddress||'') : (pd.storeAddress||'');
   var logo = pd.logo ? '<img src="'+pd.logo+'" style="max-width:140px;max-height:80px;margin-bottom:8px;">' : '<div style="font-size:24px;font-weight:800;color:#E51636;margin-bottom:8px;">Chick-fil-A</div>';
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>@page{size:letter;margin:0.6in;}body{font-family:Helvetica,Arial,sans-serif;color:#1F2937;margin:0;padding:40px;}</style></head><body>' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+logo+'<div style="font-size:16px;font-weight:700;">'+esc(pd.storeName)+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+esc(pd.storeAddress)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.storePhone)+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:Courier New,monospace;">'+esc(pd.quoteId)+'</div>'+(pd.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+esc(pd.poNumber)+'</div>':'')+'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Date: '+esc(pd.date)+'</div>'+(pd.time?'<div style="font-size:13px;color:#6B7280;">Time: '+esc(pd.time)+'</div>':'')+(pd.quotedOn?'<div style="font-size:12px;color:#9CA3AF;margin-top:2px;">Quoted on '+esc(pd.quotedOn)+'</div>':'')+(pd.validThrough?'<div style="font-size:12px;color:#9CA3AF;">Quote valid through '+esc(pd.validThrough)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+esc(pd.customerName)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.orderType)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(addr)+'</div>'+(pd.directionsUrl?'<div style="font-size:12px;"><a href="'+pd.directionsUrl+'" style="color:#2563EB;">Get Directions (Google Maps)</a></div>':'')+'<div style="font-size:13px;font-weight:600;margin-top:4px;">'+esc(pd.contactPerson)+'</div>'+(pd.customerEmail?'<div style="font-size:13px;color:#6B7280;">'+esc(pd.customerEmail)+'</div>':'')+(pd.customerPhone?'<div style="font-size:13px;color:#6B7280;">'+esc(pd.customerPhone)+'</div>':'')+'</div></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+logo+'<div style="font-size:16px;font-weight:700;">'+esc(pd.storeName)+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+esc(pd.storeAddress)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.storePhone)+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:Courier New,monospace;">'+esc(pd.quoteId)+'</div>'+(pd.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+esc(pd.poNumber)+'</div>':'')+'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Date: '+esc(pd.date)+'</div>'+(pd.time?'<div style="font-size:13px;color:#6B7280;">Time: '+esc(pd.time)+'</div>':'')+(pd.quotedOn?'<div style="font-size:12px;color:#9CA3AF;margin-top:2px;">Quoted on '+esc(pd.quotedOn)+'</div>':'')+(pd.validThrough?'<div style="font-size:12px;color:#9CA3AF;">Quote valid through '+esc(pd.validThrough)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+esc(pd.customerName)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(pd.orderType)+'</div><div style="font-size:13px;color:#6B7280;">'+esc(addr)+'</div>'+'<div style="font-size:13px;font-weight:600;margin-top:4px;">'+esc(pd.contactPerson)+'</div>'+(pd.customerEmail?'<div style="font-size:13px;color:#6B7280;">'+esc(pd.customerEmail)+'</div>':'')+(pd.customerPhone?'<div style="font-size:13px;color:#6B7280;">'+esc(pd.customerPhone)+'</div>':'')+'</div></div>' +
     '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><thead><tr style="background:#F3F4F6;"><th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:10%;">QTY</th><th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:50%;">DESCRIPTION</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:18%;">PRICE/ITEM</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:22%;">AMOUNT</th></tr></thead><tbody>'+liHtml+'</tbody></table>' +
     notesHtml +
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;"><div style="font-size:13px;color:#6B7280;max-width:320px;">If you have any questions concerning this Quote, contact:<br><strong style="color:#1F2937;">'+esc(pd.contactName)+' at '+esc(pd.storePhone)+'</strong></div><table style="width:280px;background:#F9FAFB;border-radius:8px;overflow:hidden;"><tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SUBTOTAL</td><td style="padding:8px 16px;text-align:right;font-family:Courier New,monospace;font-size:14px;">$'+(pd.subtotal||0).toFixed(2)+'</td></tr>'+discRows+taxLine+'<tr style="background:#E5E7EB;"><td style="padding:10px 16px;font-size:15px;font-weight:700;">TOTAL</td><td style="padding:10px 16px;text-align:right;font-family:Courier New,monospace;font-size:16px;font-weight:700;">$'+(pd.total||0).toFixed(2)+'</td></tr></table></div></body></html>';
@@ -932,7 +990,7 @@ function createCalendarEvent(quoteData, quoteId) {
 
   var event = cal.createEvent(title, startTime, orderTime, { description: desc });
   if (quoteData.eventColor && CalendarApp.EventColor[quoteData.eventColor]) {
-    try { event.setColor(CalendarApp.EventColor[quoteData.eventColor]); } catch(e) {}
+    try { event.setColor(CalendarApp.EventColor[quoteData.eventColor]); } catch(e) { /* color is cosmetic — ignore an unsupported value */ }
   }
   return event.getId();
 }
@@ -1031,7 +1089,7 @@ function updateCalendarEventPO(sheetRow, poNumber, calendarEventId) {
   function tryCal(c, label) {
     if (!c) return;
     triedCalendars.push(label);
-    try { var e = c.getEventById(calendarEventId); if (e) event = e; } catch(_) {}
+    try { var e = c.getEventById(calendarEventId); if (e) event = e; } catch(_) { /* event may live on another calendar — keep looking */ }
   }
   if (calId) tryCal(CalendarApp.getCalendarById(calId), 'configured (' + calId + ')');
   if (!event) tryCal(CalendarApp.getDefaultCalendar(), 'default');
@@ -1214,15 +1272,15 @@ function poAlertRecipients_(settings) {
 
 function dailyCateringAutomation() {
   var alertTo = '';
-  try { alertTo = poAlertRecipients_(getSettings()); } catch(e) {}
+  try { alertTo = poAlertRecipients_(getSettings()); } catch(e) { /* no recipient resolved — alerts below simply won't send */ }
   try { _sendDayBeforeConfirmations(); } catch(e) {
-    try { MailApp.sendEmail(alertTo, 'Catering Automation Error', 'Day-before confirmations failed:\n\n' + e.message + '\n\n' + e.stack); } catch(e2) {}
+    try { MailApp.sendEmail(alertTo, 'Catering Automation Error', 'Day-before confirmations failed:\n\n' + e.message + '\n\n' + e.stack); } catch(e2) { /* can't email about a failed email — give up quietly */ }
   }
   try { _sendPoAlerts(); } catch(e) {
-    try { MailApp.sendEmail(alertTo, 'Catering Automation Error', 'Missing-PO sweep failed:\n\n' + e.message + '\n\n' + e.stack); } catch(e2) {}
+    try { MailApp.sendEmail(alertTo, 'Catering Automation Error', 'Missing-PO sweep failed:\n\n' + e.message + '\n\n' + e.stack); } catch(e2) { /* can't email about a failed email — give up quietly */ }
   }
   try { _sendYearEndTaxReview(); } catch(e) {
-    try { MailApp.sendEmail(alertTo, 'Catering Automation Error', 'Year-end tax review failed:\n\n' + e.message + '\n\n' + e.stack); } catch(e2) {}
+    try { MailApp.sendEmail(alertTo, 'Catering Automation Error', 'Year-end tax review failed:\n\n' + e.message + '\n\n' + e.stack); } catch(e2) { /* can't email about a failed email — give up quietly */ }
   }
 }
 
@@ -1365,7 +1423,7 @@ function ensureTaxFormFolder_() {
   var props = PropertiesService.getScriptProperties();
   var id = props.getProperty('TAX_FORM_FOLDER_ID');
   if (id) {
-    try { return DriveApp.getFolderById(id); } catch(e) {} // deleted — fall through and recreate
+    try { return DriveApp.getFolderById(id); } catch(e) { /* folder deleted — fall through and recreate */ }
   }
   var it = DriveApp.getFoldersByName(TAX_FORM_FOLDER_NAME);
   var folder = it.hasNext() ? it.next() : DriveApp.createFolder(TAX_FORM_FOLDER_NAME);
@@ -1386,7 +1444,7 @@ function saveTaxPdf_(baseName, mimeType, dataBase64) {
 // One call for the client: every quote's status plus the folder link.
 function getTaxFormStatuses() {
   var out = { folderUrl: '', statuses: {} };
-  try { out.folderUrl = ensureTaxFormFolder_().getUrl(); } catch(e) {} // Drive not authorized yet — statuses still work
+  try { out.folderUrl = ensureTaxFormFolder_().getUrl(); } catch(e) { /* Drive not authorized yet — statuses still work */ }
   var sheet = getSpreadsheet().getSheetByName(TAB_TAX_FORMS);
   if (!sheet || sheet.getLastRow() < 2) return out;
   sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues().forEach(function(r) {
@@ -1426,7 +1484,7 @@ function sendTaxFormRequest(quoteId, recipientEmail) {
   if (storeName === (settings['Location 2 Name'] || '')) storePhone = settings['Location 2 Phone'] || '';
   else storePhone = settings['Location 1 Phone'] || '';
   var uploadLink = '';
-  try { uploadLink = ScriptApp.getService().getUrl() + '?view=taxform&quote=' + encodeURIComponent(quote.quoteId || ''); } catch(e) {}
+  try { uploadLink = ScriptApp.getService().getUrl() + '?view=taxform&quote=' + encodeURIComponent(quote.quoteId || ''); } catch(e) { /* no deployment URL available — link stays blank */ }
   var reps = {
     '{{contactPerson}}': quote.contactName || '',
     '{{customer}}': quote.customerName || '',
@@ -1508,8 +1566,10 @@ function ensureTaxRegistrySheet_() {
 }
 
 function getTaxRegistry() {
-  var out = { folderUrl: '', entries: [], pending: [] };
-  try { out.folderUrl = ensureTaxFormFolder_().getUrl(); } catch(e) {}
+  var out = { folderUrl: '', uploadUrl: '', entries: [], pending: [] };
+  try { out.folderUrl = ensureTaxFormFolder_().getUrl(); } catch(e) { /* Drive not authorized yet — registry still loads */ }
+  // Public guest upload page (no quote param — guests type their quote number on it)
+  try { out.uploadUrl = ScriptApp.getService().getUrl() + '?view=taxform'; } catch(e) { /* no deployment URL available — link stays blank */ }
   var reg = getSpreadsheet().getSheetByName(TAB_TAX_REGISTRY);
   if (reg && reg.getLastRow() > 1) {
     reg.getRange(2, 1, reg.getLastRow() - 1, 7).getValues().forEach(function(r, i) {
@@ -1644,7 +1704,7 @@ function emailRunsheet(dateStr, recipient) {
 
   var rows = quotes.map(function(q) {
     var items = [];
-    try { items = JSON.parse(q.lineItems) || []; } catch(e) {}
+    try { items = JSON.parse(q.lineItems) || []; } catch(e) { /* malformed line-item JSON → no items */ }
     var itemsHtml = items.map(function(i) { return esc(i.quantity + '× ' + i.description); }).join('<br>');
     var when = formatWhen_(q.eventDate, q.eventTime, tz);
     var time = when.indexOf(' at ') >= 0 ? when.split(' at ')[1] : 'No time';

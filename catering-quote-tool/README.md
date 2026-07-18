@@ -41,7 +41,9 @@ The app is one web app that serves two audiences by URL:
 ### Step 4: Initialize the Spreadsheet
 Select `initializeSheet` from the function dropdown → click **▶ Run** → authorize when prompted.
 
-Your sheet will have six visible tabs — **Settings**, **Menu**, **Quotes**, **Quote_Sequence**, **Off_Menu** (the cheat-sheet list), **Tax_Exempt_Registry** (the tax-form list, team-editable) — plus hidden tabs: **Quote_Revisions**, **Confirmations_Sent**, **PO_Alerts_Sent**, **Tax_Forms**, **Tax_Form_Uploads** (logs and status).
+Your sheet will have eight visible tabs — **Settings**, **CH Menu** + **DBU Menu** (one menu per restaurant: CH = Cockrell Hill, DBU = Dallas Baptist University), **Quotes**, **Quote_Sequence**, **CH Off-Menu** + **DBU Off-Menu** (the per-restaurant cheat-sheet lists), **Tax_Exempt_Registry** (the tax-form list, team-editable) — plus hidden tabs: **Quote_Revisions**, **Confirmations_Sent**, **PO_Alerts_Sent**, **Tax_Forms**, **Tax_Form_Uploads** (logs and status).
+
+> **Upgrading from an earlier version?** `initializeSheet()` renames your old `Menu` / `Off_Menu` tabs to `CH Menu` / `CH Off-Menu` **in place** — all your existing prices move with them, nothing is lost.
 
 > The tax-form feature uses Google Drive (it creates a "Catering Tax Exempt Forms" folder) — the first run after this update will ask for a Drive permission. Click Allow.
 
@@ -57,9 +59,11 @@ Triggers (clock icon) → **+ Add Trigger** → `cleanOldQuotes` → Time-driven
 
 ### Step 7: Add Menu Items
 
-The Menu tab has **4 columns**: Category | Item Name | Pickup Price | Delivery Price.
+Each menu tab — **CH Menu** (Cockrell Hill) and **DBU Menu** (Dallas Baptist University) — has **4 columns**: Category | Item Name | Pickup Price | Delivery Price.
 
 Use `N/A` in the Delivery Price column for items that cannot be delivered — they will automatically be hidden from the item picker when Delivery mode is selected.
+
+> **Running two restaurants?** Cockrell Hill's menu lives on the **CH Menu** tab, DBU's on **DBU Menu** (same four columns). Same split for the cheat sheet: **CH Off-Menu** and **DBU Off-Menu**. The store-labeled tab names are deliberate — so nobody edits the wrong restaurant's prices. On the quote form, the **Restaurant** toggle (above Order Type) picks which store you're quoting — item prices and the pickup address follow the store. The **Menu Catalog** editor and **Cheat Sheet** each have their own Cockrell Hill / DBU toggle so you edit the right menu. Set which store the form opens on by default in **Settings → Default store for new quotes** (after that it remembers whichever store you used last). Tax rate is shared and still editable per quote.
 
 **Example entries:**
 
@@ -90,7 +94,7 @@ Fill in store names, addresses, phone numbers, contact name, tax rate, logo, and
 |---------|-----|
 | Web app shows a blank page or "script function not found" | Confirm the HTML file holding `App.html` is named exactly `Index` (Step 3). |
 | "getSheetByName(...) is null" / a tab is missing | Run `initializeSheet` again (Step 4). It re-creates any missing tab without touching existing data. |
-| Menu items don't appear in the picker | Check the **Menu** tab has all 4 columns (Category, Item Name, Pickup Price, Delivery Price). Use `N/A` for non-deliverable items' delivery price. |
+| Menu items don't appear in the picker | Check the store's menu tab (**CH Menu** / **DBU Menu**) has all 4 columns (Category, Item Name, Pickup Price, Delivery Price). Use `N/A` for non-deliverable items' delivery price. |
 | Quote saves but no email/PDF | Re-authorize: run `initializeSheet` once from the editor and click **Allow** (the script needs Gmail + Drive access). |
 | Calendar events or reminders not working | See **[SETUP.md](SETUP.md)** — those are the feature-specific deployment steps and their troubleshooting. |
 | Changes to code don't show up | You edited but didn't redeploy. **Deploy ▸ Manage deployments ▸ Edit ▸ New version ▸ Deploy.** |
@@ -139,7 +143,7 @@ Configurable in **Settings → Quote Follow-Up Reminders**:
 ### Off-Menu Cheat Sheet
 - A **Cheat Sheet** tab lists common off-menu items and add-ons (sliced tomatoes, folded eggs, package meals…) for building custom delivery quotes
 - The team enters each item's **base price** once; the tool shows the **delivery price** = base + `Off-Menu Markup (%)` (default 30, editable right on the page), rounded to the nearest tenth
-- Fully team-editable — add, rename, reprice, delete; data lives on the visible `Off_Menu` sheet tab
+- Fully team-editable — add, rename, reprice, delete; data lives on the visible `CH Off-Menu` / `DBU Off-Menu` sheet tabs
 
 ### Tax-Exempt Form Tracking
 - Flipping **Tax Exempt** on a quote asks: "form on file?" with a **Look it up** button that opens the searchable registry (so you're never guessing from memory). Answer No and the tool emails the guest a secure **upload link** (editable template in Settings)
@@ -172,7 +176,7 @@ Configurable in **Settings → Quote Follow-Up Reminders**:
 ### Quarterly Price Check
 - Every **Price Check Interval (Days)** (default 90) the app locks on open until the operator types the current POS prices for 3 randomly chosen menu items (pickup and delivery both checked)
 - Items are drawn from the categories listed in **Price Check Categories** — matched by category name, so menu rows can move freely
-- A mismatch means the Menu tab is stale: fix the item's price there, then re-verify
+- A mismatch means that store's menu tab (CH Menu / DBU Menu) is stale: fix the item's price there, then re-verify
 
 ---
 

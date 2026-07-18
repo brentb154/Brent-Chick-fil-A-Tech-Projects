@@ -327,6 +327,13 @@
     <!-- ═══ VIEW 1: NEW QUOTE ═══ -->
     <section id="view-newQuote" class="view active">
       <div class="card" style="text-align:center;">
+        <div class="card-title"><span class="icon red">🏬</span> Restaurant</div>
+        <div class="order-type-toggle" id="storeToggle">
+          <button class="order-type-btn active" data-store="1" onclick="setStore(1)">Store 1</button>
+          <button class="order-type-btn" data-store="2" onclick="setStore(2)">Store 2</button>
+        </div>
+      </div>
+      <div class="card" style="text-align:center;">
         <div class="card-title"><span class="icon red">⇄</span> Order Type</div>
         <div class="order-type-toggle" id="orderTypeToggle">
           <button class="order-type-btn active" data-type="Pickup" onclick="setOrderType('Pickup')">🏪 Pickup</button>
@@ -432,7 +439,11 @@
       <div class="card">
         <div class="card-title"><span class="icon amber">📝</span> Off-Menu Cheat Sheet — Delivery Pricing</div>
         <div style="background:var(--gray-50);border:1px solid var(--gray-100);border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--gray-600);line-height:1.6;margin-bottom:14px;">
-          Common off-menu items and add-ons for building custom delivery quotes — bacon biscuits with egg and cheese, salads with items removed, package meals, and so on. Enter each item's everyday <strong>base price</strong> once; the <strong>delivery price</strong> column adds the markup automatically. Add your own items with the button below — everything here is team-editable (it lives on the <code>Off_Menu</code> tab of the Google Sheet).
+          Common off-menu items and add-ons for building custom delivery quotes — bacon biscuits with egg and cheese, salads with items removed, package meals, and so on. Enter each item's everyday <strong>base price</strong> once; the <strong>delivery price</strong> column adds the markup automatically. Add your own items with the button below — everything here is team-editable (Cockrell Hill lives on the <code>CH Off-Menu</code> tab, DBU on the <code>DBU Off-Menu</code> tab).
+        </div>
+        <div class="order-type-toggle" id="cheatStoreToggle" style="max-width:460px;margin-bottom:14px;">
+          <button class="order-type-btn active" data-store="1" onclick="setCheatStore(1)">Store 1</button>
+          <button class="order-type-btn" data-store="2" onclick="setCheatStore(2)">Store 2</button>
         </div>
         <div class="settings-field-row" style="margin-bottom:12px;">
           <label>Delivery Markup</label>
@@ -453,6 +464,15 @@
 
     <!-- ═══ VIEW: TAX-EXEMPT REGISTRY ═══ -->
     <section id="view-taxforms" class="view">
+      <div class="card">
+        <div class="card-title"><span class="icon red">🔗</span> Guest Upload Link</div>
+        <p class="field-hint" style="margin-bottom:10px;">Public page where a guest uploads their tax-exempt form — no login needed. Send it to anyone who needs to submit one; they enter their quote number on the page. (The "Request from Guest" button on a quote emails this same link automatically.)</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="text" class="form-input" id="taxUploadUrl" readonly style="flex:1;min-width:240px;font-size:13px;" value="Loading…">
+          <button class="btn btn-secondary btn-sm" onclick="copyTaxUploadLink()">📋 Copy</button>
+          <a id="taxUploadOpen" href="#" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="display:none;">Open ↗</a>
+        </div>
+      </div>
       <div class="card" id="taxPendingCard" style="display:none;border-top:4px solid #F59E0B;">
         <div class="card-title"><span class="icon amber">📥</span> New Uploads to Review (<span id="taxPendingCount">0</span>)</div>
         <p class="field-hint" style="margin-bottom:12px;">Guests uploaded these. Confirm each into the registry under the correct organization name — you pick the name, so a slightly different spelling never creates a duplicate by accident.</p>
@@ -474,15 +494,16 @@
     <section id="view-settings" class="view">
       <div class="card">
         <div class="card-title"><span class="icon red">🏬</span> Store Profile</div>
-        <div class="settings-field-row"><label>Active Location</label><select class="form-select" id="settingsActiveLocation" onchange="saveSettingField('Store Name (Active)',this.value)"><option>Loading…</option></select></div>
+        <div class="settings-field-row"><label>Default store for new quotes</label><select class="form-select" id="settingsActiveLocation" onchange="saveSettingField('Store Name (Active)',this.value)"><option>Loading…</option></select></div>
+        <div class="field-hint" style="margin-bottom:8px;">The quote form opens on this store the first time. After that it remembers whichever store you last used.</div>
         <hr style="border:none;border-top:1px solid var(--gray-100);margin:16px 0;">
         <p style="font-size:13px;font-weight:600;color:var(--gray-400);text-transform:uppercase;margin-bottom:12px;">Location 1</p>
-        <div class="settings-field-row"><label>Name</label><input class="form-input" id="settingsLoc1Name" onchange="saveSettingField('Location 1 Name',this.value);refreshLocationDropdown();"></div>
+        <div class="settings-field-row"><label>Name</label><input class="form-input" id="settingsLoc1Name" onchange="saveSettingField('Location 1 Name',this.value);refreshLocationDropdown();refreshStoreSelector();"></div>
         <div class="settings-field-row"><label>Address</label><input class="form-input" id="settingsLoc1Addr" onchange="saveSettingField('Location 1 Address',this.value)"></div>
         <div class="settings-field-row"><label>Phone</label><input class="form-input" id="settingsLoc1Phone" onchange="saveSettingField('Location 1 Phone',this.value)"></div>
         <hr style="border:none;border-top:1px solid var(--gray-100);margin:16px 0;">
         <p style="font-size:13px;font-weight:600;color:var(--gray-400);text-transform:uppercase;margin-bottom:12px;">Location 2</p>
-        <div class="settings-field-row"><label>Name</label><input class="form-input" id="settingsLoc2Name" onchange="saveSettingField('Location 2 Name',this.value);refreshLocationDropdown();"></div>
+        <div class="settings-field-row"><label>Name</label><input class="form-input" id="settingsLoc2Name" onchange="saveSettingField('Location 2 Name',this.value);refreshLocationDropdown();refreshStoreSelector();"></div>
         <div class="settings-field-row"><label>Address</label><input class="form-input" id="settingsLoc2Addr" onchange="saveSettingField('Location 2 Address',this.value)"></div>
         <div class="settings-field-row"><label>Phone</label><input class="form-input" id="settingsLoc2Phone" onchange="saveSettingField('Location 2 Phone',this.value)"></div>
         <hr style="border:none;border-top:1px solid var(--gray-100);margin:16px 0;">
@@ -647,7 +668,11 @@
       <div class="card">
         <div class="card-title"><span class="icon green">🍔</span> Menu Catalog</div>
         <div style="background:var(--gray-50);border:1px solid var(--gray-100);border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--gray-600);line-height:1.6;margin-bottom:14px;">
-          <strong>Pulling real prices from CFA Home:</strong> Backoffice → search your restaurant → <strong>Menu Price Group</strong> → <em>« Select a different price group</em> → click your location → <strong>Export this to an Excel spreadsheet</strong>. Then open the <strong>Menu tab of the Google Sheet</strong> and paste the four columns (Category | Item Name | Pickup Price | Delivery Price) under the headers — the export's columns already line up in that order. <code>N/A</code> in Delivery Price hides an item from delivery quotes. Click a category below to expand and edit items one at a time.
+          <strong>Pulling real prices from CFA Home:</strong> Backoffice → search your restaurant → <strong>Menu Price Group</strong> → <em>« Select a different price group</em> → click your location → <strong>Export this to an Excel spreadsheet</strong>. Then open the right Menu tab of the Google Sheet (<strong>Cockrell Hill → <code>CH Menu</code>, DBU → <code>DBU Menu</code></strong>) and paste the four columns (Category | Item Name | Pickup Price | Delivery Price) under the headers — the export's columns already line up in that order. <code>N/A</code> in Delivery Price hides an item from delivery quotes. Click a category below to expand and edit items one at a time.
+        </div>
+        <div class="order-type-toggle" id="menuStoreToggle" style="max-width:460px;margin-bottom:14px;">
+          <button class="order-type-btn active" data-store="1" onclick="setEditorStore(1)">Store 1</button>
+          <button class="order-type-btn" data-store="2" onclick="setEditorStore(2)">Store 2</button>
         </div>
         <div class="table-scroll-wrapper">
           <table class="menu-editor-table" id="menuEditorTable">
@@ -742,6 +767,27 @@ var appSettings = {}, menuItems = [], allQuotes = [];
 var currentOrderType = 'Pickup', isTaxExempt = false, noPONeeded = false, confirmResolve = null, currentModalQuote = null;
 var editingQuoteId = '';
 
+// ── Two-store switching (Phase 2) ──
+// currentStore drives the quote form: pickers, repricing, pickup address, the saved
+// locationName, and the price check. menuByStore caches BOTH stores' menus — both are
+// preloaded at init so switching stores is instant and synchronous (no async ordering
+// traps in edit/reorder). editorStore and cheatStore are the Menu editor's and Cheat
+// Sheet's own selected store, independent of the quote form.
+var currentStore = 1, editorStore = 1, cheatStore = 1;
+var menuByStore = { 1: [], 2: [] };
+var cheatByStore = { 1: [], 2: [] }, cheatLoaded = { 1: false, 2: false };
+// name → item lookup for the ACTIVE store's menu, so repricing/edit don't linear-scan
+// the whole menu for every line item. Rebuilt whenever the active menu changes.
+// null-proto so an item literally named "toString"/"constructor" can't collide.
+var menuIndex = Object.create(null);
+function rebuildMenuIndex() {
+  menuIndex = Object.create(null);
+  for (var i = 0; i < menuItems.length; i++) {
+    var nm = menuItems[i].name;
+    if (!(nm in menuIndex)) menuIndex[nm] = menuItems[i]; // first row wins, matching the old .find()
+  }
+}
+
 // ── Init ──
 document.addEventListener('DOMContentLoaded', function() {
   showSpinner();
@@ -762,15 +808,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function loadAppData() {
   var loaded = 0;
-  function done() { loaded++; if (loaded >= 4) { hideSpinner(); applySettings(); buildLineItemRows(8); refreshLocationDropdown(); maybeShowPriceCheck(); setTimeout(maybeAutoTour, 1400); } }
+  // 5 loads: settings, both store menus, quotes, tax statuses. Both menus are
+  // preloaded so store switching (and edit/reorder) is instant and synchronous.
+  function done() { loaded++; if (loaded >= 5) { hideSpinner(); applySettings(); buildLineItemRows(8); refreshLocationDropdown(); refreshStoreSelector(); initStore(); setTimeout(maybeAutoTour, 1400); } }
   google.script.run.withSuccessHandler(function(s) { appSettings = s || {}; done(); }).withFailureHandler(function(e) { showToast('Settings error: '+e.message,'error'); done(); }).getSettings();
-  google.script.run.withSuccessHandler(function(m) { menuItems = m; done(); }).withFailureHandler(function(e) { showToast('Menu error: '+e.message,'error'); done(); }).getMenuItems();
+  google.script.run.withSuccessHandler(function(m) { menuByStore[1] = m || []; done(); }).withFailureHandler(function(e) { showToast('Menu error: '+e.message,'error'); menuByStore[1] = []; done(); }).getMenuItems(1);
+  google.script.run.withSuccessHandler(function(m) { menuByStore[2] = m || []; done(); }).withFailureHandler(function(e) { menuByStore[2] = []; done(); }).getMenuItems(2);
   google.script.run.withSuccessHandler(function(q) { allQuotes = q; done(); }).withFailureHandler(function(e) { showToast('Quotes error: '+e.message,'error'); done(); }).getQuotes();
   google.script.run.withSuccessHandler(function(t) { taxFormStatuses = (t && t.statuses) || {}; taxFolderUrl = (t && t.folderUrl) || ''; done(); }).withFailureHandler(function(e) { done(); }).getTaxFormStatuses();
 }
 
 function applySettings() {
-  document.getElementById('activeLocationLabel').textContent = appSettings['Store Name (Active)'] || '';
+  updateActiveStoreLabel();
   document.getElementById('taxRateInput').value = parseFloat(appSettings['Default Tax Rate (%)']) || 8.25;
   updateAddressField();
   document.getElementById('settingsLoc1Name').value = appSettings['Location 1 Name'] || '';
@@ -838,15 +887,14 @@ function setOrderType(type) {
 }
 function applyOrderType(type) {
   currentOrderType = type;
-  document.querySelectorAll('.order-type-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.type===type); });
+  document.querySelectorAll('#orderTypeToggle .order-type-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.type===type); });
   updateAddressField(); recalcAllPrices();
 }
 function updateAddressField() {
   var inp = document.getElementById('orderAddress'), lbl = document.getElementById('addressLabel');
   if (currentOrderType === 'Pickup') {
     lbl.textContent = 'Pickup Location';
-    var an = appSettings['Store Name (Active)'] || '';
-    inp.value = an === (appSettings['Location 2 Name']||'') ? (appSettings['Location 2 Address']||'') : (appSettings['Location 1 Address']||'');
+    inp.value = currentStore === 2 ? (appSettings['Location 2 Address']||'') : (appSettings['Location 1 Address']||'');
     inp.readOnly = true;
   } else { lbl.textContent = 'Delivery Address *'; inp.value = ''; inp.readOnly = false; inp.placeholder = 'Enter delivery address…'; }
 }
@@ -856,12 +904,66 @@ function recalcAllPrices() {
     var priceInput = row.querySelector('.line-item-price');
     var val = picker.dataset.value || '';
     if (val && val !== '__custom__') {
-      var item = menuItems.find(function(m) { return m.name === val; });
+      var item = menuIndex[val];
       if (item) priceInput.value = (currentOrderType === 'Delivery' ? item.deliveryPrice : item.pickupPrice).toFixed(2);
     }
     calcRowAmount(row);
   });
   recalcTotals();
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// STORE (RESTAURANT) SWITCHING — Phase 2
+// ══════════════════════════════════════════════════════════════
+function storeName(idx) { return idx === 2 ? (appSettings['Location 2 Name'] || '') : (appSettings['Location 1 Name'] || ''); }
+// Quotes save the store NAME; map a saved name back to an index for edit/reorder.
+function storeIndexFromName(name) { var l2 = appSettings['Location 2 Name'] || ''; return (l2 && name === l2) ? 2 : 1; }
+
+function readLastStore() {
+  try { var raw = localStorage.getItem('cateringLastStore'); if (raw === null || raw === '') return null; return parseInt(raw, 10) === 2 ? 2 : 1; }
+  catch (e) { return null; }
+}
+function persistLastStore(idx) { try { localStorage.setItem('cateringLastStore', idx); } catch (e) { /* storage blocked (private mode) — remembering the store is optional */ } }
+
+// Label the two store buttons in any toggle (quote form, menu editor, cheat sheet).
+function labelStoreToggle(toggleId) {
+  var b1 = document.querySelector('#' + toggleId + ' [data-store="1"]'), b2 = document.querySelector('#' + toggleId + ' [data-store="2"]');
+  if (b1) b1.textContent = appSettings['Location 1 Name'] || 'Store 1';
+  if (b2) b2.textContent = appSettings['Location 2 Name'] || 'Store 2';
+}
+function refreshStoreSelector() { labelStoreToggle('storeToggle'); labelStoreToggle('menuStoreToggle'); labelStoreToggle('cheatStoreToggle'); }
+function updateActiveStoreLabel() { document.getElementById('activeLocationLabel').textContent = storeName(currentStore); }
+
+// Point the quote form at a store. Menus are preloaded, so this is synchronous.
+function applyStore(idx) {
+  currentStore = idx;
+  menuItems = menuByStore[idx] || [];
+  rebuildMenuIndex();
+  document.querySelectorAll('#storeToggle .order-type-btn').forEach(function(b) { b.classList.toggle('active', parseInt(b.dataset.store, 10) === idx); });
+  updateActiveStoreLabel();
+  // Only refresh the address in Pickup mode (it's the store's pickup location). In
+  // Delivery mode the address is the customer's — don't wipe what they typed.
+  if (currentOrderType === 'Pickup') updateAddressField();
+  persistLastStore(idx);
+}
+
+// User picked a store on the quote form. Confirm first if it would reprice items.
+function setStore(idx) {
+  if (idx === currentStore) return;
+  var has = false;
+  document.querySelectorAll('#lineItemsBody .item-picker').forEach(function(p) { if (p.dataset.value && p.dataset.value !== '__custom__') has = true; });
+  var go = function() { applyStore(idx); recalcAllPrices(); };
+  if (has) showConfirm('Switch to ' + (storeName(idx) || 'the other store') + '?', 'Item prices will update to that store\'s pricing. Items not on its menu keep their current price.').then(function(ok) { if (ok) go(); });
+  else go();
+}
+
+// Opening store: last-used (localStorage) if set, else the Settings default.
+function initStore() {
+  var saved = readLastStore();
+  var idx = (saved === 1 || saved === 2) ? saved : storeIndexFromName(appSettings['Store Name (Active)'] || '');
+  applyStore(idx);
+  maybeShowPriceCheck(idx);
 }
 
 
@@ -1004,7 +1106,7 @@ function selectPickerItem(optionEl) {
     input.value = name;
     customInput.style.display = 'none';
     customInput.value = '';
-    var item = menuItems.find(function(m) { return m.name === name; });
+    var item = menuIndex[name];
     if (item) priceInput.value = (currentOrderType === 'Delivery' ? item.deliveryPrice : item.pickupPrice).toFixed(2);
   }
 
@@ -1144,9 +1246,31 @@ function renderTaxRegistry() {
     taxFolderUrl = taxRegistry.folderUrl || taxFolderUrl;
     var link = document.getElementById('taxFolderLink');
     if (link) link.innerHTML = taxRegistry.folderUrl ? '<a href="' + escAttr(taxRegistry.folderUrl) + '" target="_blank" rel="noopener">Open the Drive folder ↗</a>' : '';
+    updateTaxUploadLink();
     renderTaxPending();
     renderTaxRegistryList();
   }).withFailureHandler(function(e) { document.getElementById('taxRegistryList').innerHTML = '<div class="empty-state"><p>Error: ' + escHtml(e.message) + '</p></div>'; }).getTaxRegistry();
+}
+
+// The public guest-upload URL comes from the server (the app runs in a sandboxed
+// iframe, so window.location isn't the /exec URL). Populated when the tab loads.
+function updateTaxUploadLink() {
+  var url = (taxRegistry && taxRegistry.uploadUrl) || '';
+  var inp = document.getElementById('taxUploadUrl'), open = document.getElementById('taxUploadOpen');
+  if (inp) inp.value = url || 'Deploy the web app to generate this link';
+  if (open) { if (url) { open.href = url; open.style.display = ''; } else open.style.display = 'none'; }
+}
+
+function copyTaxUploadLink() {
+  var inp = document.getElementById('taxUploadUrl');
+  if (!inp || !inp.value || !(taxRegistry && taxRegistry.uploadUrl)) { showToast('No link yet — deploy the web app first.', 'info'); return; }
+  inp.removeAttribute('readonly'); inp.focus(); inp.select();
+  try { inp.setSelectionRange(0, 99999); } catch (e) { /* older browsers */ }
+  var ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { /* execCommand unsupported */ }
+  inp.setAttribute('readonly', 'readonly');
+  if (window.getSelection) window.getSelection().removeAllRanges();
+  showToast(ok ? 'Link copied!' : 'Select the link and copy it manually.', ok ? 'success' : 'info');
 }
 
 function renderTaxPending() {
@@ -1332,7 +1456,7 @@ function collectFormData() {
     lineItems:li, subtotal:subGross, taxRate:tr, taxAmount:ta, total:taxable+ta,
     itemDiscountTotal:itemDisc, orderDiscountValue:odv, orderDiscountType:odt, orderDiscountAmount:orderDisc,
     quoteNotes:document.getElementById('quoteNotes').value,
-    taxExempt:isTaxExempt, locationName:appSettings['Store Name (Active)']||'',
+    taxExempt:isTaxExempt, locationName:storeName(currentStore),
     poNumber: noPONeeded ? 'NO_PO_NEEDED' : document.getElementById('poNumber').value.trim()
   };
   if (editingQuoteId) d.quoteId = editingQuoteId;
@@ -1469,7 +1593,7 @@ function previewAndPrint() { if (!validateForm()) return;
   });
 }
 function generatePDFFromQuote(q) { showSpinner();
-  var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){}
+  var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){/* malformed JSON → no line items */}
   var oda=computeOrderDiscount(li, q.orderDiscountValue, q.orderDiscountType);
   var d={customerName:q.customerName,contactName:q.contactName,customerEmail:q.customerEmail||'',customerPhone:q.customerPhone||'',createdDate:q.createdDate||'',orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:q.eventTime||'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId,poNumber:q.poNumber||'',orderDiscountValue:parseFloat(q.orderDiscountValue)||0,orderDiscountType:q.orderDiscountType||'percent',orderDiscountAmount:oda,quoteNotes:q.quoteNotes||''};
   google.script.run.withSuccessHandler(function(pd) { hideSpinner(); pd.quoteId=q.quoteId; pd.poNumber=q.poNumber||''; openPrintWindow(pd); }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).getPrintData(d);
@@ -1529,7 +1653,7 @@ function sendEmailFromModal() {
   var email = document.getElementById('modalEmailInput').value.trim();
   if (!email) { showToast('Enter an email address.','error'); return; }
   var q = currentModalQuote; if (!q) return;
-  var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){}
+  var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){/* malformed JSON → no line items */}
   var oda=computeOrderDiscount(li, q.orderDiscountValue, q.orderDiscountType);
   var d={customerName:q.customerName,contactName:q.contactName,customerEmail:email,customerPhone:q.customerPhone||'',createdDate:q.createdDate||'',orderType:q.orderType,deliveryAddress:q.deliveryAddress,date:q.eventDate||'',time:q.eventTime||'',lineItems:li,subtotal:q.subtotal,taxRate:q.taxRateUsed,taxAmount:q.taxAmount,total:q.total,taxExempt:q.taxExempt==='TRUE'||q.taxExempt===true,locationName:q.locationName,quoteId:q.quoteId,orderDiscountValue:parseFloat(q.orderDiscountValue)||0,orderDiscountType:q.orderDiscountType||'percent',orderDiscountAmount:oda,quoteNotes:q.quoteNotes||''};
   closeModal();
@@ -1560,7 +1684,7 @@ function openPrintWindow(data) {
   var lo=data.logo?'<img src="'+data.logo+'" style="max-width:140px;max-height:80px;margin-bottom:8px;" alt="Logo">':'<div style="font-size:24px;font-weight:800;color:#E51636;margin-bottom:8px;">Chick-fil-A</div>';
   var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Quote '+escHtml(data.quoteId||'')+'</title><style>@page{size:letter;margin:0.6in;}body{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1F2937;margin:0;padding:40px;}@media print{body{padding:0;}.no-print{display:none!important;}}.print-btn{background:#E51636;color:white;border:none;padding:12px 32px;font-size:15px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;}.print-btn:hover{background:#C41230;}</style></head><body>'+
     '<div class="no-print" style="text-align:center;margin-bottom:24px;padding:16px;background:#F9FAFB;border-radius:10px;"><button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button><p style="font-size:13px;color:#6B7280;margin-top:8px;">Use "Save as PDF" in the print dialog.</p></div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+lo+'<div style="font-size:16px;font-weight:700;">'+escHtml(data.storeName||'')+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+escHtml(data.storeAddress||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.storePhone||'')+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:monospace;">'+escHtml(data.quoteId||'')+'</div>'+(data.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+escHtml(data.poNumber)+'</div>':'')+(function(){var w=formatEventDateTime(data.date,data.time);return w?'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Event: '+escHtml(w)+'</div>':'';})()+(data.quotedOn?'<div style="font-size:12px;color:#9CA3AF;margin-top:2px;">Quoted on '+escHtml(data.quotedOn)+'</div>':'')+(data.validThrough?'<div style="font-size:12px;color:#9CA3AF;">Quote valid through '+escHtml(data.validThrough)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+escHtml(data.customerName||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.orderType||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(ad)+'</div>'+(data.directionsUrl?'<div style="font-size:12px;"><a href="'+data.directionsUrl+'" style="color:#2563EB;">Get Directions (Google Maps)</a></div>':'')+'<div style="font-size:13px;font-weight:600;margin-top:4px;">'+escHtml(data.contactPerson||'')+'</div>'+(data.customerEmail?'<div style="font-size:13px;color:#6B7280;">'+escHtml(data.customerEmail)+'</div>':'')+(data.customerPhone?'<div style="font-size:13px;color:#6B7280;">'+escHtml(data.customerPhone)+'</div>':'')+'</div></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;"><div>'+lo+'<div style="font-size:16px;font-weight:700;">'+escHtml(data.storeName||'')+'</div><div style="font-size:13px;color:#6B7280;margin-top:2px;">'+escHtml(data.storeAddress||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.storePhone||'')+'</div></div><div style="text-align:right;"><div style="font-size:36px;font-weight:300;color:#D1D5DB;letter-spacing:2px;">QUOTE</div><div style="font-size:13px;color:#6B7280;margin-top:4px;font-family:monospace;">'+escHtml(data.quoteId||'')+'</div>'+(data.poNumber?'<div style="font-size:13px;color:#6B7280;margin-top:2px;">PO: '+escHtml(data.poNumber)+'</div>':'')+(function(){var w=formatEventDateTime(data.date,data.time);return w?'<div style="font-size:13px;color:#6B7280;margin-top:8px;">Event: '+escHtml(w)+'</div>':'';})()+(data.quotedOn?'<div style="font-size:12px;color:#9CA3AF;margin-top:2px;">Quoted on '+escHtml(data.quotedOn)+'</div>':'')+(data.validThrough?'<div style="font-size:12px;color:#9CA3AF;">Quote valid through '+escHtml(data.validThrough)+'</div>':'')+'<div style="font-size:14px;font-weight:700;margin-top:8px;">For: '+escHtml(data.customerName||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(data.orderType||'')+'</div><div style="font-size:13px;color:#6B7280;">'+escHtml(ad)+'</div>'+'<div style="font-size:13px;font-weight:600;margin-top:4px;">'+escHtml(data.contactPerson||'')+'</div>'+(data.customerEmail?'<div style="font-size:13px;color:#6B7280;">'+escHtml(data.customerEmail)+'</div>':'')+(data.customerPhone?'<div style="font-size:13px;color:#6B7280;">'+escHtml(data.customerPhone)+'</div>':'')+'</div></div>'+
     '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><thead><tr style="background:#F3F4F6;"><th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:10%;">QTY</th><th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:50%;">DESCRIPTION</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:18%;">PRICE/ITEM</th><th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#4B5563;text-transform:uppercase;border-bottom:2px solid #E5E7EB;width:22%;">AMOUNT</th></tr></thead><tbody>'+liH+'</tbody></table>'+
     notesHtml+
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;"><div style="font-size:13px;color:#6B7280;max-width:320px;">If you have any questions concerning this Quote, contact:<br><strong style="color:#1F2937;">'+escHtml(data.contactName||'')+' at '+escHtml(data.storePhone||'')+'</strong></div><table style="width:280px;background:#F9FAFB;border-radius:8px;overflow:hidden;"><tr><td style="padding:8px 16px;font-size:14px;color:#6B7280;">SUBTOTAL</td><td style="padding:8px 16px;text-align:right;font-family:monospace;font-size:14px;">$'+(data.subtotal||0).toFixed(2)+'</td></tr>'+discRowsHtml+tl+'<tr style="background:#E5E7EB;"><td style="padding:10px 16px;font-size:15px;font-weight:700;">TOTAL</td><td style="padding:10px 16px;text-align:right;font-family:monospace;font-size:16px;font-weight:700;">$'+(data.total||0).toFixed(2)+'</td></tr></table></div></body></html>';
@@ -1578,7 +1702,7 @@ function resetForm() {
   document.getElementById('taxExemptToggle').classList.remove('active');
   updateTaxFormQuestion();
   document.getElementById('noPOToggle').classList.remove('active');
-  document.querySelectorAll('.order-type-btn').forEach(function(b){b.classList.toggle('active',b.dataset.type==='Pickup');});
+  document.querySelectorAll('#orderTypeToggle .order-type-btn').forEach(function(b){b.classList.toggle('active',b.dataset.type==='Pickup');});
   updateAddressField(); document.getElementById('taxRateInput').value=appSettings['Default Tax Rate (%)']||8.25;
   document.getElementById('orderDiscountInput').value='0';
   document.getElementById('orderDiscountTypeInput').value='percent';
@@ -1822,7 +1946,7 @@ function openRunsheetWindow(dayKey) {
   if (!win) { showToast('Pop-up blocked! Allow pop-ups for this site.', 'error'); return; }
   var dayLabel = formatEventDateTime(dayKey, '');
   var rows = qs.map(function(q) {
-    var li = []; try { li = JSON.parse(q.lineItems) || []; } catch(e) {}
+    var li = []; try { li = JSON.parse(q.lineItems) || []; } catch(e) { /* malformed JSON → no line items */ }
     var itemsHtml = li.map(function(i) { return escHtml(i.quantity + '× ' + i.description); }).join('<br>');
     var t = q.eventTime ? formatEventDateTime('', q.eventTime) : 'No time';
     var po = q.poNumber === 'NO_PO_NEEDED' ? '🟢 No PO needed' : (q.poNumber ? '🟢 PO: ' + escHtml(q.poNumber) : '🔴 NEEDS PO');
@@ -1871,7 +1995,7 @@ function openQuoteDetail(q) {
   document.getElementById('modalQuoteId').textContent=q.quoteId;
   var ds=q.createdDate?new Date(q.createdDate).toLocaleDateString():'';
   var eventWhen=formatEventDateTime(q.eventDate,q.eventTime);
-  var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){}
+  var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){/* malformed JSON → no line items */}
   var te=q.taxExempt==='TRUE'||q.taxExempt===true;
   var isNoPO = q.poNumber === 'NO_PO_NEEDED';
   var poHtml;
@@ -1963,6 +2087,7 @@ function deleteQuoteAction(sr) { showConfirm('Delete this quote?','This cannot b
 function editAndReuse() {
   var q=currentModalQuote; if (!q) return; closeModal(); switchView('newQuote');
   editingQuoteId = q.quoteId || '';
+  applyStore(storeIndexFromName(q.locationName||'')); // switch to the quote's store before matching line items (menus preloaded)
   document.getElementById('customerName').value=q.customerName||'';
   document.getElementById('contactPerson').value=q.contactName||'';
   document.getElementById('customerEmail').value=q.customerEmail||'';
@@ -1974,7 +2099,7 @@ function editAndReuse() {
   document.getElementById('quoteDate').value=q.eventDate||dateKey(new Date());
   setQuoteTimeValue(q.eventTime||'');
   currentOrderType=q.orderType||'Pickup';
-  document.querySelectorAll('.order-type-btn').forEach(function(b){b.classList.toggle('active',b.dataset.type===currentOrderType);});
+  document.querySelectorAll('#orderTypeToggle .order-type-btn').forEach(function(b){b.classList.toggle('active',b.dataset.type===currentOrderType);});
   updateAddressField();
   if (currentOrderType==='Delivery') document.getElementById('orderAddress').value=q.deliveryAddress||'';
   isTaxExempt=q.taxExempt==='TRUE'||q.taxExempt===true;
@@ -1985,13 +2110,13 @@ function editAndReuse() {
     setTaxFormAnswer(tfSt==='ON_FILE'?'yes':(tfSt==='REQUESTED'?'no':''));
   }
   document.getElementById('taxRateInput').value=q.taxRateUsed||appSettings['Default Tax Rate (%)']||8.25;
-  var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){}
+  var li=[]; try{li=JSON.parse(q.lineItems);}catch(e){/* malformed JSON → no line items */}
   var body=document.getElementById('lineItemsBody'); body.innerHTML='';
   li.forEach(function(item) {
     addLineItemRow();
     var rows=body.querySelectorAll('.line-item-row'), row=rows[rows.length-1];
     var picker=row.querySelector('.item-picker'), input=picker.querySelector('.item-picker-input'), custom=picker.querySelector('.custom-item-input');
-    var match=menuItems.find(function(m){return m.name===item.description;});
+    var match=menuIndex[item.description];
     if (match) { picker.dataset.value=match.name; input.value=match.name; }
     else { picker.dataset.value='__custom__'; input.value='Custom Item'; custom.style.display='block'; custom.value=item.description; }
     row.querySelector('.line-item-qty').value=item.quantity;
@@ -2053,7 +2178,7 @@ function loadQuoteRevisions(quoteId) {
 
 function viewRevision(i) {
   var r=currentRevisions[i]; if (!r) return;
-  var li=[]; try{li=JSON.parse(r.lineItems);}catch(e){}
+  var li=[]; try{li=JSON.parse(r.lineItems);}catch(e){/* malformed JSON → no line items */}
   var te=r.taxExempt==='TRUE'||r.taxExempt===true;
   var when=r.revisedAt?new Date(r.revisedAt).toLocaleString():'';
   var eventWhen=formatEventDateTime(r.eventDate,r.eventTime);
@@ -2078,7 +2203,7 @@ function restoreRevision(i) {
   var r=currentRevisions[i]; if (!r) return;
   showConfirm('Restore this version?','The current version is kept in Previous Versions, and this older version becomes the live quote.').then(function(ok) {
     if (!ok) return;
-    var li=[]; try{li=JSON.parse(r.lineItems);}catch(e){}
+    var li=[]; try{li=JSON.parse(r.lineItems);}catch(e){/* malformed JSON → no line items */}
     var d={quoteId:r.quoteId,customerName:r.customerName,contactName:r.contactName,customerEmail:r.customerEmail||'',customerPhone:r.customerPhone||'',orderType:r.orderType,deliveryAddress:r.deliveryAddress||'',lineItems:li,subtotal:parseFloat(r.subtotal)||0,taxRate:parseFloat(r.taxRateUsed)||0,taxAmount:parseFloat(r.taxAmount)||0,total:parseFloat(r.total)||0,taxExempt:r.taxExempt==='TRUE'||r.taxExempt===true,locationName:r.locationName||'',poNumber:r.poNumber||'',date:r.eventDate||'',time:r.eventTime||'',orderDiscountValue:parseFloat(r.orderDiscountValue)||0,orderDiscountType:r.orderDiscountType||'percent',quoteNotes:r.quoteNotes||''};
     closeModal(); showSpinner();
     google.script.run.withSuccessHandler(function(id) {
@@ -2087,14 +2212,16 @@ function restoreRevision(i) {
   });
 }
 
-// ── Quarterly Price Verification ──
-var priceCheckItems = [];
+// ── Quarterly Price Verification (per store) ──
+var priceCheckItems = [], priceCheckStore = 1;
+function priceCheckDateKey(store) { return store === 2 ? 'Last Price Verification 2' : 'Last Price Verification'; }
 
-function priceCheckDue() {
-  if (!menuItems.length) return false; // nothing to verify on a fresh install
+function priceCheckDue(store) {
+  var menu = menuByStore[store] || [];
+  if (!menu.length) return false; // nothing to verify (empty / unconfigured store)
   var interval = parseInt(appSettings['Price Check Interval (Days)'], 10);
   if (isNaN(interval) || interval < 1) interval = 90;
-  var last = (appSettings['Last Price Verification'] || '').toString().trim();
+  var last = (appSettings[priceCheckDateKey(store)] || '').toString().trim();
   if (!last) return true; // never verified — establish a baseline
   var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(last);
   if (!m) return true;
@@ -2102,12 +2229,14 @@ function priceCheckDue() {
   return (new Date() - lastDate) / 86400000 >= interval;
 }
 
-function maybeShowPriceCheck() {
-  if (!priceCheckDue()) return;
+function maybeShowPriceCheck(store) {
+  store = store || currentStore;
+  if (!priceCheckDue(store)) return;
+  priceCheckStore = store;
   google.script.run.withSuccessHandler(function(items) {
     if (!items || !items.length) return;
     priceCheckItems = items;
-    var h = '';
+    var h = '<div style="text-align:center;font-size:13px;font-weight:600;color:var(--gray-500);margin-bottom:4px;">' + escHtml(storeName(store) || ('Store ' + store)) + '</div>';
     items.forEach(function(it, i) {
       h += '<div style="border:1px solid var(--gray-100);border-radius:8px;padding:12px;margin-top:10px;">'
         + '<div style="font-weight:700;font-size:14px;">'+escHtml(it.name)+'</div>'
@@ -2120,7 +2249,7 @@ function maybeShowPriceCheck() {
     document.getElementById('priceCheckBody').innerHTML = h;
     document.getElementById('priceCheckError').style.display = 'none';
     document.getElementById('priceCheckOverlay').classList.add('show');
-  }).withFailureHandler(function(){}).getPriceCheckItems();
+  }).withFailureHandler(function(){}).getPriceCheckItems(store);
 }
 
 function collectPriceCheckEntries() {
@@ -2132,20 +2261,21 @@ function collectPriceCheckEntries() {
 
 function submitPriceCheck() {
   var entries = collectPriceCheckEntries();
+  var store = priceCheckStore;
   showSpinner();
   google.script.run.withSuccessHandler(function(res) {
     hideSpinner();
     if (res && res.ok) {
-      appSettings['Last Price Verification'] = dateKey(new Date());
+      appSettings[priceCheckDateKey(store)] = dateKey(new Date());
       document.getElementById('priceCheckOverlay').classList.remove('show');
       showToast('Prices verified — you\'re good for another quarter!','success');
       return;
     }
     var names = (res && res.mismatches) || [];
     var err = document.getElementById('priceCheckError');
-    err.textContent = 'Didn\'t match the stored prices: ' + names.join(', ') + '. Double-check the POS and verify again. If the POS price really has changed, update that item in the Menu tab of the Google Sheet first, then re-verify.';
+    err.textContent = 'Didn\'t match the stored prices: ' + names.join(', ') + '. Double-check the POS and verify again. If the POS price really has changed, update that item in the store\'s Menu tab (CH Menu or DBU Menu) first, then re-verify.';
     err.style.display = 'block';
-  }).withFailureHandler(function(e){ hideSpinner(); showToast('Error: '+e.message,'error'); }).submitPriceVerification(entries);
+  }).withFailureHandler(function(e){ hideSpinner(); showToast('Error: '+e.message,'error'); }).submitPriceVerification(entries, store);
 }
 
 // ── Reminder Settings ──
@@ -2253,14 +2383,14 @@ function uninstallReminderTrigger() {
 }
 
 // ── Settings ──
-function saveSettingField(l,v) { google.script.run.withSuccessHandler(function() { appSettings[l]=v; if(l==='Store Name (Active)'){document.getElementById('activeLocationLabel').textContent=v;updateAddressField();} showToast('Saved!','success'); }).withFailureHandler(function(e){showToast('Error: '+e.message,'error');}).updateSetting(l,v); }
+function saveSettingField(l,v) { google.script.run.withSuccessHandler(function() { appSettings[l]=v; showToast('Saved!','success'); }).withFailureHandler(function(e){showToast('Error: '+e.message,'error');}).updateSetting(l,v); }
 function refreshLocationDropdown() {
   var s=document.getElementById('settingsActiveLocation'), l1=appSettings['Location 1 Name']||'Location 1', l2=appSettings['Location 2 Name']||'Location 2', a=appSettings['Store Name (Active)']||l1;
   s.innerHTML='<option value="'+escHtml(l1)+'"'+(a===l1?' selected':'')+'>'+escHtml(l1)+'</option><option value="'+escHtml(l2)+'"'+(a===l2?' selected':'')+'>'+escHtml(l2)+'</option>';
 }
 
 // ── Off-Menu Cheat Sheet ──
-// Storage: Off_Menu sheet tab (Item | Base Price). Delivery price is base × (1 + markup%),
+// Storage: CH Off-Menu / DBU Off-Menu sheet tabs (Item | Base Price). Delivery price is base × (1 + markup%),
 // markup lives in Settings "Off-Menu Markup (%)" so the team can change it without code.
 var cheatItems = [];
 
@@ -2270,14 +2400,27 @@ function cheatMarkupPct() {
   return n;
 }
 
+// Load the cheat view's selected store's off-menu items, then run cb.
+function reloadCheatItems(cb) {
+  google.script.run.withSuccessHandler(function(items) {
+    cheatByStore[cheatStore] = items || []; cheatLoaded[cheatStore] = true; cheatItems = cheatByStore[cheatStore];
+    if (cb) cb();
+  }).withFailureHandler(function(e) { showToast('Error: '+e.message,'error'); if (cb) cb(); }).getOffMenuItems(cheatStore);
+}
+
 function renderCheatSheet() {
   document.getElementById('cheatMarkupInput').value = cheatMarkupPct();
+  labelStoreToggle('cheatStoreToggle');
   showSpinner();
-  google.script.run.withSuccessHandler(function(items) {
-    cheatItems = items || [];
-    hideSpinner();
-    buildCheatSheetTable();
-  }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).getOffMenuItems();
+  reloadCheatItems(function() { hideSpinner(); buildCheatSheetTable(); });
+}
+
+function setCheatStore(idx) {
+  if (idx === cheatStore) return;
+  cheatStore = idx;
+  document.querySelectorAll('#cheatStoreToggle .order-type-btn').forEach(function(b) { b.classList.toggle('active', parseInt(b.dataset.store, 10) === idx); });
+  showSpinner();
+  reloadCheatItems(function() { hideSpinner(); buildCheatSheetTable(); });
 }
 
 function buildCheatSheetTable() {
@@ -2306,16 +2449,16 @@ function buildCheatSheetTable() {
 function saveCheatItemInline(row, name, base) {
   google.script.run.withSuccessHandler(function() {
     showToast('Updated.', 'success');
-    google.script.run.withSuccessHandler(function(items) { cheatItems = items || []; buildCheatSheetTable(); }).getOffMenuItems();
-  }).withFailureHandler(function(e) { showToast('Error: '+e.message,'error'); }).updateOffMenuItem(row, name, parseFloat(base) || 0);
+    reloadCheatItems(buildCheatSheetTable);
+  }).withFailureHandler(function(e) { showToast('Error: '+e.message,'error'); }).updateOffMenuItem(row, name, parseFloat(base) || 0, cheatStore);
 }
 
 function addCheatItemUI() {
   showSpinner();
   google.script.run.withSuccessHandler(function() {
     hideSpinner(); showToast('Item added — name it and set the base price.', 'success');
-    google.script.run.withSuccessHandler(function(items) { cheatItems = items || []; buildCheatSheetTable(); }).getOffMenuItems();
-  }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).addOffMenuItem('New Item', 0);
+    reloadCheatItems(buildCheatSheetTable);
+  }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).addOffMenuItem('New Item', 0, cheatStore);
 }
 
 function deleteCheatItemUI(row) {
@@ -2324,8 +2467,8 @@ function deleteCheatItemUI(row) {
     showSpinner();
     google.script.run.withSuccessHandler(function() {
       hideSpinner(); showToast('Deleted.', 'success');
-      google.script.run.withSuccessHandler(function(items) { cheatItems = items || []; buildCheatSheetTable(); }).getOffMenuItems();
-    }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).deleteOffMenuItem(row);
+      reloadCheatItems(buildCheatSheetTable);
+    }).withFailureHandler(function(e) { hideSpinner(); showToast('Error: '+e.message,'error'); }).deleteOffMenuItem(row, cheatStore);
   });
 }
 
@@ -2339,10 +2482,22 @@ function saveCheatMarkup(v) {
 
 // ── Menu Editor (accordion by category — collapsed by default) ──
 var menuExpandedCats = {};
+// Refresh a store's cached menu; keep the quote form's menuItems pointed at it if it's the active store.
+function setStoreMenu(idx, arr) { menuByStore[idx] = arr || []; if (idx === currentStore) { menuItems = menuByStore[idx]; rebuildMenuIndex(); } }
+
+function setEditorStore(idx) {
+  if (idx === editorStore) return;
+  editorStore = idx;
+  document.querySelectorAll('#menuStoreToggle .order-type-btn').forEach(function(b) { b.classList.toggle('active', parseInt(b.dataset.store, 10) === idx); });
+  buildMenuEditor(); // both menus preloaded — instant
+}
+
 function buildMenuEditor() {
+  labelStoreToggle('menuStoreToggle');
+  var items = menuByStore[editorStore] || [];
   var body=document.getElementById('menuEditorBody'); body.innerHTML='';
   var groups={}, order=[];
-  menuItems.forEach(function(item) {
+  items.forEach(function(item) {
     var c=(item.category||'').trim()||'(No category)';
     if (!groups[c]) { groups[c]=[]; order.push(c); }
     groups[c].push(item);
@@ -2365,19 +2520,19 @@ function buildMenuEditor() {
 }
 function saveMenuItemInline(row,cat,name,pickup,delivery) {
   google.script.run.withSuccessHandler(function() { showToast('Updated.','success');
-    google.script.run.withSuccessHandler(function(m){menuItems=m;}).getMenuItems(); // refresh data, pickers auto-rebuild on next open
-  }).withFailureHandler(function(e){showToast('Error: '+e.message,'error');}).updateMenuItem(row,cat,name,parseFloat(pickup)||0,parseFloat(delivery)||0);
+    google.script.run.withSuccessHandler(function(m){setStoreMenu(editorStore,m);}).getMenuItems(editorStore); // refresh data, pickers auto-rebuild on next open
+  }).withFailureHandler(function(e){showToast('Error: '+e.message,'error');}).updateMenuItem(row,cat,name,parseFloat(pickup)||0,parseFloat(delivery)||0,editorStore);
 }
 function addMenuItemUI() { showSpinner();
   google.script.run.withSuccessHandler(function() { hideSpinner(); showToast('Item added.','success');
     menuExpandedCats['(No category)']=true; // so the new blank-category item is visible
-    google.script.run.withSuccessHandler(function(m){menuItems=m;buildMenuEditor();}).getMenuItems();
-  }).withFailureHandler(function(e){hideSpinner();showToast('Error: '+e.message,'error');}).addMenuItem('','New Item',0,0);
+    google.script.run.withSuccessHandler(function(m){setStoreMenu(editorStore,m);buildMenuEditor();}).getMenuItems(editorStore);
+  }).withFailureHandler(function(e){hideSpinner();showToast('Error: '+e.message,'error');}).addMenuItem('','New Item',0,0,editorStore);
 }
 function deleteMenuItemUI(row) { showConfirm('Delete item?','Remove from menu.').then(function(ok) { if(!ok) return; showSpinner();
   google.script.run.withSuccessHandler(function() { hideSpinner(); showToast('Deleted.','success');
-    google.script.run.withSuccessHandler(function(m){menuItems=m;buildMenuEditor();}).getMenuItems();
-  }).withFailureHandler(function(e){hideSpinner();showToast('Error: '+e.message,'error');}).deleteMenuItem(row); }); }
+    google.script.run.withSuccessHandler(function(m){setStoreMenu(editorStore,m);buildMenuEditor();}).getMenuItems(editorStore);
+  }).withFailureHandler(function(e){hideSpinner();showToast('Error: '+e.message,'error');}).deleteMenuItem(row,editorStore); }); }
 
 // ── Logo Upload ──
 function handleLogoUpload(e) { var f=e.target.files[0]; if (!f) return;
@@ -2498,7 +2653,7 @@ function startCateringTour() {
   Tour.steps = TOUR_STEPS; Tour.index = 0;
   document.getElementById('tourOverlay').classList.add('active');
   tourShow(0);
-  try { localStorage.setItem('cateringTourSeen', '1'); } catch (e) {}
+  try { localStorage.setItem('cateringTourSeen', '1'); } catch (e) { /* storage blocked — tour just shows again next time */ }
 }
 function endCateringTour() {
   var ov = document.getElementById('tourOverlay');
