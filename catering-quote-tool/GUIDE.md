@@ -43,30 +43,54 @@ Google does occasionally change Apps Script under the hood, but real platform br
 ---
 
 ## Go deeper
-*The 1,000-foot view — how the machine actually works, for whoever maintains it next. You don't need any of this to use the tool day to day.*
+*How the machine actually works, for whoever maintains it next. You don't need any of this to use the tool day to day — it's here so the next person can change something without spelunking through the code first.*
 
-**It's all in the Google Sheet.** Every tab is a table the code reads and writes:
-- **`Quotes`** — one row per quote (~23 columns). The line items are stored as JSON text in a single cell; everything else is its own column: customer, totals, tax, PO, event date/time, and `Location Name` (how a saved quote remembers which restaurant it was for).
-- **`CH Menu` / `DBU Menu`** — Category | Item Name | Pickup Price | Delivery Price. `N/A` in delivery price hides an item from delivery quotes.
-- **`CH Off-Menu` / `DBU Off-Menu`** — Item | Base Price. The delivery price you see is computed live (base price × the markup in Settings), never stored.
+### The data model — it's all in the Google Sheet
+There's no separate database. Every tab is a table the code reads and writes.
+- **`Quotes`** — one row per quote, ~23 columns. Most fields get their own column: customer, contact, phone, email, order type, delivery address, subtotal, tax rate used, tax amount, total, tax-exempt flag, `Location Name`, PO number, event date, event time, calendar event id, last-modified, the order-level discount value/type, and quote notes. **The line items are stored as JSON text in a single cell** — an array of `{description, quantity, price, discount}` — so one quote is always exactly one row no matter how many items it has. `Location Name` is how a saved quote remembers which restaurant it was for; the PDF later maps that name back to the store's address and phone.
+- **`<prefix> Menu`** (default `CH Menu` / `DBU Menu`) — Category | Item Name | Pickup Price | Delivery Price. `N/A` or blank in a price column hides that item from that order type. Category groups items in the picker.
+- **`<prefix> Off-Menu`** (default `CH Off-Menu` / `DBU Off-Menu`) — Item | Base Price. The delivery price you see is computed live as base × (1 + markup%), rounded to the nearest tenth — never stored, so changing the markup reprices the whole list at once.
+- **`Settings`** — every tunable value as a key/value pair, read at runtime, so a change takes effect with no redeploy.
+- **`Quote_Sequence`** — a single running counter, so quote IDs never repeat even across edits.
 - **`Tax_Exempt_Registry`** — one row per organization: a status and a link to the form PDF in Drive.
-- **`Settings`** — every tunable value (tax rate, store details, email wording, warning thresholds, the price-check clock). The code reads these at runtime, so changing a setting changes behavior with no code edit.
-- **Hidden tabs** (`Quotes_Archive`, `Quote_Revisions`, `Confirmations_Sent`, `PO_Alerts_Sent`, `Tax_Forms`, `Tax_Form_Uploads`) are logs and history — they keep the visible tabs clean.
+- **Hidden tabs** — `Quotes_Archive` (aged-out quotes), `Quote_Revisions` (prior versions of edited quotes), `Confirmations_Sent` / `PO_Alerts_Sent` (so the daily automation never double-sends), `Tax_Forms` (per-quote status), and `Tax_Form_Uploads` (the guest pending queue).
 
-**What happens when you save a quote.** The form gathers your inputs, checks the required fields, and asks the server for the next quote ID — a running counter that never repeats, with the contact's initials tacked on. The server writes the row and, if the quote has a date and time, creates a Google Calendar event. If you're *editing* an existing quote, the old version is copied to `Quote_Revisions` first (nothing is ever truly overwritten), and the calendar event is updated instead of duplicated. "Save & Email" builds the PDF as HTML, converts it, and sends it with your Settings email template; "Print" opens the same HTML in a print window.
+### The life of a quote
+1. **Draft.** The form validates the required fields and asks the server for the next ID — the running counter, with the contact's initials appended (`Q-2026-0042-KD`).
+2. **Save.** The server writes the row. Line items are JSON-encoded into one cell; totals, discounts, and tax are computed and stored so history and the PDF never have to recompute.
+3. **PDF.** The quote is built as an HTML document and converted to PDF — the *same* HTML the on-screen preview and the print window use, so what you see is what sends.
+4. **Email.** "Save & Email" sends the PDF with your Settings email template (subject/body with `{{placeholders}}`), optionally BCC'ing whoever you set.
+5. **Calendar.** If the quote has a date and time, a color-coded Google Calendar event is created and its id is stored on the row — so a later edit updates that event instead of creating a duplicate.
+6. **Edit.** Editing copies the outgoing version to `Quote_Revisions` first — nothing is ever truly overwritten — then writes the new values. You can view and restore any prior version from the quote's popup.
+7. **Expire / archive.** Every PDF shows a "valid through" date (Settings-tunable). Quotes past the archive threshold are moved to the hidden archive by the nightly job — moved, never deleted.
 
-**How the two restaurants stay separate.** The Restaurant toggle sets which store you're on. Both menus load up front, so switching is instant — it just re-points the item picker and re-prices the lines. The saved quote records the store's name, and the PDF looks up that store's address and phone from Settings by matching that name. The price check runs per store, each on its own 90-day clock, and an empty or unconfigured store never triggers the lock.
+### How pricing works
+A line item's price comes from the selected store's menu, keyed by the current order type — pickup vs delivery — with `N/A`/blank hiding unavailable items from that mode. Off-menu items price live off base × markup. On top of line items you can apply per-line discounts and one order-level discount (percent or dollar). Tax uses the Settings default rate (editable per quote); marking a quote tax-exempt zeroes the tax and ties into the registry. Switching order type *or* store re-prices every line against the new context (with a confirm), and leaves any item that isn't on the new menu at its typed price.
 
-**The automation (scheduled jobs you install once from Settings).**
-- **Daily at 3pm** — sends day-before confirmation emails, sweeps for orders whose event is coming up without a PO and emails a digest, and once a year emails a tax-exempt review. Each piece has its own on/off switch in Settings, and a failure emails an alert instead of dying silently.
-- **Daily at 9am** — the follow-up reminder for quotes that haven't been acted on.
-- **Nightly (optional)** — `cleanOldQuotes` moves quotes older than the "Archive After Days" setting into the hidden archive. Nothing is deleted.
+### Two restaurants, in detail
+- **Tab names are operator-chosen.** `Store 1/2 Tab Prefix` in Settings (default CH/DBU) feed `<prefix> Menu` / `<prefix> Off-Menu`. `initializeSheet` renames the tabs *in place* when the prefix changes — it tracks the last-applied name in Script Properties — so a rename never loses data or leaves an orphaned empty tab.
+- **Both menus preload.** On load the app pulls both stores' menus into memory, so switching restaurants (and editing/reordering a past quote into its store) is instant, no round-trip.
+- **Fast lookups.** Menu items are indexed by name (a hash map, first-row-wins on duplicates), so repricing a whole quote or matching a reordered quote's items is one lookup per line instead of a scan of the whole menu.
+- **The quote remembers its store** via `Location Name`; edit/reorder reads that back to switch stores; the PDF resolves it to the store's address and phone.
 
-**The tax-exempt flow, end to end.** On a tax-exempt quote you either look the organization up in the registry or hit "Request from Guest," which emails them a link to a public upload page (no login). Their PDF lands in a Drive folder and shows up as a *pending* item on the Tax Forms tab. A team member confirms it into the registry under the correct organization name — you pick the name, so a slightly different spelling never silently creates a duplicate. The Guest Upload Link on that tab is that same public page, copyable to hand out directly.
+### The quarterly price check
+On load, if it's been longer than `Price Check Interval (Days)` (default 90) since the active store's last verification, the app locks until the operator types the current POS prices for three menu items and they match. It's **per store** — separate `Last Price Verification` dates — and it **skips a store whose menu is empty**, so an unconfigured second store never wedges the lock. The three items are drawn from the categories listed in Settings (falling back to the whole menu if that's too narrow), always including a delivery-priced item; a typed price passes if it matches *any* menu row with that name, so a duplicate item name can't jam it.
 
-**The deploy model (why "new version" matters).** There's no automatic sync. The code lives in a repo; the live app only changes when someone pastes the files into Apps Script and publishes a **new version**. Three files: `Code.gs` (the server), `App.html` → the Apps Script file named **`Index`** (the team UI), and `TaxForm.html` → **`TaxForm`** (the guest page). The URL routes by a `?view=` tag: `?view=app` is the team, `?view=taxform` is the guest page, a bare URL is a harmless landing page. Access is set to **Anyone** so outside guests can reach the upload page — the team tool isn't login-walled, just link-obscured, so don't post the `?view=app` link publicly.
+### Tax-exempt tracking
+A tax-exempt quote can look the org up in the registry or send the guest an upload link. The guest page is public (`?view=taxform`), no login; their PDF lands in a Drive folder and shows up as a *pending* row on the Tax Forms tab. A human confirms it into the registry under the canonical org name — the app never auto-matches names, on purpose, so a slightly different spelling can't create a silent duplicate. The Guest Upload Link on that tab is that same public page, copyable to hand out directly. Access is **Anyone** so outside guests can reach it; the team tool is URL-gated (`?view=app`), not login-walled — so don't post the team link publicly.
 
-**Three things that will bite you if you don't know them.**
-- **Dates and the Sheet fight each other.** Sheets auto-converts anything that looks like a date into a real date cell, and the page↔server bridge throws away an entire response if it contains one. The code stores dates as plain `yyyy-MM-dd` text on purpose — if you add a server function that returns sheet values, keep dates as strings or the page will silently hang on "Loading…".
-- **The link serves the last *published* version, not your latest paste.** Always publish a new version after editing.
-- **The tab names are labeled by store, and you choose the labels.** They default to `CH` (Cockrell Hill) and `DBU` — so nobody edits the wrong restaurant's prices. Running different restaurants? Set `Store 1 Tab Prefix` and `Store 2 Tab Prefix` in the Settings tab to your own short codes, then re-run `initializeSheet` — it renames the tabs in place and keeps every price. (First-time upgrade also renames the old `Menu`/`Off_Menu` tabs for you.)
+### The automations
+Installed once from Settings, each with its own on/off switch, each wrapped so a failure emails an alert instead of dying silently:
+- **Daily 3pm (`dailyCateringAutomation`)** — day-before confirmation emails, a missing-PO sweep that digests upcoming orders with no PO, and (once, at year-end) the tax-exempt review. The sent-logs (`Confirmations_Sent`, `PO_Alerts_Sent`) stop double-sends.
+- **Daily 9am** — the follow-up reminder for quotes that haven't been acted on.
+- **Nightly** — `cleanOldQuotes` archives quotes past the age threshold.
+
+### Gotchas and hard-won lessons
+- **`google.script.run` nulls any return value that contains a Date object.** It once nulled the whole settings payload and hung the app on "Loading…". Every server function that returns sheet values keeps dates as `yyyy-MM-dd` **strings** — if you add one, do the same.
+- **Sheets auto-converts date-like strings into date cells.** Writing a date-shaped setting uses `setNumberFormat('@')` (the `asText` flag on `updateSetting`) to stop that.
+- **The `index.html` trap.** The repo's `index.html` is the GitHub Pages landing page, NOT the app. `App.html` is what goes in the Apps Script `Index` file — paste the landing page there and the web app "takes you to GitHub."
+- **The link serves the last *published* version**, not your latest paste — always publish a new version.
+- **Config lives in the Sheet, on purpose**, so a non-technical person can run this forever without touching code.
+
+### Deploy model
+No auto-sync. Three files: `Code.gs` → `Code.gs`; `App.html` → the Apps Script file named **`Index`**; `TaxForm.html` → **`TaxForm`**. Run `initializeSheet()` once (idempotent — builds/renames tabs, seeds settings, prompts for Gmail/Drive/Calendar access), then **Deploy → Manage deployments → Edit → New version**, access **Anyone**. The `?view=` tag routes the one URL: `app` = team, `taxform` = guest, bare = landing.
