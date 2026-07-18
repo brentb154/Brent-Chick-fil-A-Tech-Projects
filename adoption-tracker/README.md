@@ -4,6 +4,8 @@ Answers one question every Monday morning: **which tools did people actually ope
 
 Every hub tool logs one row per day to a shared "Tool Adoption" spreadsheet the first time someone opens or uses it that day. This script (bound to that spreadsheet) emails a weekly digest: days used this week, 4-week average, last opened. Tools nobody opens stop getting investment; tools people rely on get more.
 
+> 📖 **[Go deeper: what it is & how it works →](GUIDE.md)** — the plain-language operator guide (what it does, how it works, and how to fix the common stuff).
+
 ## One-time setup
 
 1. **Create a new Google Sheet** named `Tool Adoption`. Copy its ID from the URL (the long string between `/d/` and `/edit`).

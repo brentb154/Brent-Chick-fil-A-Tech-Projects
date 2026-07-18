@@ -4,6 +4,8 @@ A Google Sheets add-on that gives front-of-house team members one-click access t
 
 Everything is configured in the spreadsheet itself: links live in the **Links** tab, behavior in the **Settings** tab. No code edits needed to maintain it.
 
+> 📖 **[Go deeper: what it is & how it works →](GUIDE.md)** — the plain-language operator guide (what it does, how it works, and how to fix the common stuff).
+
 ---
 
 ## Setup Instructions
