@@ -43,7 +43,9 @@ Select `initializeSheet` from the function dropdown → click **▶ Run** → au
 
 Your sheet will have eight visible tabs — **Settings**, **CH Menu** + **DBU Menu** (one menu per restaurant: CH = Cockrell Hill, DBU = Dallas Baptist University), **Quotes**, **Quote_Sequence**, **CH Off-Menu** + **DBU Off-Menu** (the per-restaurant cheat-sheet lists), **Tax_Exempt_Registry** (the tax-form list, team-editable) — plus hidden tabs: **Quote_Revisions**, **Confirmations_Sent**, **PO_Alerts_Sent**, **Tax_Forms**, **Tax_Form_Uploads** (logs and status).
 
-> **Upgrading from an earlier version?** `initializeSheet()` renames your old `Menu` / `Off_Menu` tabs to `CH Menu` / `CH Off-Menu` **in place** — all your existing prices move with them, nothing is lost.
+> **Upgrading from an earlier version?** `initializeSheet()` renames your old `Menu` / `Off_Menu` tabs to the store-labeled ones **in place** — all your existing prices move with them, nothing is lost.
+>
+> **Not Cockrell Hill / DBU?** The `CH` and `DBU` labels are just defaults. Set **`Store 1 Tab Prefix`** and **`Store 2 Tab Prefix`** in the Settings tab to your own short codes, then re-run `initializeSheet` — it renames the tabs in place and keeps your data. The restaurant names themselves come from **Location 1 / 2 Name** in Settings.
 
 > The tax-form feature uses Google Drive (it creates a "Catering Tax Exempt Forms" folder) — the first run after this update will ask for a Drive permission. Click Allow.
 
@@ -63,7 +65,7 @@ Each menu tab — **CH Menu** (Cockrell Hill) and **DBU Menu** (Dallas Baptist U
 
 Use `N/A` in the Delivery Price column for items that cannot be delivered — they will automatically be hidden from the item picker when Delivery mode is selected.
 
-> **Running two restaurants?** Cockrell Hill's menu lives on the **CH Menu** tab, DBU's on **DBU Menu** (same four columns). Same split for the cheat sheet: **CH Off-Menu** and **DBU Off-Menu**. The store-labeled tab names are deliberate — so nobody edits the wrong restaurant's prices. On the quote form, the **Restaurant** toggle (above Order Type) picks which store you're quoting — item prices and the pickup address follow the store. The **Menu Catalog** editor and **Cheat Sheet** each have their own Cockrell Hill / DBU toggle so you edit the right menu. Set which store the form opens on by default in **Settings → Default store for new quotes** (after that it remembers whichever store you used last). Tax rate is shared and still editable per quote.
+> **Running two restaurants?** Cockrell Hill's menu lives on the **CH Menu** tab, DBU's on **DBU Menu** (same four columns). Same split for the cheat sheet: **CH Off-Menu** and **DBU Off-Menu**. The store-labeled tab names are deliberate — so nobody edits the wrong restaurant's prices — and the `CH`/`DBU` labels are yours to change (`Store 1 Tab Prefix` / `Store 2 Tab Prefix` in Settings, then re-run `initializeSheet`). On the quote form, the **Restaurant** toggle (above Order Type) picks which store you're quoting — item prices and the pickup address follow the store. The **Menu Catalog** editor and **Cheat Sheet** each have their own Cockrell Hill / DBU toggle so you edit the right menu. Set which store the form opens on by default in **Settings → Default store for new quotes** (after that it remembers whichever store you used last). Tax rate is shared and still editable per quote.
 
 **Example entries:**
 

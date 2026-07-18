@@ -22,7 +22,7 @@ Think of it as a form sitting on top of a Google Sheet.
 ## Everyday tasks
 - **New quote:** pick the restaurant → Pickup or Delivery → add the customer, items, and date → **Save & Email** (or Save, then Print).
 - **Repeat customer:** start typing their name and contacts autofill — or open their last quote and hit **Reorder**.
-- **Add or change a menu item:** open the **Menu Catalog** (in Settings), pick the store, edit inline. For big changes, paste into that store's menu tab of the Sheet — `CH Menu` for Cockrell Hill, `DBU Menu` for DBU. (The tabs are labeled by store on purpose, so nobody edits the wrong restaurant's prices.)
+- **Add or change a menu item:** open the **Menu Catalog** (in Settings), pick the store, edit inline. For big changes, paste into that store's menu tab of the Sheet — by default `CH Menu` for Cockrell Hill and `DBU Menu` for DBU. (The tabs are labeled by store on purpose, so nobody edits the wrong restaurant's prices. Different restaurants? You pick the labels — see Go deeper.)
 - **Tax-exempt customer:** mark the quote tax-exempt, then **Look it up** to check the registry or **Request from Guest** to email them an upload link.
 - **Change a price, tax rate, or email wording:** the **Settings** tab.
 
@@ -69,4 +69,4 @@ Google does occasionally change Apps Script under the hood, but real platform br
 **Three things that will bite you if you don't know them.**
 - **Dates and the Sheet fight each other.** Sheets auto-converts anything that looks like a date into a real date cell, and the page↔server bridge throws away an entire response if it contains one. The code stores dates as plain `yyyy-MM-dd` text on purpose — if you add a server function that returns sheet values, keep dates as strings or the page will silently hang on "Loading…".
 - **The link serves the last *published* version, not your latest paste.** Always publish a new version after editing.
-- **The tab names are labeled by store on purpose.** `CH` = Cockrell Hill, `DBU` = Dallas Baptist University — so nobody edits the wrong restaurant's prices. `initializeSheet` renames the old `Menu`/`Off_Menu` tabs into these automatically and keeps the data.
+- **The tab names are labeled by store, and you choose the labels.** They default to `CH` (Cockrell Hill) and `DBU` — so nobody edits the wrong restaurant's prices. Running different restaurants? Set `Store 1 Tab Prefix` and `Store 2 Tab Prefix` in the Settings tab to your own short codes, then re-run `initializeSheet` — it renames the tabs in place and keeps every price. (First-time upgrade also renames the old `Menu`/`Off_Menu` tabs for you.)

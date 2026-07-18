@@ -439,7 +439,7 @@
       <div class="card">
         <div class="card-title"><span class="icon amber">📝</span> Off-Menu Cheat Sheet — Delivery Pricing</div>
         <div style="background:var(--gray-50);border:1px solid var(--gray-100);border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--gray-600);line-height:1.6;margin-bottom:14px;">
-          Common off-menu items and add-ons for building custom delivery quotes — bacon biscuits with egg and cheese, salads with items removed, package meals, and so on. Enter each item's everyday <strong>base price</strong> once; the <strong>delivery price</strong> column adds the markup automatically. Add your own items with the button below — everything here is team-editable (Cockrell Hill lives on the <code>CH Off-Menu</code> tab, DBU on the <code>DBU Off-Menu</code> tab).
+          Common off-menu items and add-ons for building custom delivery quotes — bacon biscuits with egg and cheese, salads with items removed, package meals, and so on. Enter each item's everyday <strong>base price</strong> once; the <strong>delivery price</strong> column adds the markup automatically. Add your own items with the button below — everything here is team-editable — <span id="cheatTabHint">each store has its own cheat-sheet tab</span>.
         </div>
         <div class="order-type-toggle" id="cheatStoreToggle" style="max-width:460px;margin-bottom:14px;">
           <button class="order-type-btn active" data-store="1" onclick="setCheatStore(1)">Store 1</button>
@@ -668,7 +668,7 @@
       <div class="card">
         <div class="card-title"><span class="icon green">🍔</span> Menu Catalog</div>
         <div style="background:var(--gray-50);border:1px solid var(--gray-100);border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--gray-600);line-height:1.6;margin-bottom:14px;">
-          <strong>Pulling real prices from CFA Home:</strong> Backoffice → search your restaurant → <strong>Menu Price Group</strong> → <em>« Select a different price group</em> → click your location → <strong>Export this to an Excel spreadsheet</strong>. Then open the right Menu tab of the Google Sheet (<strong>Cockrell Hill → <code>CH Menu</code>, DBU → <code>DBU Menu</code></strong>) and paste the four columns (Category | Item Name | Pickup Price | Delivery Price) under the headers — the export's columns already line up in that order. <code>N/A</code> in Delivery Price hides an item from delivery quotes. Click a category below to expand and edit items one at a time.
+          <strong>Pulling real prices from CFA Home:</strong> Backoffice → search your restaurant → <strong>Menu Price Group</strong> → <em>« Select a different price group</em> → click your location → <strong>Export this to an Excel spreadsheet</strong>. Then open the right Menu tab of the Google Sheet (<strong id="menuTabHint">the store's Menu tab</strong>) and paste the four columns (Category | Item Name | Pickup Price | Delivery Price) under the headers — the export's columns already line up in that order. <code>N/A</code> in Delivery Price hides an item from delivery quotes. Click a category below to expand and edit items one at a time.
         </div>
         <div class="order-type-toggle" id="menuStoreToggle" style="max-width:460px;margin-bottom:14px;">
           <button class="order-type-btn active" data-store="1" onclick="setEditorStore(1)">Store 1</button>
@@ -837,6 +837,7 @@ function applySettings() {
   var l = appSettings['Logo (Base64)'] || '';
   document.getElementById('logoPreviewContainer').innerHTML = l ? '<img src="'+l+'" class="logo-preview" alt="Logo">' : '<p style="font-size:13px;color:var(--gray-400);">No logo uploaded.</p>';
   buildMenuEditor();
+  updateTabHints();
   applyReminderSettings();
   applyAutomationSettings();
   buildCalendarColorSettings();
@@ -934,6 +935,21 @@ function labelStoreToggle(toggleId) {
 }
 function refreshStoreSelector() { labelStoreToggle('storeToggle'); labelStoreToggle('menuStoreToggle'); labelStoreToggle('cheatStoreToggle'); }
 function updateActiveStoreLabel() { document.getElementById('activeLocationLabel').textContent = storeName(currentStore); }
+
+// The sheet-tab names are operator-configurable (Settings "Store N Tab Prefix");
+// show whatever they actually are, not hardcoded CH/DBU.
+function storeTabName(store, kind) {
+  var d = store === 2 ? 'DBU' : 'CH';
+  var pfx = (appSettings['Store ' + store + ' Tab Prefix'] || d).toString().trim() || d;
+  return pfx + (kind === 'off' ? ' Off-Menu' : ' Menu');
+}
+function updateTabHints() {
+  var l1 = appSettings['Location 1 Name'] || 'Store 1', l2 = appSettings['Location 2 Name'] || 'Store 2';
+  var mh = document.getElementById('menuTabHint');
+  if (mh) mh.innerHTML = escHtml(l1) + ' → <code>' + escHtml(storeTabName(1, 'menu')) + '</code>, ' + escHtml(l2) + ' → <code>' + escHtml(storeTabName(2, 'menu')) + '</code>';
+  var ch = document.getElementById('cheatTabHint');
+  if (ch) ch.innerHTML = escHtml(l1) + ' → <code>' + escHtml(storeTabName(1, 'off')) + '</code>, ' + escHtml(l2) + ' → <code>' + escHtml(storeTabName(2, 'off')) + '</code>';
+}
 
 // Point the quote form at a store. Menus are preloaded, so this is synchronous.
 function applyStore(idx) {
@@ -2273,7 +2289,7 @@ function submitPriceCheck() {
     }
     var names = (res && res.mismatches) || [];
     var err = document.getElementById('priceCheckError');
-    err.textContent = 'Didn\'t match the stored prices: ' + names.join(', ') + '. Double-check the POS and verify again. If the POS price really has changed, update that item in the store\'s Menu tab (CH Menu or DBU Menu) first, then re-verify.';
+    err.textContent = 'Didn\'t match the stored prices: ' + names.join(', ') + '. Double-check the POS and verify again. If the POS price really has changed, update that item in that store\'s Menu tab first, then re-verify.';
     err.style.display = 'block';
   }).withFailureHandler(function(e){ hideSpinner(); showToast('Error: '+e.message,'error'); }).submitPriceVerification(entries, store);
 }
@@ -2390,7 +2406,7 @@ function refreshLocationDropdown() {
 }
 
 // ── Off-Menu Cheat Sheet ──
-// Storage: CH Off-Menu / DBU Off-Menu sheet tabs (Item | Base Price). Delivery price is base × (1 + markup%),
+// Storage: each store's off-menu tab (Item | Base Price). Delivery price is base × (1 + markup%),
 // markup lives in Settings "Off-Menu Markup (%)" so the team can change it without code.
 var cheatItems = [];
 

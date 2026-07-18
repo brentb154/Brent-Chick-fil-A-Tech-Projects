@@ -17,35 +17,57 @@ function getSpreadsheet() {
 }
 
 const TAB_SETTINGS       = 'Settings';
-const TAB_MENU           = 'CH Menu';
 const TAB_QUOTES         = 'Quotes';
 const TAB_QUOTES_ARCHIVE = 'Quotes_Archive';
 const TAB_QUOTE_SEQUENCE = 'Quote_Sequence';
 const TAB_QUOTE_REVISIONS = 'Quote_Revisions';
-const TAB_OFF_MENU = 'CH Off-Menu';
-// Tabs are store-labeled so nobody edits the wrong restaurant's prices:
-// CH = Cockrell Hill (store 1), DBU = Dallas Baptist University (store 2).
-// A store arg of '2' resolves to the DBU tabs; anything else = the CH tabs.
-// initializeSheet() renames legacy Menu/Off_Menu/Menu_2/Off_Menu_2 tabs into
-// these in place, so existing price data is preserved (see migrateTabNames_).
-const TAB_MENU_2     = 'DBU Menu';
-const TAB_OFF_MENU_2 = 'DBU Off-Menu';
-function menuTabForStore_(store)    { return String(store) === '2' ? TAB_MENU_2     : TAB_MENU; }
-function offMenuTabForStore_(store) { return String(store) === '2' ? TAB_OFF_MENU_2 : TAB_OFF_MENU; }
 
-// One-time rename of the old generic tab names to the store-labeled ones. Renames
-// in place (keeps all rows/prices). Safe to re-run: skips if the old tab is gone
-// or the new name already exists.
+// The menu + cheat-sheet tabs are labeled by store so nobody edits the wrong
+// restaurant's prices. The label is a short prefix the OPERATOR picks in Settings
+// ("Store 1 Tab Prefix" / "Store 2 Tab Prefix"), defaulting to CH (Cockrell Hill)
+// and DBU (Dallas Baptist University) for this install — a different restaurant
+// just changes those two settings. Tab names are "<prefix> Menu" and
+// "<prefix> Off-Menu". A store arg of '2' = store 2; anything else = store 1.
+const DEFAULT_STORE_PREFIX = { '1': 'CH', '2': 'DBU' };
+
+var _tabPrefixCache = null; // memoized per execution so Settings is read once
+function storeTabPrefix_(store) {
+  if (!_tabPrefixCache) {
+    var s = {};
+    try { s = getSettings(); } catch (e) { /* Settings tab not built yet — use defaults */ }
+    _tabPrefixCache = {
+      '1': (s['Store 1 Tab Prefix'] || DEFAULT_STORE_PREFIX['1']).toString().trim() || DEFAULT_STORE_PREFIX['1'],
+      '2': (s['Store 2 Tab Prefix'] || DEFAULT_STORE_PREFIX['2']).toString().trim() || DEFAULT_STORE_PREFIX['2']
+    };
+  }
+  return _tabPrefixCache[String(store) === '2' ? '2' : '1'];
+}
+function menuTabForStore_(store)    { return storeTabPrefix_(store) + ' Menu'; }
+function offMenuTabForStore_(store) { return storeTabPrefix_(store) + ' Off-Menu'; }
+
+// Rename a tab in place (keeps all rows/prices). Safe: only renames when the old
+// tab exists and the new name is free.
 function renameSheetIfExists_(ss, oldName, newName) {
-  if (oldName === newName) return;
+  if (!oldName || oldName === newName) return;
   var oldSheet = ss.getSheetByName(oldName);
   if (oldSheet && !ss.getSheetByName(newName)) oldSheet.setName(newName);
 }
+// Bring each store's menu + cheat-sheet tab to the currently-configured name —
+// from the original generic name (first upgrade) or from the previously-applied
+// name (operator changed the prefix). Idempotent, no data loss, safe to re-run.
 function migrateTabNames_(ss) {
-  renameSheetIfExists_(ss, 'Menu',       TAB_MENU);        // Cockrell Hill menu
-  renameSheetIfExists_(ss, 'Off_Menu',   TAB_OFF_MENU);    // Cockrell Hill cheat sheet
-  renameSheetIfExists_(ss, 'Menu_2',     TAB_MENU_2);      // DBU menu
-  renameSheetIfExists_(ss, 'Off_Menu_2', TAB_OFF_MENU_2);  // DBU cheat sheet
+  var props = PropertiesService.getScriptProperties();
+  applyStoreTabNames_(ss, props, '1', 'Menu',   'Off_Menu');
+  applyStoreTabNames_(ss, props, '2', 'Menu_2', 'Off_Menu_2');
+}
+function applyStoreTabNames_(ss, props, store, legacyMenu, legacyOff) {
+  var wantMenu = menuTabForStore_(store), wantOff = offMenuTabForStore_(store);
+  renameSheetIfExists_(ss, props.getProperty('TAB_MENU_' + store)    || legacyMenu, wantMenu);
+  renameSheetIfExists_(ss, legacyMenu, wantMenu);
+  renameSheetIfExists_(ss, props.getProperty('TAB_OFFMENU_' + store) || legacyOff,  wantOff);
+  renameSheetIfExists_(ss, legacyOff, wantOff);
+  props.setProperty('TAB_MENU_' + store, wantMenu);
+  props.setProperty('TAB_OFFMENU_' + store, wantOff);
 }
 
 
@@ -615,16 +637,15 @@ function cleanOldQuotes() {
 function initializeSheet() {
   var ss = getSpreadsheet();
 
-  // Rename legacy generic tabs to the store-labeled names IN PLACE so existing
-  // price data moves with them (no data loss). Idempotent: only renames when the
-  // old tab exists and the new one doesn't.
-  migrateTabNames_(ss);
-
   // Settings
   var sSheet = ss.getSheetByName(TAB_SETTINGS);
   if (!sSheet) sSheet = ss.insertSheet(TAB_SETTINGS);
   var seedSettings = [
     ['Store Name (Active)',         'Cockrell Hill DTO'],
+    // Short tab labels — change these for a different restaurant, then re-run
+    // initializeSheet (it renames the tabs in place, keeping your prices).
+    ['Store 1 Tab Prefix',          'CH'],
+    ['Store 2 Tab Prefix',          'DBU'],
     ['Location 1 Name',             'Cockrell Hill DTO'],
     ['Location 1 Address',          '1535 N Cockrell Hill Rd., Dallas, Texas 75211'],
     ['Location 1 Phone',            '214-331-2400'],
@@ -682,9 +703,14 @@ function initializeSheet() {
     });
   }
 
-  // Menu — now 4 columns: Category, Item Name, Pickup Price, Delivery Price
-  var mSheet = ss.getSheetByName(TAB_MENU);
-  if (!mSheet) mSheet = ss.insertSheet(TAB_MENU);
+  // Now that the tab-prefix settings exist, rename the menu/cheat-sheet tabs to
+  // the configured names IN PLACE (keeps all prices). Safe to re-run; handles
+  // both first upgrade (Menu -> "<prefix> Menu") and a later prefix change.
+  migrateTabNames_(ss);
+
+  // Menu — 4 columns: Category, Item Name, Pickup Price, Delivery Price
+  var mSheet = ss.getSheetByName(menuTabForStore_('1'));
+  if (!mSheet) mSheet = ss.insertSheet(menuTabForStore_('1'));
   if (!mSheet.getRange('A1').getValue()) {
     mSheet.getRange(1, 1, 1, 4).setValues([['Category', 'Item Name', 'Pickup Price', 'Delivery Price']]);
     mSheet.getRange(1, 1, 1, 4).setFontWeight('bold');
@@ -697,8 +723,8 @@ function initializeSheet() {
   }
 
   // Menu (Store 2) — same shape, starts empty. Team fills it from Store 2's POS.
-  var m2Sheet = ss.getSheetByName(TAB_MENU_2);
-  if (!m2Sheet) m2Sheet = ss.insertSheet(TAB_MENU_2);
+  var m2Sheet = ss.getSheetByName(menuTabForStore_('2'));
+  if (!m2Sheet) m2Sheet = ss.insertSheet(menuTabForStore_('2'));
   if (!m2Sheet.getRange('A1').getValue()) {
     m2Sheet.getRange(1, 1, 1, 4).setValues([['Category', 'Item Name', 'Pickup Price', 'Delivery Price']]);
     m2Sheet.getRange(1, 1, 1, 4).setFontWeight('bold');
@@ -742,8 +768,8 @@ function initializeSheet() {
 
   // Off-menu cheat sheet — visible tab, team-editable. Base prices start blank
   // on purpose: fill them from the POS; the app computes delivery price (+markup).
-  var oSheet = ss.getSheetByName(TAB_OFF_MENU);
-  if (!oSheet) oSheet = ss.insertSheet(TAB_OFF_MENU);
+  var oSheet = ss.getSheetByName(offMenuTabForStore_('1'));
+  if (!oSheet) oSheet = ss.insertSheet(offMenuTabForStore_('1'));
   if (!oSheet.getRange('A1').getValue()) {
     oSheet.getRange(1, 1, 1, 2).setValues([['Item Name', 'Base Price']]).setFontWeight('bold');
     oSheet.setFrozenRows(1);
@@ -755,8 +781,8 @@ function initializeSheet() {
   }
 
   // Off-menu cheat sheet (Store 2) — headers only; team fills its own list.
-  var o2Sheet = ss.getSheetByName(TAB_OFF_MENU_2);
-  if (!o2Sheet) o2Sheet = ss.insertSheet(TAB_OFF_MENU_2);
+  var o2Sheet = ss.getSheetByName(offMenuTabForStore_('2'));
+  if (!o2Sheet) o2Sheet = ss.insertSheet(offMenuTabForStore_('2'));
   if (!o2Sheet.getRange('A1').getValue()) {
     o2Sheet.getRange(1, 1, 1, 2).setValues([['Item Name', 'Base Price']]).setFontWeight('bold');
     o2Sheet.setFrozenRows(1);
