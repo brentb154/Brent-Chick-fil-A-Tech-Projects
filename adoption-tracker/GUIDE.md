@@ -35,10 +35,17 @@ Three moving parts, all in Google:
 ## Go deeper
 *The 1,000-foot view for whoever maintains it next.*
 
-**Why a ping instead of a dashboard.** Rather than each tool reporting rich analytics, every tool drops a single dated row the first time it's used that day. That's deliberately dumb: one Script Properties read (~5 ms) plus at most one sheet write per tool per day, so it's invisible to the tool's performance, and the `Pings` tab grows ~8 rows/day worst case — years of headroom. Aggregation (days-this-week, 4-week average) happens once, here, at digest time.
+### Why a ping instead of a dashboard
+Rather than each tool reporting rich analytics, every tool drops a single dated row (`[date, toolName]`) the first time it's used that day. That's deliberately dumb: one Script Properties read (~5 ms) plus at most one sheet write per tool per day, so it's invisible to the tool's performance, and the `Pings` tab grows ~8 rows/day worst case — years of headroom. All the intelligence lives in one place — the digest — not scattered across every tool.
 
-**The de-duplication.** A tool remembers the last day it pinged in its own Script Properties and skips if it already pinged today — so "days used" counts distinct days, not opens. That's why it measures adoption, not traffic.
+### The de-duplication (why it's "days," not "opens")
+A tool remembers the last day it pinged in its own Script Properties (`ADOPTION_LAST_PING`) and skips if it already pinged today. So the raw data is already one-row-per-tool-per-day. That's the whole reason "days used" is a clean count of *distinct days* and not a noisy hit count — it measures adoption, not traffic.
 
-**Fail-silent by design.** The ping is wrapped so it can never throw — if the adoption sheet is missing, the ID isn't set, or anything else goes wrong, the tool keeps working and just doesn't log. That's what makes it safe to ship in a public template: no ID, no phone-home.
+### How the digest is computed
+`sendWeeklyAdoptionDigest` reads every `Pings` row and buckets it per tool into three numbers: **this week** (pings since the start of the current week), **prior 4** (pings in the preceding four weeks), and **last seen** (the most recent date). The email table then shows *Days used this week*, *Avg days/week (prior 4)* — literally `prior4 / 4` — and *Last opened*, so a tool sitting well under its own average jumps out. A dash means zero this week. The digest goes to the `Digest Email` from Settings, falling back to the script owner's address if that's blank.
 
-**The pieces.** The shared `Tool Adoption` sheet has a `Pings` tab (raw rows) and a `Settings` tab (`Digest Email`). This bound `Code.gs` builds and sends the digest on a Monday 6 AM trigger (`createWeeklyTrigger`, which checks for an existing one so re-running won't duplicate). `runInitialSetup` builds the tabs and is safe to re-run.
+### Fail-silent by design
+The ping is wrapped in a try/catch that can never throw — if the adoption sheet is missing, the ID isn't set, or anything else goes wrong, the tool keeps working and just doesn't log. That's what makes it safe to ship in a public template: no ID, no phone-home, no risk to the host tool.
+
+### The pieces
+The shared `Tool Adoption` sheet has a `Pings` tab (the raw `[date, tool]` rows) and a `Settings` tab (`Digest Email`, seeded to the owner's address). This bound `Code.gs` builds and sends the digest on a Monday 6 AM trigger (`createWeeklyTrigger`, which checks for an existing one so re-running won't duplicate). `runInitialSetup` builds the tabs and is safe to re-run.

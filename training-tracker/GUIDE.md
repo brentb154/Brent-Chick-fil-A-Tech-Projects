@@ -43,12 +43,20 @@ Real breakage is rare, and usually comes down to the Form losing its link to the
 ## Go deeper
 *The 1,000-foot view for whoever maintains it next.*
 
-**Form in, everything else out.** The one thing humans do is submit the Google Form; it lands in the Daily Training Log. From that raw log, the script generates the personalized timeline, keeps the Master Dashboard current, populates the weekly Training Needs view, runs the certification workflow, and archives finished trainees to the Certification Log. Everything downstream is derived — the log is the source of truth.
+### The engine is one trigger: `onFormSubmit`
+The one thing humans do is submit the Google Form. That fires an installable **form-submit trigger** (`onFormSubmit`), and everything cascades from there: the entry lands in `Daily Training Log`, the trainee's name is de-duplicated, the `Master Dashboard` recomputes, the timeline and `Training Schedule` update, the certification check runs, and any alert that just became true fires. So if things stop updating, the first thing to check is that the form-submit trigger is still installed and pointed at the right form.
 
-**The tabs.** Daily Training Log (raw form data), Position Requirements (FOH/BOH positions with min/target/max hours — editable), Master Dashboard (live overview), Training Schedule (generated day-by-day plan), Training Needs (weekly manager view), Certification Log (archive), Name Deduplication (merge map), Alert Settings (which alerts, who gets them). Setup creates them all.
+### How the code is organized
+The script is split by responsibility across numbered files, which is the map for changing one thing without touching the rest: `01_Menu_and_Setup` (the custom menu + tab creation), `02_Form_and_Dedup` (the form handler + name matching), `03_Dashboard`, `04_Timeline` (timeline generation), `05_Certification`, `06_Alerts`, `07_UI_Functions` (the sidebars/dialogs), `08_DataSync`, and `DIAGNOSTIC` (a troubleshooting utility).
 
-**Name normalization.** New-hire names come in inconsistent — nicknames, typos, spacing. The dedup layer normalizes and matches them so one trainee's hours don't scatter across three near-identical names. When it can't be sure, it surfaces the pair for a human to merge rather than guessing.
+### The tabs, and which is the source of truth
+`Daily Training Log` is the **source of truth** — raw form responses. Everything else is derived from it: `Master Dashboard` (live overview), `Training Schedule` (the generated day-by-day plan), `Training Needs` (weekly manager view), `Certification Log` (archive of certified people). Config lives in two editable tabs: `Position Requirements` (FOH/BOH positions with min/target/max hours — what all progress measures against) and `Alert Settings` (which alerts fire and who gets them). `Name Deduplication` is the merge map. Setup creates them all.
 
-**Setup is idempotent.** Re-running it rebuilds any missing tabs and re-wires things without wiping your data — safe to run again if something looks off.
+### Name normalization, and why it's a whole tab
+New-hire names come in inconsistent — nicknames, typos, spacing. `02_Form_and_Dedup` scans the log for *similar* names (fuzzy matching, not exact) so one trainee's hours don't scatter across "Tim," "Timothy," and "Timmothy." When the match is confident it merges; when it isn't, it surfaces the pair on the `Name Deduplication` sheet for a human to confirm from a sidebar — it never silently merges two people who might be different.
 
-**It's a Sheets/Forms system, not a hosted web app.** There's no `/exec` URL to redeploy — the "deploy" is the Sheet plus its bound script and the connected Form. Keep the Form linked to the Sheet, keep the position list and alert recipients current, and it runs itself.
+### The certification workflow
+`05_Certification` watches each trainee's hours against `Position Requirements`; when someone clears a position (or all of them), it flags them cert-ready and, on confirmation, moves them to the `Certification Log` with their totals and duration — so the active dashboard stays about who's *still training*.
+
+### Setup is idempotent; it's a Sheets/Forms system, not a web app
+There's no `/exec` URL to redeploy — the "deploy" is the Sheet, its bound script, the connected Google Form, and the installed form-submit trigger. Re-running setup rebuilds any missing tabs and re-wires things without wiping data (safe to run again if something looks off). Keep the Form linked to the Sheet, keep the position list and alert recipients current, and it runs itself.

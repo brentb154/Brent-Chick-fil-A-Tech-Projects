@@ -36,10 +36,17 @@ It's a Google Sheets add-on — a menu and a sidebar, no separate app.
 ## Go deeper
 *The 1,000-foot view for whoever maintains it next.*
 
-**Two tabs run the whole thing.** `Links` (Category | Name | URL, plus a Pin column the sidebar manages) drives the menu and sidebar; `Settings` drives the reset schedule, the alert email, and the donation defaults. `runInitialSetup` creates both with example rows and is idempotent — re-running rebuilds anything missing without touching what's there.
+### Two tabs run the whole thing
+`Links` (Category | Name | URL, plus a Pin column the sidebar manages) drives the menu and the sidebar; `Settings` drives the reset schedule, the alert email, and the donation defaults. `runInitialSetup` creates both with example rows and is idempotent — re-running rebuilds anything missing without touching what's there. (There's also a hidden `DonationLog` tab where the donation dialog records each request.)
 
-**The weekly reset.** On the configured day/hour, a trigger copies each `(Reset)` template over its live day tab, giving you a clean week. It removes any existing reset trigger before installing a new one, so `setupResetTrigger` is safe to re-run; `deleteResetTriggers` removes it. A failed run emails the Alert Email (falling back to the sheet owner), so a silent failure means the trigger isn't installed.
+### How the menu gets built
+`onOpen` runs when the spreadsheet opens: it reads the `Links` tab, groups rows by Category, and builds the **FOH Links** menu on the fly — which is exactly why the menu is missing until you reload after setup. The sidebar (`Sidebar.html`) is the richer version: search, add/edit/delete, and `togglePin(row)` to pin a link to the top.
 
-**Why exact tab names matter.** The reset matches `Monday` to `Monday (Reset)` by name. Rename either and the pair no longer matches — that's the one thing that quietly breaks it.
+### The weekly reset, mechanically
+Each day tab (`Monday`…`Saturday`) has a matching `Monday (Reset)`…`Saturday (Reset)` **template**. `resetSingleDay_(ss, day)` copies the template over the live day tab, wiping that day's names back to a clean slate. On the configured day/hour a trigger (`resetWeeklySheets`) does all of them; `manualReset` does it on demand with a confirm, and `testResetMonday` previews just Monday so you can eyeball the copy before trusting the automation. `setupResetTrigger` removes any existing reset trigger before installing a new one (safe to re-run); `deleteResetTriggers` removes it. A failed run emails the Alert Email (falling back to the sheet owner) — so a silent failure almost always means the trigger was never installed.
 
-**It's a menu add-on, not a web app.** No deployment or `/exec` URL — the "install" is pasting the four script files and two HTML files, running `runInitialSetup`, and reloading so `onOpen` builds the menu.
+### Why exact tab names matter
+The reset matches `Monday` to `Monday (Reset)` **by name**. Rename either — or delete a `(Reset)` template — and the pair no longer matches, and that day silently stops resetting. It's the one thing that quietly breaks this tool.
+
+### It's a menu add-on, not a web app
+No deployment or `/exec` URL — the "install" is pasting the four numbered script files and two HTML files, running `runInitialSetup`, and reloading so `onOpen` builds the menu. (If `ADOPTION_SHEET_ID` is set in Script Properties, it also pings the adoption tracker once a day; no property means it's a silent no-op.)

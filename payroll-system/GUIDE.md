@@ -43,14 +43,41 @@ Real Apps Script breakage is rare; publishing a new version fixes the large majo
 ## Go deeper
 *The 1,000-foot view for whoever maintains it next. You don't need this to run payroll day to day.*
 
-**Who gets in, and how.** The app is gated by an access code (managers/admins), checked when the page loads; codes live in `Payroll_Settings`, auto-generated on first use and emailed to admins. Employees never log in — PTO and uniform requests come through separate public form links. Inside, the app routes by a `?view=` tag to each screen (dashboard, OT upload / history / trends / reconciliation, PTO records / summary, uniform catalog / orders / deductions / summary, payroll calendar, year-end wizard, settings, system health, help).
+### Who gets in, and how
+The app is gated by an **access code**, not a Google login. `doGet(e)` reads `?view=` and a session token; on a correct code the server issues a token (held in `CacheService`) and routes you to the requested screen. There are two levels — a manager passcode and an admin-access passcode (`AdminPasscode` / `AdminAccessPasscode` in `Payroll_Settings`), auto-generated on first use and emailed to admins. Employees never log in at all — PTO and uniform requests come through their own public form pages (`EmployeePTORequest`, `EmployeeUniformRequest`). Shared writes are wrapped in `LockService` so two managers saving at once can't corrupt a row.
 
-**The data model.** Google Sheet tabs back everything: an employees tab, overtime records, PTO records, the uniform catalog + orders + deductions, and `Payroll_Settings` for config. Removed employees move to an **archive** tab instead of being deleted, and are restored automatically if re-added — so history and prior deductions are never lost.
+### The screens
+One deployment, many views, each its own `View_*` HTML file routed by `?view=`: dashboard, OT upload / history / trends / reconciliation / by-employee, PTO records / summary, uniform catalog / orders / deductions / summary, payroll calendar, year-end wizard, settings, system health, and help.
 
-**PTO balances are deliberately NOT here.** Your HR system owns the actual balance math; this tool records the *requests* and their status. Don't rebuild balance tracking here — it would only drift from HR.
+### The data model
+Everything is Google Sheet tabs:
+- **`Employees`** + **`Archive_Employees`** — the active roster and the archive of removed people.
+- **`OT_History`** — every uploaded overtime record.
+- **`PTO`** + **`PTO_Requests`** — the request queue and the records.
+- **`Uniform_Catalog`** + **`Uniform_Orders`** + **`Uniform_Order_Items`** — the catalog, the order headers, and the order line items (normalized: one order row, many item rows), which feed the deductions.
+- **`Payroll_Settings`** (codes + payroll config) and **`Settings`** (general config) — operator-editable, read at runtime.
+- **`System_Counters`** — running counters for IDs.
+- **Audit + safety tabs** — `Activity_Log`, `Employee_Audit_Log`, `Comments`, `Backup_History` keep a trail and a restore point.
 
-**The money math has one source.** Payday dates and uniform-deduction amounts are computed by shared helpers, so every screen agrees. If you change that math, change the helper — not each screen.
+### The archive invariant
+Removing an employee **moves** them to `Archive_Employees` — never deletes — and if that person is re-added, the app restores them from the archive instead of creating a fresh, history-less record. There are two restore paths in the code that both have to honor this, so if you touch employee add/remove, keep the auto-restore intact or you'll orphan someone's OT and deduction history.
 
-**Deploy model.** No auto-sync. Paste the files into Apps Script and publish a **new version**; the numbered code files and the `View_*` screen files go into their matching slots. Multi-location is built in — the OT monitor spans every location you set up.
+### PTO balances are deliberately NOT here
+Your HR system owns the actual balance math. This tool records the *requests* and their status — it does not compute how many hours someone has left. Don't rebuild balance tracking here; it would only drift from the system of record.
 
-**Two gotchas.** The link serves the last *published* version, not your latest paste — always publish a new one. And config lives in the Sheet/Settings on purpose, so a non-technical manager can keep it running without touching code.
+### Uniforms → deductions, with one source of truth
+An employee orders from `Uniform_Catalog`; the order is stored as a header (`Uniform_Orders`) plus its line items (`Uniform_Order_Items`); those drive the payroll deductions. Payday dates and the deduction amounts are computed by **shared helper functions**, so the dashboard, the deductions screen, and the summaries always agree. If you change how a deduction or a payday is calculated, change the helper — never re-derive it on a screen.
+
+### The automations
+Three time-driven jobs, each with its own install/remove utility:
+- **`runScheduledAnnualArchive`** (`setupAutoArchiveTriggers`) — the year-end roll.
+- **`runScheduledBackup`** (`setupBackupTrigger`) — snapshots into `Backup_History` so there's always a restore point.
+- **`sendWeeklySummaryEmail`** (`setupWeeklySummaryTrigger`) — the weekly recap.
+
+### Gotchas
+- **The link serves the last *published* version**, not your latest paste — always publish a new version.
+- **Two config tabs.** Codes and payroll specifics live in `Payroll_Settings`; general settings in `Settings`. Know which one you're editing.
+- **Config lives in the Sheet, on purpose**, so a non-technical manager can keep it running without touching code.
+
+### Deploy model
+No auto-sync. This is the biggest tool in the set — paste the numbered `.gs` modules and every `View_*` / `MainApp*` HTML file into their matching Apps Script slots, then publish a **new version**. Multi-location is built in: the OT monitor spans every location you configure in Settings.

@@ -7,7 +7,7 @@ Complaints get handled in the moment and then forgotten, so nobody notices the p
 
 ## What it does
 - **Log a complaint in seconds.** Guest, order, issue type, resolution, daypart, and which manager handled it.
-- **Catch repeat complainers automatically.** Type a phone number and it checks the last 60 days, and badges the guest if there's a history.
+- **Catch repeat complainers automatically.** Type a phone number and it checks the recent window (30 days), and badges the guest if there's a history.
 - **Show the whole picture.** A dashboard of totals, flagged guests, and trends, plus a searchable, editable log.
 - **Alert leadership.** An email when a guest crosses the repeat threshold you set.
 
@@ -25,7 +25,7 @@ This one's in two pieces that talk over a single web link:
 ## When something looks broken
 - **The form loads but won't save.** It's pointed at the wrong backend link, or you changed the backend code and didn't publish a new version. Re-publish (**Deploy → Manage deployments → Edit → New version**) and make sure the form's link matches the deployed app.
 - **Blank / white page.** The form loads its framework from the web — check the device has internet. (If you host your own copy and it white-screens after an update, it's almost always that front-end loading step, not your data.)
-- **The repeat badge didn't show.** It keys off the phone number over the last 60 days — it only flags once the phone is entered and there's prior history.
+- **The repeat badge didn't show.** It keys off the phone number over the recent window (30 days) — it only flags once the phone is entered and there's prior history.
 - **Alerts aren't arriving.** Check the alert email and threshold settings, and that the backend is authorized to send mail from the right Google account.
 
 Real platform breakage is rare. For the backend, a new deployment version fixes most "it stopped saving" issues; for the form, it's almost always the link or the internet.
@@ -38,12 +38,23 @@ Real platform breakage is rare. For the backend, a new deployment version fixes 
 ## Go deeper
 *The 1,000-foot view for whoever maintains it next.*
 
-**Two pieces, one link.** The frontend is a self-contained React app (loaded from a CDN, no build step) — it can live anywhere. The backend is an Apps Script web app bound to the Sheet. The frontend calls the backend URL for every read and write; it never has direct access to the Sheet. That's the privacy boundary — only the deployed endpoint can touch the data, so hosting the form publicly doesn't expose the log.
+### Two pieces, one link
+The frontend is a self-contained React app (loaded from a CDN, no build step) — it can live anywhere. The backend is an Apps Script web app bound to the Sheet. The frontend calls the backend URL for every read and write; it never has direct access to the Sheet. That's the privacy boundary — only the deployed endpoint can touch the data, so hosting the form publicly doesn't expose the log.
 
-**The data.** One tab is the database; the columns are created on first submit, so there's no schema to set up. Repeat-complainer detection is a lookback over recent entries by phone number (a rolling ~60-day window), surfaced the instant the phone is typed.
+### How the two pieces actually talk
+The backend has a `doGet` and a `doPost`, both gated by a token (`requireAuth_`) — that's the passcode layer, so a random hit on the URL can't read or write. Reads go through `doGet` with an `action` (e.g. `checkPhone` for the repeat lookup, `getEmailSettings`); writes go through `doPost` with an `action` (`add` / edit / delete a complaint). There's a small **field-alias** layer so the frontend can speak its own names (`phone`, `timestamp`) while the sheet stores its columns (`phoneNumber`, `dateSubmitted`) — handy to know if a field ever looks like it "didn't save," it may just be an alias mismatch.
 
-**Two copies, on purpose.** There's a public/template version and your private live version, and they are NOT meant to be identical — the live one carries your real backend link and alert config. Never force them into sync; that's how a private link or setting leaks into the public copy.
+### The data
+One tab (`Sheet1`) is the database; the header row is `id, phone, guestName, orderNumber, orderType, issueType, resolution, notes, dateOccurred, timestamp, managerName, dayPart, resolved`, built on first-time setup (and auto-created on first submit, so there's no schema step). `runFirstTimeSetup()` wires the tab, headers, and alert storage; it's idempotent.
 
-**The frontend's one dependency.** It pulls its framework from a CDN at load. If you ever fork or update it and it white-screens, check that the CDN script versions are pinned to known-good ones — an unpinned major version has broken it before.
+### Repeat detection + alerts, by the numbers
+Two constants at the top of `Code.gs` drive it: `REPEAT_WINDOW_DAYS` (30) and `ALERT_THRESHOLD` (4). When a phone is entered, the backend counts that number's complaints inside the rolling window and badges the guest; when a new complaint pushes a guest to the threshold *within* the window, it emails the alert list. **These two numbers must match the wording the frontend shows guests** — a code comment flags this, and it's the one spot where the number in the UI and the number in the logic can silently drift apart. (Heads-up: the README currently says "60 days" in a couple of spots — the code is 30.)
 
-**Deploy model.** Publish the backend as a **new version** after any `Code.gs` change (the URL serves the last published version). The form just needs to point at that URL, and the deployment access has to let whoever's logging reach it.
+### Two copies, on purpose
+There's a public/template version (this repo, with `SHEET_ID = 'YOUR_SHEET_ID'`) and your private live version (with the real sheet ID and your settings). They are NOT meant to be identical. Never force them into sync — that's how a private sheet ID or alert config leaks into the public copy.
+
+### The frontend's one dependency
+It pulls React/Babel from a CDN at load. If you ever fork or update it and it white-screens, check the CDN script versions are pinned to known-good ones — an unpinned major version has broken it before.
+
+### Deploy model
+Publish the backend as a **new version** after any `Code.gs` change (the URL serves the last published version), and set `SHEET_ID` at the top before running `runFirstTimeSetup()`. The form points at that URL, and the deployment access has to let whoever's logging reach it.

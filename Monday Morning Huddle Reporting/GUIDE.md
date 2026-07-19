@@ -42,12 +42,20 @@ Real breakage is rare; most "wrong numbers" trace back to a multi-week upload, a
 ## Go deeper
 *The 1,000-foot view for whoever maintains it next.*
 
-**The pipeline.** Upload → parse the schedule file → analyze (planned vs actual, variance, OT, attendance flags) → build the two views (last week's review, this week's projection) → email the two-tier summaries → archive the presentation. Each stage is its own file (parsing, analysis, reporting, email, archive, history), so a change to one stays contained.
+### The pipeline
+Upload lands the schedules and punches into **six input tabs**. From there: parse the punches (`parsePunchesFromSheet`) → analyze (planned vs actual, variance, OT, attendance flags) → write the two views onto the Monday sheet (last-week review in one block of rows, this-week projection in another) → append the week to `History` → send the two-tier emails → (later) the input tabs get wiped for the next week. Each stage is its own file — `Parser.gs`, `Analysis.gs`, `Report(s).gs`, `Email.gs`, `Archive.gs`, `History.gs` — so a change to one stays contained.
 
-**Why cross-location OT matters here.** Overtime is a per-*employee* number, not a per-*store* number. Someone who works 25 hours at each location has 10 hours of OT that neither store's own report will ever show. This tool combines an employee's hours across both locations before it computes OT — that's the whole reason it exists alongside the standard analytics.
+### `History` is the spine — and it's protected
+`History` is the permanent backend data store. It powers two things nothing else can: the **chronic flags** (an employee who's flagged week after week) and every historical report. Because so much depends on it, the tab is **protected** (`protectHistoryTab_`) — automated writes only. **Editing `History` by hand corrupts the chronic flags and the historical reports.** If a `History` row is wrong, re-run the week rather than editing the cell. Rows carry a `weekLabel`, which is how reports pull one week without bleeding in the last.
 
-**The multi-week trap.** The one recurring failure mode is uploading a file that spans more than one week, which double-counts hours. There's a preflight check that inspects the upload and flags a multi-week file before it processes, plus week-labeled history filters so old weeks don't bleed into the current one. If numbers ever look doubled, check this first.
+### Why cross-location OT matters here
+Overtime is a per-*employee* number, not a per-*store* number. Someone who works 25 hours at each location has 10 hours of OT that neither store's own report will ever show. This tool **combines an employee's hours across both CH and DBU before it computes OT** — that's the whole reason it exists alongside the standard analytics. The corollary is a real gotcha: **if you only upload one location, the combined-hours OT is invisible** — you have to upload both for the number to be right.
 
-**Archive + history.** A weekly trigger snapshots each huddle so you build a season of history; the history queries read from those snapshots. Keep the trigger installed (`setupWeeklyArchiveTrigger`) or the history stops accumulating.
+### The multi-week trap
+The one recurring failure mode is uploading a file that spans more than one week, which double-counts hours. The **upload dialog checks `History` and warns you** before it processes — read the warning. Combined with the `weekLabel` filtering, that's what keeps old weeks from stacking onto the current one. If numbers ever look doubled, this is the first thing to check. (Related: closing the upload dialog early can leave the input tabs half-written — finish the run.)
 
-**It's a Sheets add-on, not a web app.** No `/exec` URL — the "deploy" is the Sheet, its bound script, and the custom menu. Re-running `initializeSheet()` is safe and rebuilds the tabs without touching your data.
+### The two-tier email
+`sendTwoTierEmails` builds two levels from the same analysis: a director-level summary (staffing and labor conversations) and a manager-level one (more detail). There's also a re-send that emails the latest analysis again **without** re-running it — handy if a recipient was wrong or the first send failed. Recipients live on the **Settings** tab; update them when a manager leaves or a director joins.
+
+### It's a Sheets add-on, not a web app
+No `/exec` URL — the "deploy" is the Sheet, its bound script, and the custom menu. A weekly trigger (`setupWeeklyArchiveTrigger`) snapshots each huddle so the history keeps accumulating; keep it installed. Re-running `initializeSheet()` is safe and rebuilds the tabs without touching your data.
