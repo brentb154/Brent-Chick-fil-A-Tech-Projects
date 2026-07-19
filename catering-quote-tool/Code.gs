@@ -763,8 +763,15 @@ function initializeSheet() {
   initLogSheet_(TAB_CONFIRMATIONS, ['Quote ID', 'Event Date', 'Sent At']);
   initLogSheet_(TAB_PO_ALERTS, ['Quote ID', 'Alerted At']);
   initLogSheet_(TAB_TAX_FORMS, ['Quote ID', 'Status', 'Updated At']);
-  initLogSheet_(TAB_TAX_PENDING, ['Submitted At', 'Organization', 'Contact Name', 'Quote ID', 'PDF Link', 'PDF File ID', 'Status']);
+  var pendSheet = initLogSheet_(TAB_TAX_PENDING, ['Submitted At', 'Organization', 'Contact Name', 'Quote ID', 'PDF Link', 'PDF File ID', 'Status', 'Tax-Exempt Number']);
+  // Migrate an existing 7-column pending tab to include the tax-exempt number column
+  if (pendSheet.getRange(1, 8).getValue() !== 'Tax-Exempt Number') pendSheet.getRange(1, 8).setValue('Tax-Exempt Number').setFontWeight('bold');
   ensureTaxRegistrySheet_();
+
+  // Create the tax-form Drive folder now, so this setup run triggers the Drive
+  // authorization prompt — click ALLOW. Without it, the deployed web app runs
+  // without Drive access and the public guest upload page can't save files.
+  try { ensureTaxFormFolder_(); } catch (e) { /* Drive not granted — the guest upload won't work until you re-run this and Allow, then redeploy */ }
 
   // Off-menu cheat sheet — visible tab, team-editable. Base prices start blank
   // on purpose: fill them from the POS; the app computes delivery price (+markup).
@@ -1613,7 +1620,7 @@ function getTaxRegistry() {
   }
   var pend = getSpreadsheet().getSheetByName(TAB_TAX_PENDING);
   if (pend && pend.getLastRow() > 1) {
-    pend.getRange(2, 1, pend.getLastRow() - 1, 7).getValues().forEach(function(r, i) {
+    pend.getRange(2, 1, pend.getLastRow() - 1, pend.getLastColumn()).getValues().forEach(function(r, i) {
       if ((r[6] || '').toString().trim() !== 'PENDING') return;
       out.pending.push({
         submittedAt: r[0] ? new Date(r[0]).toISOString() : '',
@@ -1621,6 +1628,7 @@ function getTaxRegistry() {
         contactName: (r[2] || '').toString().trim(),
         quoteId: (r[3] || '').toString().trim(),
         pdfUrl: (r[4] || '').toString().trim(),
+        taxNumber: (r[7] || '').toString().trim(),
         row: i + 2
       });
     });
@@ -1660,8 +1668,10 @@ function submitGuestTaxForm(payload) {
   var org = (payload.organization || '').toString().trim();
   var name = (payload.contactName || '').toString().trim();
   var quoteId = (payload.quoteId || '').toString().trim();
+  var taxNumber = (payload.taxNumber || '').toString().trim();
   var data = (payload.dataBase64 || '').toString();
   if (!org || !name) return { success: false, message: 'Please enter your name and organization.' };
+  if (!taxNumber) return { success: false, message: 'Please enter your tax-exempt number.' };
   if (!data) return { success: false, message: 'Please attach a PDF of your form.' };
   var mime = (payload.mimeType || '').toString();
   if (mime && mime.indexOf('pdf') < 0) return { success: false, message: 'Please upload a PDF file.' };
@@ -1672,8 +1682,8 @@ function submitGuestTaxForm(payload) {
   } catch (err) {
     return { success: false, message: err.message || 'Upload failed — please try again.' };
   }
-  var sheet = initLogSheet_(TAB_TAX_PENDING, ['Submitted At', 'Organization', 'Contact Name', 'Quote ID', 'PDF Link', 'PDF File ID', 'Status']);
-  sheet.appendRow([new Date(), org, name, quoteId, file.getUrl(), file.getId(), 'PENDING']);
+  var sheet = initLogSheet_(TAB_TAX_PENDING, ['Submitted At', 'Organization', 'Contact Name', 'Quote ID', 'PDF Link', 'PDF File ID', 'Status', 'Tax-Exempt Number']);
+  sheet.appendRow([new Date(), org, name, quoteId, file.getUrl(), file.getId(), 'PENDING', taxNumber]);
   return { success: true, message: 'Thank you! We\'ve received your tax-exempt form.' };
 }
 
@@ -1683,9 +1693,11 @@ function confirmPendingTaxUpload(pendingRow, organization) {
   if (!org) return { success: false, message: 'Pick an organization name.' };
   var pend = getSpreadsheet().getSheetByName(TAB_TAX_PENDING);
   if (!pend || pendingRow < 2) return { success: false, message: 'Upload not found.' };
-  var r = pend.getRange(pendingRow, 1, 1, 7).getValues()[0];
+  var r = pend.getRange(pendingRow, 1, 1, pend.getLastColumn()).getValues()[0];
   var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-  saveTaxRegistryEntry({ organization: org, status: 'ON_FILE', pdfUrl: r[4], pdfFileId: r[5], dateOnFile: stamp, notes: 'Uploaded by ' + (r[2] || 'guest') });
+  var taxNumber = (r[7] || '').toString().trim();
+  var note = (taxNumber ? 'Tax-exempt #: ' + taxNumber + ' · ' : '') + 'Uploaded by ' + (r[2] || 'guest');
+  saveTaxRegistryEntry({ organization: org, status: 'ON_FILE', pdfUrl: r[4], pdfFileId: r[5], dateOnFile: stamp, notes: note });
   pend.getRange(pendingRow, 7).setValue('CONFIRMED');
   return { success: true };
 }

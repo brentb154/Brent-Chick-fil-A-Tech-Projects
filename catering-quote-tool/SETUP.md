@@ -22,7 +22,7 @@ This adds a guest-facing tax-form upload page and an organization-level registry
 1. Add a **third HTML file** named exactly `TaxForm` holding `TaxForm.html` (alongside `Code` and `Index`).
 2. Redeploy with **Access = "Anyone"** (not "Anyone within your domain") so external guests can reach the upload page. Edit the existing deployment → Access → Anyone → new version.
 3. The team's URL is now `…/exec?view=app` (bookmark it). Guests get `…/exec?view=taxform&quote=…` automatically inside the request email. The bare `…/exec` shows a harmless landing page.
-4. Run `initializeSheet()` — it creates the visible **Tax_Exempt_Registry** tab and hidden **Tax_Form_Uploads** tab. First run prompts a Drive permission — Allow.
+4. Run `initializeSheet()` — it creates the visible **Tax_Exempt_Registry** tab and hidden **Tax_Form_Uploads** tab, and builds the Drive folder. **This is when the Drive permission prompt appears — click Allow.** Then **redeploy a new version.** The public guest-upload page runs as you (the deployer), so the deployed app must have Drive access before a guest can submit — if you skipped the Allow, the guest sees a "You do not have permission to call DriveApp" error. (The guest form now also asks for the org's **tax-exempt number** — stored on the `Tax_Form_Uploads` tab and carried into the registry when you confirm it.)
 
 **How it works:** on a tax-exempt quote, "Look it up" opens the registry; "Request from Guest" emails an upload link. Guests upload a PDF (no login) → it lands in the Drive folder as a **pending review** on the **Tax Forms** tab → a team member confirms it into the registry under the right organization. **Add Existing Form** backfills what you already have. The Dec year-end reminder now summarizes the registry.
 
@@ -198,6 +198,7 @@ If this row is blank or missing, events go to the default calendar. Either way w
 | Problem | Fix |
 |---------|-----|
 | "CalendarApp is not defined" or permission error | Run `initializeSheet()` or `createCalendarEvent` manually once to trigger the OAuth consent screen. Approve Calendar permissions. |
+| Guest upload fails: "You do not have permission to call DriveApp.getFoldersByName" | The deployed web app never got Drive access. In the editor, run `initializeSheet()` and **click Allow** on the Drive prompt, then **redeploy a new version**. (The guest page runs as you, so your grant is what matters.) |
 | No calendar event created but quote saved fine | Check that both Date AND Time are filled in on the form. No time = no event. |
 | Events on wrong calendar | Add or update the `Calendar ID` row in the Settings tab (see Step 5) |
 | New columns not appearing | Run `initializeSheet()` again. Check that the Quotes tab has headers through column S. |

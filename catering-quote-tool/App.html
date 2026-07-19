@@ -1299,7 +1299,7 @@ function renderTaxPending() {
     var when = p.submittedAt ? new Date(p.submittedAt).toLocaleDateString() : '';
     return '<div style="border:1px solid var(--gray-100);border-radius:var(--radius);padding:12px;margin-bottom:10px;">'
       + '<div style="font-weight:600;">' + escHtml(p.organization || '(no org given)') + '</div>'
-      + '<div class="field-hint">From ' + escHtml(p.contactName || '?') + (p.quoteId ? ' · quote ' + escHtml(p.quoteId) : '') + (when ? ' · ' + escHtml(when) : '') + (p.pdfUrl ? ' · <a href="' + escAttr(p.pdfUrl) + '" target="_blank" rel="noopener">View PDF ↗</a>' : '') + '</div>'
+      + '<div class="field-hint">From ' + escHtml(p.contactName || '?') + (p.taxNumber ? ' · tax# ' + escHtml(p.taxNumber) : '') + (p.quoteId ? ' · quote ' + escHtml(p.quoteId) : '') + (when ? ' · ' + escHtml(when) : '') + (p.pdfUrl ? ' · <a href="' + escAttr(p.pdfUrl) + '" target="_blank" rel="noopener">View PDF ↗</a>' : '') + '</div>'
       + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">'
       + '<input type="text" class="form-input" id="pend-org-' + p.row + '" value="' + escAttr(p.organization || '') + '" style="max-width:240px;" placeholder="Confirm the organization name">'
       + '<button class="btn btn-primary btn-sm" onclick="confirmPending(' + p.row + ')">✓ Confirm into Registry</button>'

@@ -20,7 +20,7 @@
     .req:after { content:' *'; color:var(--cfa-red); }
     .filewrap { border:2px dashed var(--gray-200); border-radius:10px; padding:20px; text-align:center; cursor:pointer; transition:border-color .15s,background .15s; }
     .filewrap:hover { border-color:var(--cfa-red); background:var(--gray-50); }
-    .filewrap.has { border-color:var(--cfa-red); background:#FFF0F2; }
+    .filewrap.has, .filewrap.drag { border-color:var(--cfa-red); background:#FFF0F2; }
     .filewrap .icon { font-size:26px; }
     .filewrap .txt { font-size:13px; color:var(--gray-500); margin-top:6px; }
     .filewrap .name { font-size:14px; color:var(--gray-900); font-weight:600; margin-top:6px; word-break:break-all; }
@@ -49,12 +49,13 @@
       <div class="msg" id="msg"></div>
       <div class="field"><label class="req">Your Name</label><input type="text" id="name" placeholder="e.g., Jane Smith" autocomplete="name"></div>
       <div class="field"><label class="req">Organization</label><input type="text" id="org" placeholder="e.g., Dallas ISD"></div>
+      <div class="field"><label class="req">Tax-Exempt Number</label><input type="text" id="taxNum" placeholder="e.g., 3-12345678-9"><div class="hint">The tax-exempt number on your organization's certificate.</div></div>
       <div class="field"><label>Quote Number</label><input type="text" id="quote" placeholder="e.g., Q-2026-0042"><div class="hint">Pre-filled from your email link — leave as-is if it's already correct.</div></div>
       <div class="field">
         <label class="req">Tax-Exempt Form (PDF)</label>
         <div class="filewrap" id="fileWrap" onclick="document.getElementById('fileInput').click()">
           <div class="icon">📎</div>
-          <div class="txt" id="fileTxt">Tap to choose your PDF file</div>
+          <div class="txt" id="fileTxt">Drag your PDF here, or tap to choose</div>
           <div class="name" id="fileName" style="display:none;"></div>
         </div>
         <input type="file" id="fileInput" accept="application/pdf,.pdf" onchange="onFile()">
@@ -70,13 +71,26 @@
     var fileData = null, fileMime = '';
     document.addEventListener('DOMContentLoaded', function() {
       if (quoteParam) document.getElementById('quote').value = quoteParam;
+      // Drag-and-drop, in addition to tap-to-choose
+      var wrap = document.getElementById('fileWrap');
+      ['dragenter', 'dragover'].forEach(function(ev) {
+        wrap.addEventListener(ev, function(e) { e.preventDefault(); e.stopPropagation(); wrap.classList.add('drag'); });
+      });
+      ['dragleave', 'dragend'].forEach(function(ev) {
+        wrap.addEventListener(ev, function(e) { e.preventDefault(); e.stopPropagation(); wrap.classList.remove('drag'); });
+      });
+      wrap.addEventListener('drop', function(e) {
+        e.preventDefault(); e.stopPropagation(); wrap.classList.remove('drag');
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+      });
     });
 
     function showErr(m) { var el = document.getElementById('msg'); el.textContent = m; el.className = 'msg err'; }
     function clearErr() { document.getElementById('msg').className = 'msg'; }
 
-    function onFile() {
-      var f = document.getElementById('fileInput').files[0];
+    function onFile() { handleFile(document.getElementById('fileInput').files[0]); }
+
+    function handleFile(f) {
       if (!f) return;
       if (f.type.indexOf('pdf') < 0 && !/\.pdf$/i.test(f.name)) { showErr('Please choose a PDF file.'); return; }
       if (f.size > 10 * 1024 * 1024) { showErr('That file is larger than 10 MB. Please upload a smaller PDF.'); return; }
@@ -96,8 +110,10 @@
     function submitForm() {
       var name = document.getElementById('name').value.trim();
       var org = document.getElementById('org').value.trim();
+      var taxNum = document.getElementById('taxNum').value.trim();
       var quote = document.getElementById('quote').value.trim();
       if (!name || !org) { showErr('Please fill in your name and organization.'); return; }
+      if (!taxNum) { showErr('Please enter your tax-exempt number.'); return; }
       if (!fileData) { showErr('Please attach a PDF of your tax-exempt form.'); return; }
       clearErr();
       var btn = document.getElementById('submitBtn');
@@ -111,7 +127,7 @@
           showErr('Upload failed: ' + (err && err.message ? err.message : 'please try again.'));
           btn.disabled = false; btn.textContent = 'Submit Form';
         })
-        .submitGuestTaxForm({ contactName: name, organization: org, quoteId: quote, mimeType: fileMime, dataBase64: fileData });
+        .submitGuestTaxForm({ contactName: name, organization: org, taxNumber: taxNum, quoteId: quote, mimeType: fileMime, dataBase64: fileData });
     }
 
     function showDone() {
