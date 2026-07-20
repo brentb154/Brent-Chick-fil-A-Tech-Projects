@@ -15,7 +15,7 @@ Guest complaints at a busy location get handled in the moment and then forgotten
 This tool gives every manager one fast place to:
 
 - **Log a complaint in under a minute** — phone, guest name, order details, issue type, resolution, notes, daypart, and which manager handled it.
-- **Catch repeat complainers automatically** — the moment you type a phone number, it checks the last 60 days and shows a badge if that guest already has a history.
+- **Catch repeat complainers automatically** — the moment you type a phone number, it checks the last 30 days and shows a badge if that guest already has a history.
 - **See the whole picture** — a dashboard with total complaints, flagged guests, and trends, plus a searchable, editable log.
 - **Alert leadership** — configurable email alerts when a guest crosses the repeat-complaint threshold.
 
@@ -52,7 +52,7 @@ The frontend never touches the sheet directly — everything goes through the Ap
 - Free-apology-dessert checkbox, manager name, date occurred
 
 **Repeat-complainer detection**
-- Live phone lookup against the last 60 days as you type
+- Live phone lookup against the last 30 days as you type
 - **Yellow badge:** guest has 2 complaints in 30 days (this one makes 3)
 - **Red badge:** guest has 3+ complaints in 30 days
 - Tap the badge to see that guest's full history

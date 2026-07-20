@@ -196,7 +196,7 @@ When you enter a phone number, the backend looks at that guest's history:
 - **Yellow badge** — 2 complaints in the last 30 days (the one you're logging makes 3)
 - **Red badge** — 3+ complaints in the last 30 days
 
-Tap a badge to see the guest's recent history. The phone lookup scans the last **60 days** of records.
+Tap a badge to see the guest's recent history. The phone lookup scans the last **30 days** of records.
 
 ---
 

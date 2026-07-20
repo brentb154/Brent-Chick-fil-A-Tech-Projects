@@ -7,7 +7,7 @@ Automated weekly waste summary emails from Google Form responses.
 1. Open the Google Sheet that receives Shared Table form responses
 2. Go to Extensions > Apps Script
 3. Copy `Code.gs` and `index.html` into the script editor
-4. Refresh the spreadsheet — a "Shared Table" menu appears
+4. Refresh the spreadsheet — a "Waste Summary" menu appears
 5. Use the menu to open Settings and configure email recipients, schedule, and format
 
 ## Triggers
