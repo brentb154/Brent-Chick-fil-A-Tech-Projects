@@ -30,6 +30,9 @@ Guest-recovery complaint log. Log guest issues in under a minute, auto-flag repe
 ### Training Tracker (`/training-tracker`)
 Turns a Google Form into a live training dashboard — daily training logs, certification tracking by position, a per-person timeline, built-in name deduplication, and automatic alerts when a trainee goes inactive. Built with Google Apps Script and Google Sheets. See `SETUP_GUIDE.md` in the folder.
 
+### Checklist System (`/checklist-system`)
+One master sheet drives the FOH checklists: three Google Forms rebuild each morning with only that day's tasks (links never change), every submission is logged as clean rows, due vs. done is tracked per position, late checklists escalate by email or Slack, and a daily summary plus Monday scorecard go out automatically. Built with Google Apps Script and Google Sheets. See `SETUP_GUIDE.md` in the folder.
+
 ## How to Use
 
 **Standalone Tools (Inventory Analyzer, Schedule Counter local preview):**

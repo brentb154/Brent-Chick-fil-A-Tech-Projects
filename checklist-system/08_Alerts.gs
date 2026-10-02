@@ -1,0 +1,182 @@
+/**
+ * ============================================================
+ * CHECKLIST SYSTEM - Reminders, Escalations and Error Alerts
+ * ============================================================
+ * Recipients are read from Settings on every run:
+ *   "<Area> escalation email"             e.g. FOH escalation email
+ *   "<Area> shift reminder Slack webhook" e.g. FOH shift reminder Slack webhook
+ * Changing those cells is the only step needed to change who
+ * gets alerted. A new Area works by adding the same two rows.
+ *
+ * Each alert is sent once per Daily Status row: the Reminder
+ * sent / Escalation sent cell is stamped in the same locked run.
+ */
+
+// Live mode only. Caller holds the lock. One message per checklist listing every position still out.
+function sendDueAlerts_(cfg, tab, todayRows, current) {
+  var model = loadModel_();
+  var groups = {};
+  todayRows.forEach(function (r) {
+    if (r.status !== 'Pending' && r.status !== 'Late') return;
+    (groups[r.checklistId] = groups[r.checklistId] || []).push(r);
+  });
+
+  Object.keys(groups).forEach(function (id) {
+    var checklist = model.byId[id];
+    var open = groups[id];
+    var first = open[0];
+    if (!checklist || first.dueMin === null || first.lateMin === null) return;
+    var dueBiz = bizMinutes_(first.dueMin, cfg);
+    var lateBiz = bizMinutes_(first.lateMin, cfg);
+
+    if (current.minutes >= lateBiz) {
+      var toEscalate = open.filter(function (r) { return !r.escalationSent; });
+      if (toEscalate.length && sendEscalation_(cfg, checklist, open, first)) {
+        stampRows_(tab, toEscalate, 'Escalation sent');
+      }
+    } else if (current.minutes >= dueBiz - cfg.reminderMin) {
+      var toRemind = open.filter(function (r) { return !r.reminderSent; });
+      if (toRemind.length && sendHeadsUp_(cfg, checklist, open, first)) {
+        stampRows_(tab, toRemind, 'Reminder sent');
+      }
+    }
+  });
+}
+
+function stampRows_(tab, rows, header) {
+  var now = new Date();
+  rows.forEach(function (r) { setCell_(tab, r.index, header, now); });
+}
+
+function missingList_(checklist, open) {
+  return checklist.perPosition ? open.map(function (r) { return r.position; }) : [];
+}
+
+// Returns true if it went out (so the rows get stamped)
+function sendEscalation_(cfg, checklist, open, first) {
+  var to = emailList_(cfg.get(checklist.area + ' escalation email'));
+  if (!to.length) return false;
+  var missing = missingList_(checklist, open);
+  var what = checklist.perPosition
+    ? missing.length + (missing.length === 1 ? ' position' : ' positions') + ' missing'
+    : 'not submitted';
+  var subject = 'LATE: ' + shortName_(checklist) + ' – ' + what + ' (' + shortLabel_(first.dateKey) + ')';
+  var body = checklist.name + ' was due at ' + first.dueText + ' and is now late (after ' + first.lateText + ').\n\n' +
+    (missing.length ? 'Still missing:\n- ' + missing.join('\n- ') + '\n\n' : 'No submission yet.\n\n') +
+    'Form: ' + checklist.formLink + '\n' +
+    'Checklist Master: ' + getSS_().getUrl();
+  MailApp.sendEmail({ to: to.join(','), subject: subject, body: body });
+  logAlert_(first.dateKey, checklist.id, missing.join(', '), 'Escalation', to.join(', '));
+  return true;
+}
+
+// Slack if the area has a webhook, otherwise the escalation email
+function sendHeadsUp_(cfg, checklist, open, first) {
+  var missing = missingList_(checklist, open);
+  var text = 'Heads-up: ' + checklist.name + ' is due at ' + first.dueText + '.' +
+    (missing.length ? ' Not in yet: ' + missing.join(', ') + '.' : '') +
+    '\nForm: ' + checklist.formLink;
+
+  var webhook = cfg.get(checklist.area + ' shift reminder Slack webhook');
+  if (webhook && postSlack_(webhook, text)) {
+    logAlert_(first.dateKey, checklist.id, missing.join(', '), 'Heads-up', 'Slack');
+    return true;
+  }
+  var to = emailList_(cfg.get(checklist.area + ' escalation email'));
+  if (!to.length) return false;
+  MailApp.sendEmail({
+    to: to.join(','),
+    subject: 'Heads-up: ' + shortName_(checklist) + ' due at ' + first.dueText + ' (' + shortLabel_(first.dateKey) + ')',
+    body: text
+  });
+  logAlert_(first.dateKey, checklist.id, missing.join(', '), 'Heads-up', to.join(', '));
+  return true;
+}
+
+function postSlack_(webhook, text) {
+  try {
+    var res = UrlFetchApp.fetch(webhook, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({ text: text }),
+      muteHttpExceptions: true
+    });
+    return res.getResponseCode() === 200;
+  } catch (err) {
+    return false;
+  }
+}
+
+function logAlert_(dateKey, checklistId, position, type, sentTo) {
+  appendRows_(openTab_(TABS.alerts), [{
+    'Sent at': new Date(),
+    'Date': dateKey,
+    'Checklist ID': checklistId,
+    'Position': position,
+    'Alert type': type,
+    'Sent to': sentTo
+  }]);
+}
+
+// FOH escalation email, or the account the script runs as if that's blank
+function adminEmails_(cfg) {
+  var to = emailList_(cfg.get('FOH escalation email'));
+  if (!to.length) to = [Session.getEffectiveUser().getEmail()];
+  return to;
+}
+
+function sendBlockedAlert_(cfg, today, problems) {
+  var to = adminEmails_(cfg);
+  MailApp.sendEmail({
+    to: to.join(','),
+    subject: 'Checklist forms NOT rebuilt for ' + shortLabel_(today) + ' – sheet needs a fix',
+    body: 'Validate found problems in the Checklist Master, so yesterday\'s forms were left in place.\n\n- ' +
+      problems.join('\n- ') + '\n\nFix them, then use Checklists > Rebuild forms now (or wait for the next ' +
+      'automatic check, within 15 minutes).\n\n' + getSS_().getUrl()
+  });
+  logAlert_(today, '', '', 'Rebuild blocked', to.join(', '));
+}
+
+// One email per job per day, so a stuck trigger can't burn the daily email quota.
+function reportError_(job, err) {
+  try {
+    var today = dateKey_(new Date(), Session.getScriptTimeZone());
+    var props = PropertiesService.getScriptProperties();
+    var key = 'ERROR_' + job.replace(/\W+/g, '_').toUpperCase();
+    if (props.getProperty(key) === today) return;
+    props.setProperty(key, today);
+    var to;
+    try {
+      to = adminEmails_(loadSettings_());
+    } catch (settingsErr) {
+      to = [Session.getEffectiveUser().getEmail()]; // Settings itself may be what broke
+    }
+    MailApp.sendEmail({
+      to: to.join(','),
+      subject: 'Checklist system error: ' + job,
+      body: job + ' failed:\n\n' + (err && err.stack ? err.stack : err) + '\n\n' +
+        'Further errors from this step today won\'t be emailed.\n' + getSS_().getUrl()
+    });
+    logAlert_(today, '', '', 'Error: ' + job, to.join(', '));
+  } catch (ignore) {
+    // Nothing else to do if even the alert fails
+  }
+}
+
+function sendTestAlert_() {
+  var cfg = loadSettings_();
+  var model = loadModel_();
+  var me = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail();
+  var checklist = model.checklists.filter(function (c) { return c.active; })[0];
+  var today = dateKey_(new Date(), cfg.tz);
+  var name = checklist ? shortName_(checklist) : 'Positional Closing';
+  MailApp.sendEmail({
+    to: me,
+    subject: 'TEST – LATE: ' + name + ' – 3 positions missing (' + shortLabel_(today) + ')',
+    body: 'This is a test of the late alert. A real one goes to the "' + (checklist ? checklist.area : 'FOH') +
+      ' escalation email" in Settings.\n\nStill missing:\n- Dishes\n- Stocker\n- Team Leader\n\n' +
+      'Form: ' + (checklist ? checklist.formLink : '') + '\nChecklist Master: ' + getSS_().getUrl()
+  });
+  logAlert_(today, checklist ? checklist.id : '', '', 'Test', me);
+  return me;
+}

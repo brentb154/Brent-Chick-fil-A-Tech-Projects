@@ -1,0 +1,53 @@
+# Checklist System – Setup Guide
+
+Do these in order. Steps marked **(store account)** must be done while signed in as the store Gmail account. Triggers and forms belong to whoever creates them.
+
+## 1. Transfer the master sheet (store account)
+1. From Brent's account, open **Checklist Master (FOH + BOH)**, then Share, and make the store Gmail account the owner. Between personal Gmail accounts, the store account has to accept the transfer.
+2. Keep Brent as an **Editor** so code can still be pushed with clasp.
+
+## 2. Create the script (store account)
+1. In the sheet: **Extensions > Apps Script**. Name the project `Checklist System`.
+2. In the editor: **Project Settings (gear)**, then copy the **Script ID**.
+
+## 3. Push the code (Brent's Mac, one-time clasp setup)
+```bash
+npm install -g @google/clasp
+```
+Turn on the Apps Script API at https://script.google.com/home/usersettings, then:
+```bash
+clasp login
+```
+In this `checklist-system` folder, create `.clasp.json` with the Script ID from step 2:
+```json
+{ "scriptId": "PASTE_SCRIPT_ID_HERE", "rootDir": "." }
+```
+Then push. This replaces the default `Code.gs` with these files:
+```bash
+clasp push --force
+```
+
+## 4. First run (store account)
+1. Reload the sheet. A **Checklists** menu appears.
+2. **Checklists > Validate sheet.** Fix anything listed as blocking. Blank emails are only warnings.
+3. **Checklists > Rebuild forms now.** Approve the permissions prompt. This creates the three forms and fills in Form ID / Form link.
+4. **Checklists > Install / repair triggers.** The dialog should say triggers will run as the store account.
+5. **Checklists > Show form links.** Open each link in a private/incognito window. You should get the form without signing in. If it asks you to sign in or request access, open the form, click **Publish**, and set Responders to **Anyone with the link**.
+6. Fill in **Settings**: FOH escalation email and Daily summary recipients.
+
+## 5. Test
+- Submit one response per position on Positional Closing, plus Manager Closing and the 2–3 PM checklist.
+- Check **Submissions** (one row each), **Item Results** (one row per task), and **Daily Status** (rows flip to Complete).
+- Confirm that submitting **Stocker** ends the form. Team Leader should never appear after Stocker.
+- **Checklists > Send test alert to me** to see what a late email looks like.
+
+## 6. Go live
+1. Run one week with Alerts mode = `Digest only`. Only the 7 AM summary goes out. Tune Due by / Late after from what actually happens.
+2. Set Alerts mode to `Live`. Heads-ups and late escalations start on the next 15-minute check.
+3. Replace the old links and QR codes with the ones from *Show form links*. The links never change.
+4. On each of the eight old forms, turn off **Accepting responses** and set the closed message to point to the new link. **Do not delete** the old forms or their response sheets.
+
+## If something goes wrong
+- **Forms didn't rebuild:** the FOH escalation email gets a "NOT rebuilt" email listing what to fix. Fix the sheet; the next 15-minute check rebuilds on its own.
+- **A script error:** one email per failing step per day goes to the FOH escalation email (or the store account if that's blank). Details are in the Alert Log.
+- **Someone else installed triggers before:** they should run *Checklists > Remove my triggers* from their account. Until they do, their triggers do nothing.

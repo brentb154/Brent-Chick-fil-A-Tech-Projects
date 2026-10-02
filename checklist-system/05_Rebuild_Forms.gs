@@ -1,0 +1,189 @@
+/**
+ * ============================================================
+ * CHECKLIST SYSTEM - Daily Form Rebuild
+ * ============================================================
+ * Rebuilds each active checklist's form with only that day's
+ * tasks. A form is created once; after that it's reopened by
+ * the Form ID in Checklists so the link never changes.
+ */
+
+var Q_LEADER = 'Leader completing this checklist';
+var Q_POSITION = 'Which position are you checking off?';
+var Q_NOTES = 'Anything not completed or needing attention?';
+var ANSWER_DONE = 'Complete';
+var ANSWER_NOT_DONE = 'Could not complete';
+var PHOTO_SUFFIX = ' **EMAIL PICTURES**';
+var REBUILD_TIME_LIMIT_MS = 3 * 60 * 1000; // leaves room for one long form inside the 6-minute limit
+
+// Morning step: validate, rebuild, then create today's Daily Status rows.
+// Blocking problems keep yesterday's forms and send one warning a day; each run retries.
+function morningRebuild_(cfg, today) {
+  var props = PropertiesService.getScriptProperties();
+  var check = validateSheet_();
+  if (check.blocking.length) {
+    if (props.getProperty('BLOCK_ALERT') !== today) {
+      sendBlockedAlert_(cfg, today, check.blocking);
+      props.setProperty('BLOCK_ALERT', today);
+    }
+  } else if (rebuildForms_(cfg, today)) {
+    props.setProperty('REBUILD_DONE', today);
+  }
+  ensureDailyStatus_(cfg, today);
+}
+
+// Returns true when every active checklist is done for dateKey. If it runs long it stops
+// and returns false; the next 15-minute run picks up the checklists that are left.
+function rebuildForms_(cfg, dateKey) {
+  var started = Date.now();
+  var props = PropertiesService.getScriptProperties();
+  var model = loadModel_();
+  var active = model.checklists.filter(function (c) { return c.active; });
+
+  for (var i = 0; i < active.length; i++) {
+    var checklist = active[i];
+    var doneKey = 'REBUILT_' + checklist.id;
+    if (props.getProperty(doneKey) === dateKey) continue;
+    if (Date.now() - started > REBUILD_TIME_LIMIT_MS) return false;
+
+    var form = openOrCreateForm_(checklist);
+    if (scheduledOn_(checklist, dateKey)) {
+      buildForm_(form, checklist, dateKey, cfg);
+    } else {
+      form.setAcceptingResponses(false).setCustomClosedFormMessage('No checklist today.');
+    }
+    props.setProperty(doneKey, dateKey);
+  }
+  return true;
+}
+
+function clearRebuildFlags_() {
+  var props = PropertiesService.getScriptProperties();
+  props.getKeys().forEach(function (k) {
+    if (k.indexOf('REBUILT_') === 0 || k === 'REBUILD_DONE') props.deleteProperty(k);
+  });
+}
+
+// Never creates a second form for a checklist. If the saved Form ID can't be opened, it stops and says why.
+function openOrCreateForm_(checklist) {
+  if (checklist.formId) {
+    try {
+      return FormApp.openById(checklist.formId);
+    } catch (err) {
+      throw new Error('Can\'t open the form for ' + checklist.id + ' (Form ID ' + checklist.formId + '). ' +
+        'If it was deleted on purpose, clear the Form ID and Form link cells and rebuild. ' + err.message);
+    }
+  }
+  var form = FormApp.create(checklist.name, true);
+  var link = form.getPublishedUrl();
+  withLock_(function () {
+    var tab = openTab_(TABS.checklists);
+    tab.sheet.getRange(checklist.row, colOrThrow_(tab, 'Form ID') + 1).setValue(form.getId());
+    tab.sheet.getRange(checklist.row, colOrThrow_(tab, 'Form link') + 1).setValue(link);
+    SpreadsheetApp.flush();
+  });
+  ensureSubmitTrigger_(form.getId());
+  checklist.formId = form.getId();
+  checklist.formLink = link;
+  return form;
+}
+
+function buildForm_(form, checklist, dateKey, cfg) {
+  form.setTitle(checklist.name);
+  form.setDescription(checklist.name + '\n' + longLabel_(dateKey) + '\n\n' +
+    'Email all pictures to ' + cfg.get('Photo email') + ' with the subject "' + cfg.get('Photo email subject') + '".');
+  if (form.supportsAdvancedResponderPermissions() && !form.isPublished()) form.setPublished(true);
+
+  var old = form.getItems();
+  for (var i = old.length - 1; i >= 0; i--) form.deleteItem(old[i]);
+
+  form.addTextItem().setTitle(Q_LEADER).setRequired(true);
+  var items = itemsOn_(checklist, dateKey);
+  var mapRows = [];
+
+  if (checklist.perPosition) {
+    var positionQ = form.addMultipleChoiceItem().setTitle(Q_POSITION).setRequired(true);
+    var choices = [];
+    requiredPositions_(checklist).forEach(function (pos, idx) {
+      var page = form.addPageBreakItem().setTitle(pos.name);
+      // A page break's "go to" controls the END of the section BEFORE it. Setting SUBMIT here
+      // makes the previous position submit instead of running into this one (the old Stocker bug).
+      // The first break follows the intro page, where the position answer decides the route.
+      if (idx > 0) page.setGoToPage(FormApp.PageNavigationType.SUBMIT);
+      choices.push(positionQ.createChoice(pos.name, page));
+      var posItems = items.filter(function (it) { return it.positionKey === pos.key; });
+      addTaskQuestions_(form, posItems, checklist.id, dateKey, mapRows);
+      form.addParagraphTextItem().setTitle(Q_NOTES);
+    });
+    positionQ.setChoices(choices);
+  } else {
+    addTaskQuestions_(form, items, checklist.id, dateKey, mapRows);
+    form.addParagraphTextItem().setTitle(Q_NOTES);
+  }
+
+  form.setAcceptingResponses(true);
+  saveFormMap_(checklist.id, dateKey, mapRows);
+}
+
+function addTaskQuestions_(form, items, checklistId, dateKey, mapRows) {
+  items.forEach(function (it) {
+    var q = form.addMultipleChoiceItem()
+      .setTitle(it.task + (it.photo ? PHOTO_SUFFIX : ''))
+      .setChoiceValues([ANSWER_DONE, ANSWER_NOT_DONE])
+      .setRequired(true);
+    if (it.reference) q.setHelpText(it.reference);
+    mapRows.push({
+      'Checklist ID': checklistId,
+      'Built for date': dateKey,
+      'Form question ID': String(q.getId()),
+      'Item ID': it.id,
+      'Position': it.positionName
+    });
+  });
+}
+
+// Replaces this checklist's rows for dateKey and drops anything older than 14 days.
+function saveFormMap_(checklistId, dateKey, newRows) {
+  withLock_(function () {
+    var tab = readTab_(TABS.formMap);
+    var cId = colOrThrow_(tab, 'Checklist ID');
+    var cDate = colOrThrow_(tab, 'Built for date');
+    var cutoff = addDays_(dateKey, -14);
+    var keep = tab.display.filter(function (r) {
+      var d = toDateKey_(r[cDate]);
+      if (!r[cId] || d < cutoff) return false;
+      return !(r[cId] === checklistId && d === dateKey);
+    });
+    if (tab.display.length) tab.sheet.getRange(2, 1, tab.display.length, tab.width).clearContent();
+    var rows = keep.concat(newRows.map(function (o) { return toRow_(tab, o); }));
+    writeRows_(tab, 2, rows);
+    SpreadsheetApp.flush();
+  });
+}
+
+// questionId -> { itemId, position, date }, plus all rows for counting expected tasks
+function loadFormMap_(checklistId) {
+  var tab = readTab_(TABS.formMap);
+  var c = {
+    id: colOrThrow_(tab, 'Checklist ID'),
+    date: colOrThrow_(tab, 'Built for date'),
+    q: colOrThrow_(tab, 'Form question ID'),
+    item: colOrThrow_(tab, 'Item ID'),
+    pos: colOrThrow_(tab, 'Position')
+  };
+  var byQuestion = {};
+  var rows = [];
+  tab.display.forEach(function (r) {
+    if (r[c.id] !== checklistId) return;
+    var row = { itemId: r[c.item], position: r[c.pos], date: toDateKey_(r[c.date]) };
+    byQuestion[String(r[c.q]).trim()] = row;
+    rows.push(row);
+  });
+  return { byQuestion: byQuestion, rows: rows };
+}
+
+function ensureSubmitTrigger_(formId) {
+  var exists = ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'onChecklistSubmit' && t.getTriggerSourceId() === formId;
+  });
+  if (!exists) ScriptApp.newTrigger('onChecklistSubmit').forForm(formId).onFormSubmit().create();
+}
