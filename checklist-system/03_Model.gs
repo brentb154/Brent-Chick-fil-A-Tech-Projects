@@ -112,7 +112,9 @@ function orderOf_(v) {
   return String(v).trim() === '' || isNaN(n) ? 99999 : n;
 }
 
-function scheduledOn_(checklist, dateKey) {
+// Active, checked for that weekday, and not a store-closed date (Settings "Closed dates")
+function scheduledOn_(checklist, dateKey, cfg) {
+  if (cfg && cfg.closed[dateKey]) return false;
   return checklist.active && checklist.days[dayIndex_(dateKey)];
 }
 

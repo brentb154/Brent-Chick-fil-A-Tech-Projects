@@ -167,6 +167,7 @@ function loadSettings_() {
     rebuildMin: minutesOr_(get('Rebuild forms at'), 4 * 60 + 30),
     summaryMin: minutesOr_(get('Daily summary at'), 7 * 60),
     reminderMin: isNaN(reminder) ? 30 : reminder,
+    closed: parseDateList_(get('Closed dates')).dates,
     live: /^live$/i.test(get('Alerts mode'))
   };
 }
@@ -264,6 +265,19 @@ function toDateKey_(v, tz) {
   m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (m) return m[3] + '-' + pad2_(m[1]) + '-' + pad2_(m[2]);
   return '';
+}
+
+// "11/26/2026, 12/25/2026" -> { dates: { '2026-11-26': true, ... }, bad: [anything unreadable] }
+function parseDateList_(text) {
+  var out = { dates: {}, bad: [] };
+  String(text || '').split(/[,;\n]+/).forEach(function (part) {
+    var s = part.trim();
+    if (!s) return;
+    var key = toDateKey_(s);
+    if (key) out.dates[key] = true;
+    else out.bad.push(s);
+  });
+  return out;
 }
 
 // -- Email ----------------------------------------------------

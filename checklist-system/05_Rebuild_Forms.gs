@@ -49,7 +49,7 @@ function rebuildForms_(cfg, dateKey) {
       if (Date.now() - started > REBUILD_TIME_LIMIT_MS) return false;
 
       var form = openOrCreateForm_(checklist);
-      if (scheduledOn_(checklist, dateKey)) {
+      if (scheduledOn_(checklist, dateKey, cfg)) {
         buildForm_(form, checklist, dateKey, cfg);
       } else {
         form.setAcceptingResponses(false).setCustomClosedFormMessage('No checklist today.');

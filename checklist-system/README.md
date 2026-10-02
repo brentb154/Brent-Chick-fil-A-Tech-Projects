@@ -3,6 +3,7 @@
 Replaces the eight separate FOH checklist Google Forms with one master sheet, three forms that rebuild themselves each morning with that day's tasks, and an Apps Script project that logs every submission, tracks what's due vs. done, sends late alerts, and emails a daily summary.
 
 **Master sheet:** Checklist Master (FOH + BOH). The script is container-bound to it.
+**Today tab:** first tab in the sheet. It shows tonight's checklists and positions with live status (green = complete, red = late/missed). It's a single formula, so there's no code behind it.
 **Setup:** see [SETUP_GUIDE.md](SETUP_GUIDE.md).
 
 ## What managers change (no code)
@@ -15,6 +16,7 @@ Replaces the eight separate FOH checklist Google Forms with one master sheet, th
 | Change summary recipients | **Settings** "Daily summary recipients" |
 | Change rebuild / summary time | **Settings**. Takes effect on the next 15-minute check. |
 | Turn on reminders + escalations | **Settings** "Alerts mode" → `Live` |
+| Close for a holiday or weather | **Settings** "Closed dates" (e.g. `11/26/2026, 12/25/2026`). Forms close and nothing is tracked. Adding today's date mid-day stops today's alerts. |
 | Add a checklist (Restroom 2.0, BOH Closing) | **Checklists** row (Active = TRUE, due times, days) + its **Items**, then *Checklists > Rebuild forms now*. The form and its trigger are created automatically. |
 
 Edits made during the day show up in the next morning's forms. Use *Rebuild forms now* for same-day changes, but not while someone is filling out a checklist: rebuilding wipes their answers. When the store account clicks it, the rebuild runs right away. When anyone else clicks it (say, a director), it's queued and runs within 15 minutes as the store account, because only the store account can edit the forms.
@@ -39,7 +41,7 @@ One time-driven trigger, `quarterHourTick`, runs every 15 minutes:
 
 1. After **Rebuild forms at** (once a day), it runs Validate, rebuilds the forms, creates today's Daily Status rows, and recreates any missing form submit trigger. Only one rebuild can run at a time. If Validate finds a blocking problem, yesterday's forms stay up, the FOH escalation email gets one warning that day, and every later run retries, so fixing the sheet is enough.
 2. Every run, it marks past days Missed, flips overdue rows to Late, and in `Live` mode sends heads-ups and escalations, each one once per row.
-3. After **Daily summary at** (once a day), it emails the summary, plus the weekly scorecard on Mondays.
+3. After **Daily summary at** (once a day), it checks yesterday. It emails only if something needs attention (anything Missed, a task marked "Could not complete", or a note). A clean night sends nothing; Completed late still counts as done. Mondays also bring the weekly scorecard.
 
 Each form also has an `onChecklistSubmit` trigger. Triggers do work only for the account that installed them (`TRIGGER_OWNER` in Script Properties), so leftover triggers from another account can't double-log.
 

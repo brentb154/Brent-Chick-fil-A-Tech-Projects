@@ -2,9 +2,10 @@
  * ============================================================
  * CHECKLIST SYSTEM - Daily Summary and Weekly Scorecard
  * ============================================================
- * Sent once a day after "Daily summary at", in both alert modes.
- *   Daily  - covers yesterday. Skipped if nothing was scheduled
- *            (Monday's "yesterday" is Sunday).
+ * Checked once a day after "Daily summary at", in both alert modes.
+ *   Daily  - covers yesterday, and ONLY goes out when something needs
+ *            attention: a checklist or position Missed, a task marked
+ *            "Could not complete", or a note. A clean night sends nothing.
  *   Weekly - Mondays, covers the previous Mon-Sat.
  */
 
@@ -22,9 +23,10 @@ function sendDailySummary_(cfg, todayKey) {
   var subjects = [];
   var types = [];
 
-  if (data.status.some(function (r) { return r.dateKey === day; })) {
+  var issues = dayIssues_(data, day);
+  if (issues.count) {
     parts.push(dailyHtml_(data, day));
-    subjects.push('Checklist summary – ' + shortLabel_(day));
+    subjects.push('Checklist issues – ' + shortLabel_(day) + ' (' + issues.text + ')');
     types.push('Daily summary');
   }
   if (dayIndex_(todayKey) === 1) {
@@ -46,6 +48,18 @@ function sendDailySummary_(cfg, todayKey) {
   types.forEach(function (t) { logAlert_(day, '', '', t, to.join(', ')); });
 }
 
+// What makes the daily email worth sending. Completed late still counts as done.
+function dayIssues_(data, day) {
+  var missed = data.status.filter(function (r) { return r.dateKey === day && r.status === 'Missed'; }).length;
+  var notDone = data.results.filter(function (r) { return r.dateKey === day && r.result === ANSWER_NOT_DONE; }).length;
+  var notes = data.subs.filter(function (s) { return s.dateKey === day && s.notes; }).length;
+  var bits = [];
+  if (missed) bits.push(missed + ' missed');
+  if (notDone) bits.push(notDone + ' not completed');
+  if (notes) bits.push(notes + (notes === 1 ? ' note' : ' notes'));
+  return { count: missed + notDone + notes, text: bits.join(', ') };
+}
+
 function loadSummaryData_(cfg) {
   var st = readTab_(TABS.status, true);
   var sc = statusCols_(st);
@@ -60,7 +74,7 @@ function loadSummaryData_(cfg) {
       time: at instanceof Date ? Utilities.formatDate(at, cfg.tz, 'h:mm a') : r[atCol],
       by: r[sc.by]
     };
-  });
+  }).filter(function (r) { return r.status !== 'Closed'; }); // closed days don't count either way
 
   var su = readTab_(TABS.submissions);
   var s = function (h) { return colOrThrow_(su, h); };

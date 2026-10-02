@@ -74,6 +74,9 @@ function validateSheet_() {
   if (cfg.summaryMin < cfg.dayEndMin) out.warnings.push('Settings: "Daily summary at" is before "Business day ends at". The summary would go out before the day is closed.');
   if (isNaN(parseInt(cfg.get('Reminder before due (minutes)'), 10))) out.warnings.push('Settings: "Reminder before due (minutes)" is not a number. Using 30.');
   if (!/^(live|digest only)$/i.test(cfg.get('Alerts mode'))) out.warnings.push('Settings: "Alerts mode" should be "Digest only" or "Live". Treating it as Digest only.');
+  parseDateList_(cfg.get('Closed dates')).bad.forEach(function (s) {
+    out.warnings.push('Settings: "Closed dates" has "' + s + '", which isn\'t a date. Use M/D/YYYY, e.g. 11/26/2026.');
+  });
   var tzSetting = cfg.get('Time zone');
   if (tzSetting && tzSetting !== cfg.tz) out.warnings.push('Settings: Time zone says ' + tzSetting + ' but the spreadsheet is set to ' + cfg.tz + ' (File > Settings). The script uses the spreadsheet\'s.');
 

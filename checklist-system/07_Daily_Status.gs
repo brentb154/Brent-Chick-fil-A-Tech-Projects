@@ -8,6 +8,8 @@
  *   Late           - past Late after, still not submitted
  *   Completed late - submitted after Late after
  *   Missed         - still not submitted when the business day ended
+ *   Closed         - the date was added to "Closed dates" in Settings after
+ *                    its rows were made (e.g. a weather closure mid-day)
  *
  * Due by / Late after are copied onto each row as text when the
  * row is created, so a mid-day edit to Checklists changes
@@ -27,7 +29,7 @@ function ensureDailyStatus_(cfg, dateKey) {
 
     var rows = [];
     model.checklists.forEach(function (checklist) {
-      if (!scheduledOn_(checklist, dateKey)) return;
+      if (!scheduledOn_(checklist, dateKey, cfg)) return;
       if (checklist.dueMin === null || checklist.lateMin === null) return; // Validate reports this
       var positions = checklist.perPosition ? requiredPositions_(checklist).map(function (p) { return p.name; }) : [''];
       positions.forEach(function (pos) {
@@ -89,6 +91,12 @@ function checkStatuses_(cfg) {
       var dateKey = toDateKey_(r[c.date]);
       var status = r[c.status].trim();
       if (!dateKey) return;
+
+      // Store closed that day: open rows become Closed, with no alerts and no Missed
+      if (cfg.closed[dateKey]) {
+        if (status === 'Pending' || status === 'Late') setCell_(tab, i, 'Status', 'Closed');
+        return;
+      }
 
       // Business day is over: anything still open is Missed (no email; it goes in the summary)
       if (dateKey < current.dateKey) {
