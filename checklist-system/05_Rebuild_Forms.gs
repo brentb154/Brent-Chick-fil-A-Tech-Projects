@@ -42,6 +42,7 @@ function rebuildForms_(cfg, dateKey) {
     var props = PropertiesService.getScriptProperties();
     var model = loadModel_();
     var active = model.checklists.filter(function (c) { return c.active; });
+    var failures = [];
 
     for (var i = 0; i < active.length; i++) {
       var checklist = active[i];
@@ -49,14 +50,20 @@ function rebuildForms_(cfg, dateKey) {
       if (props.getProperty(doneKey) === dateKey) continue;
       if (Date.now() - started > REBUILD_TIME_LIMIT_MS) return false;
 
-      var form = openOrCreateForm_(checklist);
-      if (scheduledOn_(checklist, dateKey, cfg)) {
-        buildForm_(form, checklist, dateKey, cfg);
-      } else {
-        form.setAcceptingResponses(false).setCustomClosedFormMessage('No checklist today.');
+      // One broken form shouldn't stop the others from rebuilding
+      try {
+        var form = openOrCreateForm_(checklist);
+        if (scheduledOn_(checklist, dateKey, cfg)) {
+          buildForm_(form, checklist, dateKey, cfg);
+        } else {
+          form.setAcceptingResponses(false).setCustomClosedFormMessage('No checklist today.');
+        }
+        props.setProperty(doneKey, dateKey);
+      } catch (err) {
+        failures.push(checklist.name + ': ' + err.message);
       }
-      props.setProperty(doneKey, dateKey);
     }
+    if (failures.length) throw new Error('Some forms did not rebuild. ' + failures.join(' | '));
     return true;
   } finally {
     PropertiesService.getScriptProperties().deleteProperty('REBUILD_RUNNING');
@@ -127,8 +134,7 @@ function buildForm_(form, checklist, dateKey, cfg) {
     : 'Thanks, your checklist is in.');
   if (form.supportsAdvancedResponderPermissions() && !form.isPublished()) form.setPublished(true);
 
-  var old = form.getItems();
-  for (var i = old.length - 1; i >= 0; i--) form.deleteItem(old[i]);
+  clearForm_(form);
 
   form.addTextItem().setTitle(Q_LEADER).setRequired(true);
   var items = itemsOn_(checklist, dateKey);
@@ -156,6 +162,19 @@ function buildForm_(form, checklist, dateKey, cfg) {
 
   form.setAcceptingResponses(true);
   saveFormMap_(checklist.id, dateKey, mapRows);
+}
+
+// Removes every question and section. Forms refuses to delete a section that an answer
+// choice still routes to ("Invalid data updating form"), so questions with choices
+// (including "Which position are you checking off?") go first, then sections and the rest.
+function clearForm_(form) {
+  var choiceTypes = [FormApp.ItemType.MULTIPLE_CHOICE, FormApp.ItemType.LIST, FormApp.ItemType.CHECKBOX];
+  var items = form.getItems();
+  for (var i = items.length - 1; i >= 0; i--) {
+    if (choiceTypes.indexOf(items[i].getType()) > -1) form.deleteItem(items[i]);
+  }
+  items = form.getItems();
+  for (var j = items.length - 1; j >= 0; j--) form.deleteItem(items[j]);
 }
 
 function addTaskQuestions_(form, items, checklistId, dateKey, mapRows) {
