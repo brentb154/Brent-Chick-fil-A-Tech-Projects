@@ -30,6 +30,7 @@ function morningRebuild_(cfg, today) {
   }
   ensureDailyStatus_(cfg, today);
   ensureSubmitTriggers_(); // daily repair: every active form has a submit trigger owned by this account
+  trashOldPhotos_(cfg, today);
 }
 
 // Returns true when every active checklist is done for dateKey. If it runs long, or another
@@ -112,10 +113,18 @@ function openOrCreateForm_(checklist) {
 
 function buildForm_(form, checklist, dateKey, cfg) {
   form.setTitle(checklist.name);
+  // Photos: the upload page when it's set up, the photo email while it's still filled in (either or both)
+  var uploadLink = photoLink_(cfg, checklist.id);
   var photoEmail = cfg.get('Photo email');
   var photoSubject = cfg.get('Photo email subject');
-  form.setDescription(checklist.name + '\n' + longLabel_(dateKey) +
-    (photoEmail ? '\n\nEmail all pictures to ' + photoEmail + (photoSubject ? ' with the subject "' + photoSubject + '"' : '') + '.' : ''));
+  var photoLines = [];
+  if (uploadLink) photoLines.push('Upload all pictures here (no sign-in): ' + uploadLink);
+  if (photoEmail) photoLines.push((uploadLink ? 'Or email them to ' : 'Email all pictures to ') + photoEmail +
+    (photoSubject ? ' with the subject "' + photoSubject + '"' : '') + '.');
+  form.setDescription(checklist.name + '\n' + longLabel_(dateKey) + (photoLines.length ? '\n\n' + photoLines.join('\n') : ''));
+  form.setConfirmationMessage(uploadLink
+    ? 'Thanks, your checklist is in. Now upload your pictures: ' + uploadLink
+    : 'Thanks, your checklist is in.');
   if (form.supportsAdvancedResponderPermissions() && !form.isPublished()) form.setPublished(true);
 
   var old = form.getItems();

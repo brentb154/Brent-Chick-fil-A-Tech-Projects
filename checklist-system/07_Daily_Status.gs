@@ -58,7 +58,6 @@ function statusCols_(tab) {
     late: colOrThrow_(tab, 'Late after'),
     status: colOrThrow_(tab, 'Status'),
     by: colOrThrow_(tab, 'Submitted by'),
-    reminder: colOrThrow_(tab, 'Reminder sent'),
     escalation: colOrThrow_(tab, 'Escalation sent')
   };
 }
@@ -77,7 +76,7 @@ function findStatusRow_(dateKey, checklist, position) {
 }
 
 // Every 15 minutes: close out past days as Missed, flip today's overdue rows to Late,
-// and (Live mode only) send heads-ups and escalations.
+// and (Live mode only) send late escalations.
 function checkStatuses_(cfg) {
   var now = new Date();
   var current = businessMoment_(now, cfg);
@@ -115,7 +114,6 @@ function checkStatuses_(cfg) {
         dueMin: parseTimeToMinutes_(r[c.due]),
         lateMin: parseTimeToMinutes_(r[c.late]),
         status: status,
-        reminderSent: r[c.reminder] !== '',
         escalationSent: r[c.escalation] !== ''
       };
       if (status === 'Pending' && row.lateMin !== null && current.minutes >= bizMinutes_(row.lateMin, cfg)) {

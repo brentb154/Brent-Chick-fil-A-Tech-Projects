@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= include('PhotoStylesheet'); ?>
+  </head>
+  <body>
+    <main>
+      <h1>Checklist photos</h1>
+      <p class="sub" id="day"></p>
+      <p id="none" class="hidden">No checklists today.</p>
+      <form id="form" class="hidden">
+        <label>Checklist
+          <select id="checklist"></select>
+        </label>
+        <label id="posWrap" class="hidden">Position
+          <select id="position"></select>
+        </label>
+        <label>Your name
+          <input id="leader" autocomplete="name" maxlength="60">
+        </label>
+        <label class="pick">Take or choose photos
+          <input id="files" type="file" accept="image/*" multiple>
+        </label>
+        <p id="picked" class="sub"></p>
+        <button id="send" type="submit">Upload</button>
+      </form>
+      <p id="status"></p>
+    </main>
+    <script>var PAGE = <?!= data ?>;</script>
+    <?!= include('PhotoJavaScript'); ?>
+  </body>
+</html>

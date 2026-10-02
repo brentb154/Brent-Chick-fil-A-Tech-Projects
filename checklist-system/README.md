@@ -16,6 +16,10 @@ Replaces the eight separate FOH checklist Google Forms with one master sheet, th
 | Change summary recipients | **Settings** "Daily summary recipients" |
 | Change rebuild / summary time | **Settings**. Takes effect on the next 15-minute check. |
 | Turn on reminders + escalations | **Settings** "Alerts mode" → `Live` |
+| Turn on photo uploads | **Settings** "Photo upload page" (one-time setup, see SETUP_GUIDE step 7). Clear "Photo email" once the team is using it. |
+| Retire an old photo link / QR | **Settings** "Photo upload key": change it, then reprint the QR from *Show form links*. |
+| Change photo retention or alert sensitivity | **Settings** "Keep photos for (days)", "Photo alert sensitivity (std devs)" |
+| Change the scorecard day | **Settings** "Weekly scorecard day" (default Tue) |
 | Close for a holiday or weather | **Settings** "Closed dates" (e.g. `11/26/2026, 12/25/2026`). Forms close and nothing is tracked. Adding today's date mid-day stops today's alerts. |
 | Add a checklist (Restroom 2.0, BOH Closing) | **Checklists** row (Active = TRUE, due times, days) + its **Items**, then *Checklists > Rebuild forms now*. The form and its trigger are created automatically. |
 
@@ -33,15 +37,19 @@ Edits made during the day show up in the next morning's forms. Use *Rebuild form
 | `06_Form_Submit.gs` | onFormSubmit → Submissions, Item Results, Daily Status |
 | `07_Daily_Status.gs` | Daily rows, Late / Missed |
 | `08_Alerts.gs` | Heads-ups, escalations, error alerts, Alert Log |
-| `09_Summary.gs` | Daily summary + Monday weekly scorecard |
+| `09_Summary.gs` | Morning problems email + weekly scorecard |
+| `10_Photos.gs` | Photo upload page (web app), Drive folders, 60-day cleanup, photo checks |
+| `PhotoPage.html`, `PhotoJavaScript.html`, `PhotoStylesheet.html` | The upload page people see on their phone |
 
 ## How it runs
 
 One time-driven trigger, `quarterHourTick`, runs every 15 minutes:
 
 1. After **Rebuild forms at** (once a day), it runs Validate, rebuilds the forms, creates today's Daily Status rows, and recreates any missing form submit trigger. Only one rebuild can run at a time. If Validate finds a blocking problem, yesterday's forms stay up, the FOH escalation email gets one warning that day, and every later run retries, so fixing the sheet is enough.
-2. Every run, it marks past days Missed, flips overdue rows to Late, and in `Live` mode sends heads-ups and escalations, each one once per row.
-3. After **Daily summary at** (once a day), it checks yesterday. It emails only if something needs attention (anything Missed, a task marked "Could not complete", or a note). A clean night sends nothing; Completed late still counts as done. Mondays also bring the weekly scorecard.
+2. Every run, it marks past days Missed and flips overdue rows to Late. In `Live` mode it also sends one late alert per row once Late after passes. There's no heads-up before the due time.
+3. After **Daily summary at** (once a day), it checks yesterday. It emails only if something needs attention: anything Missed, a task marked "Could not complete", a note, a position with photo tasks that uploaded no photos, or a photo count far below usual. A clean night sends nothing; Completed late still counts as done. The weekly scorecard goes out on **Weekly scorecard day** (Tuesday).
+
+**Photo check:** for each checklist, it compares last night's photo count with the last 28 nights it was submitted. It flags the night if the count is below mean − k × std dev, where k is "Photo alert sensitivity", default 2. The std dev is floored at 1, so one missing photo on a very steady checklist isn't flagged. It needs 10 nights of history first; until then the email shows "building history".
 
 Each form also has an `onChecklistSubmit` trigger. Triggers do work only for the account that installed them (`TRIGGER_OWNER` in Script Properties), so leftover triggers from another account can't double-log.
 
@@ -56,4 +64,6 @@ Each form also has an `onChecklistSubmit` trigger. Triggers do work only for the
 
 - Leader names are free text, so a *missed* checklist can't be charged to a leader. The scorecard shows submissions, on-time %, and task completion %.
 - The daily rebuild deletes questions, and Google deletes their stored answers with them. Submissions and Item Results are the only record.
+- The photo upload page runs as the store account. After a code change to the page, the store account has to publish a new version (Deploy → Manage deployments → Edit → New version); `clasp push` alone doesn't update it.
+- Photos use the store account's 15 GB of free storage. At about 400 KB each, 60 days is roughly 1.5 GB.
 - Free Gmail quotas: 100 email recipients a day and 90 minutes of trigger runtime a day. Normal use is well under both.

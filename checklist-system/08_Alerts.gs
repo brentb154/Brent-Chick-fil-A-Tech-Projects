@@ -1,15 +1,17 @@
 /**
  * ============================================================
- * CHECKLIST SYSTEM - Reminders, Escalations and Error Alerts
+ * CHECKLIST SYSTEM - Late Alerts and Error Alerts
  * ============================================================
- * Recipients are read from Settings on every run:
- *   "<Area> escalation email"             e.g. FOH escalation email
- *   "<Area> shift reminder Slack webhook" e.g. FOH shift reminder Slack webhook
- * Changing those cells is the only step needed to change who
- * gets alerted. A new Area works by adding the same two rows.
+ * Alerts only go out when something wasn't done. There is no
+ * "heads-up" before the due time, only a late alert after it.
  *
- * Each alert is sent once per Daily Status row: the Reminder
- * sent / Escalation sent cell is stamped in the same locked run.
+ * Recipients are read from Settings on every run:
+ *   "<Area> escalation email"   e.g. FOH escalation email
+ * Changing that cell is the only step needed to change who gets
+ * alerted. A new Area works by adding the same row for it.
+ *
+ * Each late alert is sent once per Daily Status row: the
+ * Escalation sent cell is stamped in the same locked run.
  */
 
 // Live mode only. Caller holds the lock. One message per checklist listing every position still out.
@@ -25,20 +27,12 @@ function sendDueAlerts_(cfg, tab, todayRows, current) {
     var checklist = model.byId[id];
     var open = groups[id];
     var first = open[0];
-    if (!checklist || first.dueMin === null || first.lateMin === null) return;
-    var dueBiz = bizMinutes_(first.dueMin, cfg);
-    var lateBiz = bizMinutes_(first.lateMin, cfg);
+    if (!checklist || first.lateMin === null) return;
+    if (current.minutes < bizMinutes_(first.lateMin, cfg)) return;
 
-    if (current.minutes >= lateBiz) {
-      var toEscalate = open.filter(function (r) { return !r.escalationSent; });
-      if (toEscalate.length && sendEscalation_(cfg, checklist, open, first)) {
-        stampRows_(tab, toEscalate, 'Escalation sent');
-      }
-    } else if (current.minutes >= dueBiz - cfg.reminderMin) {
-      var toRemind = open.filter(function (r) { return !r.reminderSent; });
-      if (toRemind.length && sendHeadsUp_(cfg, checklist, open, first)) {
-        stampRows_(tab, toRemind, 'Reminder sent');
-      }
+    var toEscalate = open.filter(function (r) { return !r.escalationSent; });
+    if (toEscalate.length && sendEscalation_(cfg, checklist, open, first)) {
+      stampRows_(tab, toEscalate, 'Escalation sent');
     }
   });
 }
@@ -68,43 +62,6 @@ function sendEscalation_(cfg, checklist, open, first) {
   MailApp.sendEmail({ to: to.join(','), subject: subject, body: body });
   logAlert_(first.dateKey, checklist.id, missing.join(', '), 'Escalation', to.join(', '));
   return true;
-}
-
-// Slack if the area has a webhook, otherwise the escalation email
-function sendHeadsUp_(cfg, checklist, open, first) {
-  var missing = missingList_(checklist, open);
-  var text = 'Heads-up: ' + checklist.name + ' is due at ' + first.dueText + '.' +
-    (missing.length ? ' Not in yet: ' + missing.join(', ') + '.' : '') +
-    '\nForm: ' + checklist.formLink;
-
-  var webhook = cfg.get(checklist.area + ' shift reminder Slack webhook');
-  if (webhook && postSlack_(webhook, text)) {
-    logAlert_(first.dateKey, checklist.id, missing.join(', '), 'Heads-up', 'Slack');
-    return true;
-  }
-  var to = emailList_(cfg.get(checklist.area + ' escalation email'));
-  if (!to.length) return false;
-  MailApp.sendEmail({
-    to: to.join(','),
-    subject: 'Heads-up: ' + shortName_(checklist) + ' due at ' + first.dueText + ' (' + shortLabel_(first.dateKey) + ')',
-    body: text
-  });
-  logAlert_(first.dateKey, checklist.id, missing.join(', '), 'Heads-up', to.join(', '));
-  return true;
-}
-
-function postSlack_(webhook, text) {
-  try {
-    var res = UrlFetchApp.fetch(webhook, {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify({ text: text }),
-      muteHttpExceptions: true
-    });
-    return res.getResponseCode() === 200;
-  } catch (err) {
-    return false;
-  }
 }
 
 // Never throws: if logging failed after an email went out, the caller would never mark

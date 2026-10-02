@@ -12,6 +12,9 @@
  *                       effect on the next run - no reinstall needed.
  *   onChecklistSubmit - one onFormSubmit trigger per checklist form.
  *
+ * The photo upload page (doGet in 10_Photos.gs) is a web app, deployed
+ * separately from the store account. See the top of 10_Photos.gs.
+ *
  * Install triggers from the store account (sheet owner). They run
  * as whoever installs them.
  */
@@ -132,6 +135,10 @@ function menuShowFormLinks() {
       : '<i>No form yet. Use Rebuild forms now.</i>';
     return '<p><b>' + esc_(c.name) + '</b><br>' + link + '</p>';
   });
+  var photoLink = photoLink_(loadSettings_(), '');
+  rows.push('<p><b>Photo upload page</b> (for the QR code)<br>' + (photoLink
+    ? '<a href="' + esc_(photoLink) + '" target="_blank">' + esc_(photoLink) + '</a>'
+    : '<i>Not set up. See "Photo upload page" in Settings.</i>') + '</p>');
   var html = '<div style="font-family:Arial,sans-serif;font-size:13px;word-break:break-all">' +
     (rows.join('') || '<p>No active checklists.</p>') + '</div>';
   SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(620).setHeight(400), 'Form links');

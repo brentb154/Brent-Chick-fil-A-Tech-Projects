@@ -72,7 +72,16 @@ function validateSheet_() {
   });
   if (cfg.rebuildMin < cfg.dayEndMin) out.warnings.push('Settings: "Rebuild forms at" is before "Business day ends at". Late closers would lose their form mid-close.');
   if (cfg.summaryMin < cfg.dayEndMin) out.warnings.push('Settings: "Daily summary at" is before "Business day ends at". The summary would go out before the day is closed.');
-  if (isNaN(parseInt(cfg.get('Reminder before due (minutes)'), 10))) out.warnings.push('Settings: "Reminder before due (minutes)" is not a number. Using 30.');
+  if (cfg.get('Weekly scorecard day') && dayFromName_(cfg.get('Weekly scorecard day')) < 0) out.warnings.push('Settings: "Weekly scorecard day" should be a day like Tue. Using Tuesday.');
+
+  // Photo uploads (optional): the page link and key go together
+  var page = cfg.get('Photo upload page');
+  var key = cfg.get('Photo upload key');
+  if (page && !key) out.warnings.push('Settings: "Photo upload page" is set but "Photo upload key" is blank, so photo uploads are off.');
+  if (page && !/^https:\/\/script\.google\.com\/.+\/exec$/.test(page)) out.warnings.push('Settings: "Photo upload page" should be the web app link ending in /exec.');
+  if (cfg.get('Keep photos for (days)') && !(parseInt(cfg.get('Keep photos for (days)'), 10) > 0)) out.warnings.push('Settings: "Keep photos for (days)" isn\'t a number, so old photos are never deleted.');
+  var sigma = cfg.get('Photo alert sensitivity (std devs)');
+  if (sigma && !(parseFloat(sigma) > 0)) out.warnings.push('Settings: "Photo alert sensitivity (std devs)" isn\'t a number. Using 2.');
   if (!/^(live|digest only)$/i.test(cfg.get('Alerts mode'))) out.warnings.push('Settings: "Alerts mode" should be "Digest only" or "Live". Treating it as Digest only.');
   parseDateList_(cfg.get('Closed dates')).bad.forEach(function (s) {
     out.warnings.push('Settings: "Closed dates" has "' + s + '", which isn\'t a date. Use M/D/YYYY, e.g. 11/26/2026.');

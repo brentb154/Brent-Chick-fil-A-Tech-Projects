@@ -5,8 +5,11 @@
  * Checked once a day after "Daily summary at", in both alert modes.
  *   Daily  - covers yesterday, and ONLY goes out when something needs
  *            attention: a checklist or position Missed, a task marked
- *            "Could not complete", or a note. A clean night sends nothing.
- *   Weekly - Mondays, covers the previous Mon-Sat.
+ *            "Could not complete", a note, or (when photo uploads are on)
+ *            a position with no photos or a photo count far below usual.
+ *            A clean night sends nothing.
+ *   Weekly - on Settings "Weekly scorecard day" (Tuesday), covers the
+ *            previous Mon-Sat. Sent every week.
  */
 
 var STATUS_COLORS = { 'Complete': '#1e7e34', 'Completed late': '#a15c00', 'Late': '#b3261e', 'Missed': '#b3261e', 'Pending': '#555' };
@@ -23,15 +26,16 @@ function sendDailySummary_(cfg, todayKey) {
   var subjects = [];
   var types = [];
 
-  var issues = dayIssues_(data, day);
+  var photo = photoIssues_(cfg, data, day);
+  var issues = dayIssues_(data, day, photo);
   if (issues.count) {
-    parts.push(dailyHtml_(data, day));
+    parts.push(dailyHtml_(data, day, photo));
     subjects.push('Checklist issues – ' + shortLabel_(day) + ' (' + issues.text + ')');
     types.push('Daily summary');
   }
-  if (dayIndex_(todayKey) === 1) {
-    var start = addDays_(todayKey, -7);
-    var end = addDays_(todayKey, -2);
+  if (dayIndex_(todayKey) === cfg.scorecardDay) {
+    var end = lastSaturday_(todayKey);
+    var start = addDays_(end, -5);
     parts.push(weeklyHtml_(data, start, end));
     subjects.push('Weekly scorecard ' + shortLabel_(start) + '–' + shortLabel_(end));
     types.push('Weekly scorecard');
@@ -48,8 +52,14 @@ function sendDailySummary_(cfg, todayKey) {
   types.forEach(function (t) { logAlert_(day, '', '', t, to.join(', ')); });
 }
 
+// Most recent Saturday before todayKey, where the last full Mon-Sat week ends
+function lastSaturday_(todayKey) {
+  var back = (dayIndex_(todayKey) + 1) % 7 || 7;
+  return addDays_(todayKey, -back);
+}
+
 // What makes the daily email worth sending. Completed late still counts as done.
-function dayIssues_(data, day) {
+function dayIssues_(data, day, photo) {
   var missed = data.status.filter(function (r) { return r.dateKey === day && r.status === 'Missed'; }).length;
   var notDone = data.results.filter(function (r) { return r.dateKey === day && r.result === ANSWER_NOT_DONE; }).length;
   var notes = data.subs.filter(function (s) { return s.dateKey === day && s.notes; }).length;
@@ -57,7 +67,9 @@ function dayIssues_(data, day) {
   if (missed) bits.push(missed + ' missed');
   if (notDone) bits.push(notDone + ' not completed');
   if (notes) bits.push(notes + (notes === 1 ? ' note' : ' notes'));
-  return { count: missed + notDone + notes, text: bits.join(', ') };
+  if (photo.noPhotos.length) bits.push(photo.noPhotos.length + ' no photos');
+  if (photo.low.length) bits.push('low photos');
+  return { count: missed + notDone + notes + photo.noPhotos.length + photo.low.length, text: bits.join(', ') };
 }
 
 function loadSummaryData_(cfg) {
@@ -95,10 +107,19 @@ function loadSummaryData_(cfg) {
     };
   });
 
-  return { model: loadModel_(), status: status, subs: subs, results: results };
+  var photos = [];
+  if (cfg.photosOn) {
+    var ph = readTab_(TABS.photos);
+    var y = function (h) { return colOrThrow_(ph, h); };
+    photos = ph.display.map(function (r) {
+      return { dateKey: toDateKey_(r[y('Business date')]), checklistId: r[y('Checklist ID')], position: r[y('Position')] };
+    });
+  }
+
+  return { model: loadModel_(), status: status, subs: subs, results: results, photos: photos };
 }
 
-function dailyHtml_(data, day) {
+function dailyHtml_(data, day, photo) {
   var html = '<h2 style="margin-bottom:4px">Checklists – ' + esc_(longLabel_(day)) + '</h2>';
   var dayRows = data.status.filter(function (r) { return r.dateKey === day; });
 
@@ -131,6 +152,7 @@ function dailyHtml_(data, day) {
     return [esc_(nameOf_(data.model, s.checklistId)), esc_(s.position || '–'), esc_(s.leader), esc_(s.notes)];
   })) : '<p>None.</p>';
 
+  html += photoHtml_(data, photo);
   html += '<h3 style="margin:12px 0 4px">Last 7 days</h3>' + ratesTable_(data, addDays_(day, -6), day);
   return html;
 }
@@ -189,6 +211,23 @@ function ratesTable_(data, start, end) {
   return table_(['Checklist', 'Submitted', 'On time'], ids.map(function (id) {
     var g = by[id];
     return [esc_(nameOf_(data.model, id)), g.submitted + ' of ' + g.expected + ' (' + pct_(g.submitted, g.expected) + ')', pct_(g.onTime, g.expected)];
+  }));
+}
+
+// Photos section: who sent none, anything far below usual, and each checklist's count vs. usual
+function photoHtml_(data, photo) {
+  var ids = orderedIds_(data.model, Object.keys(photo.stats).map(function (id) { return { checklistId: id }; }));
+  if (!ids.length && !photo.noPhotos.length) return '';
+  var html = '<h3 style="margin:12px 0 4px">Photos</h3>';
+  if (photo.noPhotos.length) html += '<p style="color:#b3261e"><b>No photos from:</b> ' + esc_(photo.noPhotos.join(', ')) + '</p>';
+  photo.low.forEach(function (l) {
+    html += '<p style="color:#b3261e"><b>Low:</b> ' + esc_(l.name) + ' had ' + l.count + ' photos; usually ' +
+      Math.round(l.mean) + ' &plusmn; ' + Math.round(l.sd) + '.</p>';
+  });
+  return html + table_(['Checklist', 'Photos', 'Usual'], ids.map(function (id) {
+    var s = photo.stats[id];
+    var usual = s.mean === null ? 'building history (10 days)' : Math.round(s.mean) + ' &plusmn; ' + Math.round(s.sd);
+    return [esc_(nameOf_(data.model, id)), s.count, usual];
   }));
 }
 

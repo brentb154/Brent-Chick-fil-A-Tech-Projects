@@ -31,7 +31,8 @@ var TABS = {
   results: 'Item Results',
   status: 'Daily Status',
   alerts: 'Alert Log',
-  formMap: 'Form Map'
+  formMap: 'Form Map',
+  photos: 'Photos'
 };
 
 var DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -157,19 +158,33 @@ function loadSettings_() {
     if (label) map[label] = String(r[valueCol]).trim();
   });
   var get = function (label) { return map[normHeader_(label)] || ''; };
-  var reminder = parseInt(get('Reminder before due (minutes)'), 10);
+  var keepDays = parseInt(get('Keep photos for (days)'), 10);
+  var sigma = parseFloat(get('Photo alert sensitivity (std devs)'));
+  var scorecardDay = dayFromName_(get('Weekly scorecard day'));
 
-  // Bad or blank times fall back to the spec defaults so tracking keeps running; Validate flags them.
+  // Bad or blank values fall back to safe defaults so tracking keeps running; Validate flags them.
   return {
     get: get,
     tz: getSS_().getSpreadsheetTimeZone(),
     dayEndMin: minutesOr_(get('Business day ends at'), 4 * 60),
     rebuildMin: minutesOr_(get('Rebuild forms at'), 4 * 60 + 30),
     summaryMin: minutesOr_(get('Daily summary at'), 7 * 60),
-    reminderMin: isNaN(reminder) ? 30 : reminder,
     closed: parseDateList_(get('Closed dates')).dates,
-    live: /^live$/i.test(get('Alerts mode'))
+    live: /^live$/i.test(get('Alerts mode')),
+    scorecardDay: scorecardDay < 0 ? 2 : scorecardDay,          // default Tuesday
+    photoPage: get('Photo upload page'),
+    photoKey: get('Photo upload key'),
+    photosOn: !!(get('Photo upload page') && get('Photo upload key')),
+    keepPhotosDays: keepDays > 0 ? keepDays : 0,                // 0 = never delete
+    photoSigma: sigma > 0 ? sigma : 2
   };
+}
+
+// "Tue" / "tuesday" -> 2. -1 if it isn't a day name.
+function dayFromName_(text) {
+  var s = String(text || '').trim().slice(0, 3).toLowerCase();
+  for (var i = 0; i < DAY_SHORT.length; i++) if (DAY_SHORT[i].toLowerCase() === s) return i;
+  return -1;
 }
 
 // -- Clock times ----------------------------------------------

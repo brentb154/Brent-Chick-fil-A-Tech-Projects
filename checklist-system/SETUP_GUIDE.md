@@ -47,7 +47,27 @@ clasp push --force
 3. Replace the old links and QR codes with the ones from *Show form links*. The links never change.
 4. On each of the eight old forms, turn off **Accepting responses** and set the closed message to point to the new link. **Do not delete** the old forms or their response sheets.
 
+## 7. Photo uploads (store account, one time)
+The photo page lets team members upload pictures from their phone without signing in.
+
+1. Signed in as the store account, open the sheet and go to **Extensions > Apps Script**.
+2. Click **Deploy > New deployment**, then the gear icon, then **Web app**.
+   - Description: `Photo upload`
+   - Execute as: **Me** (the store account)
+   - Who has access: **Anyone**
+3. Click **Deploy** and approve the permissions. The script saves photos to the store account's Google Drive.
+4. Copy the **Web app URL** (it ends in `/exec`) into **Settings > Photo upload page**.
+5. Run **Checklists > Rebuild forms now**. Every form now shows the upload link at the top and again on the screen after submitting.
+6. In **Checklists > Show form links**, copy the **Photo upload page** link and make a QR code from it. In Chrome: open the link, click Share, then Create QR code. Post it at each station.
+7. Test on a phone that isn't signed in to Google. Check that photos show up in Drive under **Checklist Photos** and on the **Photos** tab.
+8. After a week on photos, clear **Settings > Photo email** so the forms stop mentioning email.
+
+**If the upload page's code ever changes:** as the store account, go to **Deploy > Manage deployments**, click the pencil, set Version to **New version**, and click **Deploy**. The link stays the same.
+
+**To retire an old link or QR:** change **Settings > Photo upload key**, then make a new QR.
+
 ## If something goes wrong
 - **Forms didn't rebuild:** the FOH escalation email gets a "NOT rebuilt" email listing what to fix. Fix the sheet; the next 15-minute check rebuilds on its own.
 - **A script error:** one email per failing step per day goes to the FOH escalation email (or the store account if that's blank). Details are in the Alert Log.
+- **"Authorization required" after a code update:** a new feature needs a new Google permission. As the store account, open the sheet and run **Checklists > Validate sheet** once, then approve.
 - **Someone else installed triggers before:** they should run *Checklists > Remove my triggers* from their account. Until they do, their triggers do nothing.
