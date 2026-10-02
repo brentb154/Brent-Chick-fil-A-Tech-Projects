@@ -145,8 +145,12 @@ function isTrue_(v) {
 
 function loadSettings_() {
   var tab = readTab_(TABS.settings);
-  var labelCol = colOrThrow_(tab, 'Setting');
-  var valueCol = colOrThrow_(tab, 'Value');
+  // Labels live in column A; the header text there doesn't matter ("Setting", "Settings", ...)
+  var labelCol = tab.col('Setting');
+  if (labelCol < 0) labelCol = tab.col('Settings');
+  if (labelCol < 0) labelCol = 0;
+  var valueCol = tab.col('Value');
+  if (valueCol < 0) valueCol = labelCol + 1;
   var map = {};
   tab.display.forEach(function (r) {
     var label = normHeader_(r[labelCol]);
