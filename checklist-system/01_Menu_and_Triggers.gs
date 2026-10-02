@@ -40,6 +40,7 @@ function quarterHourTick() {
     return;
   }
   var props = PropertiesService.getScriptProperties();
+  var started = Date.now();
   var now = new Date();
   var today = dateKey_(now, cfg.tz);   // calendar date, not business date
   var wall = wallMinutes_(now, cfg.tz);
@@ -50,7 +51,9 @@ function quarterHourTick() {
 
   runJob_('Status check', function () { checkStatuses_(cfg); });
 
-  if (wall >= cfg.summaryMin && props.getProperty('SUMMARY_DONE') !== today) {
+  // A long rebuild can use most of the 6-minute limit; the summary waits for the next run if so
+  var hasTime = Date.now() - started < 4 * 60 * 1000;
+  if (hasTime && wall >= cfg.summaryMin && props.getProperty('SUMMARY_DONE') !== today) {
     runJob_('Daily summary', function () {
       sendDailySummary_(cfg, today);
       props.setProperty('SUMMARY_DONE', today);
@@ -95,6 +98,15 @@ function menuRebuildForms() {
   var cfg = loadSettings_();
   var today = dateKey_(new Date(), cfg.tz);
   clearRebuildFlags_();
+
+  // The forms belong to the account that runs the triggers. Anyone else (a director editing the
+  // sheet) can't open them, so their request is handed to the 15-minute check, which runs as the owner.
+  if (!isTriggerOwner_()) {
+    ui.alert('Rebuild queued',
+      'The forms are owned by ' + PropertiesService.getScriptProperties().getProperty('TRIGGER_OWNER') +
+      ', so the rebuild runs automatically on the next check, within 15 minutes.', ui.ButtonSet.OK);
+    return;
+  }
   var done = rebuildForms_(cfg, today);
   if (done) PropertiesService.getScriptProperties().setProperty('REBUILD_DONE', today);
   ensureDailyStatus_(cfg, today);
@@ -142,13 +154,7 @@ function menuInstallTriggers() {
   props.setProperty('SS_ID', ss.getId());
   props.setProperty('TRIGGER_OWNER', me);
   ScriptApp.newTrigger('quarterHourTick').timeBased().everyMinutes(15).create();
-
-  var count = 0;
-  loadModel_().checklists.forEach(function (c) {
-    if (!c.active || !c.formId) return;
-    ScriptApp.newTrigger('onChecklistSubmit').forForm(c.formId).onFormSubmit().create();
-    count++;
-  });
+  var count = ensureSubmitTriggers_();
   ui.alert('Installed the 15-minute check and ' + count + ' form submit trigger(s).\n\n' +
     'Checklists without a form yet get their trigger automatically when their form is first built.');
 }

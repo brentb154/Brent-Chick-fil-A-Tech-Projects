@@ -29,31 +29,49 @@ function morningRebuild_(cfg, today) {
     props.setProperty('REBUILD_DONE', today);
   }
   ensureDailyStatus_(cfg, today);
+  ensureSubmitTriggers_(); // daily repair: every active form has a submit trigger owned by this account
 }
 
-// Returns true when every active checklist is done for dateKey. If it runs long it stops
-// and returns false; the next 15-minute run picks up the checklists that are left.
+// Returns true when every active checklist is done for dateKey. If it runs long, or another
+// rebuild is already running, it returns false; the next 15-minute run picks up what's left.
 function rebuildForms_(cfg, dateKey) {
-  var started = Date.now();
-  var props = PropertiesService.getScriptProperties();
-  var model = loadModel_();
-  var active = model.checklists.filter(function (c) { return c.active; });
+  if (!claimRebuild_()) return false;
+  try {
+    var started = Date.now();
+    var props = PropertiesService.getScriptProperties();
+    var model = loadModel_();
+    var active = model.checklists.filter(function (c) { return c.active; });
 
-  for (var i = 0; i < active.length; i++) {
-    var checklist = active[i];
-    var doneKey = 'REBUILT_' + checklist.id;
-    if (props.getProperty(doneKey) === dateKey) continue;
-    if (Date.now() - started > REBUILD_TIME_LIMIT_MS) return false;
+    for (var i = 0; i < active.length; i++) {
+      var checklist = active[i];
+      var doneKey = 'REBUILT_' + checklist.id;
+      if (props.getProperty(doneKey) === dateKey) continue;
+      if (Date.now() - started > REBUILD_TIME_LIMIT_MS) return false;
 
-    var form = openOrCreateForm_(checklist);
-    if (scheduledOn_(checklist, dateKey)) {
-      buildForm_(form, checklist, dateKey, cfg);
-    } else {
-      form.setAcceptingResponses(false).setCustomClosedFormMessage('No checklist today.');
+      var form = openOrCreateForm_(checklist);
+      if (scheduledOn_(checklist, dateKey)) {
+        buildForm_(form, checklist, dateKey, cfg);
+      } else {
+        form.setAcceptingResponses(false).setCustomClosedFormMessage('No checklist today.');
+      }
+      props.setProperty(doneKey, dateKey);
     }
-    props.setProperty(doneKey, dateKey);
+    return true;
+  } finally {
+    PropertiesService.getScriptProperties().deleteProperty('REBUILD_RUNNING');
   }
-  return true;
+}
+
+// Only one rebuild at a time: two runs editing the same form at once would scramble it.
+// A claim older than 6 minutes is from a run that died, so it's ignored.
+function claimRebuild_() {
+  return withLock_(function () {
+    var props = PropertiesService.getScriptProperties();
+    var running = Number(props.getProperty('REBUILD_RUNNING') || 0);
+    if (running && Date.now() - running < 6 * 60 * 1000) return false;
+    props.setProperty('REBUILD_RUNNING', String(Date.now()));
+    return true;
+  });
 }
 
 function clearRebuildFlags_() {
@@ -76,12 +94,17 @@ function openOrCreateForm_(checklist) {
   var form = FormApp.create(checklist.name, true);
   var link = form.getPublishedUrl();
   withLock_(function () {
-    var tab = openTab_(TABS.checklists);
-    tab.sheet.getRange(checklist.row, colOrThrow_(tab, 'Form ID') + 1).setValue(form.getId());
-    tab.sheet.getRange(checklist.row, colOrThrow_(tab, 'Form link') + 1).setValue(link);
+    // Find the row again by Checklist ID: rows may have been added or sorted since the sheet was read
+    var tab = readTab_(TABS.checklists);
+    var idCol = colOrThrow_(tab, 'Checklist ID');
+    var index = -1;
+    tab.display.forEach(function (r, i) { if (index < 0 && r[idCol].trim() === checklist.id) index = i; });
+    if (index < 0) throw new Error('Created a form for ' + checklist.id + ' (Form ID ' + form.getId() + ') but that Checklist ID is no longer on the Checklists tab.');
+    setCell_(tab, index, 'Form ID', form.getId());
+    setCell_(tab, index, 'Form link', link);
     SpreadsheetApp.flush();
   });
-  ensureSubmitTrigger_(form.getId());
+  ensureSubmitTriggers_();
   checklist.formId = form.getId();
   checklist.formLink = link;
   return form;
@@ -89,8 +112,10 @@ function openOrCreateForm_(checklist) {
 
 function buildForm_(form, checklist, dateKey, cfg) {
   form.setTitle(checklist.name);
-  form.setDescription(checklist.name + '\n' + longLabel_(dateKey) + '\n\n' +
-    'Email all pictures to ' + cfg.get('Photo email') + ' with the subject "' + cfg.get('Photo email subject') + '".');
+  var photoEmail = cfg.get('Photo email');
+  var photoSubject = cfg.get('Photo email subject');
+  form.setDescription(checklist.name + '\n' + longLabel_(dateKey) +
+    (photoEmail ? '\n\nEmail all pictures to ' + photoEmail + (photoSubject ? ' with the subject "' + photoSubject + '"' : '') + '.' : ''));
   if (form.supportsAdvancedResponderPermissions() && !form.isPublished()) form.setPublished(true);
 
   var old = form.getItems();
@@ -181,9 +206,23 @@ function loadFormMap_(checklistId) {
   return { byQuestion: byQuestion, rows: rows };
 }
 
-function ensureSubmitTrigger_(formId) {
-  var exists = ScriptApp.getProjectTriggers().some(function (t) {
-    return t.getHandlerFunction() === 'onChecklistSubmit' && t.getTriggerSourceId() === formId;
+// Gives every active checklist form an onFormSubmit trigger owned by this account.
+// Only the trigger owner does this; a trigger owned by anyone else would never log anything.
+// Returns how many active forms have a trigger.
+function ensureSubmitTriggers_() {
+  if (!isTriggerOwner_()) return 0;
+  var have = {};
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'onChecklistSubmit') have[t.getTriggerSourceId()] = true;
   });
-  if (!exists) ScriptApp.newTrigger('onChecklistSubmit').forForm(formId).onFormSubmit().create();
+  var count = 0;
+  loadModel_().checklists.forEach(function (c) {
+    if (!c.active || !c.formId) return;
+    if (!have[c.formId]) {
+      ScriptApp.newTrigger('onChecklistSubmit').forForm(c.formId).onFormSubmit().create();
+      have[c.formId] = true;
+    }
+    count++;
+  });
+  return count;
 }

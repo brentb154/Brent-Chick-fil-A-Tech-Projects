@@ -32,13 +32,12 @@ function logSubmission_(e) {
   var response = e.response;
   var submittedAt = response.getTimestamp();
   var moment = businessMoment_(submittedAt, cfg);
-  var formMap = loadFormMap_(checklist.id);
 
   // Sort answers into leader / position / notes / tasks
   var leader = '';
   var position = '';
   var notes = [];
-  var answers = [];
+  var taskAnswers = [];
   response.getItemResponses().forEach(function (ir) {
     var item;
     try {
@@ -51,33 +50,38 @@ function logSubmission_(e) {
     if (title === Q_LEADER) leader = answer;
     else if (title === Q_POSITION) position = answer;
     else if (title === Q_NOTES) { if (answer) notes.push(answer); }
-    else {
-      // Unmapped questions (form opened before a rebuild) are kept by title with no Item ID
-      var mapped = formMap.byQuestion[String(item.getId())];
-      answers.push({
-        itemId: mapped ? mapped.itemId : '',
-        position: mapped ? mapped.position : position,
-        date: mapped ? mapped.date : '',
-        task: title,
-        result: answer
-      });
-    }
+    else taskAnswers.push({ questionId: String(item.getId()), task: title, result: answer });
   });
+  var answeredPosition = position;
   if (!checklist.perPosition) position = '';
-
-  // Expected = tasks on the form version they answered (for that position)
-  var expected = answers.length;
-  var builtFor = answers.filter(function (a) { return a.date; })[0];
-  if (builtFor) {
-    expected = formMap.rows.filter(function (r) {
-      return r.date === builtFor.date && (!checklist.perPosition || posKey_(r.position) === posKey_(position));
-    }).length;
-  }
-  var complete = answers.filter(function (a) { return a.result === ANSWER_DONE; }).length;
-  var notComplete = answers.filter(function (a) { return a.result === ANSWER_NOT_DONE; }).length;
+  var complete = taskAnswers.filter(function (a) { return a.result === ANSWER_DONE; }).length;
+  var notComplete = taskAnswers.filter(function (a) { return a.result === ANSWER_NOT_DONE; }).length;
   var submissionId = 'S-' + Utilities.getUuid().slice(0, 8).toUpperCase();
 
+  // Form Map is read inside the lock so a rebuild that's rewriting it can't be caught half-done
   withLock_(function () {
+    var formMap = loadFormMap_(checklist.id);
+    // Unmapped questions (form opened before a rebuild) are kept by title with no Item ID
+    var answers = taskAnswers.map(function (a) {
+      var mapped = formMap.byQuestion[a.questionId];
+      return {
+        itemId: mapped ? mapped.itemId : '',
+        position: mapped ? mapped.position : answeredPosition,
+        date: mapped ? mapped.date : '',
+        task: a.task,
+        result: a.result
+      };
+    });
+
+    // Expected = tasks on the form version they answered (for that position)
+    var expected = answers.length;
+    var builtFor = answers.filter(function (a) { return a.date; })[0];
+    if (builtFor) {
+      expected = formMap.rows.filter(function (r) {
+        return r.date === builtFor.date && (!checklist.perPosition || posKey_(r.position) === posKey_(position));
+      }).length;
+    }
+
     var statusMatch = findStatusRow_(moment.dateKey, checklist, position);
     var lateText = statusMatch ? statusMatch.lateText : checklist.lateText;
     var lateMin = parseTimeToMinutes_(lateText);
@@ -110,8 +114,10 @@ function logSubmission_(e) {
       };
     }));
 
-    // First submission sets the status; later duplicates are logged above but don't change it
-    if (statusMatch && (statusMatch.status === 'Pending' || statusMatch.status === 'Late')) {
+    // First submission sets the status; later duplicates are logged above but don't change it.
+    // Missed is included: a 3:59 AM submission can land just after the 4:00 AM sweep marked the row Missed.
+    var open = ['Pending', 'Late', 'Missed'];
+    if (statusMatch && open.indexOf(statusMatch.status) > -1) {
       var tab = statusMatch.tab;
       setCell_(tab, statusMatch.index, 'Status', onTime === 'No' ? 'Completed late' : 'Complete');
       setCell_(tab, statusMatch.index, 'Submitted at', submittedAt);

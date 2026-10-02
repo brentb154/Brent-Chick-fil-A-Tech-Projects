@@ -33,6 +33,7 @@ function validateSheet_() {
     }
     if (seenItem[it.id]) out.blocking.push('Items row ' + it.row + ': Item ID ' + it.id + ' is also on row ' + seenItem[it.id] + '. Item IDs must be unique.');
     else seenItem[it.id] = it.row;
+    if (it.active && !it.task) out.blocking.push('Items row ' + it.row + ' (' + it.id + '): Task is blank.');
 
     var checklist = model.byId[it.checklistId];
     if (!checklist) {

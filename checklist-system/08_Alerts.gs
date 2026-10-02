@@ -107,15 +107,21 @@ function postSlack_(webhook, text) {
   }
 }
 
+// Never throws: if logging failed after an email went out, the caller would never mark
+// the alert as sent and the same email would go out again every 15 minutes.
 function logAlert_(dateKey, checklistId, position, type, sentTo) {
-  appendRows_(openTab_(TABS.alerts), [{
-    'Sent at': new Date(),
-    'Date': dateKey,
-    'Checklist ID': checklistId,
-    'Position': position,
-    'Alert type': type,
-    'Sent to': sentTo
-  }]);
+  try {
+    appendRows_(openTab_(TABS.alerts), [{
+      'Sent at': new Date(),
+      'Date': dateKey,
+      'Checklist ID': checklistId,
+      'Position': position,
+      'Alert type': type,
+      'Sent to': sentTo
+    }]);
+  } catch (err) {
+    // The email already went out; a missing log row is the lesser problem
+  }
 }
 
 // FOH escalation email, or the account the script runs as if that's blank

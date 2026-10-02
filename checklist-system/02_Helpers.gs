@@ -61,7 +61,7 @@ function normHeader_(text) {
 // Header row only. Use for appending without reading the whole tab.
 function openTab_(name) {
   var sheet = getSheet_(name);
-  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0].map(normHeader_);
+  var headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getDisplayValues()[0].map(normHeader_);
   return {
     sheet: sheet,
     name: name,

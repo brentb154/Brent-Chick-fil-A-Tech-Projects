@@ -17,7 +17,7 @@ Replaces the eight separate FOH checklist Google Forms with one master sheet, th
 | Turn on reminders + escalations | **Settings** "Alerts mode" → `Live` |
 | Add a checklist (Restroom 2.0, BOH Closing) | **Checklists** row (Active = TRUE, due times, days) + its **Items**, then *Checklists > Rebuild forms now*. The form and its trigger are created automatically. |
 
-Edits made during the day show up in the next morning's forms. Use *Rebuild forms now* for same-day changes, but not while someone is filling out a checklist: rebuilding wipes their answers.
+Edits made during the day show up in the next morning's forms. Use *Rebuild forms now* for same-day changes, but not while someone is filling out a checklist: rebuilding wipes their answers. When the store account clicks it, the rebuild runs right away. When anyone else clicks it (say, a director), it's queued and runs within 15 minutes as the store account, because only the store account can edit the forms.
 
 ## Files
 
@@ -37,7 +37,7 @@ Edits made during the day show up in the next morning's forms. Use *Rebuild form
 
 One time-driven trigger, `quarterHourTick`, runs every 15 minutes:
 
-1. After **Rebuild forms at** (once a day), it runs Validate, rebuilds the forms, and creates today's Daily Status rows. If Validate finds a blocking problem, yesterday's forms stay up, the FOH escalation email gets one warning that day, and every later run retries, so fixing the sheet is enough.
+1. After **Rebuild forms at** (once a day), it runs Validate, rebuilds the forms, creates today's Daily Status rows, and recreates any missing form submit trigger. Only one rebuild can run at a time. If Validate finds a blocking problem, yesterday's forms stay up, the FOH escalation email gets one warning that day, and every later run retries, so fixing the sheet is enough.
 2. Every run, it marks past days Missed, flips overdue rows to Late, and in `Live` mode sends heads-ups and escalations, each one once per row.
 3. After **Daily summary at** (once a day), it emails the summary, plus the weekly scorecard on Mondays.
 
