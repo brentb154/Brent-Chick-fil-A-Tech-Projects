@@ -35,7 +35,7 @@ function doGet(e) {
       'This photo link is out of date. Ask a manager for the current link or QR code.</p>');
   } else {
     var t = HtmlService.createTemplateFromFile('PhotoPage');
-    t.data = JSON.stringify(photoPageData_(cfg, params.k, params.c || '')).replace(/</g, '\\u003c');
+    t.data = JSON.stringify(photoPageData_(cfg, params.k, params.list || '')).replace(/</g, '\\u003c');
     page = t.evaluate();
   }
   return page.setTitle('Checklist photos').addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -105,11 +105,12 @@ function serverUploadPhoto(p) {
   return { ok: true };
 }
 
-// Upload page link with the key; checklistId preselects the checklist
+// Upload page link with the key; checklistId preselects the checklist.
+// Don't name link parameters "c" or "sid": Google reserves them and the page fails to open.
 function photoLink_(cfg, checklistId) {
   if (!cfg.photosOn) return '';
   return cfg.photoPage + (cfg.photoPage.indexOf('?') > -1 ? '&' : '?') + 'k=' + encodeURIComponent(cfg.photoKey) +
-    (checklistId ? '&c=' + encodeURIComponent(checklistId) : '');
+    (checklistId ? '&list=' + encodeURIComponent(checklistId) : '');
 }
 
 // -- Drive folders --------------------------------------------
