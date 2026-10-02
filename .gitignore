@@ -8,3 +8,4 @@ __pycache__/
 .automation/.anthropic_key
 .automation/config.json
 .env
+.clasp.json
