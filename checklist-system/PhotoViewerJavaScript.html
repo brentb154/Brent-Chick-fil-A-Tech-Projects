@@ -1,0 +1,154 @@
+<script>
+(function () {
+  var current = PAGE.today;
+  var BADGES = { 'Complete': 'ok', 'Completed late': 'warn', 'Late': 'bad', 'Missed': 'bad' };
+
+  function $(id) { return document.getElementById(id); }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  // "2026-10-06" +/- days, in UTC so DST can't shift the date
+  function shift(key, n) {
+    var p = key.split('-');
+    return new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2]) + n)).toISOString().slice(0, 10);
+  }
+
+  function init() {
+    $('date').max = PAGE.today;
+    $('prev').addEventListener('click', function () { go(shift(current, -1)); });
+    $('next').addEventListener('click', function () { go(shift(current, 1)); });
+    $('date').addEventListener('change', function () { if (this.value) go(this.value); });
+    $('overlay').addEventListener('click', closeFull);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') return closeFull();
+      if (e.target === $('date') || !$('overlay').classList.contains('hidden')) return;
+      if (e.key === 'ArrowLeft') go(shift(current, -1));
+      if (e.key === 'ArrowRight' && current < PAGE.today) go(shift(current, 1));
+    });
+    if (PAGE.keepDays) $('keep').textContent = 'Photos are kept for ' + PAGE.keepDays + ' days.';
+    go(current);
+  }
+
+  function go(key) {
+    if (key > PAGE.today) return;
+    current = key;
+    $('date').value = key;
+    $('next').disabled = key >= PAGE.today;
+    $('cards').innerHTML = '';
+    $('label').textContent = '';
+    say('Loading...');
+    google.script.run
+      .withSuccessHandler(render)
+      .withFailureHandler(function (err) { say(err.message, true); })
+      .serverPhotoDay(key);
+  }
+
+  function render(day) {
+    if (day.dateKey !== current) return;  // already moved to another day
+    $('label').textContent = day.label;
+    say(day.groups.length ? '' : 'Nothing scheduled or uploaded this day.');
+    if (!day.canSeePhotos) say('The "Checklist Photos" folder isn\'t shared with you, so photos can\'t load. Ask the store account to share it with you (Viewer).', true);
+
+    var queue = [];
+    day.groups.forEach(function (g) {
+      var card = el('section', 'card');
+      var head = el('div', 'head');
+      head.appendChild(el('h2', '', g.name + (g.position ? ' \u2013 ' + g.position : '')));
+      if (g.status) head.appendChild(el('span', 'badge ' + (BADGES[g.status] || 'muted'), g.status));
+      card.appendChild(head);
+
+      var meta = [];
+      if (g.by) meta.push('by ' + g.by + (g.time ? ' at ' + g.time : ''));
+      if (g.photos.length || g.photoTasks) {
+        meta.push(g.photos.length + (g.photos.length === 1 ? ' photo' : ' photos') +
+          (g.photoTasks ? ' \u00b7 ' + g.photoTasks + (g.photoTasks === 1 ? ' photo task' : ' photo tasks') : ''));
+      }
+      card.appendChild(el('p', 'meta' + (g.photoTasks && !g.photos.length ? ' bad' : ''), meta.join('   \u00b7   ')));
+      if (g.notDone.length) card.appendChild(listBox('Could not complete', g.notDone, 'notdone'));
+      if (g.notes.length) card.appendChild(listBox('Notes', g.notes, 'notes'));
+
+      if (g.photos.length && day.canSeePhotos) {
+        var grid = el('div', 'grid');
+        g.photos.forEach(function (p) {
+          var tile = el('button', 'tile');
+          tile.type = 'button';
+          tile.title = p.leader + (p.time ? ' \u00b7 ' + p.time : '');
+          tile.setAttribute('data-id', p.id);
+          tile.appendChild(el('span', 'loading', 'loading\u2026'));
+          tile.addEventListener('click', function () { openFull(p); });
+          grid.appendChild(tile);
+        });
+        card.appendChild(grid);
+        queue.push({ grid: grid, ids: g.photos.map(function (p) { return p.id; }) });
+      }
+      $('cards').appendChild(card);
+    });
+    loadThumbs(queue, 0, day.dateKey);
+  }
+
+  function listBox(title, lines, cls) {
+    var box = el('div', 'box ' + cls);
+    box.appendChild(el('strong', '', title));
+    var ul = el('ul');
+    lines.forEach(function (t) { ul.appendChild(el('li', '', t)); });
+    box.appendChild(ul);
+    return box;
+  }
+
+  // One position at a time, so the page is usable while photos fill in
+  function loadThumbs(queue, i, forDay) {
+    if (i >= queue.length || forDay !== current) return;
+    var q = queue[i];
+    google.script.run
+      .withSuccessHandler(function (thumbs) {
+        if (forDay !== current) return;
+        thumbs.forEach(function (t) {
+          var tile = q.grid.querySelector('[data-id="' + t.id + '"]');
+          if (!tile) return;
+          tile.innerHTML = '';
+          if (t.gone) {
+            tile.appendChild(el('span', 'loading', 'deleted'));
+          } else {
+            var img = el('img');
+            img.alt = '';
+            img.src = 'data:' + t.mime + ';base64,' + t.data;
+            tile.appendChild(img);
+          }
+        });
+        loadThumbs(queue, i + 1, forDay);
+      })
+      .withFailureHandler(function () { loadThumbs(queue, i + 1, forDay); })
+      .serverPhotoThumbs(q.ids);
+  }
+
+  function openFull(p) {
+    $('overlay').classList.remove('hidden');
+    $('full').removeAttribute('src');
+    $('fullCaption').textContent = 'Loading...';
+    google.script.run
+      .withSuccessHandler(function (f) {
+        $('full').src = 'data:' + f.mime + ';base64,' + f.data;
+        $('fullCaption').textContent = p.leader + (p.time ? ' \u00b7 ' + p.time : '');
+      })
+      .withFailureHandler(function (err) { $('fullCaption').textContent = err.message; })
+      .serverPhotoFull(p.id);
+  }
+
+  function closeFull() {
+    $('overlay').classList.add('hidden');
+    $('full').removeAttribute('src');
+  }
+
+  function say(msg, bad) {
+    $('status').textContent = msg;
+    $('status').className = bad ? 'bad' : '';
+  }
+
+  init();
+})();
+</script>

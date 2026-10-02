@@ -25,6 +25,7 @@ function onOpen() {
     .addItem('Validate sheet', 'menuValidate')
     .addItem('Send test alert to me', 'menuSendTestAlert')
     .addItem('Show form links', 'menuShowFormLinks')
+    .addItem('View photos', 'menuViewPhotos')
     .addSeparator()
     .addItem('Install / repair triggers', 'menuInstallTriggers')
     .addItem('Remove my triggers', 'menuRemoveTriggers')

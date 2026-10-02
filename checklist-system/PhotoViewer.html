@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= include('PhotoViewerStylesheet'); ?>
+  </head>
+  <body>
+    <div class="bar">
+      <button id="prev" type="button" title="Previous day (left arrow)">&lsaquo;</button>
+      <input id="date" type="date">
+      <button id="next" type="button" title="Next day (right arrow)">&rsaquo;</button>
+      <span id="label"></span>
+    </div>
+    <p id="status"></p>
+    <div id="cards"></div>
+    <p class="small" id="keep"></p>
+    <div id="overlay" class="hidden" title="Click to close">
+      <img id="full" alt="">
+      <p id="fullCaption"></p>
+    </div>
+    <script>var PAGE = <?!= data ?>;</script>
+    <?!= include('PhotoViewerJavaScript'); ?>
+  </body>
+</html>

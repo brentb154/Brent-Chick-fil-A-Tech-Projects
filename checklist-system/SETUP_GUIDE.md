@@ -61,6 +61,7 @@ The photo page lets team members upload pictures from their phone without signin
 6. In **Checklists > Show form links**, copy the **Photo upload page** link and make a QR code from it. In Chrome: open the link, click Share, then Create QR code. Post it at each station.
 7. Test on a phone that isn't signed in to Google. Check that photos show up in Drive under **Checklist Photos** and on the **Photos** tab.
 8. After a week on photos, clear **Settings > Photo email** so the forms stop mentioning email.
+9. **Let managers view photos:** after the first upload, the store account opens Google Drive, right-clicks **Checklist Photos**, chooses **Share**, and adds each manager as a **Viewer**. New photos inherit the sharing. Managers then use **Checklists > View photos**. The first time, it asks them to approve the script's permissions.
 
 **If the upload page's code ever changes:** as the store account, go to **Deploy > Manage deployments**, click the pencil, set Version to **New version**, and click **Deploy**. The link stays the same.
 

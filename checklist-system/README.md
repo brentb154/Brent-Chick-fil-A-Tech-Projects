@@ -19,6 +19,7 @@ Replaces the eight separate FOH checklist Google Forms with one master sheet, th
 | Turn on photo uploads | **Settings** "Photo upload page" (one-time setup, see SETUP_GUIDE step 7). Clear "Photo email" once the team is using it. |
 | Retire an old photo link / QR | **Settings** "Photo upload key": change it, then reprint the QR from *Show form links*. |
 | Change photo retention or alert sensitivity | **Settings** "Keep photos for (days)", "Photo alert sensitivity (std devs)" |
+| Look at any day's photos | **Checklists > View photos**. Flip days with the arrows. Each position shows its status, who submitted it, "Could not complete" tasks, notes, and photos (click to enlarge). Managers need the **Checklist Photos** Drive folder shared with them (Viewer). |
 | Change the scorecard day | **Settings** "Weekly scorecard day" (default Tue) |
 | Close for a holiday or weather | **Settings** "Closed dates" (e.g. `11/26/2026, 12/25/2026`). Forms close and nothing is tracked. Adding today's date mid-day stops today's alerts. |
 | Add a checklist (Restroom 2.0, BOH Closing) | **Checklists** row (Active = TRUE, due times, days) + its **Items**, then *Checklists > Rebuild forms now*. The form and its trigger are created automatically. |
@@ -40,6 +41,8 @@ Edits made during the day show up in the next morning's forms. Use *Rebuild form
 | `09_Summary.gs` | Morning problems email + weekly scorecard |
 | `10_Photos.gs` | Photo upload page (web app), Drive folders, 60-day cleanup, photo checks |
 | `PhotoPage.html`, `PhotoJavaScript.html`, `PhotoStylesheet.html` | The upload page people see on their phone |
+| `11_Photo_Viewer.gs` | Checklists > View photos: one day's statuses, could-not-complete tasks, notes and photos |
+| `PhotoViewer.html`, `PhotoViewerJavaScript.html`, `PhotoViewerStylesheet.html` | The View photos pop-up |
 
 ## How it runs
 
