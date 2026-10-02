@@ -82,20 +82,26 @@ function serverUploadPhoto(p) {
   var moment = businessMoment_(now, cfg);
   var name = leader + ' ' + Utilities.formatDate(now, cfg.tz, 'h.mm a') + ' ' + (Number(p.index) || 1) + '.jpg';
 
-  // Lock only around folder creation and the log row, so photos from several phones don't queue up
-  var folder = withLock_(function () { return photoFolder_(moment.dateKey, checklist.name, position); });
-  var file = folder.createFile(Utilities.newBlob(bytes, 'image/jpeg', name));
-  withLock_(function () {
-    appendRows_(openTab_(TABS.photos), [{
-      'Uploaded at': now,
-      'Business date': moment.dateKey,
-      'Checklist ID': checklist.id,
-      'Position': position,
-      'Leader': leader,
-      'File': file.getUrl()
-    }]);
-    SpreadsheetApp.flush();
-  });
+  // Lock only around folder creation and the log row, so photos from several phones don't queue up.
+  // Saving problems (Drive permission, quota) email the admin; the team member gets a plain message.
+  try {
+    var folder = withLock_(function () { return photoFolder_(moment.dateKey, checklist.name, position); });
+    var file = folder.createFile(Utilities.newBlob(bytes, 'image/jpeg', name));
+    withLock_(function () {
+      appendRows_(openTab_(TABS.photos), [{
+        'Uploaded at': now,
+        'Business date': moment.dateKey,
+        'Checklist ID': checklist.id,
+        'Position': position,
+        'Leader': leader,
+        'File': file.getUrl()
+      }]);
+      SpreadsheetApp.flush();
+    });
+  } catch (err) {
+    reportError_('Photo upload', err);
+    throw new Error('The photo could not be saved. A manager has been notified. Try again in a minute.');
+  }
   return { ok: true };
 }
 

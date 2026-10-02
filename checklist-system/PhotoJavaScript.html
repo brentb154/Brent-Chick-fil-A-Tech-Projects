@@ -70,21 +70,38 @@
     $('send').disabled = true;  // no double uploads
     lastError = '';
     var done = 0;
-    var failed = 0;
+    var unreadable = [];  // photo numbers the phone couldn't open
+    var retry = [];       // { index, data } that failed to upload; tried once more at the end
     (function next(i) {
-      if (i >= files.length) return finish(done, failed);
+      if (i >= files.length) return retryFailed(job, done, unreadable, retry);
       say('Uploading ' + (i + 1) + ' of ' + files.length + '...');
       shrink(files[i], function (data) {
         if (!data) {
-          failed++;
+          unreadable.push(i + 1);
           return next(i + 1);
         }
         send(job, i + 1, data, 2, function (ok) {
-          if (ok) done++; else failed++;
+          if (ok) done++; else retry.push({ index: i + 1, data: data });
           next(i + 1);
         });
       });
     })(0);
+  }
+
+  // A few seconds later, one more try for anything that failed (brief hiccups clear up)
+  function retryFailed(job, done, unreadable, retry) {
+    if (!retry.length) return finish(done, unreadable);
+    say('Retrying ' + retry.length + (retry.length === 1 ? ' photo' : ' photos') + '...');
+    var stillFailed = unreadable.slice();
+    setTimeout(function () {
+      (function next(i) {
+        if (i >= retry.length) return finish(done, stillFailed.sort(function (a, b) { return a - b; }));
+        send(job, retry[i].index, retry[i].data, 1, function (ok) {
+          if (ok) done++; else stillFailed.push(retry[i].index);
+          next(i + 1);
+        });
+      })(0);
+    }, 3000);
   }
 
   // One photo per server call, with one retry
@@ -119,12 +136,17 @@
     img.src = url;
   }
 
+  // failed = photo numbers (in the order they were picked) that didn't make it
   function finish(done, failed) {
     $('send').disabled = false;
     $('files').value = '';
     $('picked').textContent = '';
-    if (failed) say(done + ' uploaded, ' + failed + ' failed. ' + (lastError || 'Choose the failed ones and try again.'), true);
-    else say(done + (done === 1 ? ' photo' : ' photos') + ' uploaded. Thank you!');
+    if (failed.length) {
+      say(done + ' uploaded. ' + (failed.length === 1 ? 'Photo ' : 'Photos ') + failed.join(', ') +
+        ' didn\'t upload. ' + (lastError || '') + ' Choose just those and tap Upload again.', true);
+    } else {
+      say(done + (done === 1 ? ' photo' : ' photos') + ' uploaded. Thank you!');
+    }
   }
 
   function say(msg, bad) {
