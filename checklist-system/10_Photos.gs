@@ -19,10 +19,21 @@
  *   Checklist Photos / 2026-10-06 / Positional Closing Checklist / Stocker /
  * with one row per photo on the Photos tab. Each morning, date
  * folders older than "Keep photos for (days)" go to the trash.
+ *
+ * Uploading is two steps so each photo is quick:
+ *   serverStartPhotos - once per checklist/position/name: checks the link,
+ *                       reads the sheet, finds or makes the Drive folder, and
+ *                       remembers it all for 6 hours under a batch ID.
+ *   serverSavePhoto   - once per photo: saves the file and logs one row.
+ *                       No sheet reads and no lock, so several photos save at
+ *                       once and form submissions never wait behind photos.
  */
 
 var PHOTO_ROOT_NAME = 'Checklist Photos';
 var PHOTO_MAX_BYTES = 15 * 1024 * 1024;
+var PHOTO_BATCH_SECONDS = 6 * 60 * 60;   // CacheService's maximum
+var MSG_OLD_LINK = 'This photo link is out of date. Ask a manager for the current link.';
+var MSG_NOT_SAVED = 'The photo could not be saved. A manager has been notified. Try again in a minute.';
 
 // -- Upload page ----------------------------------------------
 
@@ -58,11 +69,13 @@ function photoPageData_(cfg, key, preselect) {
   };
 }
 
-// Called by the upload page once per photo.
-// p = { key, checklistId, position, leader, index, data (base64 JPEG, already shrunk on the phone) }
-function serverUploadPhoto(p) {
+// -- Uploading ------------------------------------------------
+
+// Step 1, once per checklist/position/name. p = { key, checklistId, position, leader }.
+// Returns a batch ID the page sends with each photo.
+function serverStartPhotos(p) {
   var cfg = loadSettings_();
-  if (!cfg.photoKey || p.key !== cfg.photoKey) throw new Error('This photo link is out of date. Ask a manager for the current link.');
+  if (!p || !cfg.photoKey || p.key !== cfg.photoKey) throw new Error(MSG_OLD_LINK);
   var checklist = loadModel_().byId[p.checklistId];
   if (!checklist || !checklist.active) throw new Error('Pick a checklist.');
   var position = '';
@@ -74,35 +87,100 @@ function serverUploadPhoto(p) {
   var leader = String(p.leader || '').replace(/\s+/g, ' ').trim().slice(0, 60);
   if (!leader) throw new Error('Enter your name.');
 
-  var bytes = Utilities.base64Decode(String(p.data || ''));
-  var isJpeg = bytes.length > 2 && (bytes[0] & 0xFF) === 0xFF && (bytes[1] & 0xFF) === 0xD8;
-  if (!isJpeg || bytes.length > PHOTO_MAX_BYTES) throw new Error('That photo could not be read. Try again.');
-
-  var now = new Date();
-  var moment = businessMoment_(now, cfg);
-  var name = leader + ' ' + Utilities.formatDate(now, cfg.tz, 'h.mm a') + ' ' + (Number(p.index) || 1) + '.jpg';
-
-  // Lock only around folder creation and the log row, so photos from several phones don't queue up.
-  // Saving problems (Drive permission, quota) email the admin; the team member gets a plain message.
+  // Column positions are looked up once here so each photo can log without reading the sheet
+  var tab = openTab_(TABS.photos);
+  var cols = {
+    at: colOrThrow_(tab, 'Uploaded at'),
+    date: colOrThrow_(tab, 'Business date'),
+    checklist: colOrThrow_(tab, 'Checklist ID'),
+    position: colOrThrow_(tab, 'Position'),
+    leader: colOrThrow_(tab, 'Leader'),
+    file: colOrThrow_(tab, 'File')
+  };
+  var dateKey = businessMoment_(new Date(), cfg).dateKey;
+  var folderId;
   try {
-    var folder = withLock_(function () { return photoFolder_(moment.dateKey, checklist.name, position); });
-    var file = folder.createFile(Utilities.newBlob(bytes, 'image/jpeg', name));
-    withLock_(function () {
-      appendRows_(openTab_(TABS.photos), [{
-        'Uploaded at': now,
-        'Business date': moment.dateKey,
-        'Checklist ID': checklist.id,
-        'Position': position,
-        'Leader': leader,
-        'File': file.getUrl()
-      }]);
-      SpreadsheetApp.flush();
-    });
+    folderId = withLock_(function () { return photoFolder_(dateKey, checklist.name, position).getId(); });
   } catch (err) {
     reportError_('Photo upload', err);
-    throw new Error('The photo could not be saved. A manager has been notified. Try again in a minute.');
+    throw new Error(MSG_NOT_SAVED);
+  }
+
+  var batchId = Utilities.getUuid();
+  CacheService.getScriptCache().put('photos:' + batchId, JSON.stringify({
+    folderId: folderId,
+    ssId: getSS_().getId(),
+    tz: cfg.tz,
+    dateKey: dateKey,
+    checklistId: checklist.id,
+    position: position,
+    leader: leader,
+    cols: cols,
+    width: tab.width
+  }), PHOTO_BATCH_SECONDS);
+  return batchId;
+}
+
+// Step 2, once per photo. data = base64 JPEG, already shrunk on the phone; number = the photo's
+// number on the page. Safe to repeat: a retry after a lost reply never saves or logs a photo twice.
+function serverSavePhoto(batchId, number, data) {
+  var cache = CacheService.getScriptCache();
+  var raw = cache.get('photos:' + batchId);
+  if (!raw) throw new Error('BATCH_EXPIRED'); // the page starts a new batch and tries again
+  var batch = JSON.parse(raw);
+  var stepKey = 'photos:' + batchId + ':' + number;
+  var step = cache.get(stepKey) || '';   // '' = not saved yet, a file URL = saved but not logged, 'logged' = done
+  if (step === 'logged') return { ok: true };
+
+  try {
+    var url = step;
+    if (!url) {
+      var bytes = decodeJpeg_(data);
+      var now = new Date();
+      var name = batch.leader + ' ' + Utilities.formatDate(now, batch.tz, 'h.mm a') + ' ' + (Number(number) || 1) + '.jpg';
+      url = DriveApp.getFolderById(batch.folderId).createFile(Utilities.newBlob(bytes, 'image/jpeg', name)).getUrl();
+      cache.put(stepKey, url, PHOTO_BATCH_SECONDS);
+    }
+    // appendRow adds the row in one step, so photos saving at the same time can't overwrite each other
+    SpreadsheetApp.openById(batch.ssId).getSheetByName(TABS.photos).appendRow(photoRow_(batch, new Date(), url));
+    cache.put(stepKey, 'logged', PHOTO_BATCH_SECONDS);
+  } catch (err) {
+    if (err.unreadable) throw new Error('That photo could not be read. Try again.');
+    reportError_('Photo upload', err);
+    throw new Error(MSG_NOT_SAVED);
   }
   return { ok: true };
+}
+
+// Pages opened before the two-step upload send one photo per call with everything in it
+function serverUploadPhoto(p) {
+  return serverSavePhoto(serverStartPhotos(p), p.index, p.data);
+}
+
+// Base64 -> bytes, or an error marked unreadable if it isn't a JPEG of a sane size
+function decodeJpeg_(data) {
+  var bytes = [];
+  try {
+    bytes = Utilities.base64Decode(String(data || ''));
+  } catch (err) {}
+  if (bytes.length > 2 && bytes.length <= PHOTO_MAX_BYTES && (bytes[0] & 0xFF) === 0xFF && (bytes[1] & 0xFF) === 0xD8) return bytes;
+  var bad = new Error('Not a JPEG');
+  bad.unreadable = true;
+  throw bad;
+}
+
+// Photos tab row in the sheet's column order. Text gets a leading apostrophe so Sheets keeps it
+// exactly as written (otherwise "2026-10-06" becomes a date and a name starting with "=" a formula).
+function photoRow_(batch, when, url) {
+  var row = [];
+  for (var c = 0; c < batch.width; c++) row.push('');
+  row[batch.cols.at] = when;
+  row[batch.cols.date] = "'" + batch.dateKey;
+  row[batch.cols.checklist] = batch.checklistId;
+  row[batch.cols.position] = batch.position ? "'" + batch.position : '';
+  row[batch.cols.leader] = "'" + batch.leader;
+  row[batch.cols.file] = url;
+  return row;
 }
 
 // Upload page link with the key; checklistId preselects the checklist.

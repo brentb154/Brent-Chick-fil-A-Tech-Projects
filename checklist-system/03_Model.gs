@@ -104,7 +104,7 @@ function loadModel_() {
 }
 
 function posKey_(name) {
-  return String(name || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  return String(name || '').replace(/^'/, '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
 function orderOf_(v) {

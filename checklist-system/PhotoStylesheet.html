@@ -8,10 +8,12 @@
   select, #leader { display: block; width: 100%; margin-top: 6px; padding: 12px; font-size: 17px; border: 1px solid #ccc; border-radius: 8px; background: #fff; color: #222; }
   .pick { position: relative; text-align: center; padding: 20px; border: 2px dashed #e51636; border-radius: 10px; color: #e51636; background: #fff; }
   .pick input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; }
+  .pick.off { border-color: #bbb; color: #999; }
+  #progress { height: 10px; margin-top: 4px; overflow: hidden; border-radius: 5px; background: #e2e2e2; }
+  #bar { width: 0; height: 100%; background: #e51636; transition: width 0.3s; }
+  #status { margin-top: 14px; font-size: 17px; }
   button { width: 100%; padding: 16px; font-size: 18px; font-weight: 700; color: #fff; background: #e51636; border: 0; border-radius: 10px; }
-  button:disabled { opacity: 0.5; }
-  #status { margin-top: 16px; font-size: 17px; }
-  .good { color: #1e7e34; }
+  .good { color: #1e7e34; font-weight: 600; }
   .bad { color: #b3261e; }
   .hidden { display: none !important; }
 </style>

@@ -274,7 +274,7 @@ function longLabel_(key) {
 // Date cell -> "yyyy-MM-dd". Handles text keys, "10/6/2026", and Date objects.
 function toDateKey_(v, tz) {
   if (v instanceof Date) return Utilities.formatDate(v, tz || getSS_().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
-  var s = String(v || '').trim();
+  var s = String(v || '').trim().replace(/^'/, ''); // a stray text-marker apostrophe never matters
   var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (m) return m[1] + '-' + pad2_(m[2]) + '-' + pad2_(m[3]);
   m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);

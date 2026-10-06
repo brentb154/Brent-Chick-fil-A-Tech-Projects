@@ -67,6 +67,7 @@ Each form also has an `onChecklistSubmit` trigger. Triggers do work only for the
 
 - Leader names are free text, so a *missed* checklist can't be charged to a leader. The scorecard shows submissions, on-time %, and task completion %.
 - The daily rebuild deletes questions, and Google deletes their stored answers with them. Submissions and Item Results are the only record.
+- Photo uploads happen while the page is open: phones pause web pages that are closed or locked, so the page tells people to keep it open until ✓ (usually seconds). Failed photos retry on their own 3 times, then show a Try again button.
 - The photo upload page runs as the store account. After a code change to the page, the store account has to publish a new version (Deploy → Manage deployments → Edit → New version); `clasp push` alone doesn't update it.
 - Photos use the store account's 15 GB of free storage. At about 400 KB each, 60 days is roughly 1.5 GB.
 - Free Gmail quotas: 100 email recipients a day and 90 minutes of trigger runtime a day. Normal use is well under both.

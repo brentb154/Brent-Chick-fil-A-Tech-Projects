@@ -19,13 +19,14 @@
         <label>Your name
           <input id="leader" autocomplete="name" maxlength="60">
         </label>
-        <label class="pick">Take or choose photos
+        <label id="pick" class="pick">Take or choose photos
           <input id="files" type="file" accept="image/*" multiple>
         </label>
-        <p id="picked" class="sub"></p>
-        <button id="send" type="submit">Upload</button>
+        <p id="hint" class="sub"></p>
       </form>
+      <div id="progress" class="hidden"><div id="bar"></div></div>
       <p id="status"></p>
+      <button id="retry" type="button" class="hidden">Try the failed photos again</button>
     </main>
     <script>var PAGE = <?!= data ?>;</script>
     <?!= include('PhotoJavaScript'); ?>
