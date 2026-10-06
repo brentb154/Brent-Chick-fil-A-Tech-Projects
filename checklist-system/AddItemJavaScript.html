@@ -1,0 +1,174 @@
+<script>
+(function () {
+  var data = PAGE;
+  var busy = false;
+
+  function $(id) { return document.getElementById(id); }
+
+  function option(value, text) {
+    var o = document.createElement('option');
+    o.value = value;
+    o.textContent = text;
+    return o;
+  }
+
+  function boxes() {
+    return Array.prototype.slice.call($('dayBoxes').querySelectorAll('input'));
+  }
+
+  function init() {
+    data.days.forEach(function (d) {
+      var label = document.createElement('label');
+      label.className = 'day';
+      var box = document.createElement('input');
+      box.type = 'checkbox';
+      box.value = d;
+      label.appendChild(box);
+      label.appendChild(document.createTextNode(d));
+      $('dayBoxes').appendChild(label);
+    });
+    $('photoNote').textContent = '(adds ' + data.photoNote + ' to it on the form)';
+
+    $('checklist').addEventListener('change', function () { showSections(); say('', ''); });
+    $('section').addEventListener('change', function () { showAfter(); say('', ''); });
+    $('everyDay').addEventListener('click', function () {
+      boxes().forEach(function (b) { if (!b.disabled) b.checked = true; });
+    });
+    $('add').addEventListener('click', add);
+    $('close').addEventListener('click', function () { google.script.host.close(); });
+    $('form').addEventListener('submit', function (e) { e.preventDefault(); }); // Enter never submits
+
+    showChecklists();
+    showSections();
+  }
+
+  function checklist() {
+    var id = $('checklist').value;
+    return data.checklists.filter(function (c) { return c.id === id; })[0];
+  }
+
+  function section() {
+    var c = checklist();
+    var name = $('section').value;
+    return c ? c.sections.filter(function (s) { return s.name === name; })[0] : null;
+  }
+
+  // A checklist with no tasks yet (and no positions) gets a box to type its first section
+  function typingSection() {
+    var c = checklist();
+    return !!c && !c.perPosition && !c.sections.length;
+  }
+
+  function showChecklists(keepId) {
+    var sel = $('checklist');
+    sel.innerHTML = '';
+    data.checklists.forEach(function (c) {
+      sel.appendChild(option(c.id, c.name + (c.active ? '' : ' (not active)')));
+    });
+    if (keepId) sel.value = keepId;
+    if (!sel.value && sel.options.length) sel.selectedIndex = 0;
+  }
+
+  function showSections(keepName) {
+    var c = checklist();
+    var sel = $('section');
+    sel.innerHTML = '';
+    $('sectionLabel').textContent = c && c.perPosition ? 'Position' : 'Section';
+    $('sectionLabel').htmlFor = typingSection() ? 'newSection' : 'section';
+    sel.classList.toggle('hidden', typingSection());
+    $('newSection').classList.toggle('hidden', !typingSection());
+    if (c) {
+      if (c.sections.length > 1) sel.appendChild(option('', c.perPosition ? 'Pick a position' : 'Pick a section'));
+      if (!c.sections.length && c.perPosition) sel.appendChild(option('', 'No positions on the Positions tab'));
+      c.sections.forEach(function (s) {
+        sel.appendChild(option(s.name, s.name + (s.note ? ' (' + s.note + ')' : '')));
+      });
+    }
+    sel.value = keepName || '';
+    if (sel.selectedIndex < 0) sel.selectedIndex = 0;
+
+    // Days the checklist doesn't run can't be picked
+    boxes().forEach(function (b, i) {
+      var runs = !c || c.runs[i];
+      b.disabled = !runs;
+      if (!runs) b.checked = false;
+      b.parentNode.classList.toggle('off', !runs);
+      b.parentNode.title = runs ? '' : 'This checklist doesn\'t run on ' + b.value + '.';
+    });
+    showAfter();
+  }
+
+  function showAfter(keepId) {
+    var s = section();
+    var sel = $('after');
+    sel.innerHTML = '';
+    sel.appendChild(option('', s && s.tasks.length ? 'At the end of ' + s.name : 'At the end'));
+    if (s) {
+      s.tasks.forEach(function (t) {
+        sel.appendChild(option(t.id, 'After: ' + shorten(t.task) + (t.active ? '' : ' (turned off)')));
+      });
+    }
+    sel.value = keepId || '';
+    if (sel.selectedIndex < 0) sel.selectedIndex = 0;
+  }
+
+  function shorten(text) {
+    return text.length > 80 ? text.slice(0, 77) + '…' : text;
+  }
+
+  function add() {
+    if (busy) return;
+    var c = checklist();
+    var p = {
+      checklistId: c ? c.id : '',
+      section: typingSection() ? $('newSection').value : $('section').value,
+      task: $('task').value,
+      days: boxes().filter(function (b) { return b.checked; }).map(function (b) { return b.value; }),
+      photo: $('photo').checked,
+      reference: $('reference').value,
+      afterId: $('after').value
+    };
+    var problem = !c ? 'Pick a checklist.'
+      : !p.section.trim() ? (c.perPosition ? 'Pick a position.' : 'Pick a section.')
+      : !p.task.trim() ? 'Type the task.'
+      : !p.days.length ? 'Pick at least one day.'
+      : '';
+    if (problem) return say(problem, 'bad');
+
+    busy = true;
+    $('add').disabled = true;
+    say('Adding…', '');
+    google.script.run
+      .withSuccessHandler(function (res) {
+        data = res.data;
+        showChecklists(p.checklistId);
+        showSections(res.section);
+        showAfter(p.afterId ? res.id : ''); // the next task goes right after this one
+        $('task').value = '';
+        $('reference').value = '';
+        $('photo').checked = false;
+        boxes().forEach(function (b) { b.checked = false; });
+        done();
+        say(res.message, 'good');
+        $('task').focus();
+      })
+      .withFailureHandler(function (err) {
+        done();
+        say((err && err.message) || String(err), 'bad');
+      })
+      .serverAddItem(p);
+  }
+
+  function done() {
+    busy = false;
+    $('add').disabled = false;
+  }
+
+  function say(msg, cls) {
+    $('status').textContent = msg;
+    $('status').className = cls;
+  }
+
+  init();
+})();
+</script>

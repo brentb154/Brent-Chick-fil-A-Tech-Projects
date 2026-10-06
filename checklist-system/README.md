@@ -10,7 +10,8 @@ Replaces the eight separate FOH checklist Google Forms with one master sheet, th
 
 | To... | Edit |
 |---|---|
-| Add or remove a task, change its days or photo | **Items** row. New tasks need a new, never-reused Item ID. |
+| Add a task | **Checklists > Add a task**. Pick the checklist, position, days (one, several, or every day), photo, and where it goes in the list. It fills in the Item ID and Order and puts the row with that position's other tasks. |
+| Remove a task, change its days or photo | **Items** row. Uncheck Active to turn a task off. A row added by hand needs a new, never-reused Item ID. |
 | Change a due / late time | **Checklists** Due by / Late after. Applies from the next morning's rows. |
 | Change who gets late alerts | **Settings** "FOH escalation email" (read on every run) |
 | Change summary recipients | **Settings** "Daily summary recipients" |
@@ -43,6 +44,8 @@ Edits made during the day show up in the next morning's forms. Use *Rebuild form
 | `PhotoPage.html`, `PhotoJavaScript.html`, `PhotoStylesheet.html` | The upload page people see on their phone |
 | `11_Photo_Viewer.gs` | Checklists > View photos: one day's statuses, could-not-complete tasks, notes and photos |
 | `PhotoViewer.html`, `PhotoViewerJavaScript.html`, `PhotoViewerStylesheet.html` | The View photos pop-up |
+| `12_Add_Item.gs` | Checklists > Add a task: next Item ID, row placement, Order renumbering |
+| `AddItem.html`, `AddItemJavaScript.html`, `AddItemStylesheet.html` | The Add a task pop-up |
 
 ## How it runs
 
