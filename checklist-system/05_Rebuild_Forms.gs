@@ -12,7 +12,7 @@ var Q_POSITION = 'Which position are you checking off?';
 var Q_NOTES = 'Anything not completed or needing attention?';
 var ANSWER_DONE = 'Complete';
 var ANSWER_NOT_DONE = 'Could not complete';
-var PHOTO_SUFFIX = ' **EMAIL PICTURES**';
+var PHOTO_SUFFIX = ' **TAKE PICTURES**';
 var REBUILD_TIME_LIMIT_MS = 3 * 60 * 1000; // leaves room for one long form inside the 6-minute limit
 
 // Morning step: validate, rebuild, then create today's Daily Status rows.
