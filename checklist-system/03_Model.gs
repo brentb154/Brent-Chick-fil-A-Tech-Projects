@@ -24,10 +24,14 @@ function loadModel_() {
     formLink: colOrThrow_(cl, 'Form link')
   };
   var clDays = DAY_SHORT.map(function (d) { return cl.col(d); }); // -1 = no column (e.g. Sun)
+  var clRotation = cl.col('Rotation length (weeks)');               // optional columns
+  var clRotationStart = cl.col('Rotation start');
 
   cl.display.forEach(function (r, i) {
     var id = r[c.id].trim();
     if (!id) return;
+    var rotationText = clRotation > -1 ? r[clRotation].trim() : '';
+    var rotationStartText = clRotationStart > -1 ? r[clRotationStart].trim() : '';
     var checklist = {
       row: i + 2,
       id: id,
@@ -42,6 +46,10 @@ function loadModel_() {
       active: isTrue_(r[c.active]),
       formId: r[c.formId].trim(),
       formLink: r[c.formLink].trim(),
+      rotationText: rotationText,
+      rotationStartText: rotationStartText,
+      rotationLength: /^\d+$/.test(rotationText) && Number(rotationText) > 0 ? Number(rotationText) : 0,
+      rotationStart: toDateKey_(rotationStartText),
       positions: [],
       items: []
     };
@@ -79,10 +87,13 @@ function loadModel_() {
     active: colOrThrow_(it, 'Active')
   };
   var itDays = DAY_SHORT.map(function (d) { return it.col(d); });
+  var itWeeks = it.col('Rotation weeks'); // optional column
   it.display.forEach(function (r, i) {
     var id = r[t.id].trim();
     var task = r[t.task].trim();
     if (!id && !task) return;
+    var weeksText = itWeeks > -1 ? r[itWeeks].trim() : '';
+    var weeks = parseWeeks_(weeksText);
     var item = {
       row: i + 2,
       id: id,
@@ -92,6 +103,9 @@ function loadModel_() {
       order: orderOf_(r[t.order]),
       task: task,
       days: itDays.map(function (k) { return k > -1 && isTrue_(r[k]); }),
+      weeksText: weeksText,
+      weeks: weeks || [],           // [] = every week
+      weeksBad: weeks === null,     // Validate flags it
       photo: /^email$/i.test(r[t.photo].trim()),
       reference: r[t.reference].trim(),
       active: isTrue_(r[t.active])
@@ -105,6 +119,13 @@ function loadModel_() {
 
 function posKey_(name) {
   return String(name || '').replace(/^'/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+// "1, 4" -> [1, 4]; "" -> []; null if anything isn't a whole number
+function parseWeeks_(text) {
+  var parts = String(text || '').split(/[,;\s]+/).filter(function (s) { return s; });
+  if (parts.some(function (s) { return !/^\d+$/.test(s); })) return null;
+  return parts.map(Number);
 }
 
 function orderOf_(v) {
@@ -125,9 +146,20 @@ function requiredPositions_(checklist) {
     .sort(function (a, b) { return a.order - b.order || a.row - b.row; });
 }
 
-// Active tasks checked for that weekday, sorted by position (or section) then Order.
+// Rotating checklists (e.g. a different set of Sunday tasks each week for 6 weeks): which
+// week dateKey is in, 1..length. Week 1 starts on "Rotation start" and each week is 7 days.
+// 0 when the checklist doesn't rotate.
+function rotationWeek_(checklist, dateKey) {
+  var n = checklist.rotationLength;
+  if (!n || !checklist.rotationStart) return 0;
+  var weeks = Math.floor((dayNumber_(dateKey) - dayNumber_(checklist.rotationStart)) / 7);
+  return ((weeks % n) + n) % n + 1;
+}
+
+// Active tasks checked for that weekday (and that rotation week), sorted by position (or section) then Order.
 function itemsOn_(checklist, dateKey) {
   var day = dayIndex_(dateKey);
+  var week = rotationWeek_(checklist, dateKey);
   var rank = {};
   if (checklist.perPosition) {
     requiredPositions_(checklist).forEach(function (p, i) { rank[p.key] = i; });
@@ -137,7 +169,7 @@ function itemsOn_(checklist, dateKey) {
     });
   }
   return checklist.items
-    .filter(function (it) { return it.active && it.days[day]; })
+    .filter(function (it) { return it.active && it.days[day] && (!it.weeks.length || it.weeks.indexOf(week) > -1); })
     .sort(function (a, b) {
       var ra = rank[a.positionKey] === undefined ? 999 : rank[a.positionKey];
       var rb = rank[b.positionKey] === undefined ? 999 : rank[b.positionKey];

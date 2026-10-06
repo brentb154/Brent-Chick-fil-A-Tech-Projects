@@ -10,8 +10,9 @@ Replaces the eight separate FOH checklist Google Forms with one master sheet, th
 
 | To... | Edit |
 |---|---|
-| Add a task | **Checklists > Add a task**. Pick the checklist, position, days (one, several, or every day), photo, and where it goes in the list. It fills in the Item ID and Order and puts the row with that position's other tasks. |
-| Remove a task, change its days or photo | **Items** row. Uncheck Active to turn a task off. A row added by hand needs a new, never-reused Item ID. |
+| Add a task | **Checklists > Add a task**. Pick the checklist, position, days (one, several, or every day), rotation weeks (rotating checklists only), photo, and where it goes in the list. It fills in the Item ID and Order and puts the row with that position's other tasks. |
+| Change or turn off a task | **Checklists > Edit a task**. Change the wording, days, rotation weeks, photo, reference, on/off, or its place in the list. The Item ID never changes, so its history stays together. Tasks are turned off, not deleted. To move a task to another position, turn it off and add it there. A row added by hand needs a new, never-reused Item ID. |
+| Rotate tasks week to week (Sunday Rotation) | **Checklists** "Rotation length (weeks)" (e.g. 6) and "Rotation start" (the date Week 1 starts). Each task's **Items** "Rotation weeks" says which weeks it's on: `3`, or `1, 5`; blank = every week. The Add/Edit pop-up shows which week the next day falls in. |
 | Change a due / late time | **Checklists** Due by / Late after. Applies from the next morning's rows. |
 | Change who gets late alerts | **Settings** "FOH escalation email" (read on every run) |
 | Change summary recipients | **Settings** "Daily summary recipients" |
@@ -44,8 +45,9 @@ Edits made during the day show up in the next morning's forms. Use *Rebuild form
 | `PhotoPage.html`, `PhotoJavaScript.html`, `PhotoStylesheet.html` | The upload page people see on their phone |
 | `11_Photo_Viewer.gs` | Checklists > View photos: one day's statuses, could-not-complete tasks, notes and photos |
 | `PhotoViewer.html`, `PhotoViewerJavaScript.html`, `PhotoViewerStylesheet.html` | The View photos pop-up |
-| `12_Add_Item.gs` | Checklists > Add a task: next Item ID, row placement, Order renumbering |
-| `AddItem.html`, `AddItemJavaScript.html`, `AddItemStylesheet.html` | The Add a task pop-up |
+| `12_Add_Item.gs` | Checklists > Add a task: next Item ID, row placement, Order renumbering (shared with Edit) |
+| `13_Edit_Item.gs` | Checklists > Edit a task: saves changes only if the row hasn't changed since the pop-up opened |
+| `AddItem.html`, `AddItemJavaScript.html`, `AddItemStylesheet.html` | The Add / Edit a task pop-up |
 
 ## How it runs
 
@@ -54,6 +56,8 @@ One time-driven trigger, `quarterHourTick`, runs every 15 minutes:
 1. After **Rebuild forms at** (once a day), it runs Validate, rebuilds the forms, creates today's Daily Status rows, and recreates any missing form submit trigger. Only one rebuild can run at a time. If Validate finds a blocking problem, yesterday's forms stay up, the FOH escalation email gets one warning that day, and every later run retries, so fixing the sheet is enough.
 2. Every run, it marks past days Missed and flips overdue rows to Late. In `Live` mode it also sends one late alert per row once Late after passes. There's no heads-up before the due time.
 3. After **Daily summary at** (once a day), it checks yesterday. It emails only if something needs attention: anything Missed, a task marked "Could not complete", a note, a position with photo tasks that uploaded no photos, or a photo count far below usual. A clean night sends nothing; Completed late still counts as done. The weekly scorecard goes out on **Weekly scorecard day** (Tuesday).
+
+**Rotating checklists:** weeks count in 7-day blocks from "Rotation start" (Week 1), then repeat after "Rotation length" weeks. Each day's form gets only the tasks for that day and that week. Validate blocks a rotation length or start that isn't a number or date, and a task week outside 1 to the length. It warns if a week would have no tasks.
 
 **Photo check:** for each checklist, it compares last night's photo count with the last 28 nights it was submitted. It flags the night if the count is below mean − k × std dev, where k is "Photo alert sensitivity", default 2. The std dev is floored at 1, so one missing photo on a very steady checklist isn't flagged. It needs 10 nights of history first; until then the email shows "building history".
 

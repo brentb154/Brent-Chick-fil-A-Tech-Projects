@@ -1,6 +1,7 @@
 <script>
 (function () {
   var data = PAGE;
+  var mode = PAGE.mode === 'edit' ? 'edit' : 'add';
   var busy = false;
 
   function $(id) { return document.getElementById(id); }
@@ -12,34 +13,50 @@
     return o;
   }
 
-  function boxes() {
-    return Array.prototype.slice.call($('dayBoxes').querySelectorAll('input'));
+  function addBox(parentId, value, text) {
+    var label = document.createElement('label');
+    label.className = 'day';
+    var box = document.createElement('input');
+    box.type = 'checkbox';
+    box.value = value;
+    label.appendChild(box);
+    label.appendChild(document.createTextNode(text));
+    $(parentId).appendChild(label);
+  }
+
+  function boxes(parentId) {
+    return Array.prototype.slice.call($(parentId).querySelectorAll('input'));
   }
 
   function init() {
-    data.days.forEach(function (d) {
-      var label = document.createElement('label');
-      label.className = 'day';
-      var box = document.createElement('input');
-      box.type = 'checkbox';
-      box.value = d;
-      label.appendChild(box);
-      label.appendChild(document.createTextNode(d));
-      $('dayBoxes').appendChild(label);
-    });
+    data.days.forEach(function (d) { addBox('dayBoxes', d, d); });
     $('photoNote').textContent = '(adds ' + data.photoNote + ' to it on the form)';
 
+    $('modeAdd').addEventListener('click', function () { setMode('add'); });
+    $('modeEdit').addEventListener('click', function () { setMode('edit'); });
     $('checklist').addEventListener('change', function () { showSections(); say('', ''); });
-    $('section').addEventListener('change', function () { showAfter(); say('', ''); });
+    $('section').addEventListener('change', function () { showTasks(); say('', ''); });
+    $('pick').addEventListener('change', function () { loadTask(); say('', ''); });
     $('everyDay').addEventListener('click', function () {
-      boxes().forEach(function (b) { if (!b.disabled) b.checked = true; });
+      boxes('dayBoxes').forEach(function (b) { if (!b.disabled) b.checked = true; });
     });
-    $('add').addEventListener('click', add);
+    $('save').addEventListener('click', save);
     $('close').addEventListener('click', function () { google.script.host.close(); });
     $('form').addEventListener('submit', function (e) { e.preventDefault(); }); // Enter never submits
 
     showChecklists();
-    showSections();
+    setMode(mode);
+  }
+
+  function setMode(m) {
+    mode = m;
+    $('modeAdd').classList.toggle('on', m === 'add');
+    $('modeEdit').classList.toggle('on', m === 'edit');
+    $('save').textContent = m === 'edit' ? 'Save changes' : 'Add task';
+    $('pickWrap').classList.toggle('hidden', m !== 'edit');
+    $('activeWrap').classList.toggle('hidden', m !== 'edit');
+    say('', '');
+    showSections($('section').value);
   }
 
   function checklist() {
@@ -53,10 +70,16 @@
     return c ? c.sections.filter(function (s) { return s.name === name; })[0] : null;
   }
 
+  function pickedTask() {
+    var s = section();
+    var id = $('pick').value;
+    return s && id ? s.tasks.filter(function (t) { return t.id === id; })[0] : null;
+  }
+
   // A checklist with no tasks yet (and no positions) gets a box to type its first section
   function typingSection() {
     var c = checklist();
-    return !!c && !c.perPosition && !c.sections.length;
+    return mode === 'add' && !!c && !c.perPosition && !c.sections.length;
   }
 
   function showChecklists(keepId) {
@@ -69,7 +92,7 @@
     if (!sel.value && sel.options.length) sel.selectedIndex = 0;
   }
 
-  function showSections(keepName) {
+  function showSections(keepName, keepTaskId) {
     var c = checklist();
     var sel = $('section');
     sel.innerHTML = '';
@@ -79,7 +102,7 @@
     $('newSection').classList.toggle('hidden', !typingSection());
     if (c) {
       if (c.sections.length > 1) sel.appendChild(option('', c.perPosition ? 'Pick a position' : 'Pick a section'));
-      if (!c.sections.length && c.perPosition) sel.appendChild(option('', 'No positions on the Positions tab'));
+      if (!c.sections.length) sel.appendChild(option('', c.perPosition ? 'No positions on the Positions tab' : 'No tasks yet'));
       c.sections.forEach(function (s) {
         sel.appendChild(option(s.name, s.name + (s.note ? ' (' + s.note + ')' : '')));
       });
@@ -88,80 +111,151 @@
     if (sel.selectedIndex < 0) sel.selectedIndex = 0;
 
     // Days the checklist doesn't run can't be picked
-    boxes().forEach(function (b, i) {
+    boxes('dayBoxes').forEach(function (b, i) {
       var runs = !c || c.runs[i];
       b.disabled = !runs;
       if (!runs) b.checked = false;
       b.parentNode.classList.toggle('off', !runs);
       b.parentNode.title = runs ? '' : 'This checklist doesn\'t run on ' + b.value + '.';
     });
-    showAfter();
+
+    // Rotation weeks, for checklists that rotate
+    var r = c && c.rotation;
+    $('weeksWrap').classList.toggle('hidden', !r);
+    $('weekBoxes').innerHTML = '';
+    if (r) {
+      for (var w = 1; w <= r.length; w++) addBox('weekBoxes', String(w), String(w));
+      $('weeksNote').textContent = '(' + (r.next ? r.next + ' is Week ' + r.week + ' of ' + r.length + '. ' : '') + 'None checked = every week.)';
+    }
+    showTasks(keepTaskId);
   }
 
-  function showAfter(keepId) {
-    var s = section();
-    var sel = $('after');
-    sel.innerHTML = '';
-    sel.appendChild(option('', s && s.tasks.length ? 'At the end of ' + s.name : 'At the end'));
-    if (s) {
-      s.tasks.forEach(function (t) {
-        sel.appendChild(option(t.id, 'After: ' + shorten(t.task) + (t.active ? '' : ' (turned off)')));
-      });
+  function showTasks(keepId) {
+    if (mode === 'add') {
+      clearFields();
+      $('fields').classList.remove('hidden');
+      $('save').classList.remove('hidden');
+      showPlace(null);
+      return;
     }
+    var s = section();
+    var sel = $('pick');
+    sel.innerHTML = '';
+    sel.appendChild(option('', s && s.tasks.length ? 'Pick a task' : 'No tasks here'));
+    if (s) s.tasks.forEach(function (t) { sel.appendChild(option(t.id, taskLabel(t))); });
     sel.value = keepId || '';
     if (sel.selectedIndex < 0) sel.selectedIndex = 0;
+    loadTask();
   }
 
-  function shorten(text) {
-    return text.length > 80 ? text.slice(0, 77) + '…' : text;
+  // Edit mode: fill the fields from the picked task
+  function loadTask() {
+    var t = pickedTask();
+    $('fields').classList.toggle('hidden', !t);
+    $('save').classList.toggle('hidden', !t);
+    if (!t) return;
+    var c = checklist();
+    $('task').value = t.task;
+    boxes('dayBoxes').forEach(function (b, i) {
+      b.checked = t.days[i];
+      b.disabled = !c.runs[i] && !b.checked; // a checked day the checklist skips can still be unchecked
+      b.parentNode.classList.toggle('off', b.disabled);
+    });
+    boxes('weekBoxes').forEach(function (b) { b.checked = t.weeks.indexOf(Number(b.value)) > -1; });
+    $('photo').checked = t.photo;
+    $('reference').value = t.reference;
+    $('active').checked = t.active;
+    showPlace(t);
   }
 
-  function add() {
+  function clearFields() {
+    $('task').value = '';
+    $('reference').value = '';
+    $('photo').checked = false;
+    $('active').checked = true;
+    boxes('dayBoxes').concat(boxes('weekBoxes')).forEach(function (b) { b.checked = false; });
+  }
+
+  function showPlace(self) {
+    var s = section();
+    var tasks = s ? s.tasks.filter(function (t) { return t !== self; }) : [];
+    var sel = $('place');
+    sel.innerHTML = '';
+    if (mode === 'edit') {
+      sel.appendChild(option('keep', 'Where it is now'));
+      if (tasks.length) {
+        sel.appendChild(option('top', 'At the top'));
+        sel.appendChild(option('end', 'At the end'));
+      }
+    } else {
+      sel.appendChild(option('end', tasks.length ? 'At the end of ' + s.name : 'At the end'));
+      if (tasks.length) sel.appendChild(option('top', 'At the top of ' + s.name));
+    }
+    tasks.forEach(function (t) { sel.appendChild(option('after:' + t.id, 'After: ' + taskLabel(t))); });
+  }
+
+  function taskLabel(t) {
+    var text = t.task.length > 80 ? t.task.slice(0, 77) + '…' : t.task;
+    if (t.weeks.length) text += ' (wk ' + t.weeks.join(', ') + ')';
+    return text + (t.active ? '' : ' (turned off)');
+  }
+
+  function save() {
     if (busy) return;
     var c = checklist();
+    var t = mode === 'edit' ? pickedTask() : null;
     var p = {
       checklistId: c ? c.id : '',
       section: typingSection() ? $('newSection').value : $('section').value,
       task: $('task').value,
-      days: boxes().filter(function (b) { return b.checked; }).map(function (b) { return b.value; }),
+      days: boxes('dayBoxes').filter(function (b) { return b.checked; }).map(function (b) { return b.value; }),
+      weeks: boxes('weekBoxes').filter(function (b) { return b.checked; }).map(function (b) { return Number(b.value); }),
       photo: $('photo').checked,
       reference: $('reference').value,
-      afterId: $('after').value
+      place: $('place').value
     };
+    if (t) {
+      p.id = t.id;
+      p.active = $('active').checked;
+      p.was = t;
+    }
     var problem = !c ? 'Pick a checklist.'
       : !p.section.trim() ? (c.perPosition ? 'Pick a position.' : 'Pick a section.')
+      : mode === 'edit' && !t ? 'Pick a task to edit.'
       : !p.task.trim() ? 'Type the task.'
       : !p.days.length ? 'Pick at least one day.'
       : '';
     if (problem) return say(problem, 'bad');
 
     busy = true;
-    $('add').disabled = true;
-    say('Adding…', '');
-    google.script.run
+    $('save').disabled = true;
+    say(mode === 'edit' ? 'Saving…' : 'Adding…', '');
+    var editing = mode === 'edit';
+    var run = google.script.run
       .withSuccessHandler(function (res) {
         data = res.data;
         showChecklists(p.checklistId);
-        showSections(res.section);
-        showAfter(p.afterId ? res.id : ''); // the next task goes right after this one
-        $('task').value = '';
-        $('reference').value = '';
-        $('photo').checked = false;
-        boxes().forEach(function (b) { b.checked = false; });
+        if (editing) {
+          showSections(res.section, res.id); // reloads the task as saved
+        } else {
+          showSections(res.section);
+          $('place').value = p.place === 'end' ? 'end' : 'after:' + res.id; // next one goes after it
+          $('task').focus();
+        }
         done();
         say(res.message, 'good');
-        $('task').focus();
       })
       .withFailureHandler(function (err) {
         done();
         say((err && err.message) || String(err), 'bad');
-      })
-      .serverAddItem(p);
+      });
+    if (editing) run.serverEditItem(p);
+    else run.serverAddItem(p);
   }
 
   function done() {
     busy = false;
-    $('add').disabled = false;
+    $('save').disabled = false;
   }
 
   function say(msg, cls) {

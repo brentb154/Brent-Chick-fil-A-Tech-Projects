@@ -5,6 +5,10 @@
     <?!= include('AddItemStylesheet'); ?>
   </head>
   <body>
+    <div class="modes">
+      <button type="button" id="modeAdd" class="mode">Add a task</button>
+      <button type="button" id="modeEdit" class="mode">Edit a task</button>
+    </div>
     <form id="form" autocomplete="off">
       <label for="checklist">Checklist</label>
       <select id="checklist"></select>
@@ -13,25 +17,38 @@
       <select id="section"></select>
       <input id="newSection" class="hidden" placeholder="Section name, e.g. Restroom">
 
-      <label for="task">Task</label>
-      <textarea id="task" rows="3" placeholder="Write it the way it should read on the form."></textarea>
-
-      <span class="label">Days</span>
-      <div class="days">
-        <button type="button" id="everyDay">Every day</button>
-        <span id="dayBoxes"></span>
+      <div id="pickWrap" class="hidden">
+        <label for="pick">Task to edit</label>
+        <select id="pick"></select>
       </div>
 
-      <label class="check"><input type="checkbox" id="photo"> Needs a photo <span class="small" id="photoNote"></span></label>
+      <div id="fields">
+        <label for="task">Task</label>
+        <textarea id="task" rows="3" placeholder="Write it the way it should read on the form."></textarea>
 
-      <label for="reference">Reference material <span class="small">(optional, shown under the task)</span></label>
-      <input id="reference">
+        <span class="label">Days</span>
+        <div class="days">
+          <button type="button" id="everyDay">Every day</button>
+          <span id="dayBoxes" class="boxes"></span>
+        </div>
 
-      <label for="after">Put it</label>
-      <select id="after"></select>
+        <div id="weeksWrap" class="hidden">
+          <span class="label">Rotation weeks <span class="small" id="weeksNote"></span></span>
+          <span id="weekBoxes" class="boxes"></span>
+        </div>
+
+        <label class="check"><input type="checkbox" id="photo"> Needs a photo <span class="small" id="photoNote"></span></label>
+        <label class="check hidden" id="activeWrap"><input type="checkbox" id="active"> On the form <span class="small">(uncheck to turn it off; it stays on the Items tab)</span></label>
+
+        <label for="reference">Reference material <span class="small">(optional, shown under the task)</span></label>
+        <input id="reference">
+
+        <label for="place">Put it</label>
+        <select id="place"></select>
+      </div>
 
       <div class="actions">
-        <button type="button" id="add" class="primary">Add task</button>
+        <button type="button" id="save" class="primary">Add task</button>
         <button type="button" id="close">Close</button>
       </div>
       <p id="status"></p>

@@ -253,6 +253,12 @@ function addDays_(key, n) {
   return d.getUTCFullYear() + '-' + pad2_(d.getUTCMonth() + 1) + '-' + pad2_(d.getUTCDate());
 }
 
+// Whole days since 1970-01-01 for a "yyyy-MM-dd" key. UTC dates, so DST can't skew the count.
+function dayNumber_(key) {
+  var p = key.split('-');
+  return Math.round(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])) / 86400000);
+}
+
 // 0 = Sunday ... 6 = Saturday
 function dayIndex_(key) {
   var p = key.split('-');

@@ -44,6 +44,14 @@ function validateSheet_() {
       var known = checklist.positions.some(function (p) { return p.key === it.positionKey; });
       if (!known) out.blocking.push('Items row ' + it.row + ' (' + it.id + '): position "' + it.positionName + '" is not listed for ' + checklist.id + ' on the Positions tab.');
     }
+    if (it.active && it.weeksText) {
+      var n = checklist.rotationLength;
+      if (!n) {
+        out.blocking.push('Items row ' + it.row + ' (' + it.id + '): Rotation weeks is "' + it.weeksText + '", but ' + checklist.id + ' has no Rotation length on the Checklists tab.');
+      } else if (it.weeksBad || it.weeks.some(function (w) { return w < 1 || w > n; })) {
+        out.blocking.push('Items row ' + it.row + ' (' + it.id + '): Rotation weeks "' + it.weeksText + '" should be week numbers from 1 to ' + n + ', e.g. 2 or 1, 4.');
+      }
+    }
   });
 
   model.positionRows.forEach(function (p) {
@@ -64,6 +72,7 @@ function validateSheet_() {
     if (!c.days.some(function (d) { return d; })) out.blocking.push(where + 'no days are checked.');
     if (c.perPosition && !requiredPositions_(c).length) out.blocking.push(where + 'set to one submission per position, but no required positions are on the Positions tab.');
     if (!c.area) out.warnings.push(where + 'Area is blank, so late alerts have nowhere to go.');
+    if (c.rotationText || c.rotationStartText) checkRotation_(out, c, where);
   });
 
   // Settings times
@@ -97,6 +106,20 @@ function validateSheet_() {
   checkEmails_(out, 'Daily summary recipients', cfg.get('Daily summary recipients'), 'no daily summary will be sent.');
 
   return out;
+}
+
+// A rotating checklist needs a length and a start date, and every week should have tasks
+function checkRotation_(out, c, where) {
+  if (!c.rotationLength) out.blocking.push(where + 'Rotation length "' + c.rotationText + '" should be a whole number of weeks, e.g. 6.');
+  if (!c.rotationStart) {
+    out.blocking.push(where + 'Rotation start "' + c.rotationStartText + '" is not a date. Use M/D/YYYY, e.g. 10/11/2026.');
+  } else if (!c.days[dayIndex_(c.rotationStart)]) {
+    out.warnings.push(where + 'Rotation start (' + c.rotationStartText + ') is a ' + DAY_LONG[dayIndex_(c.rotationStart)] + ', a day this checklist doesn\'t run. Weeks still count from that date.');
+  }
+  for (var w = 1; w <= c.rotationLength; w++) {
+    var any = c.items.some(function (it) { return it.active && (!it.weeks.length || it.weeks.indexOf(w) > -1); });
+    if (!any) out.warnings.push(where + 'rotation week ' + w + ' has no active tasks, so that week\'s form would be empty.');
+  }
 }
 
 function checkEmails_(out, label, text, blankMessage) {

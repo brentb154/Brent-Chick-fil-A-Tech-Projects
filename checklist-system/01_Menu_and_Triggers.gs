@@ -22,6 +22,7 @@
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Checklists')
     .addItem('Add a task', 'menuAddItem')
+    .addItem('Edit a task', 'menuEditItem')
     .addItem('Rebuild forms now', 'menuRebuildForms')
     .addItem('Validate sheet', 'menuValidate')
     .addItem('Send test alert to me', 'menuSendTestAlert')
