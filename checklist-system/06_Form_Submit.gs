@@ -36,6 +36,7 @@ function logSubmission_(e) {
   // Sort answers into leader / position / notes / tasks
   var leader = '';
   var position = '';
+  var stationCode = '';
   var notes = [];
   var taskAnswers = [];
   response.getItemResponses().forEach(function (ir) {
@@ -49,11 +50,16 @@ function logSubmission_(e) {
     var answer = String(ir.getResponse() || '').trim();
     if (title === Q_LEADER) leader = answer;
     else if (title === Q_POSITION) position = answer;
+    else if (title === Q_STATION_CODE) stationCode = answer.toUpperCase();
     else if (title === Q_NOTES) { if (answer) notes.push(answer); }
     else taskAnswers.push({ questionId: String(item.getId()), task: title, result: answer });
   });
   var answeredPosition = position;
   if (!checklist.perPosition) position = '';
+
+  // Station QR checklists: only a submission opened from that station's own QR code counts
+  var counted = !(checklist.stationQr && checklist.perPosition) || stationCode === stationCode_(checklist.id, position);
+  if (!counted) notes.push('Not counted: this wasn\'t opened from the ' + position + ' QR code.');
   var complete = taskAnswers.filter(function (a) { return a.result === ANSWER_DONE; }).length;
   var notComplete = taskAnswers.filter(function (a) { return a.result === ANSWER_NOT_DONE; }).length;
   var submissionId = 'S-' + Utilities.getUuid().slice(0, 8).toUpperCase();
@@ -85,7 +91,7 @@ function logSubmission_(e) {
     var statusMatch = findStatusRow_(moment.dateKey, checklist, position);
     var lateText = statusMatch ? statusMatch.lateText : checklist.lateText;
     var lateMin = parseTimeToMinutes_(lateText);
-    var onTime = lateMin === null ? '' : (moment.minutes < bizMinutes_(lateMin, cfg) ? 'Yes' : 'No');
+    var onTime = !counted ? 'Not counted' : lateMin === null ? '' : (moment.minutes < bizMinutes_(lateMin, cfg) ? 'Yes' : 'No');
 
     appendRows_(openTab_(TABS.submissions), [{
       'Submission ID': submissionId,
@@ -117,7 +123,7 @@ function logSubmission_(e) {
     // First submission sets the status; later duplicates are logged above but don't change it.
     // Missed is included: a 3:59 AM submission can land just after the 4:00 AM sweep marked the row Missed.
     var open = ['Pending', 'Late', 'Missed'];
-    if (statusMatch && open.indexOf(statusMatch.status) > -1) {
+    if (counted && statusMatch && open.indexOf(statusMatch.status) > -1) {
       var tab = statusMatch.tab;
       setCell_(tab, statusMatch.index, 'Status', onTime === 'No' ? 'Completed late' : 'Complete');
       setCell_(tab, statusMatch.index, 'Submitted at', submittedAt);

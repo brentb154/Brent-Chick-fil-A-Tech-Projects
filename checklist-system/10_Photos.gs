@@ -43,7 +43,11 @@ function doGet(e) {
   var page;
   if (!cfg.photoKey || params.k !== cfg.photoKey) {
     page = HtmlService.createHtmlOutput('<p style="font-family:Arial,sans-serif;font-size:18px;padding:24px">' +
-      'This photo link is out of date. Ask a manager for the current link or QR code.</p>');
+      'This link is out of date. Ask a manager for the current link or QR code.</p>');
+  } else if (params.station) {
+    return stationPage_(cfg, params);   // a station's QR code (14_Station_QR.gs)
+  } else if (params.qr) {
+    return qrSheetPage_(cfg, params);   // printable station QR codes
   } else {
     var t = HtmlService.createTemplateFromFile('PhotoPage');
     t.data = JSON.stringify(photoPageData_(cfg, params.k, params.list || '')).replace(/</g, '\\u003c');

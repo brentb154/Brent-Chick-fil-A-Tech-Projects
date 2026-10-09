@@ -12,6 +12,7 @@ Replaces the eight separate FOH checklist Google Forms with one master sheet, th
 |---|---|
 | Add a task | **Checklists > Add a task**. Pick the checklist, position, days (one, several, or every day), rotation weeks (rotating checklists only), photo, and where it goes in the list. It fills in the Item ID and Order and puts the row with that position's other tasks. |
 | Change or turn off a task | **Checklists > Edit a task**. Change the wording, days, rotation weeks, photo, reference, on/off, or its place in the list. The Item ID never changes, so its history stays together. Tasks are turned off, not deleted. To move a task to another position, turn it off and add it there. A row added by hand needs a new, never-reused Item ID. |
+| Check off stations by QR code (Daily Facilities Walk) | **Checklists** "Station QR codes" checked (needs one submission per position). Each position is a station. **Checklists > Print station QR codes** prints one code per station; post each at its station. A scan opens today's form with the station, its code and the person's name filled in. A station only counts when the form came from that station's own QR code; anything else is logged with a "Not counted" note and the station stays missed. Reprint after renaming, adding or removing a station. Changing "Photo upload key" retires the codes. |
 | Rotate tasks week to week (Sunday Rotation) | **Checklists** "Rotation length (weeks)" (e.g. 6) and "Rotation start" (the date Week 1 starts). Each task's **Items** "Rotation weeks" says which weeks it's on: `3`, or `1, 5`; blank = every week. The Add/Edit pop-up shows which week the next day falls in. |
 | Change a due / late time | **Checklists** Due by / Late after. Applies from the next morning's rows. |
 | Change who gets late alerts | **Settings** "FOH escalation email" (read on every run) |
@@ -49,6 +50,8 @@ Edits made during the day show up in the next morning's forms. Use *Rebuild form
 | `12_Add_Item.gs` | Checklists > Add a task: next Item ID, row placement, Order renumbering (shared with Edit) |
 | `13_Edit_Item.gs` | Checklists > Edit a task: saves changes only if the row hasn't changed since the pop-up opened |
 | `AddItem.html`, `AddItemJavaScript.html`, `AddItemStylesheet.html` | The Add / Edit a task pop-up |
+| `14_Station_QR.gs` | Station QR codes: per-station codes, the page a QR opens, the printable sheet, today's form entry IDs |
+| `StationPage.html`, `QrSheet.html` | What a station QR opens; the printable QR sheet (uses qrcodejs from cdnjs) |
 
 ## How it runs
 

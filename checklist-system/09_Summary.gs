@@ -164,7 +164,7 @@ function weeklyHtml_(data, start, end) {
   // By leader. Names are free text: match trimmed and case-insensitive.
   var leaders = {};
   data.subs.forEach(function (s) {
-    if (s.dateKey < start || s.dateKey > end) return;
+    if (s.dateKey < start || s.dateKey > end || s.onTime === 'Not counted') return;
     var key = String(s.leader).replace(/\s+/g, ' ').trim().toLowerCase() || '(no name)';
     var g = leaders[key] = leaders[key] || { name: titleCase_(key), subs: 0, onTime: 0, expected: 0, complete: 0 };
     g.subs++;

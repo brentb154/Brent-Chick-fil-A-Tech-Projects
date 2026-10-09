@@ -10,6 +10,7 @@
 var Q_LEADER = 'Leader completing this checklist';
 var Q_POSITION = 'Which position are you checking off?';
 var Q_NOTES = 'Anything not completed or needing attention?';
+var Q_STATION_CODE = 'Station code (filled in when you scan the station\'s QR code)';
 var ANSWER_DONE = 'Complete';
 var ANSWER_NOT_DONE = 'Could not complete';
 var PHOTO_SUFFIX = ' **TAKE PICTURES**';
@@ -154,12 +155,13 @@ function buildForm_(form, checklist, dateKey, cfg) {
 
   clearForm_(form);
 
-  form.addTextItem().setTitle(Q_LEADER).setRequired(true);
+  var leaderQ = form.addTextItem().setTitle(Q_LEADER).setRequired(true);
   var items = itemsOn_(checklist, dateKey);
   var mapRows = [];
 
   if (checklist.perPosition) {
     var positionQ = form.addMultipleChoiceItem().setTitle(Q_POSITION).setRequired(true);
+    var codeQ = checklist.stationQr ? form.addTextItem().setTitle(Q_STATION_CODE).setRequired(true) : null;
     var choices = [];
     requiredPositions_(checklist).forEach(function (pos, idx) {
       var page = form.addPageBreakItem().setTitle(pos.name);
@@ -173,6 +175,7 @@ function buildForm_(form, checklist, dateKey, cfg) {
       form.addParagraphTextItem().setTitle(Q_NOTES);
     });
     positionQ.setChoices(choices);
+    if (codeQ && choices.length) savePrefill_(form, checklist, leaderQ, positionQ, codeQ, requiredPositions_(checklist)[0].name);
   } else {
     addTaskQuestions_(form, items, checklist.id, dateKey, mapRows);
     form.addParagraphTextItem().setTitle(Q_NOTES);

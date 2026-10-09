@@ -73,6 +73,8 @@ function validateSheet_() {
     if (c.perPosition && !requiredPositions_(c).length) out.blocking.push(where + 'set to one submission per position, but no required positions are on the Positions tab.');
     if (!c.area) out.warnings.push(where + 'Area is blank, so late alerts have nowhere to go.');
     if (c.rotationText || c.rotationStartText) checkRotation_(out, c, where);
+    if (c.stationQr && !c.perPosition) out.warnings.push(where + '"Station QR codes" only works with "One submission per position?" set to TRUE.');
+    if (c.stationQr && !cfg.photosOn) out.warnings.push(where + 'Station QR codes use the photo web app. Set "Photo upload page" and "Photo upload key" in Settings.');
   });
 
   // Settings times

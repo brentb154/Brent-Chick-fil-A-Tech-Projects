@@ -27,6 +27,7 @@ function onOpen() {
     .addItem('Validate sheet', 'menuValidate')
     .addItem('Send test alert to me', 'menuSendTestAlert')
     .addItem('Show form links', 'menuShowFormLinks')
+    .addItem('Print station QR codes', 'menuStationQr')
     .addItem('View photos', 'menuViewPhotos')
     .addSeparator()
     .addItem('Install / repair triggers', 'menuInstallTriggers')

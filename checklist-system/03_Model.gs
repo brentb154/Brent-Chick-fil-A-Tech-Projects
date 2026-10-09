@@ -26,6 +26,7 @@ function loadModel_() {
   var clDays = DAY_SHORT.map(function (d) { return cl.col(d); }); // -1 = no column (e.g. Sun)
   var clRotation = cl.col('Rotation length (weeks)');               // optional columns
   var clRotationStart = cl.col('Rotation start');
+  var clStationQr = cl.col('Station QR codes');
 
   cl.display.forEach(function (r, i) {
     var id = r[c.id].trim();
@@ -50,6 +51,7 @@ function loadModel_() {
       rotationStartText: rotationStartText,
       rotationLength: /^\d+$/.test(rotationText) && Number(rotationText) > 0 ? Number(rotationText) : 0,
       rotationStart: toDateKey_(rotationStartText),
+      stationQr: clStationQr > -1 && isTrue_(r[clStationQr]), // positions are checked off by QR code (14_Station_QR.gs)
       positions: [],
       items: []
     };
