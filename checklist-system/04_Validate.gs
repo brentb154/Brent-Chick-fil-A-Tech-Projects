@@ -44,6 +44,9 @@ function validateSheet_() {
       var known = checklist.positions.some(function (p) { return p.key === it.positionKey; });
       if (!known) out.blocking.push('Items row ' + it.row + ' (' + it.id + '): position "' + it.positionName + '" is not listed for ' + checklist.id + ' on the Positions tab.');
     }
+    if (it.active && it.answerText && !it.typeIn) {
+      out.warnings.push('Items row ' + it.row + ' (' + it.id + '): Answer "' + it.answerText + '" should be blank or "Type in". Using Complete / Could not complete.');
+    }
     if (it.active && it.weeksText) {
       var n = checklist.rotationLength;
       if (!n) {

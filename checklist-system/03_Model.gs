@@ -89,7 +89,8 @@ function loadModel_() {
     active: colOrThrow_(it, 'Active')
   };
   var itDays = DAY_SHORT.map(function (d) { return it.col(d); });
-  var itWeeks = it.col('Rotation weeks'); // optional column
+  var itWeeks = it.col('Rotation weeks'); // optional columns
+  var itAnswer = it.col('Answer');
   it.display.forEach(function (r, i) {
     var id = r[t.id].trim();
     var task = r[t.task].trim();
@@ -109,6 +110,8 @@ function loadModel_() {
       weeks: weeks || [],           // [] = every week
       weeksBad: weeks === null,     // Validate flags it
       photo: /^email$/i.test(r[t.photo].trim()),
+      answerText: itAnswer > -1 ? r[itAnswer].trim() : '',
+      typeIn: itAnswer > -1 && /^type in$/i.test(r[itAnswer].trim()), // a typed answer instead of Complete / Could not complete
       reference: r[t.reference].trim(),
       active: isTrue_(r[t.active])
     };

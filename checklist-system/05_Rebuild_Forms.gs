@@ -2,9 +2,10 @@
  * ============================================================
  * CHECKLIST SYSTEM - Daily Form Rebuild
  * ============================================================
- * Rebuilds each active checklist's form with only that day's
- * tasks. A form is created once; after that it's reopened by
- * the Form ID in Checklists so the link never changes.
+ * Updates each active checklist's form to that day's tasks,
+ * changing only the questions that differ (15_Form_Sync.gs). A
+ * form is created once; after that it's reopened by the Form ID
+ * in Checklists so the link never changes.
  */
 
 var Q_LEADER = 'Leader completing this checklist';
@@ -14,7 +15,7 @@ var Q_STATION_CODE = 'Station code (filled in when you scan the station\'s QR co
 var ANSWER_DONE = 'Complete';
 var ANSWER_NOT_DONE = 'Could not complete';
 var PHOTO_SUFFIX = ' **TAKE PICTURES**';
-var REBUILD_TIME_LIMIT_MS = 3 * 60 * 1000; // leaves room for one long form inside the 6-minute limit
+var REBUILD_BUDGET_MS = 4 * 60 * 1000; // stops well inside Google's 6-minute limit; the next run carries on
 
 // Morning step: validate, rebuild, then create today's Daily Status rows.
 // Blocking problems keep yesterday's forms and send one warning a day; each run retries.
@@ -44,7 +45,7 @@ function morningRebuild_(cfg, today) {
 function rebuildForms_(cfg, dateKey) {
   if (!claimRebuild_()) return false;
   try {
-    var started = Date.now();
+    var deadline = Date.now() + REBUILD_BUDGET_MS;
     var props = PropertiesService.getScriptProperties();
     var model = loadModel_();
     var active = model.checklists.filter(function (c) { return c.active; });
@@ -54,13 +55,13 @@ function rebuildForms_(cfg, dateKey) {
       var checklist = active[i];
       var doneKey = 'REBUILT_' + checklist.id;
       if (props.getProperty(doneKey) === dateKey) continue;
-      if (Date.now() - started > REBUILD_TIME_LIMIT_MS) return false;
+      if (Date.now() > deadline - 20 * 1000) return false;
 
       // One broken form shouldn't stop the others from rebuilding
       try {
         var form = openOrCreateForm_(checklist);
         if (scheduledOn_(checklist, dateKey, cfg)) {
-          buildForm_(form, checklist, dateKey, cfg);
+          if (!buildForm_(form, checklist, dateKey, cfg, deadline)) return false; // out of time; the next run carries on
         } else {
           closeForm_(form);
         }
@@ -137,7 +138,9 @@ function openOrCreateForm_(checklist) {
   return form;
 }
 
-function buildForm_(form, checklist, dateKey, cfg) {
+// Brings the form up to date for dateKey: header, then only the questions that changed
+// (15_Form_Sync.gs). Returns false if it ran out of time; the next run carries on.
+function buildForm_(form, checklist, dateKey, cfg, deadline) {
   form.setTitle(checklist.name);
   // Photos: the upload page when it's set up, the photo email while it's still filled in (either or both)
   var uploadLink = photoLink_(cfg, checklist.id);
@@ -153,66 +156,35 @@ function buildForm_(form, checklist, dateKey, cfg) {
     : 'Thanks, your checklist is in.');
   if (form.supportsAdvancedResponderPermissions() && !form.isPublished()) form.setPublished(true);
 
-  clearForm_(form);
+  var plan = formPlan_(checklist, dateKey);
+  var synced = syncForm_(form, checklist, plan, dateKey, deadline || Infinity);
+  if (!synced) return false;
 
-  var leaderQ = form.addTextItem().setTitle(Q_LEADER).setRequired(true);
-  var items = itemsOn_(checklist, dateKey);
-  var mapRows = [];
-
-  if (checklist.perPosition) {
-    var positionQ = form.addMultipleChoiceItem().setTitle(Q_POSITION).setRequired(true);
-    var codeQ = checklist.stationQr ? form.addTextItem().setTitle(Q_STATION_CODE).setRequired(true) : null;
-    var choices = [];
-    requiredPositions_(checklist).forEach(function (pos, idx) {
-      var page = form.addPageBreakItem().setTitle(pos.name);
-      // A page break's "go to" controls the END of the section BEFORE it. Setting SUBMIT here
-      // makes the previous position submit instead of running into this one (the old Stocker bug).
-      // The first break follows the intro page, where the position answer decides the route.
-      if (idx > 0) page.setGoToPage(FormApp.PageNavigationType.SUBMIT);
-      choices.push(positionQ.createChoice(pos.name, page));
-      var posItems = items.filter(function (it) { return it.positionKey === pos.key; });
-      addTaskQuestions_(form, posItems, checklist.id, dateKey, mapRows);
-      form.addParagraphTextItem().setTitle(Q_NOTES);
-    });
-    positionQ.setChoices(choices);
-    if (codeQ && choices.length) savePrefill_(form, checklist, leaderQ, positionQ, codeQ, requiredPositions_(checklist)[0].name);
-  } else {
-    addTaskQuestions_(form, items, checklist.id, dateKey, mapRows);
-    form.addParagraphTextItem().setTitle(Q_NOTES);
+  // Station QR links need today's entry IDs, which only change when these questions are new
+  if (checklist.stationQr) {
+    var c = synced.created;
+    var props = PropertiesService.getScriptProperties();
+    if (c.leader || c.position || c.code || !props.getProperty('PREFILL_' + checklist.id)) {
+      var at = function (kind) { return form.getItemById(synced.ids[indexOfKind_(plan, kind)]); };
+      var first = plan[indexOfKind_(plan, 'page')];
+      if (first) savePrefill_(form, checklist, at('leader').asTextItem(), at('position').asMultipleChoiceItem(), at('code').asTextItem(), first.title);
+    }
   }
 
   form.setAcceptingResponses(true);
-  saveFormMap_(checklist.id, dateKey, mapRows);
-}
-
-// Removes every question and section. Forms refuses to delete a section that an answer
-// choice still routes to ("Invalid data updating form"), so questions with choices
-// (including "Which position are you checking off?") go first, then sections and the rest.
-function clearForm_(form) {
-  var choiceTypes = [FormApp.ItemType.MULTIPLE_CHOICE, FormApp.ItemType.LIST, FormApp.ItemType.CHECKBOX];
-  var items = form.getItems();
-  for (var i = items.length - 1; i >= 0; i--) {
-    if (choiceTypes.indexOf(items[i].getType()) > -1) form.deleteItem(items[i]);
-  }
-  items = form.getItems();
-  for (var j = items.length - 1; j >= 0; j--) form.deleteItem(items[j]);
-}
-
-function addTaskQuestions_(form, items, checklistId, dateKey, mapRows) {
-  items.forEach(function (it) {
-    var q = form.addMultipleChoiceItem()
-      .setTitle(it.task + (it.photo ? PHOTO_SUFFIX : ''))
-      .setChoiceValues([ANSWER_DONE, ANSWER_NOT_DONE])
-      .setRequired(true);
-    if (it.reference) q.setHelpText(it.reference);
+  var mapRows = [];
+  plan.forEach(function (s, j) {
+    if (s.kind !== 'task') return;
     mapRows.push({
-      'Checklist ID': checklistId,
+      'Checklist ID': checklist.id,
       'Built for date': dateKey,
-      'Form question ID': String(q.getId()),
-      'Item ID': it.id,
-      'Position': it.positionName
+      'Form question ID': String(synced.ids[j]),
+      'Item ID': s.itemId,
+      'Position': s.position
     });
   });
+  saveFormMap_(checklist.id, dateKey, mapRows);
+  return true;
 }
 
 // Replaces this checklist's rows for dateKey and drops anything older than 14 days.

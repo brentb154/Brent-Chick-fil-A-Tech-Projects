@@ -60,7 +60,7 @@ function logSubmission_(e) {
   // Station QR checklists: only a submission opened from that station's own QR code counts
   var counted = !(checklist.stationQr && checklist.perPosition) || stationCode === stationCode_(checklist.id, position);
   if (!counted) notes.push('Not counted: this wasn\'t opened from the ' + position + ' QR code.');
-  var complete = taskAnswers.filter(function (a) { return a.result === ANSWER_DONE; }).length;
+  var complete = taskAnswers.filter(function (a) { return a.result && a.result !== ANSWER_NOT_DONE; }).length; // typed answers count as done
   var notComplete = taskAnswers.filter(function (a) { return a.result === ANSWER_NOT_DONE; }).length;
   var submissionId = 'S-' + Utilities.getUuid().slice(0, 8).toUpperCase();
 

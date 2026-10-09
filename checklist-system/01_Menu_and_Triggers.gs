@@ -93,7 +93,7 @@ function isTriggerOwner_() {
 function menuRebuildForms() {
   var ui = SpreadsheetApp.getUi();
   var ok = ui.alert('Rebuild forms now',
-    'Rebuilds today\'s forms from the sheet. Anyone filling out a checklist right now will lose their answers. Continue?',
+    'Updates today\'s forms from the sheet (only the questions that changed). Anyone filling out a checklist with a changed question may have to start over. Continue?',
     ui.ButtonSet.YES_NO);
   if (ok !== ui.Button.YES) return;
 
@@ -119,7 +119,7 @@ function menuRebuildForms() {
   ensureDailyStatus_(cfg, today);
   ui.alert(done
     ? 'Forms rebuilt for ' + longLabel_(today) + '.'
-    : 'Ran out of time partway through. The rest will finish on the next automatic check (within 15 minutes).');
+    : 'Not finished yet. The rest finishes on the next automatic check (within 15 minutes).');
 }
 
 function menuValidate() {
