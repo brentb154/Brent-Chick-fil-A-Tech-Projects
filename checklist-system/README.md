@@ -15,6 +15,7 @@ Replaces the eight separate FOH checklist Google Forms with one master sheet, th
 | Rotate tasks week to week (Sunday Rotation) | **Checklists** "Rotation length (weeks)" (e.g. 6) and "Rotation start" (the date Week 1 starts). Each task's **Items** "Rotation weeks" says which weeks it's on: `3`, or `1, 5`; blank = every week. The Add/Edit pop-up shows which week the next day falls in. |
 | Change a due / late time | **Checklists** Due by / Late after. Applies from the next morning's rows. |
 | Change who gets late alerts | **Settings** "FOH escalation email" (read on every run) |
+| Change who hears about system errors | **Settings** "System error emails" (blank = the FOH escalation email). The **Alert Log** "Details" column keeps each error's text. |
 | Change summary recipients | **Settings** "Daily summary recipients" |
 | Change rebuild / summary time | **Settings**. Takes effect on the next 15-minute check. |
 | Turn on reminders + escalations | **Settings** "Alerts mode" → `Live` |
@@ -53,7 +54,7 @@ Edits made during the day show up in the next morning's forms. Use *Rebuild form
 
 One time-driven trigger, `quarterHourTick`, runs every 15 minutes:
 
-1. After **Rebuild forms at** (once a day), it runs Validate, rebuilds the forms, creates today's Daily Status rows, and recreates any missing form submit trigger. Only one rebuild can run at a time. If Validate finds a blocking problem, yesterday's forms stay up, the FOH escalation email gets one warning that day, and every later run retries, so fixing the sheet is enough.
+1. After **Rebuild forms at** (once a day), it runs Validate, rebuilds the forms, creates today's Daily Status rows, and recreates any missing form submit trigger. Today's rows are created even if a form fails to rebuild, so one broken form can't leave the day untracked. The failure is emailed once and retried every 15 minutes. Only one rebuild can run at a time. If Validate finds a blocking problem, yesterday's forms stay up, the FOH escalation email gets one warning that day, and every later run retries, so fixing the sheet is enough.
 2. Every run, it marks past days Missed and flips overdue rows to Late. In `Live` mode it also sends one late alert per row once Late after passes. There's no heads-up before the due time.
 3. After **Daily summary at** (once a day), it checks yesterday. It emails only if something needs attention: anything Missed, a task marked "Could not complete", a note, a position with photo tasks that uploaded no photos, or a photo count far below usual. A clean night sends nothing; Completed late still counts as done. The weekly scorecard goes out on **Weekly scorecard day** (Tuesday).
 
@@ -76,5 +77,6 @@ Each form also has an `onChecklistSubmit` trigger. Triggers do work only for the
 - The daily rebuild deletes questions, and Google deletes their stored answers with them. Submissions and Item Results are the only record.
 - Photo uploads happen while the page is open: phones pause web pages that are closed or locked, so the page tells people to keep it open until ✓ (usually seconds). Failed photos retry on their own 3 times, then show a Try again button.
 - The photo upload page runs as the store account. After a code change to the page, the store account has to publish a new version (Deploy → Manage deployments → Edit → New version); `clasp push` alone doesn't update it.
+- On days a checklist doesn't run, its form is closed. Google currently rejects the custom "No checklist today." message on these forms, so people see Google's standard "no longer accepting responses" page instead.
 - Photos use the store account's 15 GB of free storage. At about 400 KB each, 60 days is roughly 1.5 GB.
 - Free Gmail quotas: 100 email recipients a day and 90 minutes of trigger runtime a day. Normal use is well under both.

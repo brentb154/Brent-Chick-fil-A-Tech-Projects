@@ -61,7 +61,7 @@ function rebuildForms_(cfg, dateKey) {
         if (scheduledOn_(checklist, dateKey, cfg)) {
           buildForm_(form, checklist, dateKey, cfg);
         } else {
-          form.setAcceptingResponses(false).setCustomClosedFormMessage('No checklist today.');
+          closeForm_(form);
         }
         props.setProperty(doneKey, dateKey);
       } catch (err) {
@@ -72,6 +72,19 @@ function rebuildForms_(cfg, dateKey) {
     return true;
   } finally {
     PropertiesService.getScriptProperties().deleteProperty('REBUILD_RUNNING');
+  }
+}
+
+// A day the checklist doesn't run: stop responses and, where Google allows it, show
+// "No checklist today." Google rejects the closed message on these forms ("Invalid data
+// updating form", seen 10/8/2026); without it, responders get Google's own "no longer
+// accepting responses" page, so it's best-effort. A form left open is a real failure.
+function closeForm_(form) {
+  form.setAcceptingResponses(false);
+  try {
+    form.setCustomClosedFormMessage('No checklist today.');
+  } catch (err) {
+    // cosmetic; see above
   }
 }
 
