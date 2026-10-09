@@ -75,7 +75,7 @@ Each form also has an `onChecklistSubmit` trigger. Triggers do work only for the
 
 - Leader names are free text, so a *missed* checklist can't be charged to a leader. The scorecard shows submissions, on-time %, and task completion %.
 - The daily rebuild deletes questions, and Google deletes their stored answers with them. Submissions and Item Results are the only record.
-- Photo uploads happen while the page is open: phones pause web pages that are closed or locked, so the page tells people to keep it open until ✓ (usually seconds). Failed photos retry on their own 3 times, then show a Try again button.
+- Photo uploads: picked photos wait in a tray (each can be removed with ✕) and nothing is sent until **Upload** is tapped. Photos are shrunk while they're being picked, so the upload itself is quick. Phones pause web pages that are closed or locked, so the page asks people to keep it open until ✓ and warns if they leave with photos not sent. Failed photos retry on their own 3 times, then show a Try again button.
 - The photo upload page runs as the store account. After a code change to the page, the store account has to publish a new version (Deploy → Manage deployments → Edit → New version); `clasp push` alone doesn't update it.
 - On days a checklist doesn't run, its form is closed. Google currently rejects the custom "No checklist today." message on these forms, so people see Google's standard "no longer accepting responses" page instead.
 - Photos use the store account's 15 GB of free storage. At about 400 KB each, 60 days is roughly 1.5 GB.
