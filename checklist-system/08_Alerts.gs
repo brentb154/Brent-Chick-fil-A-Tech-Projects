@@ -66,24 +66,30 @@ function sendEscalation_(cfg, checklist, open, first) {
 
 // Never throws: if logging failed after an email went out, the caller would never mark
 // the alert as sent and the same email would go out again every 15 minutes.
-function logAlert_(dateKey, checklistId, position, type, sentTo) {
+function logAlert_(dateKey, checklistId, position, type, sentTo, details) {
   try {
-    appendRows_(openTab_(TABS.alerts), [{
+    var tab = openTab_(TABS.alerts);
+    var row = {
       'Sent at': new Date(),
       'Date': dateKey,
       'Checklist ID': checklistId,
       'Position': position,
       'Alert type': type,
       'Sent to': sentTo
-    }]);
+    };
+    if (details && tab.col('Details') > -1) row['Details'] = String(details).slice(0, 1000); // optional column
+    appendRows_(tab, [row]);
   } catch (err) {
     // The email already went out; a missing log row is the lesser problem
   }
 }
 
 // FOH escalation email, or the account the script runs as if that's blank
+// Who hears about system errors and blocked rebuilds: Settings "System error emails",
+// else the FOH escalation email, else the account running the script
 function adminEmails_(cfg) {
-  var to = emailList_(cfg.get('FOH escalation email'));
+  var to = emailList_(cfg.get('System error emails'));
+  if (!to.length) to = emailList_(cfg.get('FOH escalation email'));
   if (!to.length) to = [Session.getEffectiveUser().getEmail()];
   return to;
 }
@@ -120,7 +126,7 @@ function reportError_(job, err) {
       body: job + ' failed:\n\n' + (err && err.stack ? err.stack : err) + '\n\n' +
         'Further errors from this step today won\'t be emailed.\n' + getSS_().getUrl()
     });
-    logAlert_(today, '', '', 'Error: ' + job, to.join(', '));
+    logAlert_(today, '', '', 'Error: ' + job, to.join(', '), err && err.message ? err.message : String(err));
   } catch (ignore) {
     // Nothing else to do if even the alert fails
   }

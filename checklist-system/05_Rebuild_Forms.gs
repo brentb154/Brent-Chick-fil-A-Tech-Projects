@@ -17,20 +17,25 @@ var REBUILD_TIME_LIMIT_MS = 3 * 60 * 1000; // leaves room for one long form insi
 
 // Morning step: validate, rebuild, then create today's Daily Status rows.
 // Blocking problems keep yesterday's forms and send one warning a day; each run retries.
+// Today's rows and the upkeep steps run even when a form fails to rebuild, so one broken
+// form can't leave the whole day untracked. Each step reports its own errors.
 function morningRebuild_(cfg, today) {
   var props = PropertiesService.getScriptProperties();
-  var check = validateSheet_();
-  if (check.blocking.length) {
-    if (props.getProperty('BLOCK_ALERT') !== today) {
-      sendBlockedAlert_(cfg, today, check.blocking);
-      props.setProperty('BLOCK_ALERT', today);
+  try {
+    var check = validateSheet_();
+    if (check.blocking.length) {
+      if (props.getProperty('BLOCK_ALERT') !== today) {
+        sendBlockedAlert_(cfg, today, check.blocking);
+        props.setProperty('BLOCK_ALERT', today);
+      }
+    } else if (rebuildForms_(cfg, today)) {
+      props.setProperty('REBUILD_DONE', today);
     }
-  } else if (rebuildForms_(cfg, today)) {
-    props.setProperty('REBUILD_DONE', today);
+  } finally {
+    runJob_('Daily Status rows', function () { ensureDailyStatus_(cfg, today); });
+    runJob_('Form submit triggers', ensureSubmitTriggers_); // every active form has a submit trigger owned by this account
+    runJob_('Photo cleanup', function () { trashOldPhotos_(cfg, today); });
   }
-  ensureDailyStatus_(cfg, today);
-  ensureSubmitTriggers_(); // daily repair: every active form has a submit trigger owned by this account
-  trashOldPhotos_(cfg, today);
 }
 
 // Returns true when every active checklist is done for dateKey. If it runs long, or another

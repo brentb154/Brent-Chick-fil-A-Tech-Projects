@@ -52,7 +52,7 @@ function quarterHourTick() {
   var wall = wallMinutes_(now, cfg.tz);
 
   if (wall >= cfg.rebuildMin && props.getProperty('REBUILD_DONE') !== today) {
-    runJob_('Morning rebuild', function () { morningRebuild_(cfg, today); });
+    runJob_('Form rebuild', function () { morningRebuild_(cfg, today); });
   }
 
   runJob_('Status check', function () { checkStatuses_(cfg); });
