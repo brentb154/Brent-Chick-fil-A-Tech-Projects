@@ -31,7 +31,7 @@
     PAGE.checklists.forEach(function (c) {
       var o = document.createElement('option');
       o.value = c.id;
-      o.textContent = c.name;
+      o.textContent = c.name + (c.positions.length ? '' : submittedLabel(c, ''));
       $('checklist').appendChild(o);
     });
     if (PAGE.preselect) $('checklist').value = PAGE.preselect;
@@ -75,10 +75,27 @@
     c.positions.forEach(function (p) {
       var o = document.createElement('option');
       o.value = p;
-      o.textContent = p;
+      o.textContent = p + submittedLabel(c, p);
       sel.appendChild(o);
     });
     $('posWrap').classList.remove('hidden');
+  }
+
+  // " – submitted 10:09 PM" when that position (or checklist) is already in today
+  function submittedLabel(c, position) {
+    var time = (c.submitted || {})[position];
+    return time ? ' \u2013 submitted ' + time : '';
+  }
+
+  // Reminder when photos are going to a position (or checklist) that hasn't been submitted yet
+  function showNotIn() {
+    var c = current();
+    var position = c && c.positions.length ? $('position').value : '';
+    var waiting = c && (!c.positions.length || position) && !(c.submitted || {})[position];
+    $('notIn').classList.toggle('hidden', !waiting);
+    $('notIn').textContent = !waiting ? ''
+      : position ? position + ' hasn\'t been submitted yet. Submit the ' + position + ' checklist too.'
+      : 'The ' + c.name + ' hasn\'t been submitted yet. Submit it too.';
   }
 
   // What the photos belong to, or null until checklist, position and name are filled in
@@ -328,6 +345,7 @@
 
   function render() {
     var c = current();
+    showNotIn();
     var shown = items.filter(live);
     shown.forEach(paintTile);
 

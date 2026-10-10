@@ -147,12 +147,12 @@ function buildForm_(form, checklist, dateKey, cfg, deadline) {
   var photoEmail = cfg.get('Photo email');
   var photoSubject = cfg.get('Photo email subject');
   var photoLines = [];
-  if (uploadLink) photoLines.push('Upload all pictures here (no sign-in): ' + uploadLink);
+  if (uploadLink) photoLines.push('Pictures: after you submit, upload them here (no sign-in). Add them all, then tap Upload: ' + uploadLink);
   if (photoEmail) photoLines.push((uploadLink ? 'Or email them to ' : 'Email all pictures to ') + photoEmail +
     (photoSubject ? ' with the subject "' + photoSubject + '"' : '') + '.');
   form.setDescription(checklist.name + '\n' + longLabel_(dateKey) + (photoLines.length ? '\n\n' + photoLines.join('\n') : ''));
   form.setConfirmationMessage(uploadLink
-    ? 'Thanks, your checklist is in. Now upload your pictures: ' + uploadLink
+    ? 'Thanks, your checklist is in. Now upload your pictures' + (checklist.perPosition ? ' for the same position' : '') + ': ' + uploadLink
     : 'Thanks, your checklist is in.');
   if (form.supportsAdvancedResponderPermissions() && !form.isPublished()) form.setPublished(true);
 

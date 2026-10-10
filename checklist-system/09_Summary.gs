@@ -109,10 +109,12 @@ function loadSummaryData_(cfg) {
 
   var photos = [];
   if (cfg.photosOn) {
-    var ph = readTab_(TABS.photos);
+    var ph = readTab_(TABS.photos, true);
     var y = function (h) { return colOrThrow_(ph, h); };
-    photos = ph.display.map(function (r) {
-      return { dateKey: toDateKey_(r[y('Business date')]), checklistId: r[y('Checklist ID')], position: r[y('Position')] };
+    photos = ph.display.map(function (r, i) {
+      var at = ph.values[i][y('Uploaded at')];
+      return { dateKey: toDateKey_(r[y('Business date')]), checklistId: r[y('Checklist ID')], position: r[y('Position')],
+        leader: r[y('Leader')], time: at instanceof Date ? Utilities.formatDate(at, cfg.tz, 'h:mm a') : '' };
     });
   }
 
@@ -214,21 +216,34 @@ function ratesTable_(data, start, end) {
   }));
 }
 
-// Photos section: who sent none, anything far below usual, and each checklist's count vs. usual
+// Photos section: checklists submitted without photos, photos with no checklist, counts far
+// below usual, and each checklist's count vs. usual
 function photoHtml_(data, photo) {
   var ids = orderedIds_(data.model, Object.keys(photo.stats).map(function (id) { return { checklistId: id }; }));
-  if (!ids.length && !photo.noPhotos.length) return '';
+  if (!ids.length && !photo.noPhotos.length && !photo.unsubmitted.length) return '';
   var html = '<h3 style="margin:12px 0 4px">Photos</h3>';
-  if (photo.noPhotos.length) html += '<p style="color:#b3261e"><b>No photos from:</b> ' + esc_(photo.noPhotos.join(', ')) + '</p>';
+  if (photo.noPhotos.length) {
+    html += '<p style="color:#b3261e"><b>Checklist submitted, but no photos uploaded:</b> ' + esc_(photo.noPhotos.join(', ')) + '</p>';
+  }
+  if (photo.unsubmitted.length) {
+    html += '<p style="color:#b3261e"><b>Photos uploaded, but no checklist:</b> ' + esc_(photo.unsubmitted.map(function (u) {
+      return u.name + ' (' + u.count + (u.count === 1 ? ' photo' : ' photos') + (u.time ? ' at ' + u.time : '') + (u.leaders ? ' by ' + u.leaders : '') + ')';
+    }).join('; ')) + '</p>';
+  }
   photo.low.forEach(function (l) {
-    html += '<p style="color:#b3261e"><b>Low:</b> ' + esc_(l.name) + ' had ' + l.count + ' photos; usually ' +
-      Math.round(l.mean) + ' &plusmn; ' + Math.round(l.sd) + '.</p>';
+    html += '<p style="color:#b3261e"><b>Fewer photos than usual:</b> ' + esc_(l.name) + ' had ' + l.count + '; usually ' + usualRange_(l.mean, l.sd) + '.</p>';
   });
-  return html + table_(['Checklist', 'Photos', 'Usual'], ids.map(function (id) {
+  return html + table_(['Checklist', 'Photos uploaded', 'Usual'], ids.map(function (id) {
     var s = photo.stats[id];
-    var usual = s.mean === null ? 'building history (10 days)' : Math.round(s.mean) + ' &plusmn; ' + Math.round(s.sd);
-    return [esc_(nameOf_(data.model, id)), s.count, usual];
+    return [esc_(nameOf_(data.model, id)), s.count, s.mean === null ? 'not enough history yet: needs 10 days' : usualRange_(s.mean, s.sd)];
   }));
+}
+
+// mean 30, sd 5 -> "25–35"
+function usualRange_(mean, sd) {
+  var lo = Math.max(0, Math.round(mean - sd));
+  var hi = Math.round(mean + sd);
+  return lo === hi ? 'about ' + lo : lo + '–' + hi;
 }
 
 function isSubmitted_(r) {

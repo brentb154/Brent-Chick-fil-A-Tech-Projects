@@ -63,14 +63,36 @@ function include(filename) {
 // Checklists for the current business day (after midnight that's still last night)
 function photoPageData_(cfg, key, preselect) {
   var day = businessMoment_(new Date(), cfg).dateKey;
+  var done = submittedOn_(cfg, day);
   return {
     key: key,
     dayLabel: longLabel_(day),
     preselect: preselect,
     checklists: loadModel_().checklists.filter(function (c) { return scheduledOn_(c, day, cfg); }).map(function (c) {
-      return { id: c.id, name: c.name, positions: c.perPosition ? requiredPositions_(c).map(function (p) { return p.name; }) : [] };
+      var positions = c.perPosition ? requiredPositions_(c).map(function (p) { return p.name; }) : [];
+      var submitted = {}; // position name ('' = the whole checklist) -> time it was submitted
+      (positions.length ? positions : ['']).forEach(function (p) {
+        if (done[c.id + '|' + posKey_(p)]) submitted[p] = done[c.id + '|' + posKey_(p)];
+      });
+      return { id: c.id, name: c.name, positions: positions, submitted: submitted };
     })
   };
+}
+
+// 'checklistId|position key' -> "10:09 PM" for everything submitted on dateKey, so the page can
+// show what's already in and remind people about what isn't
+function submittedOn_(cfg, dateKey) {
+  var tab = readTab_(TABS.status, true);
+  var c = statusCols_(tab);
+  var atCol = colOrThrow_(tab, 'Submitted at');
+  var out = {};
+  tab.display.forEach(function (r, i) {
+    var status = r[c.status].trim();
+    if (toDateKey_(r[c.date]) !== dateKey || (status !== 'Complete' && status !== 'Completed late')) return;
+    var at = tab.values[i][atCol];
+    out[r[c.checklist] + '|' + posKey_(r[c.position])] = at instanceof Date ? Utilities.formatDate(at, cfg.tz, 'h:mm a') : 'earlier';
+  });
+  return out;
 }
 
 // -- Uploading ------------------------------------------------
@@ -250,11 +272,12 @@ function trashOldPhotos_(cfg, today) {
 //           using the last 28 days the checklist was submitted.
 // stats:    count / usual per checklist, for the email.
 function photoIssues_(cfg, data, day) {
-  var out = { noPhotos: [], low: [], stats: {} };
+  var out = { noPhotos: [], unsubmitted: [], low: [], stats: {} };
   if (!cfg.photosOn) return out;
 
   var perDay = {};   // checklistId -> dateKey -> photos
   var perSlot = {};  // 'checklistId|position' -> photos on `day`
+  var slotPhotos = {}; // same key -> those photos (time, leader)
   var first = {};    // checklistId -> first date with any photo
   data.photos.forEach(function (p) {
     var byDay = perDay[p.checklistId] = perDay[p.checklistId] || {};
@@ -263,7 +286,24 @@ function photoIssues_(cfg, data, day) {
     if (p.dateKey === day) {
       var slot = p.checklistId + '|' + posKey_(p.position);
       perSlot[slot] = (perSlot[slot] || 0) + 1;
+      (slotPhotos[slot] = slotPhotos[slot] || []).push(p);
     }
+  });
+
+  // Photos uploaded under a checklist or position that was never submitted (often the wrong position picked)
+  data.status.forEach(function (r) {
+    if (r.dateKey !== day || isSubmitted_(r)) return;
+    var photos = slotPhotos[r.checklistId + '|' + posKey_(r.position)];
+    if (!photos) return;
+    var c = data.model.byId[r.checklistId];
+    var leaders = [];
+    photos.forEach(function (p) { if (p.leader && leaders.indexOf(p.leader) < 0) leaders.push(p.leader); });
+    out.unsubmitted.push({
+      name: (c ? c.name : r.checklistId) + (c && c.perPosition ? ' – ' + r.position : ''),
+      count: photos.length,
+      time: photos.map(function (p) { return p.time; }).filter(function (t) { return t; })[0] || '',
+      leaders: leaders.join(', ')
+    });
   });
 
   var submittedDays = {}; // checklistId -> { dateKey: true } for days with at least one submission
