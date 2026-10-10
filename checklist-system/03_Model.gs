@@ -27,6 +27,7 @@ function loadModel_() {
   var clRotation = cl.col('Rotation length (weeks)');               // optional columns
   var clRotationStart = cl.col('Rotation start');
   var clStationQr = cl.col('Station QR codes');
+  var clLanguage = cl.col('Language');
 
   cl.display.forEach(function (r, i) {
     var id = r[c.id].trim();
@@ -52,6 +53,8 @@ function loadModel_() {
       rotationLength: /^\d+$/.test(rotationText) && Number(rotationText) > 0 ? Number(rotationText) : 0,
       rotationStart: toDateKey_(rotationStartText),
       stationQr: clStationQr > -1 && isTrue_(r[clStationQr]), // positions are checked off by QR code (14_Station_QR.gs)
+      languageText: clLanguage > -1 ? r[clLanguage].trim() : '',
+      language: languageCode_(clLanguage > -1 ? r[clLanguage] : ''), // 'en' or 'es': the form's language (16_Languages.gs)
       positions: [],
       items: []
     };
@@ -91,6 +94,7 @@ function loadModel_() {
   var itDays = DAY_SHORT.map(function (d) { return it.col(d); });
   var itWeeks = it.col('Rotation weeks'); // optional columns
   var itAnswer = it.col('Answer');
+  var itSpanish = it.col('Spanish task');
   it.display.forEach(function (r, i) {
     var id = r[t.id].trim();
     var task = r[t.task].trim();
@@ -111,6 +115,7 @@ function loadModel_() {
       weeksBad: weeks === null,     // Validate flags it
       photo: /^email$/i.test(r[t.photo].trim()),
       answerText: itAnswer > -1 ? r[itAnswer].trim() : '',
+      taskEs: itSpanish > -1 ? r[itSpanish].trim() : '',
       typeIn: itAnswer > -1 && /^type in$/i.test(r[itAnswer].trim()), // a typed answer instead of Complete / Could not complete
       reference: r[t.reference].trim(),
       active: isTrue_(r[t.active])

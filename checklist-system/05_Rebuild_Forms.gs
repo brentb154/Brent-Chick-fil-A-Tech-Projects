@@ -63,7 +63,7 @@ function rebuildForms_(cfg, dateKey) {
         if (scheduledOn_(checklist, dateKey, cfg)) {
           if (!buildForm_(form, checklist, dateKey, cfg, deadline)) return false; // out of time; the next run carries on
         } else {
-          closeForm_(form);
+          closeForm_(form, checklist);
         }
         props.setProperty(doneKey, dateKey);
       } catch (err) {
@@ -81,10 +81,10 @@ function rebuildForms_(cfg, dateKey) {
 // "No checklist today." Google rejects the closed message on these forms ("Invalid data
 // updating form", seen 10/8/2026); without it, responders get Google's own "no longer
 // accepting responses" page, so it's best-effort. A form left open is a real failure.
-function closeForm_(form) {
+function closeForm_(form, checklist) {
   form.setAcceptingResponses(false);
   try {
-    form.setCustomClosedFormMessage('No checklist today.');
+    form.setCustomClosedFormMessage(formText_(checklist || {}).closed);
   } catch (err) {
     // cosmetic; see above
   }
@@ -142,18 +142,20 @@ function openOrCreateForm_(checklist) {
 // (15_Form_Sync.gs). Returns false if it ran out of time; the next run carries on.
 function buildForm_(form, checklist, dateKey, cfg, deadline) {
   form.setTitle(checklist.name);
-  // Photos: the upload page when it's set up, the photo email while it's still filled in (either or both)
+  // Photos: the upload page when it's set up, the photo email while it's still filled in (either or both).
+  // All in the checklist's language (16_Languages.gs).
+  var t = formText_(checklist);
   var uploadLink = photoLink_(cfg, checklist.id);
   var photoEmail = cfg.get('Photo email');
   var photoSubject = cfg.get('Photo email subject');
   var photoLines = [];
-  if (uploadLink) photoLines.push('Pictures: after you submit, upload them here (no sign-in). Add them all, then tap Upload: ' + uploadLink);
-  if (photoEmail) photoLines.push((uploadLink ? 'Or email them to ' : 'Email all pictures to ') + photoEmail +
-    (photoSubject ? ' with the subject "' + photoSubject + '"' : '') + '.');
-  form.setDescription(checklist.name + '\n' + longLabel_(dateKey) + (photoLines.length ? '\n\n' + photoLines.join('\n') : ''));
+  if (uploadLink) photoLines.push(t.uploadLine + uploadLink);
+  if (photoEmail) photoLines.push((uploadLink ? t.emailOr : t.emailFirst) + photoEmail +
+    (photoSubject ? t.subject + '"' + photoSubject + '"' : '') + '.');
+  form.setDescription(checklist.name + '\n' + dateLabel_(dateKey, checklist.language) + (photoLines.length ? '\n\n' + photoLines.join('\n') : ''));
   form.setConfirmationMessage(uploadLink
-    ? 'Thanks, your checklist is in. Now upload your pictures' + (checklist.perPosition ? ' for the same position' : '') + ': ' + uploadLink
-    : 'Thanks, your checklist is in.');
+    ? t.thanks + ' ' + t.nowUpload + (checklist.perPosition ? t.samePosition : '') + ': ' + uploadLink
+    : t.thanks);
   if (form.supportsAdvancedResponderPermissions() && !form.isPublished()) form.setPublished(true);
 
   var plan = formPlan_(checklist, dateKey);

@@ -15,6 +15,7 @@ Replaces the eight separate FOH checklist Google Forms with one master sheet, th
 | Check off stations by QR code (Daily Facilities Walk) | **Checklists** "Station QR codes" checked (needs one submission per position). Each position is a station. **Checklists > Print station QR codes** prints one code per station; post each at its station. A scan opens today's form with the station, its code and the person's name filled in. A station only counts when the form came from that station's own QR code; anything else is logged with a "Not counted" note and the station stays missed. Reprint after renaming, adding or removing a station. Changing "Photo upload key" retires the codes. |
 | Ask for a typed answer (e.g. a temperature) | **Items** "Answer" = `Type in`: the form shows a text box instead of Complete / Could not complete, and the answer is saved in Item Results. |
 | Pick one of several each day | Put the options in braces in the task: `Type in the current temperature of the {Walk In Cooler\|Fry Freezer\|Prep Table}.` (in the sheet, without the backslashes) One is picked for each day (the same all day). Edit the list to add or remove options. |
+| Put a form in Spanish (BOH Closing) | **Checklists** "Language" = `Spanish`. Fill each task's **Items** "Spanish task"; a blank one shows in English (Validate lists them). The questions, answers, photo tag, photo lines, date and closed message on the form are in Spanish; the form title (the checklist name) and the photo upload page stay in English. Submissions, Item Results, the morning email and the scorecard stay in English. Add/Edit a task only change the English task, so update the Spanish task when the English wording changes. Takes effect at the next morning update or *Rebuild forms now*. |
 | Rotate tasks week to week (Sunday Rotation) | **Checklists** "Rotation length (weeks)" (e.g. 6) and "Rotation start" (the date Week 1 starts). Each task's **Items** "Rotation weeks" says which weeks it's on: `3`, or `1, 5`; blank = every week. The Add/Edit pop-up shows which week the next day falls in. |
 | Change a due / late time | **Checklists** Due by / Late after. Applies from the next morning's rows. |
 | Change who gets late alerts | **Settings** "FOH escalation email" (read on every run) |
@@ -53,6 +54,7 @@ Edits made during the day show up in the next morning's forms. Use *Rebuild form
 | `13_Edit_Item.gs` | Checklists > Edit a task: saves changes only if the row hasn't changed since the pop-up opened |
 | `AddItem.html`, `AddItemJavaScript.html`, `AddItemStylesheet.html` | The Add / Edit a task pop-up |
 | `15_Form_Sync.gs` | Updates each form to today's questions, changing only what differs; remembers each form's layout |
+| `16_Languages.gs` | Spanish forms: the form's fixed wording in each language, the Spanish date, and turning Spanish answers back into English for the logs |
 | `14_Station_QR.gs` | Station QR codes: per-station codes, the page a QR opens, the printable sheet, today's form entry IDs |
 | `StationPage.html`, `QrSheet.html` | What a station QR opens; the printable QR sheet (uses qrcodejs from cdnjs) |
 

@@ -24,31 +24,39 @@ var TYPE_CODES = { TEXT: 'T', MULTIPLE_CHOICE: 'M', PAGE_BREAK: 'B', PARAGRAPH_T
 
 // -- Today's plan ---------------------------------------------
 
-// What today's form should hold, top to bottom
+// What today's form should hold, top to bottom, in the checklist's language (16_Languages.gs)
 function formPlan_(checklist, dateKey) {
-  var plan = [slot_('leader', 'TEXT', Q_LEADER)];
-  var tasks = itemsOn_(checklist, dateKey).map(function (it) { return taskSlot_(it, dateKey); });
+  var t = formText_(checklist);
+  var lang = checklist.language || 'en';
+  var plan = [slot_('leader', 'TEXT', t.leader)];
+  var tasks = itemsOn_(checklist, dateKey).map(function (it) { return taskSlot_(it, dateKey, t, lang); });
   if (checklist.perPosition) {
-    plan.push(slot_('position', 'MULTIPLE_CHOICE', Q_POSITION));
-    if (checklist.stationQr) plan.push(slot_('code', 'TEXT', Q_STATION_CODE));
+    plan.push(slot_('position', 'MULTIPLE_CHOICE', t.position));
+    if (checklist.stationQr) plan.push(slot_('code', 'TEXT', t.code));
     requiredPositions_(checklist).forEach(function (pos, idx) {
       plan.push(slot_('page', 'PAGE_BREAK', pos.name, '', idx === 0));
-      tasks.forEach(function (t) { if (t.positionKey === pos.key) plan.push(t); });
-      plan.push(slot_('notes', 'PARAGRAPH_TEXT', Q_NOTES));
+      tasks.forEach(function (s) { if (s.positionKey === pos.key) plan.push(s); });
+      plan.push(slot_('notes', 'PARAGRAPH_TEXT', t.notes));
     });
   } else {
     plan = plan.concat(tasks);
-    plan.push(slot_('notes', 'PARAGRAPH_TEXT', Q_NOTES));
+    plan.push(slot_('notes', 'PARAGRAPH_TEXT', t.notes));
   }
   return plan;
 }
 
-function slot_(kind, type, title, help, first) {
-  return { kind: kind, type: type, title: title, help: help || '', first: !!first, key: slotKey_(type, title, help, first) };
+function slot_(kind, type, title, help, first, extra) {
+  return { kind: kind, type: type, title: title, help: help || '', first: !!first, key: slotKey_(type, title, help, first, extra) };
 }
 
-function taskSlot_(it, dateKey) {
-  var s = slot_('task', it.typeIn ? 'TEXT' : 'MULTIPLE_CHOICE', pickOne_(it.task, dateKey) + (it.photo ? PHOTO_SUFFIX : ''), it.reference);
+// A task in the form's language. Spanish tasks get Spanish answer choices, which are part of
+// their key so a change of language replaces them; English keys are unchanged.
+function taskSlot_(it, dateKey, t, lang) {
+  var type = it.typeIn ? 'TEXT' : 'MULTIPLE_CHOICE';
+  var text = lang === 'es' && it.taskEs ? pickOne_(it.taskEs, dateKey, it.task) : pickOne_(it.task, dateKey);
+  var choices = type === 'MULTIPLE_CHOICE' ? [t.done, t.notDone] : [];
+  var s = slot_('task', type, text + (it.photo ? t.photo : ''), it.reference, false, lang === 'en' ? '' : choices.join('|'));
+  s.choices = choices;
   s.itemId = it.id;
   s.position = it.positionName;
   s.positionKey = it.positionKey;
@@ -56,20 +64,27 @@ function taskSlot_(it, dateKey) {
 }
 
 // "{Walk In Cooler|Fry Freezer}" -> one of the options. Picked from the date, so it holds all
-// day (a re-run or Rebuild forms now won't switch it) and changes from day to day.
-function pickOne_(text, dateKey) {
-  return String(text).replace(/\{([^{}]*\|[^{}]*)\}/g, function (all, list) {
+// day (a re-run or Rebuild forms now won't switch it) and changes from day to day. seedText (the
+// English task) makes a translation pick the same option as the English.
+function pickOne_(text, dateKey, seedText) {
+  var pattern = /\{([^{}]*\|[^{}]*)\}/g;
+  var seeds = String(seedText || text).match(pattern) || [];
+  var k = 0;
+  return String(text).replace(pattern, function (all, list) {
     var options = list.split('|').map(function (s) { return s.trim(); }).filter(function (s) { return s; });
+    var seed = seeds[k++] ? seeds[k - 1].slice(1, -1) : list;
     if (!options.length) return all;
-    var d = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, dateKey + '|' + list, Utilities.Charset.UTF_8);
+    var d = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, dateKey + '|' + seed, Utilities.Charset.UTF_8);
     return options[((d[0] & 255) * 256 + (d[1] & 255)) % options.length];
   });
 }
 
 // A question's identity for matching: type, title, help text, and for sections whether it's the
 // first one (the first section has no "go to"). The first letter keeps the type readable.
-function slotKey_(type, title, help, first) {
-  var d = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, [type, title, help || '', first ? 1 : 0].join('\u0001'), Utilities.Charset.UTF_8);
+function slotKey_(type, title, help, first, extra) {
+  var parts = [type, title, help || '', first ? 1 : 0];
+  if (extra) parts.push(extra); // e.g. Spanish answer choices
+  var d = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, parts.join('\u0001'), Utilities.Charset.UTF_8);
   return (TYPE_CODES[type] || '?') + Utilities.base64Encode(d).slice(0, 10);
 }
 
@@ -89,7 +104,7 @@ function syncForm_(form, checklist, plan, dateKey, deadline) {
   } else {
     // Read the form, picking up where an unfinished read of this same form left off
     var resume = saved && saved.reading && saved.form === formId && saved.count === items.length;
-    var fresh = readLayout_(items, resume ? savedList : [], deadline);
+    var fresh = readLayout_(items, resume ? savedList : [], deadline, checklist.language);
     if (fresh.length < items.length) {
       saveLayout_(checklist.id, formId, { read: dateKey, reading: true, count: items.length, list: fresh });
       return null;
@@ -184,7 +199,7 @@ function addSlot_(form, s) {
   if (s.kind === 'position') return form.addMultipleChoiceItem().setTitle(s.title).setRequired(true);
   var q = s.type === 'TEXT'
     ? form.addTextItem().setTitle(s.title).setRequired(true)
-    : form.addMultipleChoiceItem().setTitle(s.title).setChoiceValues([ANSWER_DONE, ANSWER_NOT_DONE]).setRequired(true);
+    : form.addMultipleChoiceItem().setTitle(s.title).setChoiceValues(s.choices && s.choices.length ? s.choices : [ANSWER_DONE, ANSWER_NOT_DONE]).setRequired(true);
   if (s.help) q.setHelpText(s.help);
   return q;
 }
@@ -201,11 +216,11 @@ function routePositions_(form, plan, list) {
   if (choices.length) mc.setChoices(choices);
 }
 
-// Plain choices (no jumps), so sections can be deleted
+// Plain choices (no jumps), so sections can be deleted. The position question may be in any language.
 function unroutePositions_(form, plan, list) {
-  var key = slotKey_('MULTIPLE_CHOICE', Q_POSITION, '', false);
+  var keys = Object.keys(FORM_TEXT).map(function (lang) { return slotKey_('MULTIPLE_CHOICE', FORM_TEXT[lang].position, '', false); });
   var at = -1;
-  list.forEach(function (x, i) { if (x.key === key) at = i; });
+  list.forEach(function (x, i) { if (keys.indexOf(x.key) > -1) at = i; });
   if (at < 0) return;
   var names = plan.filter(function (s) { return s.kind === 'page'; }).map(function (s) { return s.title; });
   form.getItemById(list[at].id).asMultipleChoiceItem().setChoiceValues(names.length ? names : ['-']);
@@ -219,15 +234,19 @@ function indexOfKind_(plan, kind) {
 // -- Layout memory --------------------------------------------
 
 // Reads the form's questions (about 3 calls each) after the ones already read. Out of time, it
-// returns what it has; the caller saves that and the next run continues.
-function readLayout_(items, done, deadline) {
+// returns what it has; the caller saves that and the next run continues. On a Spanish form the
+// tasks are taken to have the Spanish answer choices (they aren't read: too many calls).
+function readLayout_(items, done, deadline, lang) {
+  var answers = lang && lang !== 'en' ? [FORM_TEXT[lang].done, FORM_TEXT[lang].notDone].join('|') : '';
   var list = done.slice();
   var firstSection = !list.some(function (x) { return x.key.charAt(0) === 'B'; });
   for (var i = list.length; i < items.length; i++) {
     if (Date.now() > deadline) return list;
     var type = String(items[i].getType());
+    var title = items[i].getTitle();
     var hasHelp = type === 'TEXT' || type === 'MULTIPLE_CHOICE';
-    list.push({ id: items[i].getId(), key: slotKey_(type, items[i].getTitle(), hasHelp ? items[i].getHelpText() : '', type === 'PAGE_BREAK' && firstSection) });
+    var extra = type === 'MULTIPLE_CHOICE' && questionRole_(title) !== 'position' ? answers : '';
+    list.push({ id: items[i].getId(), key: slotKey_(type, title, hasHelp ? items[i].getHelpText() : '', type === 'PAGE_BREAK' && firstSection, extra) });
     if (type === 'PAGE_BREAK') firstSection = false;
   }
   return list;

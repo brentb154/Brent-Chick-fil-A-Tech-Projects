@@ -48,11 +48,12 @@ function logSubmission_(e) {
     }
     var title = item.getTitle();
     var answer = String(ir.getResponse() || '').trim();
-    if (title === Q_LEADER) leader = answer;
-    else if (title === Q_POSITION) position = answer;
-    else if (title === Q_STATION_CODE) stationCode = answer.toUpperCase();
-    else if (title === Q_NOTES) { if (answer) notes.push(answer); }
-    else taskAnswers.push({ questionId: String(item.getId()), task: title, result: answer });
+    var role = questionRole_(title); // the fixed questions, in English or Spanish (16_Languages.gs)
+    if (role === 'leader') leader = answer;
+    else if (role === 'position') position = answer;
+    else if (role === 'code') stationCode = answer.toUpperCase();
+    else if (role === 'notes') { if (answer) notes.push(answer); }
+    else taskAnswers.push({ questionId: String(item.getId()), task: title, result: englishAnswer_(answer) });
   });
   var answeredPosition = position;
   if (!checklist.perPosition) position = '';
@@ -74,7 +75,7 @@ function logSubmission_(e) {
         itemId: mapped ? mapped.itemId : '',
         position: mapped ? mapped.position : answeredPosition,
         date: mapped ? mapped.date : '',
-        task: a.task,
+        task: englishTaskFor_(a, mapped, checklist, model),
         result: a.result
       };
     });
@@ -131,6 +132,13 @@ function logSubmission_(e) {
     }
     SpreadsheetApp.flush();
   });
+}
+
+// Item Results keeps English: a Spanish form's task is logged as the English task it came from
+function englishTaskFor_(answer, mapped, checklist, model) {
+  if (checklist.language === 'en' || !mapped) return answer.task;
+  var item = model.items.filter(function (it) { return it.id === mapped.itemId; })[0];
+  return item ? englishTask_(item, mapped.date) : answer.task;
 }
 
 // The form that fired. e.source is the Form; the trigger lookup is a fallback.
