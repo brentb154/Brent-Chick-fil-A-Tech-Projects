@@ -9,7 +9,7 @@
  *            a position with no photos or a photo count far below usual.
  *            A clean night sends nothing.
  *   Weekly - on Settings "Weekly scorecard day" (Tuesday), covers the
- *            previous Mon-Sat. Sent every week.
+ *            previous Mon-Sun (Sunday Rotation included). Sent every week.
  */
 
 var STATUS_COLORS = { 'Complete': '#1e7e34', 'Completed late': '#a15c00', 'Late': '#b3261e', 'Missed': '#b3261e', 'Pending': '#555' };
@@ -34,8 +34,8 @@ function sendDailySummary_(cfg, todayKey) {
     types.push('Daily summary');
   }
   if (dayIndex_(todayKey) === cfg.scorecardDay) {
-    var end = lastSaturday_(todayKey);
-    var start = addDays_(end, -5);
+    var end = lastSunday_(todayKey);
+    var start = addDays_(end, -6);
     parts.push(weeklyHtml_(data, start, end));
     subjects.push('Weekly scorecard ' + shortLabel_(start) + '–' + shortLabel_(end));
     types.push('Weekly scorecard');
@@ -52,10 +52,9 @@ function sendDailySummary_(cfg, todayKey) {
   types.forEach(function (t) { logAlert_(day, '', '', t, to.join(', ')); });
 }
 
-// Most recent Saturday before todayKey, where the last full Mon-Sat week ends
-function lastSaturday_(todayKey) {
-  var back = (dayIndex_(todayKey) + 1) % 7 || 7;
-  return addDays_(todayKey, -back);
+// Most recent Sunday before todayKey, where the last full Mon-Sun week ends
+function lastSunday_(todayKey) {
+  return addDays_(todayKey, -(dayIndex_(todayKey) || 7));
 }
 
 // What makes the daily email worth sending. Completed late still counts as done.

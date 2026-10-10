@@ -48,11 +48,12 @@ function rebuildForms_(cfg, dateKey) {
     var deadline = Date.now() + REBUILD_BUDGET_MS;
     var props = PropertiesService.getScriptProperties();
     var model = loadModel_();
-    var active = model.checklists.filter(function (c) { return c.active; });
+    // Active checklists, plus turned-off ones that still have a form, so their form gets closed
+    var lists = model.checklists.filter(function (c) { return c.active || c.formId; });
     var failures = [];
 
-    for (var i = 0; i < active.length; i++) {
-      var checklist = active[i];
+    for (var i = 0; i < lists.length; i++) {
+      var checklist = lists[i];
       var doneKey = 'REBUILT_' + checklist.id;
       if (props.getProperty(doneKey) === dateKey) continue;
       if (Date.now() > deadline - 20 * 1000) return false;
@@ -156,6 +157,13 @@ function buildForm_(form, checklist, dateKey, cfg, deadline) {
   form.setConfirmationMessage(uploadLink
     ? t.thanks + ' ' + t.nowUpload + (checklist.perPosition ? t.samePosition : '') + ': ' + uploadLink
     : t.thanks);
+  // Station forms hide "Submit another response": the next station is opened by scanning its own QR
+  // code (another response from here wouldn't count). Best-effort, like the closed message.
+  try {
+    form.setShowLinkToRespondAgain(!checklist.stationQr);
+  } catch (err) {
+    reportError_('Form setting', err);
+  }
   if (form.supportsAdvancedResponderPermissions() && !form.isPublished()) form.setPublished(true);
 
   var plan = formPlan_(checklist, dateKey);
