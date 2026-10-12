@@ -134,7 +134,7 @@ function dailyHtml_(data, day, photo) {
     html += '<h3 style="margin:12px 0 4px">' + esc_(heading) + '</h3>' + table_(['Position', 'Status', 'Submitted', 'Leader'],
       rows.map(function (r) {
         var color = STATUS_COLORS[r.status] || '#555';
-        return [esc_(r.position || '–'), '<b style="color:' + color + '">' + esc_(r.status) + '</b>', esc_(r.time), esc_(r.by)];
+        return [esc_(r.position || '–'), '<b style="color:' + color + '">' + esc_(statusLabel_(data, checklist, r)) + '</b>', esc_(r.time), esc_(r.by)];
       }));
   });
 
@@ -243,6 +243,15 @@ function usualRange_(mean, sd) {
   var lo = Math.max(0, Math.round(mean - sd));
   var hi = Math.round(mean + sd);
   return lo === hi ? 'about ' + lo : lo + '–' + hi;
+}
+
+// "Missed (1 of 2)" for a checklist done several times a day that didn't reach its count
+function statusLabel_(data, checklist, r) {
+  if (!checklist || checklist.timesPerDay < 2 || isSubmitted_(r)) return r.status;
+  var n = data.subs.filter(function (s) {
+    return s.checklistId === r.checklistId && s.dateKey === r.dateKey && s.onTime !== 'Not counted';
+  }).length;
+  return r.status + ' (' + n + ' of ' + checklist.timesPerDay + ')';
 }
 
 function isSubmitted_(r) {

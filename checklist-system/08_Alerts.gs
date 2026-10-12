@@ -94,16 +94,22 @@ function adminEmails_(cfg) {
   return to;
 }
 
-function sendBlockedAlert_(cfg, today, problems) {
+// skippedIds: only these checklists were left as they were (every other form was updated)
+function sendBlockedAlert_(cfg, today, problems, skippedIds) {
   var to = adminEmails_(cfg);
+  var some = skippedIds && skippedIds.length;
   MailApp.sendEmail({
     to: to.join(','),
-    subject: 'Checklist forms NOT rebuilt for ' + shortLabel_(today) + ' – sheet needs a fix',
-    body: 'Validate found problems in the Checklist Master, so yesterday\'s forms were left in place.\n\n- ' +
-      problems.join('\n- ') + '\n\nFix them, then use Checklists > Rebuild forms now (or wait for the next ' +
-      'automatic check, within 15 minutes).\n\n' + getSS_().getUrl()
+    subject: (some ? skippedIds.join(', ') + ' form' + (skippedIds.length === 1 ? '' : 's') : 'Checklist forms') +
+      ' NOT rebuilt for ' + shortLabel_(today) + ' – sheet needs a fix',
+    body: (some
+      ? 'Validate found problems with ' + skippedIds.join(', ') + ', so ' + (skippedIds.length === 1 ? 'its form was' : 'their forms were') +
+        ' left as ' + (skippedIds.length === 1 ? 'it was' : 'they were') + '. Every other form was updated.\n\n- '
+      : 'Validate found problems in the Checklist Master, so yesterday\'s forms were left in place.\n\n- ') +
+      problems.join('\n- ') + '\n\nFix them, then use Checklists > Rebuild forms now' +
+      (some ? '.' : ' (or wait for the next automatic check, within 15 minutes).') + '\n\n' + getSS_().getUrl()
   });
-  logAlert_(today, '', '', 'Rebuild blocked', to.join(', '));
+  logAlert_(today, some ? skippedIds.join(', ') : '', '', some ? 'Checklist skipped' : 'Rebuild blocked', to.join(', '));
 }
 
 // One email per job per day, so a stuck trigger can't burn the daily email quota.

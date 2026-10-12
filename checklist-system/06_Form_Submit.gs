@@ -92,7 +92,9 @@ function logSubmission_(e) {
     var statusMatch = findStatusRow_(moment.dateKey, checklist, position);
     var lateText = statusMatch ? statusMatch.lateText : checklist.lateText;
     var lateMin = parseTimeToMinutes_(lateText);
-    var onTime = !counted ? 'Not counted' : lateMin === null ? '' : (moment.minutes < bizMinutes_(lateMin, cfg) ? 'Yes' : 'No');
+    var onTime = !counted ? 'Not counted'
+      : lateMin === null ? (checklist.timesPerDay ? 'Yes' : '') // open all day: never late
+      : (moment.minutes < bizMinutes_(lateMin, cfg) ? 'Yes' : 'No');
 
     appendRows_(openTab_(TABS.submissions), [{
       'Submission ID': submissionId,
@@ -126,12 +128,26 @@ function logSubmission_(e) {
     var open = ['Pending', 'Late', 'Missed'];
     if (counted && statusMatch && open.indexOf(statusMatch.status) > -1) {
       var tab = statusMatch.tab;
-      setCell_(tab, statusMatch.index, 'Status', onTime === 'No' ? 'Completed late' : 'Complete');
+      // Done several times a day: Complete once today's count reaches Times per day; until then, list who's done it
+      var several = checklist.timesPerDay > 1;
+      if (!several || countSubmissions_(checklist.id, moment.dateKey) >= checklist.timesPerDay) {
+        setCell_(tab, statusMatch.index, 'Status', onTime === 'No' ? 'Completed late' : 'Complete');
+      }
+      var by = several && statusMatch.by ? statusMatch.by + ', ' + leader : leader;
       setCell_(tab, statusMatch.index, 'Submitted at', submittedAt);
-      setCell_(tab, statusMatch.index, 'Submitted by', leader.charAt(0) === '=' ? "'" + leader : leader);
+      setCell_(tab, statusMatch.index, 'Submitted by', by.charAt(0) === '=' ? "'" + by : by);
     }
     SpreadsheetApp.flush();
   });
+}
+
+// Counted submissions for one checklist on one business date (includes the one just logged)
+function countSubmissions_(checklistId, dateKey) {
+  var tab = readTab_(TABS.submissions);
+  var c = { id: colOrThrow_(tab, 'Checklist ID'), date: colOrThrow_(tab, 'Business date'), onTime: colOrThrow_(tab, 'On time?') };
+  return tab.display.filter(function (r) {
+    return r[c.id] === checklistId && toDateKey_(r[c.date]) === dateKey && r[c.onTime] !== 'Not counted';
+  }).length;
 }
 
 // Item Results keeps English: a Spanish form's task is logged as the English task it came from

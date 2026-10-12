@@ -28,12 +28,14 @@ function loadModel_() {
   var clRotationStart = cl.col('Rotation start');
   var clStationQr = cl.col('Station QR codes');
   var clLanguage = cl.col('Language');
+  var clTimes = cl.col('Times per day');
 
   cl.display.forEach(function (r, i) {
     var id = r[c.id].trim();
     if (!id) return;
     var rotationText = clRotation > -1 ? r[clRotation].trim() : '';
     var rotationStartText = clRotationStart > -1 ? r[clRotationStart].trim() : '';
+    var timesText = clTimes > -1 ? r[clTimes].trim() : '';
     var checklist = {
       row: i + 2,
       id: id,
@@ -55,6 +57,9 @@ function loadModel_() {
       stationQr: clStationQr > -1 && isTrue_(r[clStationQr]), // positions are checked off by QR code (14_Station_QR.gs)
       languageText: clLanguage > -1 ? r[clLanguage].trim() : '',
       language: languageCode_(clLanguage > -1 ? r[clLanguage] : ''), // 'en' or 'es': the form's language (16_Languages.gs)
+      // Done several times a day (Restroom): submissions needed per day. Due by / Late after may be blank (open all day).
+      timesText: timesText,
+      timesPerDay: /^\d+$/.test(timesText) && Number(timesText) > 0 ? Number(timesText) : 0,
       positions: [],
       items: []
     };

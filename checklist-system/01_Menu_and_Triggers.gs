@@ -114,12 +114,14 @@ function menuRebuildForms() {
       ', so the rebuild runs automatically on the next check, within 15 minutes.', ui.ButtonSet.OK);
     return;
   }
-  var done = rebuildForms_(cfg, today);
+  var done = rebuildForms_(cfg, today, check.skip);
   if (done) PropertiesService.getScriptProperties().setProperty('REBUILD_DONE', today);
   ensureDailyStatus_(cfg, today);
-  ui.alert(done
+  var skipped = Object.keys(check.skip);
+  ui.alert((done
     ? 'Forms rebuilt for ' + longLabel_(today) + '.'
-    : 'Not finished yet. The rest finishes on the next automatic check (within 15 minutes).');
+    : 'Not finished yet. The rest finishes on the next automatic check (within 15 minutes).') +
+    (skipped.length ? '\n\nNot rebuilt until fixed: ' + skipped.join(', ') + '. Checklists > Validate sheet shows why.' : ''));
 }
 
 function menuValidate() {

@@ -30,7 +30,8 @@ function ensureDailyStatus_(cfg, dateKey) {
     var rows = [];
     model.checklists.forEach(function (checklist) {
       if (!scheduledOn_(checklist, dateKey, cfg)) return;
-      if (checklist.dueMin === null || checklist.lateMin === null) return; // Validate reports this
+      // Validate reports missing times; a checklist done several times a day may have none (open all day)
+      if ((checklist.dueMin === null || checklist.lateMin === null) && !checklist.timesPerDay) return;
       var positions = checklist.perPosition ? requiredPositions_(checklist).map(function (p) { return p.name; }) : [''];
       positions.forEach(function (pos) {
         if (have[dateKey + '|' + checklist.id + '|' + posKey_(pos)]) return;
@@ -70,7 +71,7 @@ function findStatusRow_(dateKey, checklist, position) {
     var r = tab.display[i];
     if (r[c.checklist] !== checklist.id || toDateKey_(r[c.date]) !== dateKey) continue;
     if (checklist.perPosition && posKey_(r[c.position]) !== posKey_(position)) continue;
-    return { tab: tab, index: i, status: r[c.status].trim(), lateText: r[c.late] };
+    return { tab: tab, index: i, status: r[c.status].trim(), lateText: r[c.late], by: r[c.by] };
   }
   return null;
 }

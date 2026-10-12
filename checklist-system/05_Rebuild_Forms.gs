@@ -19,6 +19,7 @@ var REBUILD_BUDGET_MS = 4 * 60 * 1000; // stops well inside Google's 6-minute li
 
 // Morning step: validate, rebuild, then create today's Daily Status rows.
 // Blocking problems keep yesterday's forms and send one warning a day; each run retries.
+// A problem with one checklist skips just that one (one warning a day); the rest rebuild.
 // Today's rows and the upkeep steps run even when a form fails to rebuild, so one broken
 // form can't leave the whole day untracked. Each step reports its own errors.
 function morningRebuild_(cfg, today) {
@@ -30,8 +31,13 @@ function morningRebuild_(cfg, today) {
         sendBlockedAlert_(cfg, today, check.blocking);
         props.setProperty('BLOCK_ALERT', today);
       }
-    } else if (rebuildForms_(cfg, today)) {
-      props.setProperty('REBUILD_DONE', today);
+    } else {
+      var skipped = Object.keys(check.skip);
+      if (skipped.length && props.getProperty('SKIP_ALERT') !== today) {
+        sendBlockedAlert_(cfg, today, problemList_(check), skipped);
+        props.setProperty('SKIP_ALERT', today);
+      }
+      if (rebuildForms_(cfg, today, check.skip)) props.setProperty('REBUILD_DONE', today);
     }
   } finally {
     runJob_('Daily Status rows', function () { ensureDailyStatus_(cfg, today); });
@@ -42,7 +48,8 @@ function morningRebuild_(cfg, today) {
 
 // Returns true when every active checklist is done for dateKey. If it runs long, or another
 // rebuild is already running, it returns false; the next 15-minute run picks up what's left.
-function rebuildForms_(cfg, dateKey) {
+// skip: Checklist IDs Validate found a problem with; their forms are left as they were.
+function rebuildForms_(cfg, dateKey, skip) {
   if (!claimRebuild_()) return false;
   try {
     var deadline = Date.now() + REBUILD_BUDGET_MS;
@@ -56,6 +63,7 @@ function rebuildForms_(cfg, dateKey) {
       var checklist = lists[i];
       var doneKey = 'REBUILT_' + checklist.id;
       if (props.getProperty(doneKey) === dateKey) continue;
+      if (skip && skip[checklist.id]) continue;
       if (Date.now() > deadline - 20 * 1000) return false;
 
       // One broken form shouldn't stop the others from rebuilding
