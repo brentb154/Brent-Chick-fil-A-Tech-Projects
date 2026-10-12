@@ -21,6 +21,7 @@ function menuEditItem() {
 // p = Add's fields plus { id, active, was }. was = the task as the pop-up loaded it; if the row
 // has changed since, nothing is saved. place: 'keep' (default), 'top', 'end' or 'after:<Item ID>'.
 function serverEditItem(p) {
+  checkPopupPass_(p && p.pass);
   return saveTask_(function () { return updateItem_(p || {}); });
 }
 

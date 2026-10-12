@@ -212,7 +212,8 @@
       weeks: boxes('weekBoxes').filter(function (b) { return b.checked; }).map(function (b) { return Number(b.value); }),
       photo: $('photo').checked,
       reference: $('reference').value,
-      place: $('place').value
+      place: $('place').value,
+      pass: PAGE.pass
     };
     if (t) {
       p.id = t.id;

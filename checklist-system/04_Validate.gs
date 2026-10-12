@@ -40,6 +40,9 @@ function validateSheet_() {
     if (seenItem[it.id]) out.blocking.push('Items row ' + it.row + ': Item ID ' + it.id + ' is also on row ' + seenItem[it.id] + '. Item IDs must be unique.');
     else seenItem[it.id] = it.row;
     if (it.active && !it.task) skip_(out, checklist, 'Items row ' + it.row + ' (' + it.id + '): Task is blank.');
+    if (it.active && checklist.active && !it.days.some(function (d) { return d; })) {
+      out.warnings.push('Items row ' + it.row + ' (' + it.id + '): no days are checked, so it\'s never on the form.');
+    }
 
     if (checklist.perPosition) {
       var known = checklist.positions.some(function (p) { return p.key === it.positionKey; });
@@ -73,6 +76,7 @@ function validateSheet_() {
     if (c.dueMin === null && !(allDay && !c.dueText)) skip_(out, c, where + 'Due by "' + c.dueText + '" is not a time.');
     if (c.lateMin === null && !(allDay && !c.lateText)) skip_(out, c, where + 'Late after "' + c.lateText + '" is not a time.');
     if (c.timesText && !c.timesPerDay) out.warnings.push(where + 'Times per day "' + c.timesText + '" should be a whole number, e.g. 2.');
+    if (c.timesPerDay > 1 && c.perPosition) out.warnings.push(where + '"Times per day" doesn\'t work with "One submission per position?": every position\'s submissions would count toward each position.');
     if (c.dueMin !== null && c.lateMin !== null && bizMinutes_(c.lateMin, cfg) < bizMinutes_(c.dueMin, cfg)) {
       out.warnings.push(where + 'Late after (' + c.lateText + ') is earlier than Due by (' + c.dueText + ').');
     }
@@ -105,6 +109,9 @@ function validateSheet_() {
   if (page && !key) out.warnings.push('Settings: "Photo upload page" is set but "Photo upload key" is blank, so photo uploads are off.');
   if (page && !/^https:\/\/script\.google\.com\/.+\/exec$/.test(page)) out.warnings.push('Settings: "Photo upload page" should be the web app link ending in /exec.');
   if (cfg.get('Keep photos for (days)') && !(parseInt(cfg.get('Keep photos for (days)'), 10) > 0)) out.warnings.push('Settings: "Keep photos for (days)" isn\'t a number, so old photos are never deleted.');
+  var keepData = cfg.get('Keep data for (days)');
+  if (keepData && !(parseInt(keepData, 10) > 0)) out.warnings.push('Settings: "Keep data for (days)" isn\'t a number, so old rows are never deleted.');
+  else if (keepData && parseInt(keepData, 10) < MIN_KEEP_DATA_DAYS) out.warnings.push('Settings: "Keep data for (days)" is ' + keepData + '. Using ' + MIN_KEEP_DATA_DAYS + ', so the weekly scorecard and photo checks keep enough history.');
   var sigma = cfg.get('Photo alert sensitivity (std devs)');
   if (sigma && !(parseFloat(sigma) > 0)) out.warnings.push('Settings: "Photo alert sensitivity (std devs)" isn\'t a number. Using 2.');
   if (!/^(live|digest only)$/i.test(cfg.get('Alerts mode'))) out.warnings.push('Settings: "Alerts mode" should be "Digest only" or "Live". Treating it as Digest only.');

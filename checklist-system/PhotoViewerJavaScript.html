@@ -45,7 +45,7 @@
     google.script.run
       .withSuccessHandler(render)
       .withFailureHandler(function (err) { say(err.message, true); })
-      .serverPhotoDay(key);
+      .serverPhotoDay(key, PAGE.pass);
   }
 
   function render(day) {
@@ -123,7 +123,7 @@
         loadThumbs(queue, i + 1, forDay);
       })
       .withFailureHandler(function () { loadThumbs(queue, i + 1, forDay); })
-      .serverPhotoThumbs(q.ids);
+      .serverPhotoThumbs(q.ids, PAGE.pass);
   }
 
   function openFull(p) {
@@ -136,7 +136,7 @@
         $('fullCaption').textContent = p.leader + (p.time ? ' \u00b7 ' + p.time : '');
       })
       .withFailureHandler(function (err) { $('fullCaption').textContent = err.message; })
-      .serverPhotoFull(p.id);
+      .serverPhotoFull(p.id, PAGE.pass);
   }
 
   function closeFull() {

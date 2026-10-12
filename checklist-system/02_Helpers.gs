@@ -128,6 +128,23 @@ function setCell_(tab, rowIndex, header, value) {
   tab.sheet.getRange(rowIndex + 2, colOrThrow_(tab, header) + 1).setValue(value);
 }
 
+// -- Pop-up passes ---------------------------------------------
+// Any page this project serves can call its public server functions, including the public photo
+// page. The in-sheet pop-ups (Add/Edit a task, View photos) get a pass when the Checklists menu
+// opens them, and their server functions refuse calls without one. A pass lasts 6 hours.
+
+function newPopupPass_() {
+  var pass = Utilities.getUuid();
+  CacheService.getScriptCache().put('pass:' + pass, '1', 6 * 60 * 60);
+  return pass;
+}
+
+function checkPopupPass_(pass) {
+  if (!pass || !CacheService.getScriptCache().get('pass:' + String(pass))) {
+    throw new Error('This window has expired. Close it and open it again from the Checklists menu.');
+  }
+}
+
 function withLock_(fn) {
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -159,6 +176,7 @@ function loadSettings_() {
   });
   var get = function (label) { return map[normHeader_(label)] || ''; };
   var keepDays = parseInt(get('Keep photos for (days)'), 10);
+  var keepData = parseInt(get('Keep data for (days)'), 10);
   var sigma = parseFloat(get('Photo alert sensitivity (std devs)'));
   var scorecardDay = dayFromName_(get('Weekly scorecard day'));
 
@@ -176,6 +194,7 @@ function loadSettings_() {
     photoKey: get('Photo upload key'),
     photosOn: !!(get('Photo upload page') && get('Photo upload key')),
     keepPhotosDays: keepDays > 0 ? keepDays : 0,                // 0 = never delete
+    keepDataDays: keepData > 0 ? Math.max(keepData, MIN_KEEP_DATA_DAYS) : 0, // 0 = never delete (17_Data_Cleanup.gs)
     photoSigma: sigma > 0 ? sigma : 2
   };
 }

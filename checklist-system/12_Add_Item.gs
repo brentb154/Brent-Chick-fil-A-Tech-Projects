@@ -24,6 +24,7 @@ function menuAddItem() {
 function openTaskDialog_(mode) {
   var data = taskPageData_();
   data.mode = mode;
+  data.pass = newPopupPass_();
   var t = HtmlService.createTemplateFromFile('AddItem');
   t.data = JSON.stringify(data).replace(/</g, '\\u003c');
   SpreadsheetApp.getUi().showModalDialog(t.evaluate().setWidth(660).setHeight(740), 'Checklist tasks');
@@ -121,6 +122,7 @@ function byOrder_(a, b) {
 // p = { checklistId, section, task, days: ['Mon', ...], weeks: [1, 4], photo, reference, place }
 // place: 'end' (default), 'top', or 'after:<Item ID>'
 function serverAddItem(p) {
+  checkPopupPass_(p && p.pass);
   return saveTask_(function () { return insertItem_(p || {}); });
 }
 

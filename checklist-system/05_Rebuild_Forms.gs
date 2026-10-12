@@ -43,6 +43,7 @@ function morningRebuild_(cfg, today) {
     runJob_('Daily Status rows', function () { ensureDailyStatus_(cfg, today); });
     runJob_('Form submit triggers', ensureSubmitTriggers_); // every active form has a submit trigger owned by this account
     runJob_('Photo cleanup', function () { trashOldPhotos_(cfg, today); });
+    runJob_('Data cleanup', function () { clearOldData_(cfg, today); });
   }
 }
 

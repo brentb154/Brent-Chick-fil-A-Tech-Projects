@@ -27,6 +27,7 @@ Replaces the eight separate FOH checklist Google Forms with one master sheet, th
 | Turn on reminders + escalations | **Settings** "Alerts mode" → `Live` |
 | Turn on photo uploads | **Settings** "Photo upload page" (one-time setup, see SETUP_GUIDE step 7). Clear "Photo email" once the team is using it. |
 | Retire an old photo link / QR | **Settings** "Photo upload key": change it, then reprint the QR from *Show form links*. |
+| Change how long history is kept | **Settings** "Keep data for (days)" (60 = about 2 months). Each morning, rows older than that are deleted from Daily Status, Submissions, Item Results, Alert Log and Photos; nothing is copied first. At least 30 (the weekly scorecard and photo checks need it). Blank = keep everything. |
 | Change photo retention or alert sensitivity | **Settings** "Keep photos for (days)", "Photo alert sensitivity (std devs)" |
 | Look at any day's photos | **Checklists > View photos**. Flip days with the arrows. Each position shows its status, who submitted it, "Could not complete" tasks, notes, and photos (click to enlarge). Managers need the **Checklist Photos** Drive folder shared with them (Viewer). |
 | Change the scorecard day | **Settings** "Weekly scorecard day" (default Tue) |
@@ -57,6 +58,7 @@ Edits made during the day show up in the next morning's forms. Use *Rebuild form
 | `AddItem.html`, `AddItemJavaScript.html`, `AddItemStylesheet.html` | The Add / Edit a task pop-up |
 | `15_Form_Sync.gs` | Updates each form to today's questions, changing only what differs; remembers each form's layout |
 | `16_Languages.gs` | Spanish forms: the form's fixed wording in each language, the Spanish date, and turning Spanish answers back into English for the logs |
+| `17_Data_Cleanup.gs` | Each morning, deletes log rows older than "Keep data for (days)" |
 | `14_Station_QR.gs` | Station QR codes: per-station codes, the page a QR opens, the printable sheet, today's form entry IDs |
 | `StationPage.html`, `QrSheet.html` | What a station QR opens; the printable QR sheet (uses qrcodejs from cdnjs) |
 
@@ -87,6 +89,7 @@ Each form also has an `onChecklistSubmit` trigger. Triggers do work only for the
 - **Forms are updated, not rebuilt** (`15_Form_Sync.gs`). Google Forms makes every change a separate slow call, so each form's layout is remembered and only questions that changed are deleted or added (about 20–40 calls on a normal day instead of ~800 for the closing form). Each run stops at 4 minutes, well inside Google's 6, and the next run carries on. A replaced question loses its stored answers in Google; Submissions and Item Results are the record.
 - Forms are driven by the sheet: don't edit them by hand. A question added or deleted by hand is noticed on the next update and put back to match the sheet. A question retitled by hand is caught by the weekly full re-read of each form, within 7 days.
 - Photo uploads: the position list shows what's already been submitted today ("Chutes – submitted 10:09 PM"), and picking one that hasn't been submitted shows a reminder to submit it too. Picked photos wait in a tray (each can be removed with ✕) and nothing is sent until **Upload** is tapped. Photos are shrunk while they're being picked, so the upload itself is quick. Phones pause web pages that are closed or locked, so the page asks people to keep it open until ✓ and warns if they leave with photos not sent. Failed photos retry on their own 3 times, then show a Try again button.
+- The photo upload page is public (anyone with its link), and any page a script serves can call that script's server functions. So the in-sheet pop-ups (Add/Edit a task, View photos) get a pass when the Checklists menu opens them, and their server functions refuse calls without one; a pass lasts 6 hours (after that: close the pop-up and open it again). Trigger removal is private: use Checklists > Remove my triggers.
 - The photo upload page runs as the store account. After a code change to the page, the store account has to publish a new version (Deploy → Manage deployments → Edit → New version); `clasp push` alone doesn't update it.
 - On days a checklist doesn't run, its form is closed. Google currently rejects the custom "No checklist today." message on these forms, so people see Google's standard "no longer accepting responses" page instead.
 - Photos use the store account's 15 GB of free storage. At about 400 KB each, 60 days is roughly 1.5 GB.

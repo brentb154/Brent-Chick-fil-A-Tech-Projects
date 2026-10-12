@@ -20,7 +20,8 @@ function menuViewPhotos() {
   var t = HtmlService.createTemplateFromFile('PhotoViewer');
   t.data = JSON.stringify({
     today: businessMoment_(new Date(), cfg).dateKey,
-    keepDays: cfg.keepPhotosDays
+    keepDays: cfg.keepPhotosDays,
+    pass: newPopupPass_()
   }).replace(/</g, '\\u003c');
   SpreadsheetApp.getUi().showModalDialog(t.evaluate().setWidth(1100).setHeight(800), 'Checklist photos');
 }
@@ -54,7 +55,8 @@ function photoRows_(cfg) {
 }
 
 // Everything for one day: a group per checklist + position, in Checklists / Positions order
-function serverPhotoDay(dateKey) {
+function serverPhotoDay(dateKey, pass) {
+  checkPopupPass_(pass);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateKey))) throw new Error('Pick a date.');
   var cfg = loadSettings_();
   var model = loadModel_();
@@ -136,7 +138,8 @@ function canSeePhotos_() {
 }
 
 // Small previews: Drive's thumbnail when it has one, else the photo itself
-function serverPhotoThumbs(ids) {
+function serverPhotoThumbs(ids, pass) {
+  checkPopupPass_(pass);
   var allowed = {};
   photoRows_(loadSettings_()).forEach(function (p) { allowed[p.id] = true; });
   return (ids || []).slice(0, VIEWER_THUMBS_PER_CALL).map(function (id) {
@@ -153,7 +156,8 @@ function serverPhotoThumbs(ids) {
 }
 
 // Full-size photo for the click-to-view overlay
-function serverPhotoFull(id) {
+function serverPhotoFull(id, pass) {
+  checkPopupPass_(pass);
   var known = photoRows_(loadSettings_()).some(function (p) { return p.id === id; });
   if (!known) throw new Error('That photo is not on the Photos tab.');
   var file = DriveApp.getFileById(id);

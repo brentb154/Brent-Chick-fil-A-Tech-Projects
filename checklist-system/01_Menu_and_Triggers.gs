@@ -129,8 +129,9 @@ function menuValidate() {
 }
 
 function menuSendTestAlert() {
+  var ui = SpreadsheetApp.getUi(); // first: from outside the sheet this fails before any email goes out
   var sentTo = sendTestAlert_();
-  SpreadsheetApp.getUi().alert('Test alert sent to ' + sentTo + '.');
+  ui.alert('Test alert sent to ' + sentTo + '.');
 }
 
 function menuShowFormLinks() {
@@ -163,7 +164,7 @@ function menuInstallTriggers() {
   if (previous && previous !== me) msg += '\n\nTriggers were last installed by ' + previous + '. Theirs will stop doing anything; they can clear them with Checklists > Remove my triggers.';
   if (ui.alert('Install / repair triggers', msg + '\n\nContinue?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
 
-  deleteTriggers();
+  deleteTriggers_();
   props.setProperty('SS_ID', ss.getId());
   props.setProperty('TRIGGER_OWNER', me);
   ScriptApp.newTrigger('quarterHourTick').timeBased().everyMinutes(15).create();
@@ -179,11 +180,12 @@ function menuRemoveTriggers() {
     'forms stop rebuilding and submissions stop logging until someone runs Install / repair triggers. Continue?',
     ui.ButtonSet.YES_NO);
   if (ok !== ui.Button.YES) return;
-  deleteTriggers();
+  deleteTriggers_();
   ui.alert('Your triggers were removed.');
 }
 
-// Removes this project's triggers owned by the account running it
-function deleteTriggers() {
+// Removes this project's triggers owned by the account running it. Private (the _), so no web
+// page can call it; use Checklists > Remove my triggers.
+function deleteTriggers_() {
   ScriptApp.getProjectTriggers().forEach(function (t) { ScriptApp.deleteTrigger(t); });
 }
