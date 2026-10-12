@@ -60,23 +60,39 @@ function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
-// Checklists for the current business day (after midnight that's still last night)
+// Checklists for the current business day (after midnight that's still last night), plus
+// yesterday's "Photos next day" checklists once submitted, e.g. "Sunday Rotation Checklist (Sunday)"
+// on Monday. Those go in as "ID@yyyy-MM-dd" and their photos are filed under that day.
 function photoPageData_(cfg, key, preselect) {
   var day = businessMoment_(new Date(), cfg).dateKey;
+  var yesterday = addDays_(day, -1);
   var done = submittedOn_(cfg, day);
-  return {
-    key: key,
-    dayLabel: longLabel_(day),
-    preselect: preselect,
-    checklists: loadModel_().checklists.filter(function (c) { return scheduledOn_(c, day, cfg); }).map(function (c) {
-      var positions = c.perPosition ? requiredPositions_(c).map(function (p) { return p.name; }) : [];
-      var submitted = {}; // position name ('' = the whole checklist) -> time it was submitted
-      (positions.length ? positions : ['']).forEach(function (p) {
-        if (done[c.id + '|' + posKey_(p)]) submitted[p] = done[c.id + '|' + posKey_(p)];
-      });
-      return { id: c.id, name: c.name, positions: positions, submitted: submitted };
-    })
+  var model = loadModel_();
+  var entry = function (c, id, name, doneOn, onlySubmitted) {
+    var positions = c.perPosition ? requiredPositions_(c).map(function (p) { return p.name; }) : [];
+    var submitted = {}; // position name ('' = the whole checklist) -> time it was submitted
+    (positions.length ? positions : ['']).forEach(function (p) {
+      if (doneOn[c.id + '|' + posKey_(p)]) submitted[p] = doneOn[c.id + '|' + posKey_(p)];
+    });
+    if (onlySubmitted) positions = positions.filter(function (p) { return submitted[p]; });
+    return { id: id, name: name, positions: positions, submitted: submitted };
   };
+  var checklists = model.checklists.filter(function (c) { return scheduledOn_(c, day, cfg); }).map(function (c) {
+    return entry(c, c.id, c.name, done);
+  });
+  var doneYesterday = null;
+  model.checklists.forEach(function (c) {
+    if (!nextDayPhotos_(c, yesterday, cfg)) return;
+    doneYesterday = doneYesterday || submittedOn_(cfg, yesterday);
+    var e = entry(c, c.id + '@' + yesterday, c.name + ' (' + DAY_LONG[dayIndex_(yesterday)] + ')', doneYesterday, true);
+    if (Object.keys(e.submitted).length) checklists.push(e); // the form is closed now, so only once it was submitted
+  });
+  return { key: key, dayLabel: longLabel_(day), preselect: preselect, checklists: checklists };
+}
+
+// A "Photos next day" checklist that ran on dateKey
+function nextDayPhotos_(checklist, dateKey, cfg) {
+  return checklist.photosNextDay && scheduledOn_(checklist, dateKey, cfg);
 }
 
 // 'checklistId|position key' -> "10:09 PM" for everything submitted on dateKey, so the page can
@@ -102,8 +118,13 @@ function submittedOn_(cfg, dateKey) {
 function serverStartPhotos(p) {
   var cfg = loadSettings_();
   if (!p || !cfg.photoKey || p.key !== cfg.photoKey) throw new Error(MSG_OLD_LINK);
-  var checklist = loadModel_().byId[p.checklistId];
+  var today = businessMoment_(new Date(), cfg).dateKey;
+  var picked = String(p.checklistId || '').split('@'); // "ID", or "ID@date" for yesterday's (photoPageData_)
+  var checklist = loadModel_().byId[picked[0]];
   if (!checklist || !checklist.active) throw new Error('Pick a checklist.');
+  if (picked.length > 1 && !(picked[1] === addDays_(today, -1) && nextDayPhotos_(checklist, picked[1], cfg))) {
+    throw new Error('Pick a checklist.');
+  }
   var position = '';
   if (checklist.perPosition) {
     var match = requiredPositions_(checklist).filter(function (x) { return x.name === p.position; })[0];
@@ -123,7 +144,7 @@ function serverStartPhotos(p) {
     leader: colOrThrow_(tab, 'Leader'),
     file: colOrThrow_(tab, 'File')
   };
-  var dateKey = businessMoment_(new Date(), cfg).dateKey;
+  var dateKey = picked.length > 1 ? picked[1] : today;
   var folderId;
   try {
     folderId = withLock_(function () { return photoFolder_(dateKey, checklist.name, position).getId(); });

@@ -29,6 +29,7 @@ function loadModel_() {
   var clStationQr = cl.col('Station QR codes');
   var clLanguage = cl.col('Language');
   var clTimes = cl.col('Times per day');
+  var clNextDay = cl.col('Photos next day');
 
   cl.display.forEach(function (r, i) {
     var id = r[c.id].trim();
@@ -60,6 +61,7 @@ function loadModel_() {
       // Done several times a day (Restroom): submissions needed per day. Due by / Late after may be blank (open all day).
       timesText: timesText,
       timesPerDay: /^\d+$/.test(timesText) && Number(timesText) > 0 ? Number(timesText) : 0,
+      photosNextDay: clNextDay > -1 && isTrue_(r[clNextDay]), // photo page also offers it the next day (Sunday Rotation on Monday)
       positions: [],
       items: []
     };
