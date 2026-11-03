@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Training Tracker</title>
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body class="training">
+  <div class="container narrow">
+    <div class="breadcrumb"><a href="../index.html">← All tools</a></div>
+    <header>
+      <h1 class="site-title">Training Tracker</h1>
+      <div class="project-links doc-nav"><a class="project-link primary" href="setup-guide.html">Setup Guide</a></div>
+    </header>
+    <article class="doc">
+<h1>Training Tracker — Operator Guide</h1>
+<p><strong>This turns training a new hire from a paper guessing game into a live picture: log hours through a form your trainers already use, and it builds each person's timeline, tracks every position, and tells you the moment someone's ready to certify.</strong> Trainers log; managers watch the dashboard and get the alerts.</p>
+<h2>Why it matters</h2>
+<p>A new team member has dozens of positions, each with an hour requirement, across a moving schedule and several trainers. On paper, people fall through the cracks and nobody's sure who's ready for what. This keeps it all in one Sheet that updates itself, so "who's training where today" and "who's ready to certify" are answers, not guesses.</p>
+<h2>What it does</h2>
+<ul>
+<li><strong>Builds a personalized timeline</strong> for each new hire from their start date, schedule, and position requirements.</li>
+<li><strong>Tracks hours from a Google Form</strong> your trainers already know how to use — no new app to learn.</li>
+<li><strong>Live dashboard</strong> of every active trainee: hours, position-by-position progress, certification status.</li>
+<li><strong>Email alerts</strong> when someone finishes a position, goes inactive, or is ready to certify.</li>
+<li><strong>Handles name messiness</strong> automatically — "Tim" vs "Timothy," typos — so one person doesn't become three.</li>
+<li><strong>Fills the weekly Training Needs sheet</strong> so managers know who's training where each day.</li>
+</ul>
+<h2>How it works (the plain version)</h2>
+<p>This one lives inside Google Sheets and Forms — no separate app.
+- <strong>Trainers log on a Google Form.</strong> Each entry lands in the Sheet as raw training data.
+- <strong>The Sheet does the work.</strong> Apps Script turns those entries into the timeline, the dashboard, the weekly needs list, and the certification workflow — automatically.
+- <strong>You configure it in the Sheet.</strong> Position hour requirements and which alerts fire (and to whom) are just tabs you edit: Position Requirements and Alert Settings.</p>
+<h2>Everyday tasks</h2>
+<ul>
+<li><strong>Log training:</strong> trainers fill the Google Form — that's it.</li>
+<li><strong>See who's where:</strong> the Master Dashboard (live) and the weekly Training Needs sheet.</li>
+<li><strong>Adjust a position's required hours:</strong> the Position Requirements tab.</li>
+<li><strong>Change who gets alerts, or which fire:</strong> the Alert Settings tab.</li>
+<li><strong>Certify someone:</strong> the system flags cert-ready trainees and archives them to the Certification Log when done.</li>
+</ul>
+<h2>When something looks broken</h2>
+<ul>
+<li><strong>Form entries aren't showing up.</strong> Make sure the Google Form is still connected to this Sheet — responses have to land in the Daily Training Log.</li>
+<li><strong>The same person shows up twice.</strong> The dedup catches most variants, but a very different spelling can slip through — merge them on the Name Deduplication tab.</li>
+<li><strong>Alerts aren't sending.</strong> Check the Alert Settings tab (which alerts are on, and the recipient), and that the script is authorized to send mail from the right account.</li>
+<li><strong>The dashboard looks stale.</strong> It updates on new entries — give it a beat after a form submit, or re-run the refresh from the custom menu.</li>
+<li><strong>Hours look wrong for a position.</strong> Check that position's target/min hours on the Position Requirements tab — that's what everything measures against.</li>
+</ul>
+<p>Real breakage is rare, and usually comes down to the Form losing its link to the Sheet, or an alert recipient that changed. Re-running the setup is safe and rebuilds the tabs without touching your data.</p>
+<h2>The one rule</h2>
+<p><strong>The whole thing is configured in Sheet tabs — Position Requirements and Alert Settings — not in the code.</strong> Change what a position requires, or who hears about it, right there. The trainers never leave the Google Form.</p>
+<hr />
+<h2>Go deeper</h2>
+<p><em>The 1,000-foot view for whoever maintains it next.</em></p>
+<h3>The engine is one trigger: <code>onFormSubmit</code></h3>
+<p>The one thing humans do is submit the Google Form. That fires an installable <strong>form-submit trigger</strong> (<code>onFormSubmit</code>), and everything cascades from there: the entry lands in <code>Daily Training Log</code>, the trainee's name is de-duplicated, the <code>Master Dashboard</code> recomputes, the timeline and <code>Training Schedule</code> update, the certification check runs, and any alert that just became true fires. So if things stop updating, the first thing to check is that the form-submit trigger is still installed and pointed at the right form.</p>
+<h3>How the code is organized</h3>
+<p>The script is split by responsibility across numbered files, which is the map for changing one thing without touching the rest: <code>01_Menu_and_Setup</code> (the custom menu + tab creation), <code>02_Form_and_Dedup</code> (the form handler + name matching), <code>03_Dashboard</code>, <code>04_Timeline</code> (timeline generation), <code>05_Certification</code>, <code>06_Alerts</code>, <code>07_UI_Functions</code> (the sidebars/dialogs), <code>08_DataSync</code>, and <code>DIAGNOSTIC</code> (a troubleshooting utility).</p>
+<h3>The tabs, and which is the source of truth</h3>
+<p><code>Daily Training Log</code> is the <strong>source of truth</strong> — raw form responses. Everything else is derived from it: <code>Master Dashboard</code> (live overview), <code>Training Schedule</code> (the generated day-by-day plan), <code>Training Needs</code> (weekly manager view), <code>Certification Log</code> (archive of certified people). Config lives in two editable tabs: <code>Position Requirements</code> (FOH/BOH positions with min/target/max hours — what all progress measures against) and <code>Alert Settings</code> (which alerts fire and who gets them). <code>Name Deduplication</code> is the merge map. Setup creates them all.</p>
+<h3>Name normalization, and why it's a whole tab</h3>
+<p>New-hire names come in inconsistent — nicknames, typos, spacing. <code>02_Form_and_Dedup</code> scans the log for <em>similar</em> names (fuzzy matching, not exact) so one trainee's hours don't scatter across "Tim," "Timothy," and "Timmothy." When the match is confident it merges; when it isn't, it surfaces the pair on the <code>Name Deduplication</code> sheet for a human to confirm from a sidebar — it never silently merges two people who might be different.</p>
+<h3>The certification workflow</h3>
+<p><code>05_Certification</code> watches each trainee's hours against <code>Position Requirements</code>; when someone clears a position (or all of them), it flags them cert-ready and, on confirmation, moves them to the <code>Certification Log</code> with their totals and duration — so the active dashboard stays about who's <em>still training</em>.</p>
+<h3>Setup is idempotent; it's a Sheets/Forms system, not a web app</h3>
+<p>There's no <code>/exec</code> URL to redeploy — the "deploy" is the Sheet, its bound script, the connected Google Form, and the installed form-submit trigger. Re-running setup rebuilds any missing tabs and re-wires things without wiping data (safe to run again if something looks off). Keep the Form linked to the Sheet, keep the position list and alert recipients current, and it runs itself.</p>
+    </article>
+    <footer><a href="../index.html">Chick-fil-A Restaurant Tools</a></footer>
+  </div>
+</body>
+</html>

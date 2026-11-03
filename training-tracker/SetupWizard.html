@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; margin: 0; padding: 4px 6px; color: #111827; font-size: 14px; }
+    h2 { font-size: 17px; margin: 0 0 4px; }
+    .sub { color: #6B7280; margin: 0 0 16px; line-height: 1.5; }
+    .field { margin-bottom: 14px; }
+    label { display: block; font-weight: 600; margin-bottom: 4px; }
+    input { width: 100%; box-sizing: border-box; border: 1px solid #D1D5DB; border-radius: 8px; padding: 9px 11px; font-size: 14px; font-family: inherit; }
+    input:focus { outline: none; border-color: #E51636; }
+    .hint { font-size: 12px; color: #6B7280; margin-top: 3px; }
+    .btn { background: #E51636; color: #fff; border: 0; border-radius: 8px; padding: 11px 18px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; }
+    .btn:disabled { opacity: .6; cursor: default; }
+    .msg { display: none; padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; }
+    .msg.err { display: block; background: #FEF2F2; color: #991B1B; }
+    ol { padding-left: 20px; line-height: 1.7; margin: 8px 0 14px; }
+    .done { background: #ECFDF5; color: #065F46; padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; }
+    .link { word-break: break-all; background: #F3F4F6; padding: 8px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 14px; }
+    .link a { color: #1D4ED8; }
+  </style>
+</head>
+<body>
+  <div id="step1">
+    <h2>Step 1 of 2: Your store details</h2>
+    <p class="sub">Fill these in once. Saving builds your tabs, creates your training log form and turns on the daily reminders.</p>
+    <div class="msg" id="msg"></div>
+    <div class="field">
+      <label for="storeName">Store name</label>
+      <input id="storeName" placeholder="e.g. Main Street FSU">
+      <div class="hint">Used as the form title: "Main Street FSU Daily Training Log".</div>
+    </div>
+    <div class="field">
+      <label for="emails">Who gets training alerts?</label>
+      <input id="emails" placeholder="name@example.com, name2@example.com">
+      <div class="hint">Up to 3 emails, separated by commas. You can change each alert later under Training Tools → Alert Settings.</div>
+    </div>
+    <button class="btn" id="saveBtn" onclick="save()" disabled>Save and build</button>
+  </div>
+
+  <div id="step2" style="display:none;">
+    <div class="done">✅ Your tabs, training form and reminders are set up.</div>
+    <h2>Step 2 of 2: Share the form with your trainers</h2>
+    <p class="sub">Trainers fill this out after every training shift. Bookmark it, text it to them, or print it as a QR code.</p>
+    <div class="link"><a id="formUrl" href="#" target="_blank"></a></div>
+    <p class="sub">Next:</p>
+    <ol>
+      <li>Check the <b>Position Requirements</b> tab. Change positions and hours to match your store. Then run <b>Start Setup</b> again to update the form's position list.</li>
+      <li>Submit one test entry with the form. Then open <b>Master Dashboard</b> and confirm the trainee shows up.</li>
+    </ol>
+    <p class="sub">Need to change the form's questions? <a id="editUrl" href="#" target="_blank">Open the form editor</a>. Keep the first six questions in the same order.</p>
+    <button class="btn" onclick="google.script.host.close()">Done</button>
+  </div>
+
+  <script>
+    function showErr(m) { var el = document.getElementById('msg'); el.textContent = m; el.className = 'msg err'; window.scrollTo(0, 0); }
+
+    function save() {
+      var btn = document.getElementById('saveBtn');
+      btn.disabled = true; btn.textContent = 'Building… (about 30 seconds)';
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) { showErr((res && res.message) || 'Something went wrong. Please try again.'); btn.disabled = false; btn.textContent = 'Save and build'; return; }
+          var a = document.getElementById('formUrl');
+          a.href = res.formUrl; a.textContent = res.formUrl;
+          document.getElementById('editUrl').href = res.editUrl;
+          document.getElementById('step1').style.display = 'none';
+          document.getElementById('step2').style.display = '';
+        })
+        .withFailureHandler(function(e) { showErr('Setup failed: ' + e.message); btn.disabled = false; btn.textContent = 'Save and build'; })
+        .saveSetupAnswers({ storeName: document.getElementById('storeName').value, emails: document.getElementById('emails').value });
+    }
+
+    google.script.run
+      .withSuccessHandler(function(s) {
+        document.getElementById('storeName').value = s.storeName || '';
+        document.getElementById('emails').value = s.emails || '';
+        document.getElementById('saveBtn').disabled = false;
+      })
+      .withFailureHandler(function(e) { showErr('Could not load setup: ' + e.message); document.getElementById('saveBtn').disabled = false; })
+      .getSetupStatus();
+  </script>
+</body>
+</html>

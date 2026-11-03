@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: 'Google Sans', Arial, sans-serif; padding: 20px; color: #333; }
+    h2 { margin: 0 0 6px 0; font-size: 18px; color: #1a73e8; }
+    .subtitle { font-size: 12px; color: #80868b; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #f1f3f4; padding: 8px 6px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; color: #5f6368; }
+    td { padding: 8px 6px; border-bottom: 1px solid #e8eaed; vertical-align: middle; }
+    .alert-name { font-weight: 500; font-size: 12px; max-width: 140px; }
+    input[type="checkbox"] { cursor: pointer; width: 16px; height: 16px; accent-color: #1a73e8; }
+    input[type="email"] {
+      width: 100%; padding: 5px 6px; border: 1px solid #dadce0;
+      border-radius: 3px; font-size: 12px; box-sizing: border-box;
+    }
+    input[type="email"]:focus { outline: none; border-color: #1a73e8; }
+    .btn {
+      margin-top: 16px; padding: 10px 24px;
+      background: #1a73e8; color: white;
+      border: none; border-radius: 4px;
+      font-size: 14px; cursor: pointer;
+    }
+    .btn:hover { background: #1557b0; }
+    .btn:disabled { background: #dadce0; cursor: not-allowed; }
+    .status { margin-top: 10px; font-size: 13px; color: #5f6368; }
+    .loading { text-align: center; padding: 40px; color: #80868b; }
+  </style>
+</head>
+<body>
+  <h2>Alert Settings</h2>
+  <div class="subtitle">Configure which alerts to receive and add up to 3 recipients per alert type.</div>
+
+  <div id="tableContainer">
+    <div class="loading">Loading settings...</div>
+  </div>
+
+  <button class="btn" id="saveBtn" onclick="saveSettings()" style="display:none;">Save Settings</button>
+  <div class="status" id="status"></div>
+
+  <script>
+    var currentSettings = [];
+
+    window.onload = function () {
+      google.script.run
+        .withSuccessHandler(displaySettings)
+        .withFailureHandler(function (e) {
+          document.getElementById('tableContainer').innerHTML = 'Error: ' + e.message;
+        })
+        .getAlertSettings();
+    };
+
+    function displaySettings(settings) {
+      if (!settings || !Array.isArray(settings) || settings.length === 0) {
+        document.getElementById('tableContainer').innerHTML =
+          '<p>Could not load alert settings.</p>' +
+          '<p style="font-size:11px;color:#999;">Received: ' + JSON.stringify(settings) + '</p>' +
+          '<p><button class="btn" onclick="location.reload()">Retry</button></p>';
+        return;
+      }
+      currentSettings = settings;
+
+      var html = '<table><thead><tr>' +
+        '<th>Alert Type</th><th>On</th>' +
+        '<th>Recipient 1</th><th>Recipient 2</th><th>Recipient 3</th>' +
+        '</tr></thead><tbody>';
+
+      settings.forEach(function (s, i) {
+        html += '<tr>';
+        html += '<td class="alert-name">' + s.alertType + '</td>';
+        html += '<td><input type="checkbox" id="en_' + i + '"' + (s.enabled ? ' checked' : '') + '></td>';
+        html += '<td><input type="email" id="r1_' + i + '" value="' + (s.recipient1 || '') + '" placeholder="email"></td>';
+        html += '<td><input type="email" id="r2_' + i + '" value="' + (s.recipient2 || '') + '" placeholder="email"></td>';
+        html += '<td><input type="email" id="r3_' + i + '" value="' + (s.recipient3 || '') + '" placeholder="email"></td>';
+        html += '</tr>';
+      });
+
+      html += '</tbody></table>';
+
+      document.getElementById('tableContainer').innerHTML = html;
+      document.getElementById('saveBtn').style.display = 'inline-block';
+    }
+
+    function saveSettings() {
+      var updated = [];
+
+      currentSettings.forEach(function (s, i) {
+        updated.push({
+          rowIndex:   s.rowIndex,
+          alertType:  s.alertType,
+          enabled:    document.getElementById('en_' + i).checked,
+          recipient1: document.getElementById('r1_' + i).value.trim(),
+          recipient2: document.getElementById('r2_' + i).value.trim(),
+          recipient3: document.getElementById('r3_' + i).value.trim(),
+          sendTime:   s.sendTime
+        });
+      });
+
+      document.getElementById('saveBtn').disabled   = true;
+      document.getElementById('status').textContent  = 'Saving...';
+
+      google.script.run
+        .withSuccessHandler(function (msg) {
+          document.getElementById('status').textContent = '✅ ' + msg;
+          setTimeout(function () { google.script.host.close(); }, 1000);
+        })
+        .withFailureHandler(function (e) {
+          document.getElementById('saveBtn').disabled  = false;
+          document.getElementById('status').textContent = '❌ ' + e.message;
+        })
+        .saveAlertSettings(updated);
+    }
+  </script>
+</body>
+</html>

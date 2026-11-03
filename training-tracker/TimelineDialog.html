@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { font-family: Arial, sans-serif; margin: 16px; color: #333; }
+  h3 { margin: 0 0 12px 0; color: #1a73e8; }
+  label { display: block; font-weight: bold; margin: 10px 0 4px; font-size: 13px; }
+  input, select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+
+  /* Day picker grid */
+  .week-section { margin: 6px 0; }
+  .week-label { font-weight: bold; font-size: 12px; color: #555; margin-bottom: 4px; }
+  .day-grid { display: flex; gap: 4px; }
+  .day-btn {
+    flex: 1; padding: 6px 2px; text-align: center; font-size: 11px; font-weight: bold;
+    border: 2px solid #ccc; border-radius: 6px; cursor: pointer;
+    background: #f5f5f5; color: #666; transition: all 0.15s;
+    user-select: none;
+  }
+  .day-btn.selected { background: #1a73e8; color: white; border-color: #1a73e8; }
+  .day-btn:hover { border-color: #1a73e8; }
+
+  .day-count { font-size: 11px; color: #888; margin-top: 2px; text-align: right; }
+
+  .btn { padding: 10px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; }
+  .btn-primary { background: #1a73e8; color: white; }
+  .btn-primary:hover { background: #1557b0; }
+  .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+  .btn-cancel { background: #f1f3f4; color: #333; margin-right: 8px; }
+  .actions { text-align: right; margin-top: 16px; }
+
+  #status { margin-top: 10px; padding: 8px; border-radius: 4px; display: none; font-size: 13px; }
+  .status-error { background: #fce8e6; color: #c5221f; }
+  .status-success { background: #e6f4ea; color: #137333; }
+  .status-loading { background: #e8f0fe; color: #1a73e8; }
+
+  .section-header { font-size: 13px; font-weight: bold; color: #1a73e8; margin: 14px 0 6px; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<h3>Generate Training Timeline</h3>
+
+<label>Trainee Name</label>
+<input type="text" id="name" placeholder="e.g. Sasha Gunther">
+
+<div class="row">
+  <div>
+    <label>House</label>
+    <select id="house">
+      <option value="FOH">FOH (Front of House)</option>
+      <option value="BOH">BOH (Back of House)</option>
+    </select>
+  </div>
+  <div>
+    <label>Shift</label>
+    <select id="shift">
+      <option value="Breakfast">Breakfast (6a-11a)</option>
+      <option value="Lunch">Lunch (11a-3p)</option>
+      <option value="Afternoon">Afternoon (3p-5p)</option>
+      <option value="Dinner">Dinner (5p-10p)</option>
+    </select>
+  </div>
+</div>
+
+<div class="row">
+  <div>
+    <label>Hours Per Shift</label>
+    <input type="number" id="hoursPerShift" value="5" min="1" max="12" step="0.5">
+  </div>
+  <div>
+    <label>Start Week (Monday)</label>
+    <input type="date" id="weekStart">
+  </div>
+</div>
+
+<div class="section-header">Select Work Days (3 Weeks)</div>
+
+<div id="dayPicker"></div>
+
+<div class="actions">
+  <button class="btn btn-cancel" onclick="google.script.host.close()">Cancel</button>
+  <button class="btn btn-primary" id="generateBtn" onclick="generate()">Generate Timeline</button>
+</div>
+
+<div id="status"></div>
+
+<script>
+  var dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  // 3 weeks x 7 days, all false initially
+  var selectedDays = [
+    [false,false,false,false,false,false,false],
+    [false,false,false,false,false,false,false],
+    [false,false,false,false,false,false,false]
+  ];
+
+  // Set default start date to next Monday
+  (function() {
+    var today = new Date();
+    var dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
+    var daysUntilMon = (dayOfWeek === 0) ? 1 : (dayOfWeek === 1 ? 0 : 8 - dayOfWeek);
+    var nextMon = new Date(today);
+    nextMon.setDate(today.getDate() + daysUntilMon);
+    document.getElementById('weekStart').value = formatDateInput(nextMon);
+    buildDayPicker();
+  })();
+
+  function formatDateInput(d) {
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + dd;
+  }
+
+  // Rebuild picker when start date changes
+  document.getElementById('weekStart').addEventListener('change', buildDayPicker);
+
+  function buildDayPicker() {
+    var container = document.getElementById('dayPicker');
+    container.innerHTML = '';
+
+    var startVal = document.getElementById('weekStart').value;
+    if (!startVal) return;
+
+    var startDate = new Date(startVal + 'T00:00:00');
+    // Snap to Monday if not already
+    var dow = startDate.getDay();
+    if (dow !== 1) {
+      var offset = (dow === 0) ? -6 : 1 - dow;
+      startDate.setDate(startDate.getDate() + offset);
+      document.getElementById('weekStart').value = formatDateInput(startDate);
+    }
+
+    for (var week = 0; week < 3; week++) {
+      var weekDiv = document.createElement('div');
+      weekDiv.className = 'week-section';
+
+      var weekMon = new Date(startDate);
+      weekMon.setDate(weekMon.getDate() + (week * 7));
+      var weekSun = new Date(weekMon);
+      weekSun.setDate(weekSun.getDate() + 6);
+
+      var labelDiv = document.createElement('div');
+      labelDiv.className = 'week-label';
+      labelDiv.textContent = 'Week ' + (week + 1) + '  (' +
+        shortDate(weekMon) + ' - ' + shortDate(weekSun) + ')';
+      weekDiv.appendChild(labelDiv);
+
+      var gridDiv = document.createElement('div');
+      gridDiv.className = 'day-grid';
+
+      for (var day = 0; day < 7; day++) {
+        var dayDate = new Date(weekMon);
+        dayDate.setDate(dayDate.getDate() + day);
+
+        var btn = document.createElement('div');
+        btn.className = 'day-btn' + (selectedDays[week][day] ? ' selected' : '');
+        btn.textContent = dayNames[day] + '\n' + dayDate.getDate();
+        btn.style.whiteSpace = 'pre-line';
+        btn.dataset.week = week;
+        btn.dataset.day = day;
+        btn.onclick = toggleDay;
+        gridDiv.appendChild(btn);
+      }
+
+      weekDiv.appendChild(gridDiv);
+
+      var countDiv = document.createElement('div');
+      countDiv.className = 'day-count';
+      countDiv.id = 'count-' + week;
+      countDiv.textContent = countDays(week) + ' days selected';
+      weekDiv.appendChild(countDiv);
+
+      container.appendChild(weekDiv);
+    }
+  }
+
+  function toggleDay(e) {
+    var w = parseInt(e.target.dataset.week);
+    var d = parseInt(e.target.dataset.day);
+    selectedDays[w][d] = !selectedDays[w][d];
+    e.target.classList.toggle('selected');
+    document.getElementById('count-' + w).textContent = countDays(w) + ' days selected';
+  }
+
+  function countDays(week) {
+    return selectedDays[week].filter(function(v) { return v; }).length;
+  }
+
+  function shortDate(d) {
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return months[d.getMonth()] + ' ' + d.getDate();
+  }
+
+  function totalSelected() {
+    var total = 0;
+    for (var w = 0; w < 3; w++) total += countDays(w);
+    return total;
+  }
+
+  function showStatus(msg, type) {
+    var el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status-' + type;
+    el.style.display = 'block';
+  }
+
+  function generate() {
+    var name = document.getElementById('name').value.trim();
+    if (!name) { showStatus('Please enter a trainee name.', 'error'); return; }
+    if (totalSelected() === 0) { showStatus('Please select at least one work day.', 'error'); return; }
+
+    var params = {
+      name:           name,
+      house:          document.getElementById('house').value,
+      shift:          document.getElementById('shift').value,
+      hoursPerShift:  parseFloat(document.getElementById('hoursPerShift').value) || 5,
+      weekStartDate:  document.getElementById('weekStart').value,
+      selectedDays:   selectedDays
+    };
+
+    document.getElementById('generateBtn').disabled = true;
+    showStatus('Generating timeline and populating training needs...', 'loading');
+
+    google.script.run
+      .withSuccessHandler(function(msg) {
+        showStatus(msg, 'success');
+        document.getElementById('generateBtn').disabled = false;
+        setTimeout(function() { google.script.host.close(); }, 2500);
+      })
+      .withFailureHandler(function(err) {
+        showStatus('Error: ' + err.message, 'error');
+        document.getElementById('generateBtn').disabled = false;
+      })
+      .createTimeline(params);
+  }
+</script>
+</body>
+</html>

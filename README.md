@@ -9,6 +9,7 @@ Free operational tools for Chick-fil-A restaurants. The Google Sheets tools star
 | Tool | What it does | Get started |
 |---|---|---|
 | [Catering Quote Tool](catering-quote-tool/) | Build, email and print catering quotes in a couple of minutes. Tracks POs, tax-exempt certificates, delivery days and follow-ups. | [Setup guide](catering-quote-tool/SETUP_GUIDE.md) |
+| [Training Tracker](training-tracker/) | Trainers log shifts on a Google Form; the sheet tracks hours by position, builds timelines and emails alerts when someone is inactive or ready to certify. | [Setup guide](training-tracker/SETUP_GUIDE.md) |
 | [Schedule Counter (No-Setup Version)](schedule-counter/) | Staff per hour from a HotSchedules report next to your sales forecast, with where to cut or add. Opens in your browser. | [Setup guide](schedule-counter/SETUP_GUIDE.md) |
 | [Inventory Analyzer](inventory-analyzer/) | Flags end-of-month inventory jumps, zeros and missing items against recent months. Opens in your browser. | [Setup guide](inventory-analyzer/SETUP_GUIDE.md) |
 | [Facilities Repair Tracker](facilities-tracker/) | Logs in-house repairs against contractor cost to show savings. Opens in your browser. | [Setup guide](facilities-tracker/SETUP_GUIDE.md) |
