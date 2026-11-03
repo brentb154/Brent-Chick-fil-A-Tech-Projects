@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory Analyzer — Setup Guide</title>
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body class="inventory">
+  <div class="container narrow">
+    <div class="breadcrumb"><a href="../index.html">← All tools</a></div>
+    <header>
+      <h1 class="site-title">Inventory Analyzer</h1>
+      <div class="project-links doc-nav"><a class="project-link" href="../inventory-analyzer/inventory-analyzer.html">Open the Tool</a></div>
+    </header>
+    <article class="doc">
+<h1>Inventory Analyzer — Setup Guide</h1>
+<p>A second pair of eyes on your end-of-month inventory. Load this month's count next to the last few months, and it flags the items that jumped, dropped to zero or went missing, so you can recount them before the numbers are final. It's one web page. There's nothing to install and no Google setup. <strong>Plan on about 5 minutes, on a computer.</strong></p>
+<hr />
+<h2>Before you start</h2>
+<ul>
+<li><input type="checkbox" disabled> <strong>A computer with Chrome, Edge or Safari,</strong> connected to the internet</li>
+<li><input type="checkbox" disabled> <strong>Signal access,</strong> to export your month-end inventory as a CSV</li>
+<li><input type="checkbox" disabled> <strong>This month's count plus at least 2–3 earlier months.</strong> More months make the flags more accurate.</li>
+</ul>
+<hr />
+<h2>Step 1: Open the tool</h2>
+<p>Click <strong><a href="inventory-analyzer.html">Open the Inventory Analyzer</a></strong>. Bookmark the page so you can come back to it.</p>
+<p>Want a copy that lives on your computer instead? Right-click the same link, choose <strong>Save Link As…</strong>, and open the saved file whenever you need it.</p>
+<h2>Step 2: Export your months from Signal</h2>
+<ol>
+<li>In <strong>Signal</strong>, go to <strong>Inventory Reports</strong> for the month you counted.</li>
+<li>Choose <strong>Export as CSV</strong>.</li>
+<li>Repeat for each earlier month you want to compare against.</li>
+</ol>
+<p><strong>Don't open the files in Excel and save them again.</strong> Use the raw files exactly as Signal gives them.</p>
+<h2>Step 3: Add the files</h2>
+<ol>
+<li>Drag the CSV files onto the dashed box, or click the box and pick them.</li>
+<li><strong>Add them oldest to newest.</strong> The last file added is treated as the latest month. Each file shows as a red tag under the box, in order.</li>
+</ol>
+<p><img alt="Four months of sample files added" src="images/guide-01-files-added.jpg" /></p>
+<h2>Step 4: Analyze</h2>
+<ol>
+<li>Click <strong>🔍 Analyze Data</strong>.</li>
+<li>Open the <strong>Anomalies</strong> tab. Critical items moved the most compared with your usual counts. Look for typos like 100 instead of 10.</li>
+<li>Open the <strong>Zero Check</strong> tab. These items are usually stocked but are 0 or missing this month.</li>
+<li>Click <strong>⬇️ Export Action List</strong> for a CSV checklist to take to the floor, or <strong>🖨️ Print Report</strong>.</li>
+</ol>
+<p><img alt="The Anomalies tab with sample data" src="images/guide-02-anomalies.jpg" /></p>
+<p>The <strong>❓ How to Use</strong> button in the tool repeats these steps.</p>
+<hr />
+<h2>Where your data is kept</h2>
+<ul>
+<li><strong>Nothing is uploaded anywhere.</strong> Your files are read inside your own browser.</li>
+<li><strong>The CSV files you add are remembered in this browser on this computer,</strong> so they're still there next month. Click <strong>Analyze Data</strong> again to see results.</li>
+<li>Remove a month with its <strong>✕</strong>, or everything with <strong>🗑️ Clear All</strong>.</li>
+<li>The online link and a saved copy on your computer keep their files separately.</li>
+</ul>
+<h2>How to know it worked</h2>
+<ul>
+<li><strong>Analysis Results</strong> shows four cards: Months Analyzed, Unique Items, Anomalies and Latest Total Value.</li>
+<li>Months Analyzed matches the number of files you added.</li>
+<li>The <strong>Item Analysis</strong> tab lists your items by group with average counts.</li>
+</ul>
+<h2>If something goes wrong</h2>
+<ol>
+<li><strong>"Warning: Could not save to local storage."</strong> The files are too big to remember. The analysis still works this time. Remove the oldest months with <strong>✕</strong> so the rest can be saved.</li>
+<li><strong>Items show as "Unknown Item," or totals are $0.</strong> The tool reads columns by name: Description or Item, Count or Qty, Cost or Price, Extension or Total, and Group or Category. Re-export the raw CSV from Signal without editing it.</li>
+<li><strong>The months are in the wrong order.</strong> Click <strong>🗑️ Clear All</strong>, then add the files one at a time, oldest first.</li>
+</ol>
+    </article>
+    <footer><a href="../index.html">Chick-fil-A Restaurant Tools</a></footer>
+  </div>
+</body>
+</html>

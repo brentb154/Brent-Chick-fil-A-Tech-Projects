@@ -1,0 +1,2383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Analyzer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <style>
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .container {
+                max-width: 100%;
+                margin: 0;
+            }
+            
+            /* Hide non-essential elements */
+            .upload-section, 
+            .tabs, 
+            .controls button:not(.print-btn),
+            .filter-controls,
+            #helpBtn,
+            .modal-overlay,
+            .subtitle {
+                display: none !important;
+            }
+
+            .header {
+                background: none;
+                box-shadow: none;
+                padding: 0;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #991b1b;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 1.8em;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: #333;
+            background: none;
+        }
+
+            /* Ensure tables print well */
+            .analysis-section {
+                display: block !important;
+                box-shadow: none;
+                padding: 0;
+            }
+
+            .tab-content {
+                display: block !important;
+            }
+            
+            /* Only print the active tab content to avoid clutter */
+            .tab-content:not(.active) {
+                display: none !important;
+            }
+            
+            /* Unless we are printing specific reports like Action List or Zeros, we might want to hide tabs */
+            .tabs {
+                display: none !important;
+            }
+            
+            /* Print adjustments for new features */
+            #inflationContent .stats-grid, 
+            #groupsContent .stats-grid {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 10px;
+            }
+            
+            /* Hide buttons inside content areas */
+            .tab-content button {
+                display: none !important;
+            }
+
+            .data-table {
+                width: 100%;
+                border: 1px solid #ddd;
+            }
+
+            .data-table th {
+                background: #f3f4f6 !important;
+                color: #333 !important;
+                border-bottom: 2px solid #333;
+            }
+
+            .data-table td {
+                border-bottom: 1px solid #ddd;
+            }
+
+            .stat-card {
+                break-inside: avoid;
+                border: 1px solid #ddd;
+                box-shadow: none;
+            }
+            
+            /* Badge adjustments for print */
+            .badge {
+                border: 1px solid #ccc;
+                color: #333 !important;
+                background: none !important;
+            }
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal {
+            background: white;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow-y: auto;
+            position: relative;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+            padding: 40px;
+        }
+
+        .modal-overlay.active .modal {
+            transform: translateY(0);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #f3f4f6;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: #e5e7eb;
+            color: #333;
+        }
+
+        .modal-header {
+            margin-bottom: 30px;
+            border-bottom: 2px solid #f3f4f6;
+            padding-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: #333;
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .help-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .help-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .help-step {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #dc2626;
+        }
+
+        .help-step h3 {
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .help-step-icon {
+            background: #dc2626;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+        }
+
+        .help-section h3 {
+            color: #333;
+            margin: 20px 0 15px;
+            font-size: 1.3em;
+        }
+
+        .help-list {
+            list-style: none;
+        }
+
+        .help-list li {
+            margin-bottom: 10px;
+            padding-left: 25px;
+            position: relative;
+            color: #555;
+        }
+
+        .help-list li::before {
+            content: "•";
+            color: #dc2626;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #dc2626;
+            border: 2px solid #dc2626;
+        }
+
+        .btn-secondary:hover {
+            background: #f0f3ff;
+            transform: translateY(-2px);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .upload-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-area {
+            border: 3px dashed #dc2626;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.05), rgba(153, 27, 27, 0.05));
+        }
+
+        .upload-area:hover {
+            border-color: #991b1b;
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.1), rgba(153, 27, 27, 0.1));
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.2), rgba(153, 27, 27, 0.2));
+            border-color: #991b1b;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 20px;
+        }
+
+        .file-list {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .file-badge {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-badge .remove {
+            cursor: pointer;
+            font-weight: bold;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .file-badge .remove:hover {
+            opacity: 1;
+        }
+
+        .controls {
+            margin-top: 30px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(220, 38, 38, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .analysis-section {
+            display: none;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .analysis-section.active {
+            display: block;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f6f8fb, #f0f3f7);
+            padding: 20px;
+            border-radius: 15px;
+            border-left: 4px solid;
+        }
+
+        .stat-card.primary {
+            border-left-color: #dc2626;
+        }
+
+        .stat-card.success {
+            border-left-color: #10b981;
+        }
+
+        .stat-card.warning {
+            border-left-color: #f59e0b;
+        }
+
+        .stat-card.danger {
+            border-left-color: #ef4444;
+        }
+        
+        .stat-card.critical {
+            border-left-color: #7f1d1d;
+            background: linear-gradient(135deg, #fef2f2, #fee2e2);
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+            font-size: 0.9em;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e5e7eb;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 10px 10px 0 0;
+            font-weight: 500;
+        }
+
+        .tab:hover {
+            background: rgba(220, 38, 38, 0.1);
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .data-table th {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .data-table tr:hover {
+            background: rgba(220, 38, 38, 0.05);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .badge.new {
+            background: #10b981;
+            color: white;
+        }
+
+        .badge.missing {
+            background: #ef4444;
+            color: white;
+        }
+
+        .badge.unchanged {
+            background: #6b7280;
+            color: white;
+        }
+
+        .badge.increased {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .badge.decreased {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .badge.success {
+            background: #10b981;
+            color: white;
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-controls input, .filter-controls select {
+            padding: 8px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .filter-controls input:focus, .filter-controls select:focus {
+            outline: none;
+            border-color: #dc2626;
+        }
+
+        .highlight {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                background-color: rgba(220, 38, 38, 0.1);
+            }
+            50% {
+                background-color: rgba(220, 38, 38, 0.2);
+            }
+        }
+
+        .month-selector {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f6f8fb;
+            border-radius: 15px;
+        }
+
+        .month-selector h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .month-checkboxes {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .month-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .month-checkbox:hover {
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.1), rgba(153, 27, 27, 0.1));
+        }
+
+        .month-checkbox input {
+            cursor: pointer;
+        }
+
+        .info-box {
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.1), rgba(153, 27, 27, 0.1));
+            border-left: 4px solid #dc2626;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #dc2626;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .anomaly-card.expanded .card-details {
+            display: block !important;
+            animation: slideDown 0.2s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+            <h1>📊 Inventory Analyzer</h1>
+            <p class="subtitle">Upload your monthly inventory CSVs to track patterns and identify anomalies</p>
+                </div>
+                <button id="helpBtn" class="btn-secondary" style="padding: 10px 20px; font-size: 0.9em;">
+                    ❓ How to Use
+                </button>
+            </div>
+        </div>
+
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <h2>Drop CSV files here or click to browse</h2>
+                <p style="margin-top: 10px; color: #666;">Upload multiple months for better analysis</p>
+            </div>
+            <input type="file" id="fileInput" multiple accept=".csv">
+            
+            <div class="file-list" id="fileList"></div>
+            
+            <div class="controls">
+                <button id="analyzeBtn" disabled>🔍 Analyze Data</button>
+                <button id="clearBtn">🗑️ Clear All</button>
+                <!-- <button id="compareBtn" disabled>📊 Compare New Month vs Average</button> -->
+                <button id="printBtn" class="btn-secondary" onclick="window.print()">🖨️ Print Report</button>
+                <button id="exportActionBtn" class="btn-secondary" disabled>⬇️ Export Action List</button>
+            </div>
+        </div>
+
+        <div class="analysis-section" id="analysisSection">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 20px;">
+                <h2 style="margin-bottom: 0;">📈 Analysis Results</h2>
+            </div>
+            
+            <div class="stats-grid" id="statsGrid"></div>
+            
+            <div class="tabs">
+                <button class="tab active" data-tab="overview">Overview</button>
+                <button class="tab" data-tab="items">Item Analysis</button>
+                <button class="tab" data-tab="groups">Group Analysis</button>
+                <button class="tab" data-tab="anomalies">Anomalies</button>
+                <button class="tab" data-tab="zeros">Zero Check</button>
+                <button class="tab" data-tab="comparison">Month Comparison</button>
+            </div>
+            
+            <div class="tab-content active" id="overview">
+                <div class="info-box">
+                    <h3>📊 Baseline Statistics</h3>
+                    <p>This analysis is based on <span id="monthCount">0</span> months of data.</p>
+                    <p>Use the comparison feature to check new months against these averages.</p>
+                </div>
+                <div id="overviewContent"></div>
+            </div>
+            
+            <div class="tab-content" id="items">
+                <div class="filter-controls">
+                    <input type="text" id="itemSearch" placeholder="Search items...">
+                    <select id="groupFilter">
+                        <option value="">All Groups</option>
+                    </select>
+                    <select id="statusFilter">
+                        <option value="">All Statuses</option>
+                        <option value="consistent">Consistent (All Months)</option>
+                        <option value="sporadic">Sporadic</option>
+                        <option value="new">New Items</option>
+                        <option value="discontinued">Discontinued</option>
+                    </select>
+                </div>
+                <div id="itemsContent"></div>
+            </div>
+            
+            <div class="tab-content" id="groups">
+                <div id="groupsContent"></div>
+            </div>
+            
+            <div class="tab-content" id="anomalies">
+                <div id="anomaliesContent"></div>
+            </div>
+
+            <div class="tab-content" id="zeros">
+                <div id="zerosContent"></div>
+            </div>
+            
+            <div class="tab-content" id="comparison">
+                <div class="info-box">
+                    <h3>Two Ways to Compare</h3>
+                    <p><strong>1. New Month vs Average:</strong> Use the "Compare New Month vs Average" button above to upload a new month and compare it against your baseline averages.</p>
+                    <p><strong>2. Month-to-Month:</strong> Use the checkboxes below to compare any two specific months directly.</p>
+                </div>
+                <div class="month-selector">
+                    <h3>Comparison Mode</h3>
+                    <div class="toggle-container" style="margin-bottom: 20px;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="radio" name="compareMode" value="month-to-month" checked>
+                            Month-to-Month (Select 2 Specific Months)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="radio" name="compareMode" value="vs-average">
+                            Single Month vs. Historical Average
+                        </label>
+                    </div>
+
+                    <div id="monthSelectionArea">
+                        <h3>Select Months</h3>
+                    <div class="month-checkboxes" id="monthCheckboxes"></div>
+                </div>
+                </div>
+                <button id="runComparisonBtn">Run Comparison</button>
+                <div id="comparisonContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal">
+            <button class="modal-close" id="closeHelp">&times;</button>
+            
+            <div class="modal-header">
+                <h2>Inventory Analysis Instruction Manual</h2>
+                <p>A step-by-step guide to validating your End-of-Month (EOM) inventory</p>
+            </div>
+
+            <div style="margin-bottom: 25px; padding: 15px; background: #f0f9ff; border-radius: 8px; border: 1px solid #bae6fd;">
+                <h3 style="margin-top: 0; color: #0369a1; font-size: 1.1em;">📥 Step 0: Get Your Data from Signal</h3>
+                <p style="color: #334155; margin-bottom: 10px;">Before you start, you need the raw inventory file.</p>
+                <ol style="margin: 0; padding-left: 20px; color: #475569; line-height: 1.6;">
+                    <li>Log in to <strong>Signal</strong>.</li>
+                    <li>Navigate to the <strong>Inventory Reports</strong> section for the month you just counted.</li>
+                    <li>Select <strong>Export as CSV</strong>.</li>
+                    <li><strong>Important:</strong> Do not open the file in Excel and save it again. Upload the raw file directly here.</li>
+                </ol>
+            </div>
+
+            <div class="help-grid">
+                <div class="help-step">
+                    <h3><span class="help-step-icon">1</span> Upload & Analyze</h3>
+                    <p>Drag and drop your Signal CSV file into the box above. If you have previous months, upload them too for better historical accuracy. Click <strong>Analyze Data</strong>.</p>
+                </div>
+                <div class="help-step">
+                    <h3><span class="help-step-icon">2</span> Check Anomalies</h3>
+                    <p>Go to the <strong>Anomalies</strong> tab. This is your "Sanity Check." We flag items that jumped significantly (Critical > 50%). Look for typos (e.g., 100 vs 10) here.</p>
+                </div>
+                <div class="help-step">
+                    <h3><span class="help-step-icon">3</span> Verify Zeros</h3>
+                    <p>Use the <strong>Zero Check</strong> tab. This shows items you usually have but are currently missing or counted as '0'. Confirm these aren't oversight errors.</p>
+                </div>
+                <div class="help-step">
+                    <h3><span class="help-step-icon">4</span> Export Actions</h3>
+                    <p>Click <strong>Export Action List</strong> to get a printable checklist of just the errors and warnings. Take this sheet to the floor to verify counts.</p>
+                </div>
+            </div>
+
+            <div class="help-section">
+                <h3>Why Use This Tool?</h3>
+                <ul class="help-list">
+                    <li><strong>It's a "Second Pair of Eyes":</strong> Use this <em>after</em> you count but <em>before</em> you submit your final EOM numbers.</li>
+                    <li><strong>Catch "Fat Finger" Errors:</strong> A $500 variance is usually just a misplaced decimal point. This tool finds those instantly.</li>
+                    <li><strong>Focus on What Matters:</strong> Instead of reviewing 500 items, focus on the 20 "Critical" items that impact your P&L.</li>
+                </ul>
+            </div>
+            
+            <div style="margin-top: 30px; text-align: center; padding-top: 20px; border-top: 1px solid #eee; color: #888; font-size: 0.9em;">
+                <p>💡 <strong>Pro Tip:</strong> Your data stays on your computer and is saved automatically in your browser, so you can close this tab and come back later.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global data storage
+        let uploadedFiles = []; // Stores objects: { name, content, size }
+        let analysisData = null;
+        let currentTab = 'overview';
+        // let viewMode = 'units'; // Removed
+        
+        // Configuration
+        const CONFIG = {
+            anomalyThreshold: 0.25, // Tightened from 0.5 (25% deviation triggers anomaly)
+            storageKey: 'inventory_analyzer_data_v1'
+        };
+
+        // Initialize event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFromStorage();
+            
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            // const compareBtn = document.getElementById('compareBtn');
+            const exportActionBtn = document.getElementById('exportActionBtn');
+            const helpBtn = document.getElementById('helpBtn');
+            const helpModal = document.getElementById('helpModal');
+            const closeHelp = document.getElementById('closeHelp');
+
+            // Print Handling: Auto-expand details and cards for printing
+            window.onbeforeprint = () => {
+                document.querySelectorAll('details').forEach(d => d.setAttribute('open', ''));
+                document.querySelectorAll('.anomaly-card').forEach(c => c.classList.add('expanded'));
+            };
+
+            exportActionBtn.addEventListener('click', exportActionList);
+
+            // Help Modal Events
+            helpBtn.addEventListener('click', () => {
+                helpModal.classList.add('active');
+                document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            });
+
+            closeHelp.addEventListener('click', () => {
+                helpModal.classList.remove('active');
+                document.body.style.overflow = '';
+            });
+
+            helpModal.addEventListener('click', (e) => {
+                if (e.target === helpModal) {
+                    helpModal.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+
+            // Close on Escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && helpModal.classList.contains('active')) {
+                    helpModal.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+
+            // Upload area events
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+            uploadArea.addEventListener('drop', handleDrop);
+            
+            fileInput.addEventListener('change', handleFileSelect);
+            analyzeBtn.addEventListener('click', analyzeData);
+            clearBtn.addEventListener('click', clearAll);
+            // compareBtn.addEventListener('click', compareWithNewMonth);
+
+            // Tab switching
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    switchTab(tab.dataset.tab);
+                    // If switching to comparison tab, ensure UI is updated
+                    if (tab.dataset.tab === 'comparison' && analysisData) {
+                        const currentMode = document.querySelector('input[name="compareMode"]:checked')?.value || 'month-to-month';
+                        updateComparisonUI(currentMode);
+                    }
+                });
+            });
+
+            // Search and filter events
+            document.getElementById('itemSearch').addEventListener('input', filterItems);
+            document.getElementById('groupFilter').addEventListener('change', filterItems);
+            document.getElementById('statusFilter').addEventListener('change', filterItems);
+        });
+        
+        // Persistence Logic
+        function saveToStorage() {
+            try {
+                localStorage.setItem(CONFIG.storageKey, JSON.stringify(uploadedFiles));
+            } catch (e) {
+                console.warn('Storage quota exceeded or failed', e);
+                alert('Warning: Could not save to local storage (files might be too large).');
+            }
+        }
+        
+        function loadFromStorage() {
+            try {
+                const saved = localStorage.getItem(CONFIG.storageKey);
+                if (saved) {
+                    uploadedFiles = JSON.parse(saved);
+                    updateFileList();
+                    if (uploadedFiles.length > 0) {
+                        document.getElementById('analyzeBtn').disabled = false;
+                        // Optional: Auto-analyze if data exists
+                        // analyzeData(); 
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load from storage', e);
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            document.getElementById('uploadArea').classList.remove('dragover');
+            
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type === 'text/csv' || f.name.endsWith('.csv'));
+            processFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = Array.from(e.target.files);
+            processFiles(files);
+        }
+
+        async function processFiles(files) {
+            let changed = false;
+            
+            for (const file of files) {
+                if (!uploadedFiles.find(f => f.name === file.name)) {
+                    try {
+                        const content = await readFileContent(file);
+                        uploadedFiles.push({
+                            name: file.name,
+                            content: content,
+                            size: file.size,
+                            lastModified: file.lastModified
+                        });
+                        changed = true;
+                    } catch (err) {
+                        console.error(`Error reading ${file.name}:`, err);
+                        alert(`Failed to read ${file.name}`);
+                    }
+                }
+            }
+            
+            if (changed) {
+            updateFileList();
+                saveToStorage();
+            document.getElementById('analyzeBtn').disabled = uploadedFiles.length === 0;
+            }
+        }
+        
+        function readFileContent(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(e);
+                reader.readAsText(file);
+            });
+        }
+
+        function updateFileList() {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = uploadedFiles.map((file, index) => `
+                <div class="file-badge">
+                    📄 ${file.name}
+                    <span class="remove" onclick="removeFile(${index})">✕</span>
+                </div>
+            `).join('');
+        }
+
+        function removeFile(index) {
+            uploadedFiles.splice(index, 1);
+            updateFileList();
+            saveToStorage();
+            document.getElementById('analyzeBtn').disabled = uploadedFiles.length === 0;
+        }
+
+        function clearAll() {
+            uploadedFiles = [];
+            analysisData = null;
+            updateFileList();
+            saveToStorage(); // Clear storage
+            document.getElementById('analyzeBtn').disabled = true;
+            // document.getElementById('compareBtn').disabled = true;
+            document.getElementById('analysisSection').classList.remove('active');
+        }
+
+        async function analyzeData() {
+            const analysisSection = document.getElementById('analysisSection');
+            analysisSection.classList.add('active');
+            
+            // Show loading state
+            document.getElementById('statsGrid').innerHTML = '<div class="loading"><div class="spinner"></div>Processing CSV files...</div>';
+            
+            // Parse all CSV files
+            const monthsData = [];
+            
+            for (const file of uploadedFiles) {
+                // file.content is now available directly from storage/memory
+                const parsed = Papa.parse(file.content, {
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true
+                });
+                
+                // Clean and Normalize headers
+                const cleanedData = parsed.data.map(row => {
+                    const cleanRow = {};
+                    // Helper to find value for multiple possible keys
+                    const findValue = (keys) => {
+                    for (const key in row) {
+                            const normalizedKey = key.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                            if (keys.includes(normalizedKey)) {
+                                return row[key];
+                            }
+                        }
+                        return null;
+                    };
+
+                    // Map standard fields to likely CSV headers
+                    cleanRow.group = findValue(['group', 'category', 'cat', 'dept', 'department', 'class']) || 'Uncategorized';
+                    cleanRow.description = findValue(['description', 'desc', 'item', 'name', 'product', 'part', 'itemdesc']) || 'Unknown Item';
+                    cleanRow.unit = findValue(['unit', 'uom', 'measure']) || 'ea';
+                    
+                    // Numeric fields with safer parsing
+                    const countVal = findValue(['count', 'qty', 'quantity', 'qoh', 'onhand', 'stock', 'inventory']);
+                    cleanRow.count = typeof countVal === 'number' ? countVal : parseFloat(String(countVal || '0').replace(/[^0-9.-]/g, '')) || 0;
+                    
+                    const costVal = findValue(['cost', 'price', 'unitcost', 'unitprice', 'rate']);
+                    cleanRow.cost = typeof costVal === 'number' ? costVal : parseFloat(String(costVal || '0').replace(/[^0-9.-]/g, '')) || 0;
+                    
+                    const extVal = findValue(['extension', 'ext', 'total', 'value', 'amount', 'extcost', 'totalvalue']);
+                    cleanRow.extension = typeof extVal === 'number' ? extVal : parseFloat(String(extVal || '0').replace(/[^0-9.-]/g, '')) || 0;
+
+                    // If extension is 0 but we have count and cost, calculate it
+                    if (cleanRow.extension === 0 && cleanRow.count !== 0 && cleanRow.cost !== 0) {
+                        cleanRow.extension = cleanRow.count * cleanRow.cost;
+                    }
+
+                    return cleanRow;
+                }).filter(row => row.description !== 'Unknown Item' || row.count !== 0); // Filter empty/invalid rows
+                
+                monthsData.push({
+                    name: file.name.replace('.csv', ''),
+                    data: cleanedData
+                });
+            }
+            
+            // Perform analysis
+            analysisData = performAnalysis(monthsData);
+            
+            // Display results
+            displayAnalysis();
+            
+            // Ensure comparison UI is ready even if not on the tab yet
+            if (analysisData.months.length >= 1) {
+                 const currentMode = document.querySelector('input[name="compareMode"]:checked')?.value || 'month-to-month';
+                 updateComparisonUI(currentMode);
+            }
+            
+            // Enable comparison button
+            // document.getElementById('compareBtn').disabled = false;
+            document.getElementById('exportActionBtn').disabled = false;
+        }
+
+        function performAnalysis(monthsData) {
+            const analysis = {
+                months: monthsData,
+                monthCount: monthsData.length,
+                allItems: new Map(),
+                groups: new Map(),
+                averages: {},
+                anomalies: [],
+                patterns: {}
+            };
+            
+            // Collect all unique items and their data across months
+            monthsData.forEach((month, monthIndex) => {
+                month.data.forEach(row => {
+                    const key = `${row.group}|${row.description}`;
+                    
+                    if (!analysis.allItems.has(key)) {
+                        analysis.allItems.set(key, {
+                            group: row.group,
+                            description: row.description,
+                            unit: row.unit,
+                            appearances: [],
+                            counts: [],
+                            costs: [],
+                            extensions: []
+                        });
+                    }
+                    
+                    const item = analysis.allItems.get(key);
+                    item.appearances.push(monthIndex);
+                    item.counts.push(row.count || 0);
+                    item.costs.push(row.cost || 0);
+                    item.extensions.push(row.extension || 0);
+                    
+                    // Group totals
+                    if (!analysis.groups.has(row.group)) {
+                        analysis.groups.set(row.group, {
+                            name: row.group,
+                            totals: []
+                        });
+                    }
+                    
+                    const group = analysis.groups.get(row.group);
+                    if (!group.totals[monthIndex]) {
+                        group.totals[monthIndex] = 0;
+                    }
+                    group.totals[monthIndex] += row.extension || 0;
+                });
+            });
+            
+            // Calculate averages and identify patterns
+            analysis.allItems.forEach((item, key) => {
+                const avgCount = _.mean(item.counts);
+                const avgCost = _.mean(item.costs);
+                const avgExtension = _.mean(item.extensions);
+                const stdDevCount = Math.sqrt(_.mean(item.counts.map(c => Math.pow(c - avgCount, 2))));
+                
+                item.averages = {
+                    count: avgCount,
+                    cost: avgCost,
+                    extension: avgExtension,
+                    stdDevCount: stdDevCount
+                };
+                
+                // Classify item pattern
+                if (item.appearances.length === monthsData.length) {
+                    item.pattern = 'consistent';
+                } else if (item.appearances.length === 1) {
+                    item.pattern = 'single';
+                } else if (item.appearances.includes(0) && !item.appearances.includes(monthsData.length - 1)) {
+                    item.pattern = 'discontinued';
+                } else if (!item.appearances.includes(0) && item.appearances.includes(monthsData.length - 1)) {
+                    item.pattern = 'new';
+                } else {
+                    item.pattern = 'sporadic';
+                }
+                
+                // Identify anomalies (items with high variance)
+                // Use the configurable threshold
+                if (stdDevCount > avgCount * CONFIG.anomalyThreshold && item.appearances.length > 1) {
+                    const latestCount = _.last(item.counts);
+                    const zScore = stdDevCount > 0 ? (latestCount - avgCount) / stdDevCount : 0;
+                    const percentDiff = avgCount > 0 ? ((latestCount - avgCount) / avgCount) * 100 : 0;
+                    
+                    const severity = stdDevCount > avgCount * (CONFIG.anomalyThreshold * 2) ? 'critical' : 'warning';
+                    analysis.anomalies.push({
+                        item: key,
+                        reason: 'High variance',
+                        stdDev: stdDevCount,
+                        avg: avgCount,
+                        zScore: zScore,
+                        percentDiff: percentDiff,
+                        severity: severity
+                    });
+                }
+            });
+
+            // Calculate ABC Analysis (After all averages are calculated)
+            // Sort all items by total value (avg extension) descending
+            const sortedByValue = Array.from(analysis.allItems.values()).sort((a, b) => b.averages.extension - a.averages.extension);
+            const totalInventoryValue = _.sum(sortedByValue.map(i => i.averages.extension));
+            
+            let accumulatedValue = 0;
+            sortedByValue.forEach(item => {
+                accumulatedValue += item.averages.extension;
+                const percentage = totalInventoryValue > 0 ? (accumulatedValue / totalInventoryValue) * 100 : 100;
+                
+                if (percentage <= 80) {
+                    item.abcCategory = 'A'; // Top 80% of value
+                } else if (percentage <= 95) {
+                    item.abcCategory = 'B'; // Next 15%
+                } else {
+                    item.abcCategory = 'C'; // Bottom 5% of value
+                }
+            });
+            
+            return analysis;
+        }
+
+        function displayAnalysis() {
+            displayStats();
+            displayOverview();
+            displayItems();
+            displayGroups();
+            displayAnomalies();
+            displayZeros();
+            setupComparison();
+        }
+
+        function displayStats() {
+            const stats = document.getElementById('statsGrid');
+            const totalItems = analysisData.allItems.size;
+            const consistentItems = Array.from(analysisData.allItems.values()).filter(i => i.pattern === 'consistent').length;
+            const totalValue = _.sum(Array.from(analysisData.allItems.values()).map(i => _.last(i.extensions) || 0));
+            
+            // Count critical anomalies
+            const criticalAnomalies = analysisData.anomalies.filter(a => a.severity === 'critical').length;
+            
+            let anomalyCardClass = 'warning';
+            let anomalyLabel = 'Anomalies Detected';
+            if (criticalAnomalies > 0) {
+                anomalyCardClass = 'critical'; // This class we added in CSS
+                anomalyLabel = `${criticalAnomalies} Critical Anomalies`;
+            } else {
+                anomalyLabel = `${analysisData.anomalies.length} Anomalies`;
+            }
+            
+            stats.innerHTML = `
+                <div class="stat-card primary">
+                    <div class="stat-value">${analysisData.monthCount}</div>
+                    <div class="stat-label">Months Analyzed</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-value">${totalItems}</div>
+                    <div class="stat-label">Unique Items</div>
+                </div>
+                <div class="stat-card ${anomalyCardClass}" onclick="switchTab('anomalies')" style="cursor: pointer;">
+                    <div class="stat-value">${analysisData.anomalies.length}</div>
+                    <div class="stat-label">${anomalyLabel}</div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-value">$${totalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                    <div class="stat-label">Latest Total Value</div>
+                </div>
+            `;
+            
+            document.getElementById('monthCount').textContent = analysisData.monthCount;
+        }
+
+        function displayOverview() {
+            const content = document.getElementById('overviewContent');
+            const patterns = _.countBy(Array.from(analysisData.allItems.values()), 'pattern');
+            
+            content.innerHTML = `
+                <h3>Item Patterns</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Pattern</th>
+                            <th>Count</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge unchanged">Consistent</span></td>
+                            <td>${patterns.consistent || 0}</td>
+                            <td>Items appearing in all ${analysisData.monthCount} months</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge new">New</span></td>
+                            <td>${patterns.new || 0}</td>
+                            <td>Items only in recent months</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge missing">Discontinued</span></td>
+                            <td>${patterns.discontinued || 0}</td>
+                            <td>Items only in early months</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge increased">Sporadic</span></td>
+                            <td>${patterns.sporadic || 0}</td>
+                            <td>Items appearing irregularly</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function displayItems() {
+            updateGroupFilter();
+            filterItems();
+        }
+
+        function updateGroupFilter() {
+            const select = document.getElementById('groupFilter');
+            const groups = Array.from(analysisData.groups.keys()).sort();
+            select.innerHTML = '<option value="">All Groups</option>' + 
+                groups.map(g => `<option value="${g}">${g}</option>`).join('');
+        }
+
+        function filterItems() {
+            const search = document.getElementById('itemSearch').value.toLowerCase();
+            const groupFilter = document.getElementById('groupFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+            
+            let items = Array.from(analysisData.allItems.entries());
+            
+            // Apply filters
+            if (search) {
+                items = items.filter(([key, item]) => 
+                    item.description.toLowerCase().includes(search) ||
+                    item.group.toLowerCase().includes(search)
+                );
+            }
+            
+            if (groupFilter) {
+                items = items.filter(([key, item]) => item.group === groupFilter);
+            }
+            
+            if (statusFilter) {
+                items = items.filter(([key, item]) => {
+                    if (statusFilter === 'consistent') return item.pattern === 'consistent';
+                    if (statusFilter === 'sporadic') return item.pattern === 'sporadic';
+                    if (statusFilter === 'new') return item.pattern === 'new';
+                    if (statusFilter === 'discontinued') return item.pattern === 'discontinued';
+                    return true;
+                });
+            }
+            
+            // Sort by group and description
+            items.sort((a, b) => {
+                if (a[1].group !== b[1].group) return a[1].group.localeCompare(b[1].group);
+                return a[1].description.localeCompare(b[1].description);
+            });
+            
+            // Display filtered items
+            const content = document.getElementById('itemsContent');
+            
+            if (items.length === 0) {
+                content.innerHTML = '<p>No items match your filters.</p>';
+                return;
+            }
+            
+            content.innerHTML = `
+                <p>Showing ${items.length} items</p>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Group</th>
+                            <th>Description</th>
+                            <th>Avg Count</th>
+                            <th>Safe Par</th>
+                            <th>Avg Cost</th>
+                            <th>Avg Value</th>
+                            <th>Appearances</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${items.map(([key, item]) => {
+                            // Determine what to display based on viewMode - DEPRECATED, defaulting to units
+                            const displayVal = `${item.averages.count.toFixed(2)} ${item.unit}`;
+                                
+                            // Calculate Suggested Par (Avg + Safety Buffer based on variance)
+                            // Simple Formula: Avg Usage + (Standard Deviation * Safety Factor)
+                            // Since we only have EOM counts, we use 'Avg Count' as a proxy for 'Typical Ending Stock'
+                            // A safe par is slightly higher than typical ending to avoid stockouts.
+                            const safetyFactor = 1.2;
+                            const suggestedPar = Math.ceil(item.averages.count + (item.averages.stdDevCount * safetyFactor));
+                            
+                            return `
+                            <tr>
+                                <td>${item.group}</td>
+                                <td>
+                                    ${item.description} 
+                                    ${item.abcCategory === 'A' ? '<span class="badge danger">A-Item</span>' : ''}
+                                </td>
+                                <td>${item.averages.count.toFixed(2)} ${item.unit}</td>
+                                <td><strong>${suggestedPar}</strong></td>
+                                <td>$${item.averages.cost.toFixed(2)}</td>
+                                <td>$${item.averages.extension.toFixed(2)}</td>
+                                <td>${item.appearances.length}/${analysisData.monthCount}</td>
+                                <td>${getPatternBadge(item.pattern)}</td>
+                            </tr>
+                        `}).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function getPatternBadge(pattern) {
+            const badges = {
+                'consistent': '<span class="badge unchanged">Consistent</span>',
+                'new': '<span class="badge new">New</span>',
+                'discontinued': '<span class="badge missing">Discontinued</span>',
+                'sporadic': '<span class="badge increased">Sporadic</span>',
+                'single': '<span class="badge">Single Month</span>'
+            };
+            return badges[pattern] || '<span class="badge">Unknown</span>';
+        }
+
+        function displayGroups() {
+            const content = document.getElementById('groupsContent');
+            const groups = Array.from(analysisData.groups.entries()).sort((a, b) => 
+                a[0].localeCompare(b[0])
+            );
+            
+            // Calculate totals for scorecard
+            let totalValue = 0;
+            const groupStats = groups.map(([name, group]) => {
+                            const itemCount = Array.from(analysisData.allItems.values())
+                                .filter(i => i.group === name).length;
+                            const avgValue = _.mean(group.totals.filter(t => t));
+                            const latestValue = _.last(group.totals.filter(t => t)) || 0;
+                
+                // Calculate trend percentage
+                const previousValue = group.totals[group.totals.length - 2] || avgValue; // Use previous month or average if only 1 month
+                const percentChange = previousValue !== 0 ? ((latestValue - previousValue) / previousValue) * 100 : 0;
+                
+                totalValue += latestValue;
+                
+                return {
+                    name,
+                    itemCount,
+                    avgValue,
+                    latestValue,
+                    percentChange,
+                    trend: latestValue > avgValue ? '📈' : latestValue < avgValue ? '📉' : '➡️'
+                };
+            });
+            
+            content.innerHTML = `
+                <div class="info-box">
+                    <h3>📋 Category Scorecard</h3>
+                    <p>High-level breakdown of your inventory value by group. Use this to spot macro-trends in your P&L.</p>
+                </div>
+
+                <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+                    ${groupStats.map(g => {
+                        const shareOfWallet = totalValue > 0 ? (g.latestValue / totalValue) * 100 : 0;
+                        const trendColor = g.percentChange > 5 ? '#dc2626' : g.percentChange < -5 ? '#10b981' : '#666';
+                        const trendIcon = g.percentChange > 5 ? '▲' : g.percentChange < -5 ? '▼' : '—';
+                        
+                        return `
+                        <div class="stat-card" style="border-left-color: ${shareOfWallet > 20 ? '#dc2626' : '#ccc'};">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h4 style="margin: 0; font-size: 1.1em; color: #333;">${g.name}</h4>
+                                <span class="badge" style="background: #f3f4f6; color: #666;">${g.itemCount} Items</span>
+                            </div>
+                            <div class="stat-value" style="font-size: 1.5em;">$${g.latestValue.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div>
+                            <div style="margin-top: 5px; font-size: 0.9em; color: ${trendColor}; font-weight: 600;">
+                                ${trendIcon} ${Math.abs(g.percentChange).toFixed(1)}% vs Last Month
+                            </div>
+                            <div style="margin-top: 10px; background: #f3f4f6; height: 6px; border-radius: 3px; overflow: hidden;">
+                                <div style="background: #dc2626; width: ${shareOfWallet}%; height: 100%;"></div>
+                            </div>
+                            <div style="margin-top: 5px; font-size: 0.8em; color: #888;">
+                                ${shareOfWallet.toFixed(1)}% of Total Inventory
+                            </div>
+                        </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <h3 style="margin-top: 30px;">Detailed Group Analysis</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Group</th>
+                            <th>Items</th>
+                            <th>Avg Monthly Value</th>
+                            <th>Latest Value</th>
+                            <th>% Change</th>
+                            <th>Trend</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${groupStats.map(g => `
+                            <tr>
+                                <td><strong>${g.name}</strong></td>
+                                <td>${g.itemCount}</td>
+                                <td>$${g.avgValue.toFixed(2)}</td>
+                                <td>$${g.latestValue.toFixed(2)}</td>
+                                <td><span class="badge ${g.percentChange > 0 ? 'increased' : g.percentChange < 0 ? 'decreased' : 'unchanged'}">${g.percentChange > 0 ? '+' : ''}${g.percentChange.toFixed(1)}%</span></td>
+                                <td>${g.trend}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function displayInflation() {
+            // Removed
+        }
+
+        function displayZeros() {
+            const content = document.getElementById('zerosContent');
+            const latestMonthIndex = analysisData.monthCount - 1;
+            
+            // Find items that have 0 count in the latest month but had positive counts previously
+            const zeroItems = [];
+            const missingItems = []; // Items completely missing from the latest file
+            
+            analysisData.allItems.forEach((item, key) => {
+                const latestCount = item.counts[latestMonthIndex];
+                
+                // Case 1: Explicitly 0
+                if (latestCount === 0) {
+                    // Check if it was ever non-zero
+                    const hasHistory = item.counts.some((c, i) => i !== latestMonthIndex && c > 0);
+                    if (hasHistory) {
+                         zeroItems.push(item);
+                    }
+                }
+                
+                // Case 2: Missing from file (undefined in counts array for this index if we handled sparse arrays correctly, 
+                // but our parser fills with 0 usually. Let's check appearances)
+                if (!item.appearances.includes(latestMonthIndex)) {
+                    // It's missing from the file entirely
+                    if (item.pattern === 'consistent' || item.pattern === 'sporadic') {
+                    missingItems.push(item);
+                    }
+                }
+            });
+            
+            if (zeroItems.length === 0 && missingItems.length === 0) {
+            content.innerHTML = `
+                    <div class="info-box" style="border-left-color: #10b981; background: #ecfdf5;">
+                        <h3>✅ All Clear!</h3>
+                        <p>No suspicious zero-counts or missing items found in the latest month.</p>
+                    </div>
+                 `;
+                 return;
+            }
+
+            content.innerHTML = `
+                <div class="info-box">
+                    <h3>🚫 Zero-Count Verification</h3>
+                    <p>These items were stocked in previous months but are now <strong>0</strong> or <strong>Missing</strong>. Please verify these aren't oversight errors.</p>
+                </div>
+                
+                ${missingItems.length > 0 ? `
+                    <h4 style="color: #dc2626; margin-top: 20px;">❌ Missing Items (Not in File)</h4>
+                    <p style="color: #666; font-size: 0.9em; margin-bottom: 10px;">These items were in previous uploads but are completely absent from the latest CSV.</p>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Group</th>
+                                <th>Description</th>
+                                <th>Avg Count</th>
+                                <th>Last Seen</th>
+                                </tr>
+                        </thead>
+                        <tbody>
+                            ${missingItems.map(item => `
+                                <tr>
+                                    <td>${item.group}</td>
+                                    <td>${item.description} ${item.abcCategory === 'A' ? '<span class="badge danger">A-Item</span>' : ''}</td>
+                                    <td>${item.averages.count.toFixed(2)} ${item.unit}</td>
+                                    <td>Month ${_.last(item.appearances) + 1}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                ` : ''}
+                
+                ${zeroItems.length > 0 ? `
+                    <h4 style="color: #f59e0b; margin-top: 30px;">⚠️ Zero Counts (Explicitly 0)</h4>
+                    <p style="color: #666; font-size: 0.9em; margin-bottom: 10px;">These items are in the file but marked as Quantity: 0.</p>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Group</th>
+                                <th>Description</th>
+                                <th>Avg Count</th>
+                                <th>Avg Value</th>
+                                </tr>
+                        </thead>
+                        <tbody>
+                            ${zeroItems.map(item => `
+                                <tr>
+                                    <td>${item.group}</td>
+                                    <td>${item.description} ${item.abcCategory === 'A' ? '<span class="badge danger">A-Item</span>' : ''}</td>
+                                    <td>${item.averages.count.toFixed(2)} ${item.unit}</td>
+                                    <td>$${item.averages.extension.toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                ` : ''}
+                
+                <div style="margin-top: 30px; text-align: center;">
+                    <button class="btn-secondary" onclick="window.print()">🖨️ Print Verification List</button>
+                </div>
+            `;
+        }
+
+        function displayAnomalies() {
+            const content = document.getElementById('anomaliesContent');
+            
+            if (analysisData.anomalies.length === 0) {
+                content.innerHTML = '<p>No significant anomalies detected in your inventory data.</p>';
+                return;
+            }
+            
+            // Prepare data grouped by category
+            const anomalyItems = analysisData.anomalies.map(a => {
+                const [group, description] = a.item.split('|');
+                const item = analysisData.allItems.get(a.item);
+                return { ...a, group, description, item };
+            });
+
+            // Filter Criticals vs Warnings
+            // Sort by Z-Score (Statistical Significance) first, then by Percentage Difference
+            const sortAnomalies = (a, b) => {
+                const scoreA = Math.abs(a.zScore || 0);
+                const scoreB = Math.abs(b.zScore || 0);
+                if (Math.abs(scoreA - scoreB) > 0.1) return scoreB - scoreA; // prioritize z-score if significantly different
+                return Math.abs(b.percentDiff || 0) - Math.abs(a.percentDiff || 0);
+            };
+
+            const criticalItems = anomalyItems.filter(i => i.severity === 'critical').sort(sortAnomalies);
+            const warningItems = anomalyItems.filter(i => i.severity === 'warning');
+
+            // Group Warnings by Category
+            const groupedWarnings = _.groupBy(warningItems, 'group');
+            const sortedGroups = Object.keys(groupedWarnings).sort();
+
+            let html = '';
+
+            // Helper to render a card
+            const renderCard = (a) => {
+                const latestCount = _.last(a.item.counts) || 0;
+                const diff = latestCount - a.avg;
+                const diffSign = diff > 0 ? '+' : '';
+                const diffColor = diff > 0 ? '#dc2626' : '#3b82f6';
+                
+                // Generate Sparkline
+                const counts = a.item.counts;
+                const min = Math.min(...counts);
+                const max = Math.max(...counts);
+                const range = max - min || 1;
+                const height = 30;
+                const width = 120;
+                
+                const points = counts.map((c, i) => {
+                    const x = (i / (counts.length - 1)) * width;
+                    const y = height - ((c - min) / range) * height;
+                    return `${x},${y}`;
+                }).join(' ');
+
+            return `
+                <div class="anomaly-card" onclick="this.classList.toggle('expanded')" style="
+                    background: white; 
+                    border: 1px solid ${a.severity === 'critical' ? '#fee2e2' : '#e5e7eb'}; 
+                    border-left: 4px solid ${a.severity === 'critical' ? '#dc2626' : '#f59e0b'};
+                    border-radius: 8px; 
+                    padding: 12px; 
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 5px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="font-weight: bold; color: #333; font-size: 0.95em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;" title="${a.description}">
+                            ${a.description}
+                        </div>
+                        <div style="font-size: 0.8em; color: #888;">${a.item.unit}</div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 5px;">
+                        <div style="font-size: 1.2em; font-weight: bold; color: ${diffColor};">
+                            ${latestCount.toFixed(1)}
+                            <span style="font-size: 0.6em; color: #666; font-weight: normal;">(Latest)</span>
+                        </div>
+                        <!-- Sparkline -->
+                        <svg width="${width}" height="${height}" style="overflow: visible;">
+                            <polyline points="${points}" fill="none" stroke="${diffColor}" stroke-width="2" />
+                            <circle cx="${width}" cy="${height - ((latestCount - min) / range) * height}" r="3" fill="${diffColor}" />
+                        </svg>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+                        <div style="font-size: 0.8em; color: ${diffColor}; font-weight: 500;">
+                             ${diffSign}${diff.toFixed(1)} vs Avg
+                        </div>
+                        <div style="font-size: 0.8em; color: #666;">
+                            Avg: ${a.avg.toFixed(1)}
+                        </div>
+                    </div>
+
+                    ${a.severity === 'critical' ? 
+                        '<div style="margin-top: 4px; text-align: right;"><span class="badge danger">CRITICAL</span></div>' : 
+                        '<div style="margin-top: 4px; text-align: right;"><span class="badge warning">Warning</span></div>'
+                    }
+
+                    <!-- Expanded Details -->
+                    <div class="card-details" style="
+                        display: none; 
+                        margin-top: 10px; 
+                        padding-top: 10px; 
+                        border-top: 1px solid #eee;
+                        font-size: 0.85em;
+                        color: #555;
+                    ">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                            <div>
+                                <strong>Range:</strong><br>
+                                ${min.toFixed(1)} - ${max.toFixed(1)}
+                            </div>
+                            <div>
+                                <strong>Std Dev:</strong><br>
+                                ${a.stdDev.toFixed(2)}
+                            </div>
+                            <div>
+                                <strong>Z-Score:</strong><br>
+                                ${((latestCount - a.avg)/a.stdDev).toFixed(1)}
+                            </div>
+                            <div>
+                                <strong>Avg Value:</strong><br>
+                                $${a.item.averages.extension.toFixed(2)}
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <strong>Last ${Math.min(5, a.item.counts.length)} Months:</strong>
+                            <div style="display: flex; gap: 4px; margin-top: 4px; overflow-x: auto;">
+                                ${a.item.counts.slice(-5).map(c => `
+                                    <div style="
+                                        background: #f3f4f6; 
+                                        padding: 4px 6px; 
+                                        border-radius: 4px; 
+                                        font-size: 0.9em;
+                                        border: 1px solid ${c === latestCount ? '#ccc' : 'transparent'};
+                                        font-weight: ${c === latestCount ? 'bold' : 'normal'};
+                                    ">${c}</div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                `;
+            };
+
+            // 1. Top Critical Section
+            if (criticalItems.length > 0) {
+                html += `
+                    <div class="info-box" style="border-left-color: #7f1d1d; background: #fef2f2; margin-bottom: 20px;">
+                        <h3 style="color: #991b1b;">🚨 Top Critical Anomalies (${criticalItems.length})</h3>
+                        <p style="color: #7f1d1d;">These items show the highest statistical variance. Review these first.</p>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 40px;">
+                        ${criticalItems.map(item => renderCard(item)).join('')}
+                    </div>
+                `;
+            }
+
+            // 2. Grouped Warnings Section
+            if (warningItems.length > 0) {
+                html += `
+                    <h3 style="margin-bottom: 15px; color: #333; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
+                        ⚠️ Watch List by Category
+                    </h3>
+                `;
+                
+                sortedGroups.forEach(groupName => {
+                    const items = groupedWarnings[groupName].sort(sortAnomalies);
+                    const warningCount = items.length;
+                    
+                    html += `
+                        <details style="margin-bottom: 15px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+                            <summary style="background: #f9fafb; padding: 15px; cursor: pointer; font-weight: bold; color: #374151; display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span>${groupName}</span>
+                                    <span class="badge warning">${warningCount} Warning</span>
+                                </div>
+                                <span style="font-size: 0.8em; opacity: 0.7;">▼</span>
+                            </summary>
+                            
+                            <div style="padding: 15px; background: #f9fafb;">
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+                                    ${items.map(item => renderCard(item)).join('')}
+                                </div>
+                            </div>
+                        </details>
+                    `;
+                });
+            }
+            
+            content.innerHTML = html;
+        }
+
+        function setupComparison() {
+            const checkboxes = document.getElementById('monthCheckboxes');
+            const modeRadios = document.getElementsByName('compareMode');
+            
+            // Radio button event listeners
+            modeRadios.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    updateComparisonUI(e.target.value);
+                });
+            });
+
+            if (analysisData.months.length < 1) {
+                checkboxes.innerHTML = '<p style="color: #666;">Upload files to use comparison.</p>';
+                document.getElementById('runComparisonBtn').style.display = 'none';
+                return;
+            }
+            
+            const currentMode = document.querySelector('input[name="compareMode"]:checked')?.value || 'month-to-month';
+            updateComparisonUI(currentMode);
+            
+            document.getElementById('runComparisonBtn').style.display = 'block';
+            document.getElementById('runComparisonBtn').onclick = runComparison;
+        }
+
+        function updateComparisonUI(mode) {
+            const checkboxes = document.getElementById('monthCheckboxes');
+            
+            if (mode === 'month-to-month') {
+                if (analysisData.months.length < 2) {
+                    checkboxes.innerHTML = '<p style="color: #666;">Upload at least 2 months for Month-to-Month comparison.</p>';
+                    return;
+                }
+                checkboxes.innerHTML = analysisData.months.map((month, index) => `
+                    <label class="month-checkbox">
+                        <input type="checkbox" name="monthSelect" value="${index}" ${index >= analysisData.monthCount - 2 ? 'checked' : ''}>
+                        ${month.name}
+                    </label>
+                `).join('');
+                } else {
+                checkboxes.innerHTML = analysisData.months.map((month, index) => `
+                    <label class="month-checkbox">
+                        <input type="radio" name="monthSelect" value="${index}" ${index === analysisData.monthCount - 1 ? 'checked' : ''}>
+                        ${month.name}
+                    </label>
+                `).join('');
+            }
+        }
+
+        let comparisonSortOrder = 'desc'; // Track sort order for change percentages
+        let baselineSortOrder = 'desc'; // Track sort order for baseline comparison
+        
+        function runComparison() {
+            const mode = document.querySelector('input[name="compareMode"]:checked').value;
+            const selectedInputs = Array.from(document.querySelectorAll('input[name="monthSelect"]:checked'));
+            const selectedIndices = selectedInputs.map(cb => parseInt(cb.value));
+            
+            if (mode === 'month-to-month') {
+                if (selectedIndices.length !== 2) {
+                    alert('Please select exactly 2 months to compare.');
+                    return;
+                }
+                // Sort indices to ensure chronological order (oldest -> newest)
+                selectedIndices.sort((a, b) => a - b);
+                compareMonths(selectedIndices[0], selectedIndices[1]);
+            } else {
+                if (selectedIndices.length !== 1) {
+                    alert('Please select 1 month to compare against the average.');
+                    return;
+                }
+                compareMonthVsAverage(selectedIndices[0]);
+            }
+        }
+
+        function compareMonthVsAverage(targetMonthIndex) {
+            const targetMonth = analysisData.months[targetMonthIndex];
+            // Calculate averages from ALL OTHER months
+            const baselineMonths = analysisData.months.filter((_, index) => index !== targetMonthIndex);
+            
+            if (baselineMonths.length === 0) {
+                alert("Need at least one other month to calculate an average.");
+                return;
+            }
+
+            // Calculate dynamic baseline
+            const baselineItems = new Map();
+            
+            baselineMonths.forEach(month => {
+                month.data.forEach(row => {
+                    const key = `${row.group}|${row.description}`;
+                    if (!baselineItems.has(key)) {
+                        baselineItems.set(key, { counts: [], costs: [] });
+                    }
+                    baselineItems.get(key).counts.push(row.count || 0);
+                });
+            });
+
+            const content = document.getElementById('comparisonContent');
+            const targetItems = new Map(targetMonth.data.map(r => [`${r.group}|${r.description}`, r]));
+            
+            const comparisonResults = [];
+            
+            // Compare Target vs Baseline
+            targetItems.forEach((item, key) => {
+                const baseline = baselineItems.get(key);
+                // If item exists in baseline
+                const avgCount = baseline ? _.mean(baseline.counts) : 0;
+                const stdDev = baseline && baseline.counts.length > 1 
+                    ? Math.sqrt(_.mean(baseline.counts.map(c => Math.pow(c - avgCount, 2)))) 
+                    : (avgCount * 0.1 || 1); // Fallback stdDev if only 1 data point
+
+                const difference = item.count - avgCount;
+                const zScore = stdDev !== 0 ? difference / stdDev : 0;
+                const percentDiff = avgCount !== 0 ? (difference / avgCount) * 100 : 100;
+
+                comparisonResults.push({
+                    ...item,
+                    avgCount,
+                    difference,
+                    zScore,
+                    percentDiff,
+                    isNew: !baseline
+                });
+            });
+
+            // Identify Missing Items (In baseline but not in target)
+            const missingItems = [];
+            baselineItems.forEach((val, key) => {
+                if (!targetItems.has(key)) {
+                    const [group, description] = key.split('|');
+                    missingItems.push({
+                        group,
+                        description,
+                        avgCount: _.mean(val.counts)
+                    });
+                }
+            });
+
+            // Categorize
+            const criticalOverstock = comparisonResults.filter(i => i.zScore > 2 && !i.isNew);
+            const criticalLow = comparisonResults.filter(i => i.zScore < -2 && !i.isNew);
+            const warnings = comparisonResults.filter(i => Math.abs(i.zScore) <= 2 && Math.abs(i.percentDiff) > 25 && !i.isNew);
+            const newItems = comparisonResults.filter(i => i.isNew);
+
+            // CRITICAL FIX: Sort Warnings by Standard Deviation (descending)
+            warnings.sort((a, b) => (b.stdDev || 0) - (a.stdDev || 0));
+
+            renderComparisonView(
+                `${targetMonth.name} vs. ${baselineMonths.length}-Month Average`,
+                criticalOverstock,
+                criticalLow,
+                warnings,
+                newItems,
+                missingItems
+            );
+        }
+
+        function compareMonths(index1, index2) {
+            const month1 = analysisData.months[index1];
+            const month2 = analysisData.months[index2];
+            
+            const items1 = new Map(month1.data.map(r => [`${r.group}|${r.description}`, r]));
+            const items2 = new Map(month2.data.map(r => [`${r.group}|${r.description}`, r]));
+            
+            const newItems = [];
+            const missingItems = [];
+            
+            const comparisonResults = [];
+
+            items2.forEach((item, key) => {
+                const oldItem = items1.get(key);
+                if (!oldItem) {
+                    newItems.push(item);
+                    } else {
+                    const difference = item.count - oldItem.count;
+                    const percentDiff = oldItem.count !== 0 ? (difference / oldItem.count) * 100 : 100;
+                    // Standard deviation isn't applicable in 1-to-1, so we use % threshold for Z-score proxy
+                    // Let's say > 50% change is "Critical" (Z > 2 equivalent)
+                    let zScoreProxy = 0;
+                    if (Math.abs(percentDiff) > 50) zScoreProxy = 3; // Critical
+                    else if (Math.abs(percentDiff) > 25) zScoreProxy = 1.5; // Warning
+                    
+                    comparisonResults.push({
+                        ...item,
+                        avgCount: oldItem.count, // "Avg" is just the previous month
+                        difference,
+                        percentDiff,
+                        zScore: zScoreProxy,
+                        isNew: false
+                    });
+                }
+            });
+
+            items1.forEach((item, key) => {
+                if (!items2.has(key)) {
+                    missingItems.push({
+                        group: item.group,
+                        description: item.description,
+                        avgCount: item.count
+                    });
+                }
+            });
+
+            const criticalOverstock = comparisonResults.filter(i => i.percentDiff > 50);
+            const criticalLow = comparisonResults.filter(i => i.percentDiff < -50);
+            const warnings = comparisonResults.filter(i => Math.abs(i.percentDiff) <= 50 && Math.abs(i.percentDiff) > 10);
+
+            // CRITICAL FIX: Sort Warnings by Standard Deviation proxy (or just percentDiff magnitude) for month-to-month
+            // Since we don't have true stdDev in 1-to-1, we sort by magnitude of change percentage
+            warnings.sort((a, b) => Math.abs(b.percentDiff) - Math.abs(a.percentDiff));
+
+            renderComparisonView(
+                `${month2.name} vs. ${month1.name}`,
+                criticalOverstock,
+                criticalLow,
+                warnings,
+                newItems,
+                missingItems
+            );
+        }
+
+        function renderComparisonView(title, criticalOverstock, criticalLow, warnings, newItems, missingItems) {
+            const content = document.getElementById('comparisonContent');
+            
+            // Group Warnings by Category
+            const groupedWarnings = _.groupBy(warnings, 'group');
+            const sortedGroups = Object.keys(groupedWarnings).sort();
+
+            // Combine Criticals
+            const allCritical = [...criticalOverstock, ...criticalLow].sort((a, b) => Math.abs(b.zScore || 0) - Math.abs(a.zScore || 0));
+
+            let html = `
+                <h3>📊 ${title}</h3>
+                
+                <div class="stats-grid" style="margin: 20px 0;">
+                     ${allCritical.length > 0 ? `
+                    <div class="stat-card critical" style="cursor: pointer;" onclick="document.getElementById('criticalSection').scrollIntoView({behavior: 'smooth'})">
+                        <div class="stat-value">${allCritical.length}</div>
+                        <div class="stat-label">Critical Deviations</div>
+                    </div>` : ''}
+                    <div class="stat-card warning" style="cursor: pointer;" onclick="document.getElementById('warningSection').scrollIntoView({behavior: 'smooth'})">
+                        <div class="stat-value">${warnings.length}</div>
+                        <div class="stat-label">Warnings</div>
+                    </div>
+                    <div class="stat-card success" style="cursor: pointer;" onclick="document.getElementById('newSection').scrollIntoView({behavior: 'smooth'})">
+                        <div class="stat-value">${newItems.length}</div>
+                        <div class="stat-label">New Items</div>
+                    </div>
+                    <div class="stat-card danger" style="cursor: pointer;" onclick="document.getElementById('missingSection').scrollIntoView({behavior: 'smooth'})">
+                        <div class="stat-value">${missingItems.length}</div>
+                        <div class="stat-label">Missing Items</div>
+                    </div>
+                    </div>
+            `;
+
+            // Render Card Helper
+            const renderCompCard = (item, type) => {
+                const diffSign = item.difference > 0 ? '+' : '';
+                const diffColor = item.difference > 0 ? '#dc2626' : '#3b82f6';
+                const badgeClass = type === 'critical' ? 'danger' : 'warning';
+                const badgeText = type === 'critical' ? 'CRITICAL' : 'Warning';
+                
+                // Get historical data for sparkline
+                // Note: We need to find the original item in analysisData to get full history
+                // The 'item' object here is a constructed comparison object
+                const key = `${item.group}|${item.description}`;
+                const originalItem = analysisData.allItems.get(key);
+                
+                let points = '';
+                let counts = [];
+                let min = 0;
+                let max = 0;
+                let range = 1;
+                const height = 30;
+                const width = 120;
+
+                if (originalItem) {
+                    counts = originalItem.counts;
+                    // If we are comparing a new month that isn't in the main analysisData yet (vs Average mode with new file), 
+                    // we might want to append the current count to visualize it? 
+                    // Actually, 'item.count' is the "Current" count. 
+                    // In "vs Average" mode, the new month is NOT in analysisData.counts yet if it was just uploaded.
+                    // In "Month to Month" mode, both months are likely in analysisData.
+                    
+                    // Let's construct a temporary view array for the sparkline: [...history, current]
+                    // But wait, if it's month-to-month, "Current" is already in history?
+                    // Let's keep it simple: Show the history available in analysisData. 
+                    // If 'vs-average' (new file), the current count is separate.
+                    
+                    // Check if we are in "New Month Upload" mode (implied if we have a 'newItems' map in the parent scope, but easier to check context)
+                    // Actually, let's just use the standard history we have.
+                    
+                    const chartData = [...counts];
+                    // If the current count is not the last one in history (e.g. new upload), append it?
+                    // For simplicity and robustness, let's just use the item's history + current count for context if it's a new upload.
+                    // However, distinguishing that here is tricky without passing more props.
+                    // Let's just show the item's recorded history.
+                    
+                    min = Math.min(...chartData);
+                    max = Math.max(...chartData);
+                    range = max - min || 1;
+                    
+                    points = chartData.map((c, i) => {
+                        const x = (i / (chartData.length - 1)) * width;
+                        const y = height - ((c - min) / range) * height;
+                        return `${x},${y}`;
+                    }).join(' ');
+                }
+                
+                return `
+                <div class="anomaly-card" onclick="this.classList.toggle('expanded')" style="
+                    background: white; 
+                    border: 1px solid ${type === 'critical' ? '#fee2e2' : '#e5e7eb'}; 
+                    border-left: 4px solid ${type === 'critical' ? '#dc2626' : '#f59e0b'};
+                    border-radius: 8px; 
+                    padding: 12px; 
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 5px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="font-weight: bold; color: #333; font-size: 0.95em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;" title="${item.description}">
+                            ${item.description}
+                        </div>
+                        <div style="font-size: 0.8em; color: #888;">${item.group}</div>
+                </div>
+                
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 5px;">
+                        <div style="font-size: 1.2em; font-weight: bold; color: ${diffColor};">
+                            ${item.count.toFixed(1)}
+                            <span style="font-size: 0.6em; color: #666; font-weight: normal;">(Current)</span>
+                        </div>
+                        ${points ? `
+                        <svg width="${width}" height="${height}" style="overflow: visible;">
+                            <polyline points="${points}" fill="none" stroke="${diffColor}" stroke-width="2" />
+                            <circle cx="${width}" cy="${height - ((_.last(counts) - min) / range) * height}" r="3" fill="${diffColor}" />
+                        </svg>` : ''}
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+                        <div style="font-size: 0.8em; color: ${diffColor}; font-weight: 500;">
+                             ${diffSign}${item.difference.toFixed(1)} (${diffSign}${item.percentDiff.toFixed(0)}%)
+                        </div>
+                        <span class="badge ${badgeClass}" style="font-size: 0.7em;">${badgeText}</span>
+                    </div>
+
+                    <!-- Expanded Details -->
+                    <div class="card-details" style="
+                        display: none; 
+                        margin-top: 10px; 
+                        padding-top: 10px; 
+                        border-top: 1px solid #eee;
+                        font-size: 0.85em;
+                        color: #555;
+                    ">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                            <div>
+                                <strong>Baseline Avg:</strong><br>
+                                ${item.avgCount.toFixed(2)}
+                            </div>
+                            <div>
+                                <strong>Diff:</strong><br>
+                                ${item.difference.toFixed(2)}
+                            </div>
+                            <div>
+                                <strong>Z-Score:</strong><br>
+                                ${(item.zScore || 0).toFixed(1)}
+                            </div>
+                            <div>
+                                <strong>Total Months:</strong><br>
+                                ${analysisData.monthCount}
+                            </div>
+                        </div>
+                        
+                        ${counts.length > 0 ? `
+                        <div>
+                            <strong>History Trend:</strong>
+                            <div style="display: flex; gap: 4px; margin-top: 4px; overflow-x: auto;">
+                                ${counts.slice(-5).map(c => `
+                                    <div style="
+                                        background: #f3f4f6; 
+                                        padding: 4px 6px; 
+                                        border-radius: 4px; 
+                                        font-size: 0.9em;
+                                    ">${c}</div>
+                            `).join('')}
+                            </div>
+                        </div>` : ''}
+                    </div>
+                </div>
+                `;
+            };
+
+            // 1. Critical Section
+            if (allCritical.length > 0) {
+                html += `
+                    <div id="criticalSection" class="info-box" style="border-left-color: #ef4444; background: #fef2f2; margin-bottom: 20px;">
+                        <h4 style="color: #991b1b; margin: 0;">🔴 Critical Deviations (${allCritical.length})</h4>
+                        <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #7f1d1d;">Items exceeding 2 Standard Deviations (or >50% change).</p>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 40px;">
+                        ${allCritical.map(item => renderCompCard(item, 'critical')).join('')}
+                    </div>
+                `;
+            }
+
+            // 2. Warnings Grouped by Category
+            if (warnings.length > 0) {
+                html += `
+                    <h4 id="warningSection" style="margin-bottom: 15px; color: #333; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
+                        ⚠️ Significant Changes by Category
+                    </h4>
+                `;
+                
+                sortedGroups.forEach(groupName => {
+                    // Sort by magnitude of percentage change if Z-score/StdDev is not available or equal
+                    const items = groupedWarnings[groupName].sort((a, b) => {
+                        const scoreA = Math.abs(a.zScore || 0);
+                        const scoreB = Math.abs(b.zScore || 0);
+                        if (scoreA !== scoreB) return scoreB - scoreA;
+                        return Math.abs(b.percentDiff || 0) - Math.abs(a.percentDiff || 0);
+                    });
+                    
+                    html += `
+                        <details style="margin-bottom: 15px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+                            <summary style="background: #f9fafb; padding: 15px; cursor: pointer; font-weight: bold; color: #374151; display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span>${groupName}</span>
+                                    <span class="badge warning">${items.length} Warning</span>
+                                </div>
+                                <span style="font-size: 0.8em; opacity: 0.7;">▼</span>
+                            </summary>
+                            
+                            <div style="padding: 15px; background: #f9fafb;">
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+                                    ${items.map(item => renderCompCard(item, 'warning')).join('')}
+                                </div>
+                            </div>
+                        </details>
+                    `;
+                });
+            }
+            
+            // 3. New Items
+            if (newItems.length > 0) {
+                html += `
+                    <h4 id="newSection" style="margin-top: 40px;">🆕 New Items</h4>
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Group</th><th>Description</th><th>Count</th><th>Unit</th><th>Value</th></tr>
+                        </thead>
+                        <tbody>
+                            ${newItems.map(item => `
+                                <tr style="background-color: rgba(16, 185, 129, 0.05);">
+                                    <td>${item.group}</td>
+                                    <td>${item.description}</td>
+                                    <td>${item.count}</td>
+                                    <td>${item.unit}</td>
+                                    <td>${item.extension.toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+            
+            // 4. Missing Items
+            if (missingItems.length > 0) {
+                html += `
+                    <h4 id="missingSection" style="margin-top: 40px;">❌ Missing Items</h4>
+                    <table class="data-table">
+                        <thead><tr><th>Group</th><th>Description</th><th>Baseline Count</th></tr></thead>
+                        <tbody>
+                            ${missingItems.map(item => `
+                                <tr><td>${item.group}</td><td>${item.description}</td><td>${item.avgCount.toFixed(2)}</td></tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            content.innerHTML = html;
+        }
+        
+        function exportActionList() {
+            if (!analysisData || !analysisData.anomalies) return;
+
+            // Define CSV headers
+            const headers = ['Group', 'Description', 'ABC Category', 'Avg Count', 'Current Deviation', 'Severity', 'Reason'];
+            
+            // Collect rows
+            const rows = analysisData.anomalies.map(a => {
+                const [group, description] = a.item.split('|');
+                const item = analysisData.allItems.get(a.item);
+                return [
+                    `"${group}"`,
+                    `"${description}"`,
+                    item.abcCategory,
+                    a.avg.toFixed(2),
+                    a.stdDev.toFixed(2),
+                    a.severity.toUpperCase(),
+                    `"${a.reason}"`
+                ].join(',');
+            });
+            
+            // Add A-Items that aren't anomalies but are high value (Auditing purpose)
+            analysisData.allItems.forEach((item, key) => {
+                // Check if already included
+                if (!analysisData.anomalies.find(a => a.item === key) && item.abcCategory === 'A') {
+                     rows.push([
+                        `"${item.group}"`,
+                        `"${item.description}"`,
+                        'A',
+                        item.averages.count.toFixed(2),
+                        '0',
+                        'AUDIT',
+                        '"High Value Item Check"'
+                    ].join(','));
+                }
+            });
+
+            // Create CSV content
+            const csvContent = [headers.join(','), ...rows].join('\n');
+            
+            // Download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `Action_List_EOM_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+            document.getElementById(tab).classList.add('active');
+            
+            currentTab = tab;
+        }
+    </script>
+</body>
+</html>

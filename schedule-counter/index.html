@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schedule Counter (No-Setup Version) — Setup Guide</title>
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body class="counter">
+  <div class="container narrow">
+    <div class="breadcrumb"><a href="../index.html">← All tools</a></div>
+    <header>
+      <h1 class="site-title">Schedule Counter (No-Setup Version)</h1>
+      <div class="project-links doc-nav"><a class="project-link" href="../schedule-counter/schedule-counter.html">Open the Tool</a></div>
+    </header>
+    <article class="doc">
+<h1>Schedule Counter (No-Setup Version) — Setup Guide</h1>
+<p>See how many people you have scheduled each hour next to what your sales forecast says you need, then get a list of hours to cut, add or watch for burnout. It's one web page. There's nothing to install and no Google setup. <strong>Plan on about 10 minutes the first time, on a computer</strong> (not a phone).</p>
+<hr />
+<h2>Before you start</h2>
+<ul>
+<li><input type="checkbox" disabled> <strong>A computer with Chrome, Edge or Safari,</strong> connected to the internet</li>
+<li><input type="checkbox" disabled> <strong>HotSchedules access,</strong> to pull the week's Schedule Report</li>
+<li><input type="checkbox" disabled> <strong>A sales estimate for each day,</strong> Monday through Saturday</li>
+<li><input type="checkbox" disabled> <strong>Your productivity goal</strong> in sales per labor hour, e.g. $90, and your rough FOH / BOH labor split</li>
+</ul>
+<hr />
+<h2>Step 1: Open the tool</h2>
+<p>Click <strong><a href="schedule-counter.html">Open the Schedule Counter</a></strong>. Bookmark the page so you can come back to it.</p>
+<p>Want a copy that lives on your computer instead? Right-click the same link, choose <strong>Save Link As…</strong>, and open the saved file whenever you need it. It still needs the internet to draw its charts.</p>
+<h2>Step 2: Try it with demo data (optional)</h2>
+<ol>
+<li>Click the <strong>2 Schedule Counter</strong> tab.</li>
+<li>Click <strong>🪄 Load Demo Data</strong>, then <strong>OK</strong>.</li>
+</ol>
+<p>The grid, charts and action list fill in with made-up staff and sales, so you can see what you're working toward. Loading your own files replaces the demo.</p>
+<p><img alt="Schedule Counter with demo data loaded" src="images/guide-02-demo-metrics.jpg" /></p>
+<h2>Step 3: Pull your schedule from HotSchedules</h2>
+<ol>
+<li>In HotSchedules go to <strong>Reporting → Dashboard → Schedules and Rosters → Schedule Report</strong>.</li>
+<li>Pick the <strong>week</strong> you want to review.</li>
+<li>Set Output to <strong>EXCEL XP–2007</strong>.</li>
+<li>Under Schedule Report Details, tick <strong>Include Out Times</strong>.</li>
+<li>Under Available Shifts, tick <strong>Total Day</strong>.</li>
+<li>Under Schedule Selection, choose the schedule you want. <strong>Run FOH and BOH as two separate reports</strong> if you want to see them separately.</li>
+</ol>
+<p>The same steps are on the tool's <strong>1 File Converter</strong> tab.</p>
+<h2>Step 4: Convert the file</h2>
+<ol>
+<li>On the <strong>1 File Converter</strong> tab, click <strong>Click to choose your schedule file</strong> and pick the report you just downloaded.</li>
+<li>Click <strong>🚀 Convert &amp; Download CSV</strong>. A file named like <code>schedule hours for 11-10-11-16.csv</code> lands in your Downloads folder.</li>
+<li>Do it again for your second report (FOH and BOH each get their own CSV).</li>
+</ol>
+<p><img alt="The File Converter tab" src="images/guide-01-file-converter.jpg" /></p>
+<h2>Step 5: Load the converted files</h2>
+<ol>
+<li>Click the <strong>2 Schedule Counter</strong> tab.</li>
+<li>Put the FOH CSV in <strong>FOH Schedule File</strong> and the BOH CSV in <strong>BOH Schedule File</strong>. You can also drag a file onto either box.</li>
+<li>Type your sales estimate for each day in <strong>Estimated Daily Sales (Mon–Sat)</strong>.</li>
+</ol>
+<h2>Step 6: Set your goals (first time only)</h2>
+<ol>
+<li>Click <strong>⚙️ Edit Sales Curve</strong>.</li>
+<li>Set your <strong>Productivity Goals</strong> (Overall, FOH, BOH) and your <strong>Labor Mix</strong> percentages.</li>
+<li>Check the <strong>Percent of Daily Sales by Hour</strong> column. It's how each day's sales are spread across the hours. Adjust it to match your store.</li>
+<li>Click <strong>Close</strong>. The tool remembers these settings next time.</li>
+</ol>
+<h2>Step 7: Run it</h2>
+<p>Click <strong>📈 Generate Analysis</strong>. Use the <strong>Overall / FOH / BOH</strong> and <strong>Daypart</strong> buttons to change what you're looking at. Click any hour to see who's on.</p>
+<p><img alt="The staffing grid" src="images/guide-03-demo-grid.jpg" /></p>
+<hr />
+<h2>Where your data is kept</h2>
+<ul>
+<li><strong>Nothing is uploaded anywhere.</strong> Your files are read inside your own browser.</li>
+<li><strong>Remembered on this computer, in this browser:</strong> your sales curve, goals, labor mix, daily sales estimates and any manager names you type in.</li>
+<li><strong>Not remembered:</strong> the schedule files and employee names. Load the CSVs again each time you open the page.</li>
+<li>The online link and a saved copy on your computer keep their settings separately.</li>
+</ul>
+<h2>How to know it worked</h2>
+<ul>
+<li>The five cards at the top show numbers: Avg Staff/Hour, Productivity, $/LH vs goal, Total Labor Hours and Overtime.</li>
+<li>The grid is colored by hour. Green is on target; red and orange are off.</li>
+<li><strong>💡 Optimization Insights</strong> lists hours to cut, add or watch for burnout.</li>
+</ul>
+<h2>If something goes wrong</h2>
+<ol>
+<li><strong>"This looks like a raw HotSchedules export!"</strong> You put the HotSchedules report straight into Step 5. Convert it on the <strong>1 File Converter</strong> tab first (Step 4), then load the CSV it downloads.</li>
+<li><strong>The $/LH card says N/A or "Enter daily sales estimates."</strong> Type a sales number for each day you're open, Monday to Saturday.</li>
+<li><strong>The converter says no schedule data was found, or shifts land on the wrong days.</strong> Re-run the HotSchedules report with Output set to <strong>EXCEL XP–2007</strong> and both <strong>Include Out Times</strong> and <strong>Total Day</strong> ticked, then convert again. Open the CSV and check a few shifts against HotSchedules before you trust the numbers.</li>
+</ol>
+    </article>
+    <footer><a href="../index.html">Chick-fil-A Restaurant Tools</a></footer>
+  </div>
+</body>
+</html>
