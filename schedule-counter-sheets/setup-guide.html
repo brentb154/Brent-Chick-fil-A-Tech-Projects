@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schedule Counter (Sheets) — Setup Guide</title>
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body class="sheets-counter">
+  <div class="container narrow">
+    <div class="breadcrumb"><a href="../index.html">← All tools</a></div>
+    <header>
+      <h1 class="site-title">Schedule Counter (Sheets)</h1>
+      <div class="project-links doc-nav"><a class="project-link" href="how-it-works.html">What It Does</a></div>
+    </header>
+    <article class="doc">
+<h1>Schedule Counter (Sheets) — Setup Guide</h1>
+<p>This gets the full Schedule Counter running for your store: staffing by the hour against your real sales, a weekly forecast that learns your sales pattern, and reminders that keep it fed. You don't need to know anything about code. <strong>Plan on about 30 minutes, on a computer</strong> (not a phone).</p>
+<p>Just want to check one schedule without any setup? Use the <a href="../schedule-counter/">no-setup version</a> instead.</p>
+<hr />
+<h2>Before you start</h2>
+<p>Have these ready:</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>A Google account for your store,</strong> not your personal one. Your sales history is saved in that account's Google Drive, and reminder emails go out from it.</li>
+<li><input type="checkbox" disabled> <strong>CFA Home access to Analytics Hub</strong> (ThoughtSpot). Step 7 sets up a weekly sales sync from there.</li>
+<li><input type="checkbox" disabled> <strong>Your restaurant number,</strong> for the ThoughtSpot store filter</li>
+<li><input type="checkbox" disabled> <strong>HotSchedules access</strong> to export your weekly schedule</li>
+<li><input type="checkbox" disabled> <strong>The email address that should get alerts</strong> if a weekly job fails</li>
+</ul>
+<hr />
+<h2>Step 1: Make your own copy</h2>
+<ol>
+<li>Click this link: <strong><a href="https://docs.google.com/spreadsheets/d/1sbW5P4zsiJadFIv7xE1eX8RiBF38gwWNp3e5_lDrNu8/copy">Make my copy of Schedule Counter</a></strong>. If Google asks you to sign in first, use your store account.</li>
+<li>Google shows a <strong>Copy document</strong> screen. The yellow note says the attached script will be copied too. That's the tool itself, and it's supposed to come along.</li>
+<li>Click the blue <strong>Make a copy</strong> button.</li>
+</ol>
+<p><img alt="Copy document screen" src="images/setup-01-make-a-copy.jpg" /></p>
+<p>Your copy opens, named "Copy of Schedule Counter (Blank Template)". Rename it to something you'll recognize in Step 7, like "Main Street Schedule Counter". It's blank and belongs only to you.</p>
+<h2>Step 2: Start the setup</h2>
+<ol>
+<li>Wait about 10 seconds for the sheet to finish loading.</li>
+<li>In the menu bar at the top (File, Edit, View…), click <strong>📊 Schedule Counter Setup</strong>, then <strong>Start Setup</strong>.</li>
+</ol>
+<p><img alt="The Schedule Counter Setup menu" src="images/setup-02-setup-menu.jpg" /></p>
+<p>Don't see 📊 Schedule Counter Setup? Reload the page and wait a little longer. If it still isn't there after two reloads, make a new copy from the Step 1 link. Once in a while Google makes a copy without the tool attached.</p>
+<h2>Step 3: Give the tool permission (one time only)</h2>
+<p>Google asks you to approve the tool before it can build tabs and send reminder emails. This is normal, and you only do it once. The sign-in screens open in a <strong>new tab</strong>.</p>
+<p><strong>"Authorization required."</strong> Click <strong>OK</strong>. If Google asks which account to use, pick your store account.</p>
+<p><strong>"Google hasn't verified this app."</strong> This looks alarming, but it's expected. The "app" is your own copy, so the developer named on that screen is your own account.
+1. Click <strong>Advanced</strong> (small gray link, bottom left).
+2. Click <strong>Go to Schedule Counter (Blank Template) (unsafe)</strong> at the bottom.</p>
+<p><img alt="Google hasn't verified this app, with Advanced opened" src="images/setup-03-unverified-app.jpg" /></p>
+<p><strong>"Sign in to Schedule Counter."</strong> You may not see this one. If you do, check it shows your store account and click <strong>Continue</strong>.</p>
+<p><strong>The list of permissions.</strong> Tick <strong>Select all</strong> at the top, then click <strong>Continue</strong>. The tool can only <em>send</em> email. It can't read your inbox.</p>
+<p><img alt="Select all permissions" src="images/setup-04-select-all.jpg" /></p>
+<p>The sign-in tab closes and the setup carries on in your sheet by itself.</p>
+<h2>Step 4: Enter the alert email</h2>
+<ol>
+<li>In the <strong>Schedule Counter Setup</strong> box, type the email that should hear about it if a weekly job fails or no sales data arrived.</li>
+<li>Click <strong>Save and build</strong>. In about 20 seconds it builds every tab and turns on three weekly jobs: a Sunday night sales check, Monday morning processing, and a Thursday schedule reminder.</li>
+</ol>
+<p><img alt="Alert email question" src="images/setup-05-alert-email.jpg" /></p>
+<h2>Step 5: Publish the app</h2>
+<p>This turns your sheet into the web page your managers use.</p>
+<ol>
+<li>In the menu bar, click <strong>Extensions → Apps Script.</strong> A new tab opens. Leave the code alone. If a "You're currently signed in as…" box pops up, check it's your store account and click <strong>OK</strong>.</li>
+<li>Click the blue <strong>Deploy</strong> button (top right), then <strong>New deployment</strong>.</li>
+<li>Check that it says <strong>Web app</strong>, that <strong>Execute as</strong> says <strong>Me</strong>, and that <strong>Who has access</strong> says <strong>Anyone</strong>. They're filled in already.</li>
+<li>Click <strong>Deploy</strong>. If Google asks again, click <strong>Authorize access</strong> and approve it the same way as Step 3.</li>
+</ol>
+<p><img alt="New deployment settings" src="images/setup-06-new-deployment.jpg" /></p>
+<ol start="5">
+<li>Copy the <strong>Web app URL</strong>. <strong>That's your team's link.</strong> Bookmark it.</li>
+</ol>
+<p>Anyone with the link can open the app, so share it with your managers only.</p>
+<h2>Step 6: Open the app and finish its setup</h2>
+<ol>
+<li>Open your team's link. The first load takes 10–20 seconds.</li>
+<li>A <strong>Schedule Counter Setup</strong> welcome screen appears. Click <strong>Get Started</strong>.</li>
+</ol>
+<p><img alt="App welcome screen" src="images/setup-07-app-welcome.jpg" /></p>
+<ol start="3">
+<li><strong>Initialize Spreadsheet:</strong> click it. Your tabs already exist, so it just checks them.</li>
+<li><strong>Location &amp; Notifications:</strong> enter your store name and the email that should get the weekly labor summary. Click <strong>Save &amp; Continue</strong>.</li>
+</ol>
+<p><img alt="Store name and email" src="images/setup-08-location.jpg" /></p>
+<ol start="5">
+<li><strong>Automated Triggers:</strong> click <strong>Install Triggers</strong>. They're already on from Step 4, so nothing gets doubled up.</li>
+<li><strong>Sales Curves:</strong> click <strong>Accept Defaults &amp; Launch</strong>.</li>
+</ol>
+<h2>Step 7: Connect your weekly sales</h2>
+<p>This is what makes the tool run itself. Once a week, CFA Analytics drops last week's hourly sales into the <strong>Sheet1</strong> tab of your sheet, right before the tool's Sunday 10 PM check. You only set it up once.</p>
+<p><strong>Part A: Build the search.</strong>
+In <strong>CFA Home → Analytics Hub → Custom Reports → ThoughtSpot Search</strong>, open <strong>Sales Analytics</strong> and build a search with:
+- <strong>Sales</strong>, <strong>Hour (24 hr)</strong> and <strong>Business Date</strong>
+- the time filter <strong>this week</strong>
+- <strong>sort by Business Date</strong> and <strong>sort by Hour (24 hr)</strong>
+- a store filter for <strong>your restaurant by number</strong>, with all sales channels</p>
+<p><strong>Part B: Add the "Today date" formula.</strong>
+1. In the column panel, click <strong>+ Add → Formula</strong>.</p>
+<p><img alt="Add a formula" src="images/sync-2-add-formula.png" /></p>
+<ol start="2">
+<li>Name it <strong>Today date</strong>, type <strong>today()</strong>, and click <strong>Save</strong>. It should say "Formula is ready to save".</li>
+</ol>
+<p><img alt="Formula editor" src="images/sync-3-formula-editor.png" /></p>
+<ol start="3">
+<li>Tick its box, along with <strong>Hour (24 hr)</strong>, <strong>Business Date</strong> and <strong>Sales</strong>. Your search tokens across the top should look like this:</li>
+</ol>
+<p><img alt="Finished search" src="images/sync-1-search.png" /></p>
+<p><strong>Part C: Set up the weekly sync.</strong>
+1. Click the <strong>…</strong> menu → <strong>Sync → Sync to Sheets</strong>. Link your Google account the first time it asks, using your store account.</p>
+<p><img alt="Sync to Sheets menu" src="images/sync-4-sync-menu.png" /></p>
+<ol start="2">
+<li>In the pipeline editor, set:
+   - <strong>File name:</strong> your Schedule Counter sheet from Step 1
+   - <strong>Sheet name:</strong> <strong>Sheet1</strong>
+   - <strong>Cell:</strong> <strong>A1</strong>
+   - <strong>Sync schedule:</strong> ticked, <strong>Week</strong>, <strong>21:00</strong>, your time zone, <strong>SU</strong> (Sunday)</li>
+<li>Click <strong>Save</strong>.</li>
+</ol>
+<p><img alt="Pipeline settings" src="images/sync-5-pipeline.png" /></p>
+<p><strong>Timing matters.</strong> The sync has to land before the tool's Sunday 10 PM check. 9 PM Sunday gives an hour of cushion.</p>
+<p>After the first sync, row 1 of <strong>Sheet1</strong> reads: <strong>Hour (24 hr) · Business Date · Today date · Total Sales</strong>.</p>
+<h2>Step 8: Load your first week</h2>
+<p>Once sales are in <strong>Sheet1</strong> (after the first Sunday sync):</p>
+<ol>
+<li>In the app, open <strong>Settings</strong> and scroll to the bottom, to <strong>Automation</strong>.</li>
+<li>Check that all three jobs say <strong>Active</strong>.</li>
+<li>Click <strong>Backfill History</strong>, then <strong>Rebuild Curves</strong>.</li>
+</ol>
+<p><img alt="Automation settings" src="images/setup-09-automation.jpg" /></p>
+<hr />
+<h2>How to know it worked</h2>
+<ol>
+<li><strong>Settings → Automation</strong> shows three <strong>Active</strong> jobs.</li>
+<li>After <strong>Backfill History</strong>, a green message says how many rows it added.</li>
+<li>The <strong>Forecast</strong> tab shows next week's sales by day.</li>
+</ol>
+<p><img alt="Forecast tab" src="images/setup-10-forecast.jpg" /></p>
+<ol start="4">
+<li>On the <strong>File Converter</strong> tab, convert your HotSchedules export, then load it on <strong>Schedule Analysis</strong>. You get a staffing grid by day and hour.</li>
+</ol>
+<p>If all four look right, you're live. From here it runs itself: every Monday morning it files last week's sales, updates the forecast, and clears <strong>Sheet1</strong> for the next sync.</p>
+<hr />
+<h2>If something goes wrong</h2>
+<p><strong>1. A Sunday email says the sales sync may have failed.</strong>
+- In ThoughtSpot, open <strong>… → Sync → Manage pipelines</strong> and check the pipeline ran.
+- Check <strong>Sheet1</strong> has rows with last week's <strong>Business Date</strong>, and that row 1 has the four headers from Step 7.</p>
+<p><strong>2. "Sheet1 missing required columns."</strong>
+The search in Step 7 is missing a column. The tool needs headers containing <strong>Hour</strong>, <strong>Business Date</strong> and <strong>Total Sales</strong>.</p>
+<p><strong>3. Blank white page, or "Loading…" that never finishes.</strong>
+Wait 20 seconds and reload. If you changed anything in Apps Script, publish again with <strong>Deploy → Manage deployments → ✏️ → Version: New version → Deploy</strong>. The link stays the same.</p>
+<p><strong>4. The forecast never updates.</strong>
+Open <strong>Settings → Automation</strong>. If a job isn't <strong>Active</strong>, click <strong>Install Triggers</strong>. If you skipped <strong>Select all</strong> in Step 3, run <strong>📊 Schedule Counter Setup → Start Setup</strong> again and tick <strong>Select all</strong> when asked.</p>
+<p><strong>5. The 📊 Schedule Counter Setup menu never appears.</strong>
+Reload twice. If it's still missing, make a fresh copy from Step 1. Once in a while Google copies the sheet without the tool attached.</p>
+<p><strong>Don't rename the Sheet1 tab,</strong> and don't edit the <strong>app_cache</strong> tab. You can delete the <strong>Start Here</strong> tab once setup is done.</p>
+    </article>
+    <footer><a href="../index.html">Chick-fil-A Restaurant Tools</a></footer>
+  </div>
+</body>
+</html>

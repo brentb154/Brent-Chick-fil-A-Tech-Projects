@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schedule Counter (Sheets)</title>
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body class="sheets-counter">
+  <div class="container narrow">
+    <div class="breadcrumb"><a href="../index.html">← All tools</a></div>
+    <header>
+      <h1 class="site-title">Schedule Counter (Sheets)</h1>
+      <div class="project-links doc-nav"><a class="project-link primary" href="setup-guide.html">Setup Guide</a></div>
+    </header>
+    <article class="doc">
+<h1>Schedule Counter — Operator Guide</h1>
+<p><strong>This turns your posted schedule and your sales history into a weekly labor picture — automatically — so you can see whether you're staffed right instead of eyeballing it.</strong> Upload the schedule; it does the weighting and the math and keeps a weekly record.</p>
+<h2>Why it matters</h2>
+<p>Labor is the biggest cost you actually control, and "does this schedule match the day" is easy to get wrong by feel. This weights the schedule against real sales patterns for you, every week, and tracks productivity over time — so the conversation is about the numbers, not a guess.</p>
+<h2>What it does</h2>
+<ul>
+<li><strong>Schedule upload.</strong> Drop in the week's schedule and it processes it.</li>
+<li><strong>Sales-curve weighting.</strong> It weights the day against your sales curves — how the day actually flows — not a flat average.</li>
+<li><strong>Weekly snapshots.</strong> Each week is saved, so you see the trend, not just today.</li>
+<li><strong>Productivity tracking.</strong> Scores that show how you're trending week to week.</li>
+<li><strong>Reminders.</strong> It nudges you (and whoever you list) to upload the schedule on time.</li>
+</ul>
+<h2>How it works (the plain version)</h2>
+<p>A web app on a Google Sheet, with a weekly autopilot.
+- <strong>The web page</strong> is where you upload and look at the numbers.
+- <strong>The <code>config</code> tab</strong> in the Sheet is your control panel — store name, who gets the reminder emails, and the other settings. Edit it there; no code.
+- <strong>A Monday-morning job</strong> does the heavy lifting on its own: it checks the week, files it, runs the forecasting math, and caches the result so the page loads fast.
+- <strong>Three reminders</strong> run on a schedule — Sunday night and Thursday to upload, Monday morning to process.</p>
+<h2>Everyday tasks</h2>
+<ul>
+<li><strong>Upload the schedule:</strong> open the app → upload the week. (Forget, and the Sunday/Thursday reminders will catch you.)</li>
+<li><strong>Check where you stand:</strong> the dashboard shows the week's picture and the productivity trend.</li>
+<li><strong>Change who gets reminders, or the store name:</strong> the <code>config</code> tab.</li>
+<li><strong>Re-run setup after a change:</strong> <code>initSheets()</code> is safe to re-run; <code>installTriggers()</code> re-installs the scheduled jobs.</li>
+</ul>
+<h2>When something looks broken</h2>
+<ul>
+<li><strong>Stuck on "Loading…" or a blank page.</strong> Pasted new code but didn't redeploy — <strong>Deploy → Manage deployments → Edit → New version.</strong></li>
+<li><strong>The reminders stopped.</strong> The triggers aren't installed (or got cleared). Run <strong><code>installTriggers()</code></strong> once; <code>deleteTriggers()</code> resets them.</li>
+<li><strong>An upload didn't seem to process.</strong> The weekly job runs Monday morning — if you uploaded after it ran, it picks up next cycle, or you can run the pipeline manually.</li>
+<li><strong>The numbers look stale.</strong> The page reads a cached snapshot for speed (the <code>app_cache</code> tab). Re-running the weekly pipeline refreshes it. Don't hand-edit <code>app_cache</code>.</li>
+</ul>
+<p>Apps Script platform breakage is rare; a new deployment version plus a re-run of <code>installTriggers()</code> clears up almost everything. When in doubt: <code>initSheets()</code> → <code>installTriggers()</code> → deploy a new version.</p>
+<h2>The one rule</h2>
+<p><strong>Your settings live in the <code>config</code> tab; the code doesn't.</strong> Store name, reminder recipients, thresholds — all editable there. After any code change, publish a new version, and re-run <code>installTriggers()</code> if you changed the scheduled jobs.</p>
+<hr />
+<h2>Go deeper</h2>
+<p><em>The 1,000-foot view for whoever maintains it next. You don't need this to use it week to week.</em></p>
+<h3>The Monday pipeline is the engine</h3>
+<p>Everything real happens in one weekly job, <code>mondayPipeline</code> (Monday 6 AM), which runs a numbered sequence with a check at each step and one big try/catch that emails an alert if anything throws:
+1. <strong>Validate <code>Sheet1</code></strong> — the raw upload landing tab. No sales data → alert and stop.
+2. <strong>Read <code>Sheet1</code></strong> into a payload.
+3. <strong>Detect the week start</strong> from the payload's dates.
+4. <strong>Archive</strong> the week to <code>sales_history</code> (tagged <code>sales_source = 'api'</code>).
+5. <strong>Smoothing update</strong> — fold the new week into <code>sales_curves</code>.
+6. <strong>Bias detection</strong> — recompute <code>bias_flags</code> in <code>config</code>.
+7. <strong>Cleanup</strong> — delete history rows older than 90 days.
+8. <strong>Clear <code>Sheet1</code></strong> so it's ready for the next upload.
+8.5. <strong>Refresh actuals calibration</strong> — a hook that's present but dormant; it's a silent no-op unless wired, and if it ever fails it degrades to the configured goal rather than aborting the run.
+9. <strong>Build and write <code>app_cache</code>.</strong></p>
+<p>That "validate → process → archive → cleanup → cache, alert on failure" shape is the same pattern across these tools.</p>
+<h3>How the forecast is actually computed</h3>
+<p>Not a flat average. <code>sales_curves</code> describe how each day of the week actually flows, and the prediction is a <strong>linearly-weighted moving average with outlier exclusion and a trend adjustment</strong> — recent weeks count more, a genuinely weird day is dropped before it can skew the curve (<code>curve_outlier_pct</code>, default 30%), and a trend nudge is applied but <strong>capped at ±10%</strong> of the LWMA so it can't run away. This replaced an earlier exponential smoothing (<code>smoothing_alpha</code>, default 0.3, still in config); both live in <code>config</code> so you can tune them without code. Bias detection watches whether the forecast is consistently over or under and flags it.</p>
+<h3>The cache tab</h3>
+<p><code>app_cache</code> holds a pre-computed JSON blob in cell A1 — the web page reads that one cell instead of recomputing the whole forecast on every load (the app_cache pattern: seconds → milliseconds). The pipeline rebuilds it at step 9; the reader falls back to <code>getConfig()</code> if the cache is empty or unparseable, so a missing cache degrades instead of breaking. Never hand-edit it.</p>
+<h3>The tabs</h3>
+<p><code>Sheet1</code> (the raw weekly upload), <code>config</code> (settings + <code>bias_flags</code>), <code>sales_curves</code> (the day-of-week shapes the forecast leans on), <code>sales_history</code> (the archived weeks that feed it, pruned to 90 days), <code>productivity_tracker</code> (the weekly scores), <code>app_cache</code> (the JSON snapshot). <code>initSheets()</code> builds them all and is safe to re-run.</p>
+<h3>The three triggers</h3>
+<p>Sunday 10 PM <code>sundayAlertCheck</code> (upload reminder), Monday 6 AM <code>mondayPipeline</code> (the engine above), Thursday 7 PM <code>thursdayScheduleReminder</code>. Installed by <code>installTriggers()</code>, removed by <code>deleteTriggers()</code> — both check for existing triggers so they don't duplicate.</p>
+<h3>Deploy model</h3>
+<p>A copy of the template sheet brings the code along. <strong>📊 Schedule Counter Setup → Start Setup</strong> saves the <code>ALERT_EMAIL</code> script property (so failures reach you), runs <code>initSheets()</code> and <code>installTriggers()</code>, and shows the publish steps. Sales arrive in <code>Sheet1</code> through a weekly CFA Analytics "Sync to Sheets" pipeline. The link serves the last <em>published</em> version — republish after edits.</p>
+    </article>
+    <footer><a href="../index.html">Chick-fil-A Restaurant Tools</a></footer>
+  </div>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Schedule Counter &mdash; Main Street</title>
+  <title>Schedule Counter</title>
   <style>
 /* ── Reset & Base ─────────────────────────────────────────── */
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -558,7 +558,7 @@ table.curve-table { width:100%; border-collapse:collapse; }
         <div class="settings-grid-2" style="margin-top:20px;">
           <div class="settings-field">
             <label for="onboard-location-name">Location Name</label>
-            <input type="text" id="onboard-location-name" placeholder="Main Street" value="Main Street">
+            <input type="text" id="onboard-location-name" placeholder="e.g. Main Street FSU" value="">
           </div>
           <div class="settings-field">
             <label for="onboard-operator-email">Operator Email</label>
@@ -663,7 +663,7 @@ table.curve-table { width:100%; border-collapse:collapse; }
   <div class="header" style="display:flex; justify-content:space-between; align-items:center; text-align:left;">
     <div>
       <h1>&#128202; Schedule Counter</h1>
-      <p id="headerSubtitle">Main Street &mdash; Analyze staffing with sales data &amp; productivity metrics</p>
+      <p id="headerSubtitle">Analyze staffing with sales data &amp; productivity metrics</p>
     </div>
     <div style="display:flex; gap:10px; align-items:center;">
       <button onclick="showWalkthrough()" style="background:white; color:#DD0031; border:none; padding:12px 24px; border-radius:8px; font-weight:700; font-size:16px; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.1); display:flex; align-items:center; gap:8px; transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
@@ -1228,7 +1228,7 @@ table.curve-table { width:100%; border-collapse:collapse; }
         <div class="settings-grid-2">
           <div class="settings-field">
             <label for="settings-location-name">Location Name</label>
-            <input type="text" id="settings-location-name" placeholder="Main Street">
+            <input type="text" id="settings-location-name" placeholder="e.g. Main Street FSU">
           </div>
           <div class="settings-field">
             <label for="settings-operator-email">Operator Email</label>
@@ -1379,7 +1379,7 @@ table.curve-table { width:100%; border-collapse:collapse; }
         <!-- Header -->
         <div style="text-align:center; margin-bottom:32px;">
           <h1 style="font-size:28px; font-weight:800; color:#1e293b; margin:0;">&#128202; Schedule Counter</h1>
-          <p style="font-size:15px; color:#64748b; margin-top:8px;">Main Street &mdash; Staffing Analysis &amp; Labor Optimization</p>
+          <p style="font-size:15px; color:#64748b; margin-top:8px;">Staffing Analysis &amp; Labor Optimization</p>
           <p style="font-size:12px; color:#94a3b8; margin-top:4px;">Version 3.1 &middot; Built for non-technical operators</p>
         </div>
 
@@ -2012,7 +2012,7 @@ function onboardInitSheets() {
 }
 
 function onboardSaveLocation() {
-  var name   = (document.getElementById('onboard-location-name').value  || '').trim() || 'Main Street';
+  var name   = (document.getElementById('onboard-location-name').value  || '').trim() || 'Your Store';
   var email  = (document.getElementById('onboard-operator-email').value || '').trim();
   var btn    = document.getElementById('onboard-location-btn');
   var status = document.getElementById('onboard-location-status');
@@ -2132,7 +2132,7 @@ function getDefaultConfig() {
     smoothingAlpha:  0.3,
     biasThreshold:   10,
     operatorEmail:   '',
-    locationName:    'Main Street',
+    locationName:    'Your Store',
     setupComplete:   false,
     biasFlags:       {},
     salesCurves:     defaultCurves,
