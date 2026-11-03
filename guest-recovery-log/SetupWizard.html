@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; margin: 0; padding: 4px 6px; color: #111827; font-size: 14px; }
+    h2 { font-size: 17px; margin: 0 0 4px; }
+    .sub { color: #6B7280; margin: 0 0 16px; line-height: 1.5; }
+    .field { margin-bottom: 14px; }
+    label { display: block; font-weight: 600; margin-bottom: 4px; }
+    input { width: 100%; box-sizing: border-box; border: 1px solid #D1D5DB; border-radius: 8px; padding: 9px 11px; font-size: 14px; font-family: inherit; }
+    input:focus { outline: none; border-color: #E51636; }
+    .hint { font-size: 12px; color: #6B7280; margin-top: 3px; }
+    .btn { background: #E51636; color: #fff; border: 0; border-radius: 8px; padding: 11px 18px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; }
+    .btn:disabled { opacity: .6; cursor: default; }
+    .msg { display: none; padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; }
+    .msg.err { display: block; background: #FEF2F2; color: #991B1B; }
+    ol { padding-left: 20px; line-height: 1.7; margin: 8px 0 14px; }
+    .done { background: #ECFDF5; color: #065F46; padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; }
+    .link { word-break: break-all; background: #F3F4F6; padding: 8px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+  <div id="step1">
+    <h2>Step 1 of 2: Passcodes and alerts</h2>
+    <p class="sub">Fill these in once. You can change them any time by running Start Setup again.</p>
+    <div class="msg" id="msg"></div>
+    <div class="field">
+      <label for="loginPasscode">Login passcode</label>
+      <input id="loginPasscode" autocomplete="off">
+      <div class="hint">Every manager types this to open the log. 4 to 12 characters. Longer is safer.</div>
+    </div>
+    <div class="field">
+      <label for="settingsPasscode">Settings passcode</label>
+      <input id="settingsPasscode" autocomplete="off">
+      <div class="hint">Only for whoever changes the alert emails. Must be different from the login passcode.</div>
+    </div>
+    <div class="field">
+      <label for="emails">Who gets repeat-guest alerts? (optional)</label>
+      <input id="emails" placeholder="name@example.com, name2@example.com">
+      <div class="hint">An email goes out when the same guest has 4 complaints in 30 days. Separate several with commas.</div>
+    </div>
+    <button class="btn" id="saveBtn" onclick="save()" disabled>Save and continue</button>
+  </div>
+
+  <div id="step2" style="display:none;">
+    <div class="done">✅ Passcodes saved and your data tab is ready.</div>
+    <h2>Step 2 of 2: Publish the app</h2>
+    <div>
+      <p class="sub">Already published before? You can skip this step. Passcode changes take effect right away, and your team's link is under <b>Deploy → Manage deployments</b>.</p>
+      <p class="sub">First time? This turns the sheet into the app your managers use:</p>
+      <ol>
+        <li>In the menu at the top, click <b>Extensions → Apps Script</b>.</li>
+        <li>Click the blue <b>Deploy</b> button (top right) → <b>New deployment</b>.</li>
+        <li>Click the ⚙️ gear next to "Select type" → <b>Web app</b>.</li>
+        <li>Set <b>Execute as</b> to <b>Me</b> and <b>Who has access</b> to <b>Anyone</b>.</li>
+        <li>Click <b>Deploy</b>. If Google asks, click <b>Authorize access</b> and <b>Allow</b>.</li>
+        <li>Copy the <b>Web app URL</b>. That's your team's link. Bookmark it on the manager tablet.</li>
+      </ol>
+      <p class="sub">"Anyone" only means the page opens without a Google login. Nothing shows until someone types the login passcode.</p>
+    </div>
+    <button class="btn" onclick="google.script.host.close()">Done</button>
+  </div>
+
+  <script>
+    function showErr(m) { var el = document.getElementById('msg'); el.textContent = m; el.className = 'msg err'; window.scrollTo(0, 0); }
+
+    function showStep2() {
+      document.getElementById('step1').style.display = 'none';
+      document.getElementById('step2').style.display = '';
+    }
+
+    function save() {
+      var btn = document.getElementById('saveBtn');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) { showErr((res && res.message) || 'Something went wrong. Please try again.'); btn.disabled = false; btn.textContent = 'Save and continue'; return; }
+          showStep2();
+        })
+        .withFailureHandler(function(e) { showErr('Save failed: ' + e.message); btn.disabled = false; btn.textContent = 'Save and continue'; })
+        .saveSetupAnswers({
+          loginPasscode: document.getElementById('loginPasscode').value,
+          settingsPasscode: document.getElementById('settingsPasscode').value,
+          emails: document.getElementById('emails').value
+        });
+    }
+
+    google.script.run
+      .withSuccessHandler(function(s) {
+        document.getElementById('loginPasscode').value = s.loginPasscode || '';
+        document.getElementById('settingsPasscode').value = s.settingsPasscode || '';
+        document.getElementById('emails').value = s.emails || '';
+        document.getElementById('saveBtn').disabled = false;
+      })
+      .withFailureHandler(function(e) { showErr('Could not load setup: ' + e.message); document.getElementById('saveBtn').disabled = false; })
+      .getSetupStatus();
+  </script>
+</body>
+</html>

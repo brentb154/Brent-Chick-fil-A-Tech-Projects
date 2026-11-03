@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>H.E.A.R.D. Log — Setup Guide</title>
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body class="heard">
+  <div class="container narrow">
+    <div class="breadcrumb"><a href="../index.html">← All tools</a></div>
+    <header>
+      <h1 class="site-title">H.E.A.R.D. Log</h1>
+      <div class="project-links doc-nav"><a class="project-link" href="how-it-works.html">What It Does</a></div>
+    </header>
+    <article class="doc">
+<h1>H.E.A.R.D. Log — Setup Guide</h1>
+<p>This gets your store's guest-recovery log running from scratch. You don't need to know anything about code, and you'll never have to open or paste any. <strong>Plan on about 15 minutes, on a computer</strong> (not a phone).</p>
+<hr />
+<h2>Before you start</h2>
+<p>Have these ready. The setup asks for each one once:</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>A Google account for your store,</strong> not your personal one. Complaints are saved in that account's Google Drive, and alert emails go out from it.</li>
+<li><input type="checkbox" disabled> <strong>A login passcode</strong> that every manager will type to open the log. 4 to 12 characters. Longer is safer.</li>
+<li><input type="checkbox" disabled> <strong>A different settings passcode</strong> for whoever manages the alert emails</li>
+<li><input type="checkbox" disabled> <strong>The email address(es) that should hear about repeat guests</strong> (optional). An email goes out when the same phone number has 4 complaints in 30 days.</li>
+</ul>
+<hr />
+<h2>Step 1: Make your own copy</h2>
+<ol>
+<li>Click this link: <strong><a href="https://docs.google.com/spreadsheets/d/1Vs7R5JE7EMuyUdJWvhs2MtjJi15m9nDNfVY7e1BufIs/copy">Make my copy of the H.E.A.R.D. Log</a></strong>. If Google asks you to sign in first, use your store account.</li>
+<li>Google shows a <strong>Copy document</strong> screen. The yellow note says the attached script will be copied too. That's the tool itself, and it's supposed to come along.</li>
+<li>Click the blue <strong>Make a copy</strong> button.</li>
+</ol>
+<p><img alt="Copy document screen" src="images/setup-01-make-a-copy.jpg" /></p>
+<p>Your copy opens, named "Copy of H.E.A.R.D. Log (Blank Template)". You can rename it any time by clicking the name. It's blank and belongs only to you. Nobody else can see what you put in it.</p>
+<h2>Step 2: Start the setup</h2>
+<ol>
+<li>Wait about 10 seconds for the sheet to finish loading.</li>
+<li>In the menu bar at the top (File, Edit, View…), click <strong>👂 H.E.A.R.D. Setup</strong>, then <strong>Start Setup</strong>.</li>
+</ol>
+<p><img alt="The H.E.A.R.D. Setup menu" src="images/setup-02-heard-setup-menu.jpg" /></p>
+<p>Don't see 👂 H.E.A.R.D. Setup? Reload the page and wait a little longer. It's always the last item in the menu bar.</p>
+<h2>Step 3: Give the tool permission (one time only)</h2>
+<p>Google asks you to approve the tool before it can save complaints and send alert emails. This is normal, and you only do it once. The sign-in screens open in a <strong>new tab</strong>.</p>
+<p><strong>"Authorization required."</strong> Click <strong>OK</strong>. If Google asks which account to use, pick your store account.</p>
+<p><strong>"Google hasn't verified this app."</strong> This looks alarming, but it's expected. The "app" is your own copy, so the developer named on that screen is your own account. Google shows this for any spreadsheet tool that isn't sold in its store.
+1. Click <strong>Advanced</strong> (small gray link, bottom left).
+2. Click <strong>Go to H.E.A.R.D. Log (Blank Template) (unsafe)</strong> at the bottom.</p>
+<p><img alt="Google hasn't verified this app, with Advanced opened" src="images/setup-03-unverified-app.jpg" /></p>
+<p><strong>"Sign in to H.E.A.R.D. Log."</strong> You may not see this one. If you do, check it shows your store account and click <strong>Continue</strong>.</p>
+<p><strong>The list of permissions.</strong> Tick <strong>Select all</strong> at the top, then click <strong>Continue</strong>.</p>
+<p><img alt="Select all permissions" src="images/setup-04-select-all.jpg" /></p>
+<p>The sign-in tab closes and the setup carries on in your sheet by itself. If nothing happens after about 30 seconds, click <strong>👂 H.E.A.R.D. Setup → Start Setup</strong> again.</p>
+<h2>Step 4: Choose your passcodes</h2>
+<p>A <strong>H.E.A.R.D. Setup</strong> box opens:</p>
+<ol>
+<li><strong>Login passcode.</strong> Every manager types this to open the log.</li>
+<li><strong>Settings passcode.</strong> Only for whoever changes the alert emails. It has to be different from the login passcode.</li>
+<li><strong>Who gets repeat-guest alerts?</strong> Optional. Separate several emails with commas.</li>
+<li>Click <strong>Save and continue</strong>.</li>
+</ol>
+<p><img alt="Setup questions" src="images/setup-05-passcodes.jpg" /></p>
+<p>If something's missing, a red message at the top of the box tells you what to fix.</p>
+<h2>Step 5: Publish the app</h2>
+<p>This turns your sheet into the app your managers use. The setup box shows these same steps, so you can follow along there.</p>
+<ol>
+<li>In the menu bar, click <strong>Extensions → Apps Script.</strong> A new tab opens. Leave the code alone. If a "You're currently signed in as…" box pops up, check it's your store account and click <strong>OK</strong>.</li>
+<li>Click the blue <strong>Deploy</strong> button (top right), then <strong>New deployment</strong>.</li>
+<li>Check that it says <strong>Web app</strong>, that <strong>Execute as</strong> says <strong>Me</strong>, and that <strong>Who has access</strong> says <strong>Anyone</strong>. They're filled in already. (If "Select type" is empty, click the ⚙️ gear next to it and pick <strong>Web app</strong>.)</li>
+<li>Click <strong>Deploy</strong>. If Google asks again, click <strong>Authorize access</strong> and approve it the same way as Step 3.</li>
+</ol>
+<p><img alt="New deployment settings" src="images/setup-06-new-deployment.jpg" /></p>
+<ol start="5">
+<li>Copy the <strong>Web app URL</strong>. <strong>That's your team's link.</strong> Bookmark it on the manager tablet or add it to the home screen.</li>
+</ol>
+<p><strong>Why "Anyone"?</strong> It only means the page opens without a Google login. Nothing shows until someone types the login passcode, and the passcode is checked by Google's server, not the page.</p>
+<hr />
+<h2>How to know it worked</h2>
+<ol>
+<li>Open your team's link. A red screen asks for a passcode.</li>
+</ol>
+<p><img alt="Login screen" src="images/setup-07-login.jpg" /></p>
+<ol start="2">
+<li>Type the wrong passcode. It says <strong>Incorrect passcode</strong>.</li>
+<li>Type your login passcode. The <strong>Report Complaint</strong> form opens.</li>
+<li>Log a test complaint with phone <strong>555-012-3456</strong>, then open <strong>Dashboard</strong>. Your test complaint is listed.</li>
+</ol>
+<p><img alt="Dashboard with one test complaint" src="images/setup-08-dashboard.jpg" /></p>
+<p>If all four look right, you're done. To clear the test, mark it resolved on the Dashboard, or delete its row on the <strong>Sheet1</strong> tab of your Google Sheet.</p>
+<hr />
+<h2>If something goes wrong</h2>
+<p><strong>1. "Incorrect passcode," even though it's right.</strong>
+- Passcodes are case-sensitive. Check Caps Lock.
+- Someone may have changed it. In the sheet, run <strong>👂 H.E.A.R.D. Setup → Start Setup</strong> to see the current passcodes.</p>
+<p><strong>2. The link shows "Page not found" or a Google error.</strong>
+- Make sure you copied the whole <strong>Web app URL</strong>. It ends in <strong>/exec</strong>.
+- Only the account that owns the copy should publish it. If someone else published it, sign in as the owner and publish again.</p>
+<p><strong>3. Complaints won't save, or the dashboard is empty after a change.</strong>
+Your link runs the last version you published. Publish again with <strong>Deploy → Manage deployments → ✏️ → Version: New version → Deploy</strong>. The link stays the same.</p>
+<p><strong>4. No repeat-guest emails arrive.</strong>
+- In the app, open <strong>Settings</strong> (settings passcode) and check the email list.
+- An email only goes out once the same phone number has <strong>4 complaints in 30 days</strong>.
+- If you skipped <strong>Select all</strong> in Step 3, Google never gave the tool permission to send email. Run <strong>Start Setup</strong> again and tick <strong>Select all</strong> when asked.</p>
+<p><strong>5. Don't rename the Sheet1 tab.</strong> That's where complaints are saved. You can delete the <strong>Start Here</strong> tab once setup is done.</p>
+    </article>
+    <footer><a href="../index.html">Chick-fil-A Restaurant Tools</a></footer>
+  </div>
+</body>
+</html>
