@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; margin: 0; padding: 4px 6px; color: #111827; font-size: 14px; }
+    h2 { font-size: 17px; margin: 0 0 4px; }
+    .sub { color: #6B7280; margin: 0 0 16px; line-height: 1.5; }
+    .field { margin-bottom: 14px; }
+    label { display: block; font-weight: 600; margin-bottom: 4px; }
+    h3 { font-size: 15px; margin: 18px 0 10px; padding-top: 14px; border-top: 1px solid #E5E7EB; }
+    input, select { width: 100%; box-sizing: border-box; border: 1px solid #D1D5DB; border-radius: 8px; padding: 9px 11px; font-size: 14px; font-family: inherit; }
+    input:focus, select:focus { outline: none; border-color: #E51636; }
+    .hint { font-size: 12px; color: #6B7280; margin-top: 3px; }
+    .btn { background: #E51636; color: #fff; border: 0; border-radius: 8px; padding: 11px 18px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; }
+    .btn:disabled { opacity: .6; cursor: default; }
+    .msg { display: none; padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; }
+    .msg.err { display: block; background: #FEF2F2; color: #991B1B; }
+    ol { padding-left: 20px; line-height: 1.7; margin: 8px 0 14px; }
+    .done { background: #ECFDF5; color: #065F46; padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; }
+    .link { word-break: break-all; background: #F3F4F6; padding: 8px 10px; border-radius: 6px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div id="step1">
+    <h2>Step 1 of 2: Your store details</h2>
+    <p class="sub">Fill these in once. You can change any of them later from this menu or the app's Settings tab.</p>
+    <div class="msg" id="msg"></div>
+    <div class="field" id="countWrap" style="display:none;">
+      <label for="storeCount">How many stores do you run catering from?</label>
+      <select id="storeCount" onchange="toggleStore2()">
+        <option value="1">1 store</option>
+        <option value="2">2 stores</option>
+      </select>
+      <div class="hint">Pick 1 if you only have one location. You can switch to 2 later.</div>
+    </div>
+    <div id="fields">Loading…</div>
+    <div id="store2" style="display:none;">
+      <h3>Your second store</h3>
+      <div id="fields2"></div>
+    </div>
+    <button class="btn" id="saveBtn" onclick="save()" disabled>Save and continue</button>
+  </div>
+
+  <div id="step2" style="display:none;">
+    <div class="done">✅ Store details saved and your tabs are built.</div>
+    <h2>Step 2 of 2: Publish the app</h2>
+    <div>
+      <p class="sub">Already published before? You can skip this step. Your team link is under <b>Deploy → Manage deployments</b>.</p>
+      <p class="sub">First time? This turns the sheet into the catering app your team uses:</p>
+      <ol>
+        <li>In the menu at the top, click <b>Extensions → Apps Script</b>.</li>
+        <li>Click the blue <b>Deploy</b> button (top right) → <b>New deployment</b>.</li>
+        <li>Click the ⚙️ gear next to "Select type" → <b>Web app</b>.</li>
+        <li>Set <b>Execute as</b> to <b>Me</b> and <b>Who has access</b> to <b>Anyone</b>.</li>
+        <li>Click <b>Deploy</b>. If Google asks, click <b>Authorize access</b> and <b>Allow</b>.</li>
+        <li>Copy the <b>Web app URL</b> and add <b>?view=app</b> to the end. That's your team's link. Bookmark it.</li>
+      </ol>
+      <p class="sub">"Anyone" lets guests upload tax-exempt forms without a Google login. Your team's link only works with <b>?view=app</b> on the end, so don't post it publicly.</p>
+    </div>
+    <button class="btn" onclick="google.script.host.close()">Done</button>
+  </div>
+
+  <script>
+    var fieldKeys = [], store2Keys = [];
+
+    function esc(s) { return String(s).replace(/[&<>"]/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+    function fieldHtml(f, id) {
+      return '<div class="field"><label for="' + id + '">' + esc(f.label) + '</label>'
+        + '<input id="' + id + '" value="' + esc(f.value) + '">'
+        + '<div class="hint">' + esc(f.hint) + '</div></div>';
+    }
+
+    function render(status) {
+      fieldKeys = status.fields.map(function(f) { return f.key; });
+      store2Keys = status.store2Fields.map(function(f) { return f.key; });
+      document.getElementById('fields').innerHTML = status.fields.map(function(f, i) { return fieldHtml(f, 'f' + i); }).join('');
+      document.getElementById('fields2').innerHTML = status.store2Fields.map(function(f, i) { return fieldHtml(f, 'g' + i); }).join('');
+      document.getElementById('storeCount').value = String(status.storeCount);
+      document.getElementById('countWrap').style.display = '';
+      toggleStore2();
+      document.getElementById('saveBtn').disabled = false;
+    }
+
+    function toggleStore2() {
+      document.getElementById('store2').style.display = document.getElementById('storeCount').value === '2' ? '' : 'none';
+    }
+
+    function showErr(m) { var el = document.getElementById('msg'); el.textContent = m; el.className = 'msg err'; window.scrollTo(0, 0); }
+
+    function save() {
+      var answers = {};
+      fieldKeys.forEach(function(k, i) { answers[k] = document.getElementById('f' + i).value; });
+      answers['Number of Stores'] = document.getElementById('storeCount').value;
+      if (answers['Number of Stores'] === '2') store2Keys.forEach(function(k, i) { answers[k] = document.getElementById('g' + i).value; });
+      var btn = document.getElementById('saveBtn');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) { showErr((res && res.message) || 'Something went wrong. Please try again.'); btn.disabled = false; btn.textContent = 'Save and continue'; return; }
+          document.getElementById('step1').style.display = 'none';
+          document.getElementById('step2').style.display = '';
+        })
+        .withFailureHandler(function(e) { showErr('Save failed: ' + e.message); btn.disabled = false; btn.textContent = 'Save and continue'; })
+        .saveSetupAnswers(answers);
+    }
+
+    google.script.run
+      .withSuccessHandler(render)
+      .withFailureHandler(function(e) { showErr('Could not load setup: ' + e.message); })
+      .getSetupStatus();
+  </script>
+</body>
+</html>
