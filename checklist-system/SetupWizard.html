@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; margin: 0; padding: 4px 6px; color: #111827; font-size: 14px; }
+    h2 { font-size: 17px; margin: 0 0 4px; }
+    .sub { color: #6B7280; margin: 0 0 16px; line-height: 1.5; }
+    .field { margin-bottom: 14px; }
+    label { display: block; font-weight: 600; margin-bottom: 4px; }
+    input { width: 100%; box-sizing: border-box; border: 1px solid #D1D5DB; border-radius: 8px; padding: 9px 11px; font-size: 14px; font-family: inherit; }
+    input:focus { outline: none; border-color: #E51636; }
+    .hint { font-size: 12px; color: #6B7280; margin-top: 3px; }
+    .btn { background: #E51636; color: #fff; border: 0; border-radius: 8px; padding: 11px 18px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; }
+    .btn:disabled { opacity: .6; cursor: default; }
+    .msg { display: none; padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; }
+    .msg.err { display: block; background: #FEF2F2; color: #991B1B; }
+    ol { padding-left: 20px; line-height: 1.7; margin: 8px 0 14px; }
+    .done { background: #ECFDF5; color: #065F46; padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+  <div id="step1">
+    <h2>Step 1 of 2: Who hears about what</h2>
+    <p class="sub">Separate several emails with commas. Everything else lives on the <b>Settings</b> tab.</p>
+    <div class="msg" id="msg"></div>
+    <div class="field">
+      <label for="foh">Late alerts (FOH)</label>
+      <input id="foh" placeholder="manager@example.com">
+      <div class="hint">Who hears when a checklist isn't in by its Late after time. Alerts stay off until you switch Alerts mode to Live.</div>
+    </div>
+    <div class="field">
+      <label for="boh">Late alerts (BOH) — optional</label>
+      <input id="boh" placeholder="boh.manager@example.com">
+    </div>
+    <div class="field">
+      <label for="summary">Morning summary</label>
+      <input id="summary" placeholder="director@example.com">
+      <div class="hint">Gets one email a morning, only when something was missed or a note was left.</div>
+    </div>
+    <div class="field">
+      <label for="errors">System problems — optional</label>
+      <input id="errors" placeholder="you@example.com">
+      <div class="hint">Who hears if a form won't rebuild. Blank = the FOH late-alert emails.</div>
+    </div>
+    <button class="btn" id="saveBtn" onclick="save()" disabled>Save and continue</button>
+  </div>
+
+  <div id="step2" style="display:none;">
+    <div class="done">✅ Emails saved to Settings.</div>
+    <h2>Step 2 of 2: Build the forms</h2>
+    <p class="sub">Three clicks, in this order, all in the <b>Checklists</b> menu:</p>
+    <ol>
+      <li><b>Validate sheet.</b> Fix anything it lists as blocking. Warnings are OK.</li>
+      <li><b>Rebuild forms now.</b> Creates one Google Form per active checklist. The first time takes a few minutes.</li>
+      <li><b>Install / repair triggers.</b> Turns on the 15-minute check that rebuilds forms each morning and tracks what's late.</li>
+    </ol>
+    <p class="sub">Then <b>Checklists → Show form links</b> gives you the links to post at each station.</p>
+    <button class="btn" onclick="google.script.host.close()">Done</button>
+  </div>
+
+  <script>
+    var PASS = '<?= pass ?>';
+    var KEYS = ['foh', 'boh', 'summary', 'errors'];
+
+    function showErr(m) { var el = document.getElementById('msg'); el.textContent = m; el.className = 'msg err'; window.scrollTo(0, 0); }
+
+    function save() {
+      var btn = document.getElementById('saveBtn');
+      var answers = {};
+      KEYS.forEach(function(k) { answers[k] = document.getElementById(k).value; });
+      btn.disabled = true; btn.textContent = 'Saving…';
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) { showErr((res && res.message) || 'Something went wrong. Please try again.'); btn.disabled = false; btn.textContent = 'Save and continue'; return; }
+          document.getElementById('step1').style.display = 'none';
+          document.getElementById('step2').style.display = '';
+        })
+        .withFailureHandler(function(e) { showErr('Save failed: ' + e.message); btn.disabled = false; btn.textContent = 'Save and continue'; })
+        .saveSetupAnswers(answers, PASS);
+    }
+
+    google.script.run
+      .withSuccessHandler(function(s) {
+        KEYS.forEach(function(k) { document.getElementById(k).value = s[k] || ''; });
+        document.getElementById('saveBtn').disabled = false;
+      })
+      .withFailureHandler(function(e) { showErr('Could not load setup: ' + e.message); document.getElementById('saveBtn').disabled = false; })
+      .getSetupStatus(PASS);
+  </script>
+</body>
+</html>

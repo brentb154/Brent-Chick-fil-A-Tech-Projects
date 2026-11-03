@@ -1,0 +1,405 @@
+<script>
+// Pick photos, check them in the tray, then upload them all at the end. Each photo is shrunk on
+// the phone as soon as it's picked (one at a time, to spare the phone's memory), so the upload
+// itself is quick. Nothing is sent until the Upload button is tapped; after that the page only
+// has to stay open until it shows the check mark.
+(function () {
+  var MAX_SIDE = 1280;                  // longest side after shrinking, in pixels
+  var QUALITY = 0.7;                    // JPEG quality; about 150-250 KB per photo
+  var THUMB_SIDE = 240;                 // tray thumbnails
+  var PARALLEL = 3;                     // photos uploading at once
+  var RETRY_MS = [2000, 5000, 10000];   // wait before each automatic retry of a failed photo
+
+  // Item states: new -> shrinking -> ready -> uploading -> done; also waiting (between retries),
+  // failed, unreadable, removed. item.send turns true when Upload is tapped.
+  var items = [];       // every photo picked on this visit, in order
+  var batches = {};     // 'checklist|position|name' -> promise of the server's batch ID
+  var uploading = 0;
+  var shrinking = false;
+  var nextNumber = 1;
+  var stopMessage = ''; // set when the link stops working; nothing more is sent
+  var lastError = '';
+
+  function $(id) { return document.getElementById(id); }
+
+  function init() {
+    $('day').textContent = PAGE.dayLabel;
+    if (!PAGE.checklists.length) {
+      $('none').classList.remove('hidden');
+      return;
+    }
+    PAGE.checklists.forEach(function (c) {
+      var o = document.createElement('option');
+      o.value = c.id;
+      o.textContent = c.name + (c.positions.length ? '' : submittedLabel(c, ''));
+      $('checklist').appendChild(o);
+    });
+    if (PAGE.preselect) $('checklist').value = PAGE.preselect;
+    if (!$('checklist').value) $('checklist').selectedIndex = 0;
+    try { $('leader').value = localStorage.getItem('checklistLeader') || ''; } catch (e) {}
+
+    $('checklist').addEventListener('change', function () { showPositions(); render(); });
+    $('position').addEventListener('change', render);
+    $('leader').addEventListener('input', render);
+    $('files').addEventListener('change', onPick);
+    $('upload').addEventListener('click', uploadAll);
+    $('retry').addEventListener('click', retryFailed);
+    $('form').addEventListener('submit', function (ev) { ev.preventDefault(); }); // Enter in the name box
+    window.addEventListener('beforeunload', function (ev) {
+      if (!items.some(function (it) { return live(it) && it.state !== 'done'; })) return;
+      ev.preventDefault();
+      ev.returnValue = ''; // asks "Leave site?" so picked photos aren't lost
+    });
+    showPositions();
+    $('form').classList.remove('hidden');
+    render();
+  }
+
+  function current() {
+    var id = $('checklist').value;
+    return PAGE.checklists.filter(function (c) { return c.id === id; })[0];
+  }
+
+  function showPositions() {
+    var c = current();
+    var sel = $('position');
+    sel.innerHTML = '';
+    if (!c || !c.positions.length) {
+      $('posWrap').classList.add('hidden');
+      return;
+    }
+    var blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = 'Pick your position';
+    sel.appendChild(blank);
+    c.positions.forEach(function (p) {
+      var o = document.createElement('option');
+      o.value = p;
+      o.textContent = p + submittedLabel(c, p);
+      sel.appendChild(o);
+    });
+    $('posWrap').classList.remove('hidden');
+  }
+
+  // " – submitted 10:09 PM" when that position (or checklist) is already in today
+  function submittedLabel(c, position) {
+    var time = (c.submitted || {})[position];
+    return time ? ' \u2013 submitted ' + time : '';
+  }
+
+  // Reminder when photos are going to a position (or checklist) that hasn't been submitted yet
+  function showNotIn() {
+    var c = current();
+    var position = c && c.positions.length ? $('position').value : '';
+    var waiting = c && (!c.positions.length || position) && !(c.submitted || {})[position];
+    $('notIn').classList.toggle('hidden', !waiting);
+    $('notIn').textContent = !waiting ? ''
+      : position ? position + ' hasn\'t been submitted yet. Submit the ' + position + ' checklist too.'
+      : 'The ' + c.name + ' hasn\'t been submitted yet. Submit it too.';
+  }
+
+  // What the photos belong to, or null until checklist, position and name are filled in
+  function currentFields() {
+    var c = current();
+    if (!c) return null;
+    var f = {
+      key: PAGE.key,
+      checklistId: c.id,
+      position: c.positions.length ? $('position').value : '',
+      leader: $('leader').value.replace(/\s+/g, ' ').trim()
+    };
+    if ((c.positions.length && !f.position) || !f.leader) return null;
+    return f;
+  }
+
+  function onPick() {
+    var picked = Array.prototype.slice.call($('files').files);
+    $('files').value = '';                 // so the same photo can be picked again
+    if (!picked.length || stopMessage) return;
+    picked.forEach(function (file) {
+      var item = { number: nextNumber++, file: file, state: 'new', send: false, tries: 0, data: null, fields: null };
+      addTile(item);
+      items.push(item);
+    });
+    pump();
+  }
+
+  // Upload: every photo in the tray goes, under the checklist, position and name on screen now
+  function uploadAll() {
+    var f = currentFields();
+    if (!f || stopMessage) return;
+    try { localStorage.setItem('checklistLeader', f.leader); } catch (e) {}
+    items.forEach(function (it) {
+      if (!it.send && live(it) && it.state !== 'unreadable') {
+        it.send = true;
+        it.fields = f;
+      }
+    });
+    lastError = '';
+    pump();
+  }
+
+  // Keeps things moving: shrink the next photo, fill the upload slots, redraw
+  function pump() {
+    if (!stopMessage) {
+      shrinkNext();
+      var item;
+      while (uploading < PARALLEL && (item = nextToSend())) upload(item);
+    }
+    render();
+  }
+
+  function nextToSend() {
+    for (var i = 0; i < items.length; i++) if (items[i].send && items[i].state === 'ready') return items[i];
+    return null;
+  }
+
+  function shrinkNext() {
+    if (shrinking) return;
+    var item = firstIn('new');
+    if (!item) return;
+    shrinking = true;
+    item.state = 'shrinking';
+    shrink(item.file, function (data, thumb) {
+      shrinking = false;
+      item.file = null;
+      if (item.state === 'removed') return pump();   // removed while it was being shrunk
+      if (data) {
+        item.data = data;
+        item.state = 'ready';
+        item.img.src = thumb;
+      } else {
+        item.state = 'unreadable';
+      }
+      pump();
+    });
+  }
+
+  function upload(item) {
+    uploading++;
+    item.state = 'uploading';
+    var key = batchKey(item.fields);
+    var batch = batchFor(item.fields);
+    batch
+      .then(function (batchId) { return call('serverSavePhoto', [batchId, item.number, item.data]); })
+      .then(function () {
+        item.state = 'done';
+        item.data = null;                  // free the memory; the thumbnail stays
+      }, function (err) {
+        var msg = (err && err.message) || String(err || '');
+        if (msg.indexOf('BATCH_EXPIRED') > -1 && batches[key] === batch) delete batches[key];
+        if (msg.indexOf('out of date') > -1) {
+          stopMessage = msg;
+          item.state = 'failed';
+          return;
+        }
+        lastError = friendly(msg);
+        if (item.tries < RETRY_MS.length) {
+          item.state = 'waiting';
+          setTimeout(function () {
+            if (item.state !== 'waiting') return;
+            item.state = 'ready';
+            pump();
+          }, RETRY_MS[item.tries++]);
+        } else {
+          item.state = 'failed';
+        }
+      })
+      .then(function () {
+        uploading--;
+        pump();
+      });
+  }
+
+  // One server batch per checklist/position/name, shared by every photo that uses it
+  function batchKey(f) {
+    return [f.checklistId, f.position, f.leader].join('|');
+  }
+
+  function batchFor(f) {
+    var key = batchKey(f);
+    if (!batches[key]) {
+      var started = call('serverStartPhotos', [f]);
+      batches[key] = started;
+      started.then(null, function () { if (batches[key] === started) delete batches[key]; });
+    }
+    return batches[key];
+  }
+
+  function retryFailed() {
+    items.forEach(function (it) {
+      if (it.state === 'failed' && it.data) {
+        it.state = 'ready';
+        it.tries = 0;
+      }
+    });
+    lastError = '';
+    pump();
+  }
+
+  function remove(item) {
+    if (!removable(item)) return;
+    item.state = 'removed';
+    item.data = null;
+    item.tile.parentNode.removeChild(item.tile);
+    pump();
+  }
+
+  // Before Upload any photo can come out; after it, only ones that failed or can't be opened
+  function removable(item) {
+    if (item.state === 'failed' || item.state === 'unreadable') return true;
+    return !item.send && ['new', 'shrinking', 'ready'].indexOf(item.state) > -1;
+  }
+
+  function live(item) {
+    return item.state !== 'removed';
+  }
+
+  // google.script.run as a promise
+  function call(name, args) {
+    return new Promise(function (resolve, reject) {
+      var run = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+      run[name].apply(run, args);
+    });
+  }
+
+  // Shrinks the photo on the phone so it uploads fast and saves Drive space, plus a small
+  // thumbnail for the tray. (null, null) if the phone can't open it.
+  function shrink(file, cb) {
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      var data = null;
+      var thumb = null;
+      try {
+        data = drawn(img, MAX_SIDE, QUALITY);
+        thumb = 'data:image/jpeg;base64,' + drawn(img, THUMB_SIDE, 0.6);
+      } catch (e) {
+        data = null;
+      }
+      URL.revokeObjectURL(url);
+      cb(data, thumb);
+    };
+    img.onerror = function () {
+      URL.revokeObjectURL(url);
+      cb(null, null);
+    };
+    img.src = url;
+  }
+
+  // The image scaled so its longest side is at most maxSide, as base64 JPEG
+  function drawn(img, maxSide, quality) {
+    var scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+    var canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    var data = canvas.toDataURL('image/jpeg', quality).split(',')[1];
+    if (!data) throw new Error('empty');
+    return data;
+  }
+
+  function addTile(item) {
+    var tile = document.createElement('div');
+    var img = document.createElement('img');
+    var badge = document.createElement('span');
+    var x = document.createElement('button');
+    img.alt = 'Photo ' + item.number;
+    badge.className = 'badge';
+    x.type = 'button';
+    x.className = 'x';
+    x.textContent = '×';
+    x.setAttribute('aria-label', 'Remove photo ' + item.number);
+    x.addEventListener('click', function () { remove(item); });
+    tile.appendChild(img);
+    tile.appendChild(badge);
+    tile.appendChild(x);
+    $('tray').appendChild(tile);
+    item.tile = tile;
+    item.img = img;
+    item.badge = badge;
+    item.x = x;
+  }
+
+  function paintTile(item) {
+    item.tile.className = 'tile ' + item.state;
+    item.badge.textContent = item.state === 'done' ? '✓'
+      : item.state === 'failed' || item.state === 'unreadable' ? '!'
+      : '';
+    item.x.classList.toggle('hidden', !removable(item));
+  }
+
+  function friendly(msg) {
+    if (/network|http 0|failed to fetch|timed? ?out/i.test(msg)) return 'Check the Wi-Fi or signal.';
+    return msg;
+  }
+
+  function firstIn(state) {
+    for (var i = 0; i < items.length; i++) if (items[i].state === state) return items[i];
+    return null;
+  }
+
+  function numbers(list) {
+    return list.map(function (it) { return it.number; });
+  }
+
+  function render() {
+    var c = current();
+    showNotIn();
+    var shown = items.filter(live);
+    shown.forEach(paintTile);
+
+    var waiting = shown.filter(function (it) { return !it.send && it.state !== 'unreadable'; });
+    var sent = shown.filter(function (it) { return it.send && it.state !== 'unreadable'; });
+    var done = sent.filter(function (it) { return it.state === 'done'; }).length;
+    var failed = sent.filter(function (it) { return it.state === 'failed'; });
+    var unreadable = shown.filter(function (it) { return it.state === 'unreadable'; });
+    var busy = sent.length - done - failed.length;
+
+    // Upload button: counts the photos not sent yet; needs position and name
+    var fieldsOk = !!currentFields();
+    $('pick').classList.toggle('off', !!stopMessage);
+    $('files').disabled = !!stopMessage;
+    $('upload').textContent = waiting.length ? 'Upload ' + waiting.length + (waiting.length === 1 ? ' photo' : ' photos') : 'Upload photos';
+    $('upload').disabled = !waiting.length || !fieldsOk || !!stopMessage;
+    $('hint').textContent = waiting.length && !fieldsOk && !stopMessage
+      ? (c && c.positions.length ? 'Pick your position and enter your name to upload.' : 'Enter your name to upload.')
+      : '';
+
+    $('progress').classList.toggle('hidden', !sent.length);
+    $('bar').style.width = (sent.length ? Math.round(100 * done / sent.length) : 0) + '%';
+    $('retry').classList.toggle('hidden', !failed.length || busy > 0 || !!stopMessage);
+
+    if (stopMessage) return say(stopMessage, 'bad');
+    if (busy) return say('Uploading ' + done + ' of ' + sent.length + '… Keep this page open until you see ✓.', '');
+
+    var parts = [];
+    var cls = '';
+    if (failed.length || unreadable.length) {
+      cls = 'bad';
+      if (done) parts.push(done + ' of ' + sent.length + ' uploaded.');
+      if (failed.length) parts.push(label(numbers(failed)) + ' didn\'t upload.' + (lastError ? ' ' + lastError : ''));
+      if (unreadable.length) parts.push(label(numbers(unreadable)) + ' couldn\'t be opened on this phone; remove it and take it again.');
+    } else if (sent.length && done === sent.length && !waiting.length) {
+      return say('✓ ' + (done === 1 ? 'Photo' : 'All ' + done + ' photos') + ' uploaded. You can close this page.', 'good');
+    } else if (done) {
+      parts.push('✓ ' + done + ' uploaded.');
+    }
+    if (waiting.length) {
+      parts.push(waiting.length + (waiting.length === 1 ? ' photo' : ' photos') + ' ready. Nothing is sent until you tap Upload.');
+    }
+    say(parts.join(' '), cls);
+  }
+
+  function label(nums) {
+    return (nums.length === 1 ? 'Photo ' : 'Photos ') + nums.join(', ');
+  }
+
+  function say(msg, cls) {
+    $('status').textContent = msg;
+    $('status').className = cls;
+  }
+
+  init();
+})();
+</script>

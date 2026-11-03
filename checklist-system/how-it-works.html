@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checklist System</title>
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body class="checklist">
+  <div class="container narrow">
+    <div class="breadcrumb"><a href="../index.html">← All tools</a></div>
+    <header>
+      <h1 class="site-title">Checklist System</h1>
+      <div class="project-links doc-nav"><a class="project-link primary" href="setup-guide.html">Setup Guide</a></div>
+    </header>
+    <article class="doc">
+<h1>Checklist System</h1>
+<p>Runs your store's checklists from one master sheet: Google Forms that rebuild themselves each morning with that day's tasks, and an Apps Script project that logs every submission, tracks what's due vs. done, sends late alerts, and emails a daily summary.</p>
+<p><strong>Master sheet:</strong> your copy of the Checklist System sheet. The script is attached to it.
+<strong>Today tab:</strong> first tab in the sheet. It shows tonight's checklists and positions with live status (green = complete, red = late/missed). It's a single formula, so there's no code behind it.
+<strong>Setup:</strong> see <a href="setup-guide.html">SETUP_GUIDE.md</a>.</p>
+<h2>What managers change (no code)</h2>
+<table>
+<thead>
+<tr>
+<th>To...</th>
+<th>Edit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Add a task</td>
+<td><strong>Checklists &gt; Add a task</strong>. Pick the checklist, position, days (one, several, or every day), rotation weeks (rotating checklists only), photo, and where it goes in the list. It fills in the Item ID and Order and puts the row with that position's other tasks.</td>
+</tr>
+<tr>
+<td>Change or turn off a task</td>
+<td><strong>Checklists &gt; Edit a task</strong>. Change the wording, days, rotation weeks, photo, reference, on/off, or its place in the list. The Item ID never changes, so its history stays together. Tasks are turned off, not deleted. To move a task to another position, turn it off and add it there. A row added by hand needs a new, never-reused Item ID.</td>
+</tr>
+<tr>
+<td>Check off stations by QR code (Daily Facilities Walk)</td>
+<td><strong>Checklists</strong> "Station QR codes" checked (needs one submission per position). Each position is a station. <strong>Checklists &gt; Print station QR codes</strong> prints one code per station; post each at its station. A scan opens today's form with the station, its code and the person's name filled in. A station only counts when the form came from that station's own QR code; anything else is logged with a "Not counted" note and the station stays missed. The form has no "Submit another response" link, so each station is opened by scanning its own code. Reprint after renaming, adding or removing a station. Changing "Photo upload key" retires the codes.</td>
+</tr>
+<tr>
+<td>Ask for a typed answer (e.g. a temperature)</td>
+<td><strong>Items</strong> "Answer" = <code>Type in</code>: the form shows a text box instead of Complete / Could not complete, and the answer is saved in Item Results.</td>
+</tr>
+<tr>
+<td>Pick one of several each day</td>
+<td>Put the options in braces in the task: <code>Type in the current temperature of the {Walk In Cooler\|Fry Freezer\|Prep Table}.</code> (in the sheet, without the backslashes) One is picked for each day (the same all day). Edit the list to add or remove options.</td>
+</tr>
+<tr>
+<td>Put a form in Spanish (BOH Closing)</td>
+<td><strong>Checklists</strong> "Language" = <code>Spanish</code>. Fill each task's <strong>Items</strong> "Spanish task"; a blank one shows in English (Validate lists them). The questions, answers, photo tag, photo lines, date and closed message on the form are in Spanish; the form title (the checklist name) and the photo upload page stay in English. Submissions, Item Results, the morning email and the scorecard stay in English. Add/Edit a task only change the English task, so update the Spanish task when the English wording changes. Takes effect at the next morning update or <em>Rebuild forms now</em>.</td>
+</tr>
+<tr>
+<td>Run a checklist several times a day (Restroom)</td>
+<td><strong>Checklists</strong> "Times per day" (e.g. <code>2</code>), with Due by and Late after left blank. The form is open all day and keeps its "Submit another response" link. Today's row shows who has done it and turns Complete at the 2nd submission. Fewer than that by the end of the day is Missed, shown as "Missed (1 of 2)" in the morning email. There's never a late alert. Blank = once a day, as before.</td>
+</tr>
+<tr>
+<td>Take a checklist's photos the next day too (Sunday Rotation on Monday)</td>
+<td><strong>Checklists</strong> "Photos next day" checked. The day after it runs, once it was submitted, the photo page also lists it as e.g. "Sunday Rotation Checklist (Sunday)" and files those photos under that day. Only positions that were submitted are offered. The morning email for that day has already gone out, so photos added the next day aren't in it; <em>View photos</em> shows them.</td>
+</tr>
+<tr>
+<td>Make leaders post a daily phrase in Slack (Team Lead, Manager, 2-3PM)</td>
+<td>Put <code>[PHRASE]</code> in the task, e.g. <code>Post "[PHRASE]" in the EOD Notes Slack channel.</code> Each day it shows a phrase from the <strong>Phrases</strong> tab: the one used longest ago, a different one for each checklist. <strong>Last used</strong> and <strong>Used on</strong> show where each went, so you can check Slack against it; Item Results also keeps the task as shown. On a one-submission checklist the task moves to a different spot each day (never first or last). Add or delete phrases any time. Validate warns when there are fewer than 14 per checklist using them, so none comes back within 14 days. First time: run <code>setupPhrasesTab</code> once from the script editor to make the tab with 50 starter phrases.</td>
+</tr>
+<tr>
+<td>Rotate tasks week to week (Sunday Rotation)</td>
+<td><strong>Checklists</strong> "Rotation length (weeks)" (e.g. 6) and "Rotation start" (the date Week 1 starts). Each task's <strong>Items</strong> "Rotation weeks" says which weeks it's on: <code>3</code>, or <code>1, 5</code>; blank = every week. The Add/Edit pop-up shows which week the next day falls in.</td>
+</tr>
+<tr>
+<td>Change a due / late time</td>
+<td><strong>Checklists</strong> Due by / Late after. Applies from the next morning's rows.</td>
+</tr>
+<tr>
+<td>Change who gets late alerts</td>
+<td><strong>Settings</strong> "FOH escalation email" (read on every run)</td>
+</tr>
+<tr>
+<td>Change who hears about system errors</td>
+<td><strong>Settings</strong> "System error emails" (blank = the FOH escalation email). The <strong>Alert Log</strong> "Details" column keeps each error's text.</td>
+</tr>
+<tr>
+<td>Change summary recipients</td>
+<td><strong>Settings</strong> "Daily summary recipients"</td>
+</tr>
+<tr>
+<td>Change rebuild / summary time</td>
+<td><strong>Settings</strong>. Takes effect on the next 15-minute check.</td>
+</tr>
+<tr>
+<td>Turn on reminders + escalations</td>
+<td><strong>Settings</strong> "Alerts mode" → <code>Live</code></td>
+</tr>
+<tr>
+<td>Turn on photo uploads</td>
+<td><strong>Settings</strong> "Photo upload page" (one-time setup, see SETUP_GUIDE step 7). Clear "Photo email" once the team is using it.</td>
+</tr>
+<tr>
+<td>Retire an old photo link / QR</td>
+<td><strong>Settings</strong> "Photo upload key": change it, then reprint the QR from <em>Show form links</em>.</td>
+</tr>
+<tr>
+<td>Change how long history is kept</td>
+<td><strong>Settings</strong> "Keep data for (days)" (60 = about 2 months). Each morning, rows older than that are deleted from Daily Status, Submissions, Item Results, Alert Log and Photos; nothing is copied first. At least 30 (the weekly scorecard and photo checks need it). Blank = keep everything.</td>
+</tr>
+<tr>
+<td>Change photo retention or alert sensitivity</td>
+<td><strong>Settings</strong> "Keep photos for (days)", "Photo alert sensitivity (std devs)"</td>
+</tr>
+<tr>
+<td>Look at any day's photos</td>
+<td><strong>Checklists &gt; View photos</strong>. Flip days with the arrows. Each position shows its status, who submitted it, "Could not complete" tasks, notes, and photos (click to enlarge). Managers need the <strong>Checklist Photos</strong> Drive folder shared with them (Viewer).</td>
+</tr>
+<tr>
+<td>Change the scorecard day</td>
+<td><strong>Settings</strong> "Weekly scorecard day" (default Tue)</td>
+</tr>
+<tr>
+<td>Close for a holiday or weather</td>
+<td><strong>Settings</strong> "Closed dates" (e.g. <code>11/26/2026, 12/25/2026</code>). Forms close and nothing is tracked. Adding today's date mid-day stops today's alerts.</td>
+</tr>
+<tr>
+<td>Add a checklist (Restroom 2.0, BOH Closing)</td>
+<td><strong>Checklists</strong> row (Active = TRUE, due times, days) + its <strong>Items</strong>, then <em>Checklists &gt; Rebuild forms now</em>. The form and its trigger are created automatically. Setting Active to FALSE closes its form at the next morning update.</td>
+</tr>
+</tbody>
+</table>
+<p>Edits made during the day show up in the next morning's forms. Use <em>Rebuild forms now</em> for same-day changes. It only replaces questions that changed, so it usually takes seconds, but anyone in the middle of a checklist with a changed question may have to start over. When the store account clicks it, the rebuild runs right away. When anyone else clicks it (say, a director), it's queued and runs within 15 minutes as the store account, because only the store account can edit the forms.</p>
+<h2>Files</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Job</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>01_Menu_and_Triggers.gs</code></td>
+<td>Checklists menu, the 15-minute trigger, install/remove triggers</td>
+</tr>
+<tr>
+<td><code>02_Helpers.gs</code></td>
+<td>Read tabs by header name, Settings, <strong>all date/time handling</strong></td>
+</tr>
+<tr>
+<td><code>03_Model.gs</code></td>
+<td>Checklists / Positions / Items → what's scheduled on a date</td>
+</tr>
+<tr>
+<td><code>04_Validate.gs</code></td>
+<td>Sheet checks: a Settings problem stops every form updating; a problem with one checklist skips only that one</td>
+</tr>
+<tr>
+<td><code>05_Rebuild_Forms.gs</code></td>
+<td>Daily form rebuild, section routing, Form Map</td>
+</tr>
+<tr>
+<td><code>06_Form_Submit.gs</code></td>
+<td>onFormSubmit → Submissions, Item Results, Daily Status</td>
+</tr>
+<tr>
+<td><code>07_Daily_Status.gs</code></td>
+<td>Daily rows, Late / Missed</td>
+</tr>
+<tr>
+<td><code>08_Alerts.gs</code></td>
+<td>Heads-ups, escalations, error alerts, Alert Log</td>
+</tr>
+<tr>
+<td><code>09_Summary.gs</code></td>
+<td>Morning problems email + weekly scorecard</td>
+</tr>
+<tr>
+<td><code>10_Photos.gs</code></td>
+<td>Photo upload page (web app), Drive folders, 60-day cleanup, photo checks</td>
+</tr>
+<tr>
+<td><code>PhotoPage.html</code>, <code>PhotoJavaScript.html</code>, <code>PhotoStylesheet.html</code></td>
+<td>The upload page people see on their phone</td>
+</tr>
+<tr>
+<td><code>11_Photo_Viewer.gs</code></td>
+<td>Checklists &gt; View photos: one day's statuses, could-not-complete tasks, notes and photos</td>
+</tr>
+<tr>
+<td><code>PhotoViewer.html</code>, <code>PhotoViewerJavaScript.html</code>, <code>PhotoViewerStylesheet.html</code></td>
+<td>The View photos pop-up</td>
+</tr>
+<tr>
+<td><code>12_Add_Item.gs</code></td>
+<td>Checklists &gt; Add a task: next Item ID, row placement, Order renumbering (shared with Edit)</td>
+</tr>
+<tr>
+<td><code>13_Edit_Item.gs</code></td>
+<td>Checklists &gt; Edit a task: saves changes only if the row hasn't changed since the pop-up opened</td>
+</tr>
+<tr>
+<td><code>AddItem.html</code>, <code>AddItemJavaScript.html</code>, <code>AddItemStylesheet.html</code></td>
+<td>The Add / Edit a task pop-up</td>
+</tr>
+<tr>
+<td><code>15_Form_Sync.gs</code></td>
+<td>Updates each form to today's questions, changing only what differs; remembers each form's layout</td>
+</tr>
+<tr>
+<td><code>16_Languages.gs</code></td>
+<td>Spanish forms: the form's fixed wording in each language, the Spanish date, and turning Spanish answers back into English for the logs</td>
+</tr>
+<tr>
+<td><code>17_Data_Cleanup.gs</code></td>
+<td>Each morning, deletes log rows older than "Keep data for (days)"</td>
+</tr>
+<tr>
+<td><code>18_Phrases.gs</code></td>
+<td>Slack phrases: today's phrase for each <code>[PHRASE]</code> task, where it goes on the form, the Phrases tab check and setup</td>
+</tr>
+<tr>
+<td><code>14_Station_QR.gs</code></td>
+<td>Station QR codes: per-station codes, the page a QR opens, the printable sheet, today's form entry IDs</td>
+</tr>
+<tr>
+<td><code>StationPage.html</code>, <code>QrSheet.html</code></td>
+<td>What a station QR opens; the printable QR sheet (uses qrcodejs from cdnjs)</td>
+</tr>
+</tbody>
+</table>
+<h2>How it runs</h2>
+<p>One time-driven trigger, <code>quarterHourTick</code>, runs every 15 minutes:</p>
+<ol>
+<li>After <strong>Rebuild forms at</strong> (once a day), it runs Validate, updates the forms, creates today's Daily Status rows, and recreates any missing form submit trigger. Today's rows are created even if a form fails to rebuild, so one broken form can't leave the day untracked. The failure is emailed once and retried every 15 minutes. Only one rebuild can run at a time. If Validate finds a problem with one checklist (no due time, a blank task, a position not on Positions...), only that checklist's form is left as it was; every other form updates, and "System error emails" gets one email that day naming it. Fix it, then use <em>Rebuild forms now</em>. A Settings problem or a duplicate Checklist ID or Item ID still stops every form: yesterday's forms stay up, one email goes out that day, and every later run retries, so fixing the sheet is enough.</li>
+<li>Every run, it marks past days Missed and flips overdue rows to Late. In <code>Live</code> mode it also sends one late alert per row once Late after passes. There's no heads-up before the due time.</li>
+<li>After <strong>Daily summary at</strong> (once a day), it checks yesterday. It emails only if something needs attention: anything Missed, a task marked "Could not complete", a note, a position with photo tasks that uploaded no photos, or a photo count far below usual. Its photo section also lists photos uploaded under a checklist or position that was never submitted (usually the wrong position picked on the photo page). A clean night sends nothing; Completed late still counts as done. The weekly scorecard goes out on <strong>Weekly scorecard day</strong> (Tuesday) and covers the previous Monday to Sunday, so the Sunday Rotation is included.</li>
+</ol>
+<p><strong>Rotating checklists:</strong> weeks count in 7-day blocks from "Rotation start" (Week 1), then repeat after "Rotation length" weeks. Each day's form gets only the tasks for that day and that week. Validate skips the checklist if its rotation length or start isn't a number or date, or a task week is outside 1 to the length. It warns if a week would have no tasks.</p>
+<p><strong>Photo check:</strong> for each checklist, it compares last night's photo count with the last 28 nights it was submitted. It flags the night if the count is below mean − k × std dev, where k is "Photo alert sensitivity", default 2. The std dev is floored at 1, so one missing photo on a very steady checklist isn't flagged. It needs 10 nights of history first; until then the email shows "building history".</p>
+<p>Each form also has an <code>onChecklistSubmit</code> trigger. Triggers do work only for the account that installed them (<code>TRIGGER_OWNER</code> in Script Properties), so leftover triggers from another account can't double-log.</p>
+<h2>Time rules (read before editing date code)</h2>
+<ol>
+<li><strong>Clock times are read as displayed text</strong> ("11:00 PM") with <code>getDisplayValues()</code> and parsed into minutes after midnight. <code>getValues()</code> returns time-only cells as a Date on 12/30/1899, whose hour depends on the script and sheet time zones matching.</li>
+<li><strong>Dates are written as text</strong> (<code>yyyy-MM-dd</code>) into cells formatted as plain text (<code>@</code>). Otherwise Sheets converts "2026-10-06" and "11:00 PM" into date/time values, and lookups stop matching.</li>
+<li><strong>Business clock:</strong> anything before <em>Business day ends at</em> (4:00 AM) belongs to the night before and gets +1440 minutes. 12:30 AM = 1470, which sorts after 11:30 PM = 1410. A Late after of 12:30 AM works.</li>
+<li><strong>No millisecond math between days.</strong> DST nights are 23 or 25 hours. Day math uses UTC date parts (<code>addDays_</code>). Timestamps go through <code>Utilities.formatDate</code> with the spreadsheet's time zone.</li>
+</ol>
+<h2>Known limits</h2>
+<ul>
+<li>Leader names are free text, so a <em>missed</em> checklist can't be charged to a leader. The scorecard shows submissions, on-time %, and task completion %.</li>
+<li><strong>Forms are updated, not rebuilt</strong> (<code>15_Form_Sync.gs</code>). Google Forms makes every change a separate slow call, so each form's layout is remembered and only questions that changed are deleted or added (about 20–40 calls on a normal day instead of ~800 for the closing form). Each run stops at 4 minutes, well inside Google's 6, and the next run carries on. A replaced question loses its stored answers in Google; Submissions and Item Results are the record.</li>
+<li>Forms are driven by the sheet: don't edit them by hand. A question added or deleted by hand is noticed on the next update and put back to match the sheet. A question retitled by hand is caught by the weekly full re-read of each form, within 7 days.</li>
+<li>Photo uploads: the position list shows what's already been submitted today ("Chutes – submitted 10:09 PM"), and picking one that hasn't been submitted shows a reminder to submit it too. Picked photos wait in a tray (each can be removed with ✕) and nothing is sent until <strong>Upload</strong> is tapped. Photos are shrunk while they're being picked, so the upload itself is quick. Phones pause web pages that are closed or locked, so the page asks people to keep it open until ✓ and warns if they leave with photos not sent. Failed photos retry on their own 3 times, then show a Try again button.</li>
+<li>The photo upload page is public (anyone with its link), and any page a script serves can call that script's server functions. So the in-sheet pop-ups (Add/Edit a task, View photos) get a pass when the Checklists menu opens them, and their server functions refuse calls without one; a pass lasts 6 hours (after that: close the pop-up and open it again). Trigger removal is private: use Checklists &gt; Remove my triggers.</li>
+<li>The photo upload page runs as the store account. After a code change to the page, the store account has to publish a new version (Deploy → Manage deployments → Edit → New version); <code>clasp push</code> alone doesn't update it.</li>
+<li>On days a checklist doesn't run, its form is closed. Google currently rejects the custom "No checklist today." message on these forms, so people see Google's standard "no longer accepting responses" page instead.</li>
+<li>Photos use the store account's 15 GB of free storage. At about 400 KB each, 60 days is roughly 1.5 GB.</li>
+<li>Free Gmail quotas: 100 email recipients a day and 90 minutes of trigger runtime a day. Normal use is well under both.</li>
+</ul>
+    </article>
+    <footer><a href="../index.html">Chick-fil-A Restaurant Tools</a></footer>
+  </div>
+</body>
+</html>

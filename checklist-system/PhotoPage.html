@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= include('PhotoStylesheet'); ?>
+  </head>
+  <body>
+    <main>
+      <h1>Checklist photos</h1>
+      <p class="sub" id="day"></p>
+      <p id="none" class="hidden">No checklists today.</p>
+      <form id="form" class="hidden">
+        <label>Checklist
+          <select id="checklist"></select>
+        </label>
+        <label id="posWrap" class="hidden">Position
+          <select id="position"></select>
+        </label>
+        <p id="notIn" class="note hidden"></p>
+        <label>Your name
+          <input id="leader" autocomplete="name" maxlength="60">
+        </label>
+        <label id="pick" class="pick">Take or choose photos
+          <input id="files" type="file" accept="image/*" multiple>
+        </label>
+        <p class="sub">Add as many as you need. Nothing uploads until you tap Upload.</p>
+        <div id="tray"></div>
+        <button id="upload" type="button" disabled>Upload photos</button>
+        <p id="hint" class="sub"></p>
+      </form>
+      <div id="progress" class="hidden"><div id="bar"></div></div>
+      <p id="status"></p>
+      <button id="retry" type="button" class="hidden">Try the failed photos again</button>
+    </main>
+    <script>var PAGE = <?!= data ?>;</script>
+    <?!= include('PhotoJavaScript'); ?>
+  </body>
+</html>
