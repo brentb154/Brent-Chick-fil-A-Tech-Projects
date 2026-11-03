@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catering Quote Tool — How It Works</title>
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body class="catering">
+  <div class="container narrow">
+    <div class="breadcrumb"><a href="../index.html">← All tools</a></div>
+    <header>
+      <h1 class="site-title">Catering Quote Tool</h1>
+      <div class="project-links doc-nav"><a class="project-link" href="index.html">What It Does</a><a class="project-link primary" href="setup-guide.html">Setup Guide</a><a class="project-link" href="../demos/catering-quote.html">Try the Demo</a></div>
+    </header>
+    <article class="doc">
+<h1>Catering Quote Tool — Operator Guide</h1>
+<p><strong>This tool builds, sends, and tracks catering quotes for both restaurants — no spreadsheets to wrestle with, no math to redo.</strong> You fill out a short form, it makes a clean PDF, emails or prints it, and remembers everything for next time.</p>
+<h2>Why it matters</h2>
+<p>Catering quotes used to live in scattered spreadsheets and people's heads. This puts every quote in one place with consistent pricing, a professional PDF, and a paper trail for POs, tax-exempt forms, and delivery days — so anyone on the team can pick it up and look sharp in front of a customer.</p>
+<h2>What it does</h2>
+<ul>
+<li><strong>Quotes in a couple of minutes.</strong> Pick items off your menu; it prices pickup vs. delivery automatically.</li>
+<li><strong>Two restaurants, one tool.</strong> A Restaurant switch at the top of the form flips between your two stores — menu, cheat sheet, and pickup address all follow.</li>
+<li><strong>One-click PDF.</strong> Email it to the customer or print it.</li>
+<li><strong>Remembers customers.</strong> Past organizations and contacts autofill; "Reorder" copies a previous order.</li>
+<li><strong>Tracks tax-exempt forms.</strong> See who has a form on file, and send guests a link to upload one.</li>
+<li><strong>Keeps prices honest.</strong> A quarterly check makes you confirm a few menu prices against the POS.</li>
+<li><strong>Tells you what to pull.</strong> Pick a date and the <strong>Supplies</strong> tab turns that day's orders into raw counts — filets, nuggets, buns, mac bags — split by restaurant, with a rough case count.</li>
+<li><strong>Hands off the far ones.</strong> Mark an order as passed to a closer store; it drops out of your prep numbers and you get a draft email to send them.</li>
+<li><strong>Names the driver.</strong> Assign a driver and their name shows up right on the Google Calendar event.</li>
+</ul>
+<h2>How it works (the plain version)</h2>
+<p>Think of it as a form sitting on top of a Google Sheet.
+- <strong>The web page</strong> is where the team works — make quotes, view history, edit menus, change settings.
+- <strong>The Google Sheet</strong> is the filing cabinet behind it. Every quote, menu item, and setting lives on a tab there. You rarely open it — but when you want to bulk-edit the menu or change a setting, that's where it is.
+- <strong>The team link</strong> ends in <code>?view=app</code>. Bookmark that one. The plain link is just a harmless landing page, and guests get a separate upload link.</p>
+<h2>Everyday tasks</h2>
+<ul>
+<li><strong>New quote:</strong> pick the restaurant → Pickup or Delivery → add the customer, items, and date → <strong>Save &amp; Email</strong> (or Save, then Print).</li>
+<li><strong>Repeat customer:</strong> start typing their name and contacts autofill — or open their last quote and hit <strong>Reorder</strong>.</li>
+<li><strong>Add or change a menu item:</strong> open the <strong>Menu Catalog</strong> (in Settings), pick the store, edit inline. For big changes, paste into that store's menu tab of the Sheet — by default <code>CH Menu</code> for Main Street and <code>DBU Menu</code> for DBU. (The tabs are labeled by store on purpose, so nobody edits the wrong restaurant's prices. Different restaurants? You pick the labels — see Go deeper.)</li>
+<li><strong>Tax-exempt customer:</strong> mark the quote tax-exempt, then <strong>Look it up</strong> to check the registry or <strong>Request from Guest</strong> to email them an upload link.</li>
+<li><strong>Planning a prep or order day:</strong> the <strong>Supplies</strong> tab → pick the date → read the totals per restaurant. Red rows are raw proteins to pull; yellow rows are mac &amp; cheese bags to thaw the day before.</li>
+<li><strong>An order is too far to run:</strong> open it → <strong>Hand off</strong> → pick the partner store → <strong>✉️ Hand-off email</strong> to send them the details (you review it before it goes).</li>
+<li><strong>Assign who's driving:</strong> open the order (it needs a PO first) → <strong>Assign Driver</strong>.</li>
+<li><strong>Change a price, tax rate, or email wording:</strong> the <strong>Settings</strong> tab.</li>
+</ul>
+<h2>When something looks broken</h2>
+<p>Most "breakage" isn't the tool — it's usually one of these:
+- <strong>Stuck on "Loading…" or a blank page.</strong> You probably pasted a new version but didn't redeploy. In Apps Script: <strong>Deploy → Manage deployments → Edit → New version.</strong> The link always serves the last <em>deployed</em> version, not the latest save.
+- <strong>"It just takes me to GitHub" / shows a plain landing page.</strong> The wrong file is in the <code>App</code> slot. <code>App.html</code> goes in <code>App</code> — not the repo's <code>index.html</code>.
+- <strong>It asks you to verify 3 prices and won't let you in.</strong> That's the quarterly price check, on purpose. Enter the current POS prices for those items and you're good for another 90 days.
+- <strong>A quote didn't email.</strong> Check the customer's email address on the quote, and that you're signed into the right Google account.
+- <strong>The calendar event didn't show up.</strong> The calendar is best-effort — re-save the quote or add it by hand. It never blocks a quote from saving.
+- <strong>A guest can't reach the upload page.</strong> The deployment has to be set to <strong>Anyone</strong> access, not "Anyone within your domain."</p>
+<p>Google does occasionally change Apps Script under the hood, but real platform breakage is rare — and redeploying (which you've been doing) is exactly the right habit. When in doubt: <strong>re-run <code>initializeSheet</code> once</strong> (it's safe to repeat and never deletes data), <strong>then deploy a new version.</strong></p>
+<h2>The one rule</h2>
+<p><strong>Settings and menus live in the Sheet; the code doesn't.</strong> Anyone can keep this running by editing tabs — no coding required. Just remember: after any code change, deploy a <strong>new version</strong>, or the link keeps serving the old one.</p>
+<hr />
+<h2>Go deeper</h2>
+<p><em>How the machine actually works, for whoever maintains it next. You don't need any of this to use the tool day to day — it's here so the next person can change something without spelunking through the code first.</em></p>
+<h3>The data model — it's all in the Google Sheet</h3>
+<p>There's no separate database. Every tab is a table the code reads and writes.
+- <strong><code>Quotes</code></strong> — one row per quote, <strong>26 columns</strong>. Most fields get their own column: customer, contact, phone, email, order type, delivery address, subtotal, tax rate used, tax amount, total, tax-exempt flag, <code>Location Name</code>, PO number, event date, event time, calendar event id, last-modified, the order-level discount value/type, and quote notes. <strong>The line items are stored as JSON text in a single cell</strong> — an array of <code>{description, quantity, price, discount}</code> — so one quote is always exactly one row no matter how many items it has. <code>Location Name</code> is how a saved quote remembers which restaurant it was for; the PDF later maps that name back to the store's address and phone — and it's also what the Supplies tab groups by.
+  The last three columns were added over time and are all <strong>blank-safe by design</strong> — an old row with an empty cell reads as a sensible default, so no backfill was ever needed: <strong>24 <code>Status</code></strong> (blank = Active), <strong>25 <code>Handoff Store</code></strong> (blank = not handed off), <strong>26 <code>Driver</code></strong> (blank = unassigned). None of them are written by the main save path — <code>saveQuote</code> still writes a fixed 23-column block, and each of these has its own targeted single-cell writer (<code>setQuoteStatus</code>, <code>setHandoffStore</code>, <code>assignDriver</code>). That's deliberate: it keeps the save path from having to know about every column that gets bolted on later.
+- <strong><code>Recipe_BOM</code></strong> — Menu Item | Component | Qty per Unit. One row per component. The Supplies engine matches on the <strong>full item name, lowercased</strong> — no fuzzy matching, on purpose, so a wrong match can never quietly inflate an order.
+- <strong><code>Case_Conversions</code></strong> — Component | Per Case | Per Bag. Turns raw counts into "≈ 2.4 cases". Per Bag is optional; blank hides the bag figure. Note the cases/bags numbers are computed <strong>at runtime</strong>, not stored — change a conversion and every past date recalculates.
+- <strong><code>Supplies_Reference</code></strong> — Section | Item | Detail. The editable notes shown on the Reference sub-tab; a blank Item makes a full-width note.
+- <strong><code>Drivers</code></strong> — one name per row, team-editable.
+- <strong><code>Partner Store</code></strong> — Store Location | Operator Name | Store Phone | Store Email | Catering POC. One row per store you might hand off to.
+- <strong><code>&lt;prefix&gt; Menu</code></strong> (default <code>S1 Menu</code> / <code>S2 Menu</code>) — Category | Item Name | Pickup Price | Delivery Price. <code>N/A</code> or blank in a price column hides that item from that order type. Category groups items in the picker.
+- <strong><code>&lt;prefix&gt; Off-Menu</code></strong> (default <code>S1 Off-Menu</code> / <code>S2 Off-Menu</code>) — Item | Base Price. The delivery price you see is computed live as base × (1 + markup%), rounded to the nearest tenth — never stored, so changing the markup reprices the whole list at once.
+- <strong><code>Settings</code></strong> — every tunable value as a key/value pair, read at runtime, so a change takes effect with no redeploy.
+- <strong><code>Quote_Sequence</code></strong> — a single running counter, so quote IDs never repeat even across edits.
+- <strong><code>Tax_Exempt_Registry</code></strong> — one row per organization: a status and a link to the form PDF in Drive.
+- <strong>Hidden tabs</strong> — <code>Quotes_Archive</code> (aged-out quotes), <code>Quote_Revisions</code> (prior versions of edited quotes), <code>Tax_Forms</code> (per-quote status), <code>Tax_Form_Uploads</code> (the guest pending queue), <code>Geocode_Cache</code> (address → lat/lng, so repeat addresses never re-hit the Maps quota), and one append-only log per automation so nothing ever double-sends: <code>Confirmations_Sent</code>, <code>PO_Alerts_Sent</code>, <code>PO_Warn_DayBefore_Sent</code>, <code>PO_Warn_DayOf_Sent</code>, <code>DISD_Weekly_Sent</code>. <code>Reminders_Sent</code> (visible) does the same job for follow-ups.
+  The dedup pattern is worth knowing if you add an automation: each log is append-only, keyed on <code>quoteId</code> or <code>quoteId|eventDate</code>, and read into a lookup before the send loop. Keying on quote+date rather than quote alone is what lets a re-quote for a <em>new</em> date legitimately alert again while the same order never alerts twice.</p>
+<h3>The life of a quote</h3>
+<ol>
+<li><strong>Draft.</strong> The form validates the required fields and asks the server for the next ID — the running counter, with the contact's initials appended (<code>Q-2026-0042-KD</code>).</li>
+<li><strong>Save.</strong> The server writes the row. Line items are JSON-encoded into one cell; totals, discounts, and tax are computed and stored so history and the PDF never have to recompute.</li>
+<li><strong>PDF.</strong> The quote is built as an HTML document and converted to PDF — the <em>same</em> HTML the on-screen preview and the print window use, so what you see is what sends.</li>
+<li><strong>Email.</strong> "Save &amp; Email" sends the PDF with your Settings email template (subject/body with <code>{{placeholders}}</code>), optionally BCC'ing whoever you set.</li>
+<li><strong>Calendar.</strong> If the quote has a date and time, a color-coded Google Calendar event is created and its id is stored on the row — so a later edit updates that event instead of creating a duplicate.</li>
+<li><strong>Edit.</strong> Editing copies the outgoing version to <code>Quote_Revisions</code> first — nothing is ever truly overwritten — then writes the new values. You can view and restore any prior version from the quote's popup.</li>
+<li><strong>Expire / archive.</strong> Every PDF shows a "valid through" date (Settings-tunable). Quotes past the archive threshold are moved to the hidden archive by the nightly job — moved, never deleted.</li>
+</ol>
+<h3>How pricing works</h3>
+<p>A line item's price comes from the selected store's menu, keyed by the current order type — pickup vs delivery — with <code>N/A</code>/blank hiding unavailable items from that mode. Off-menu items price live off base × markup. On top of line items you can apply per-line discounts and one order-level discount (percent or dollar). Tax uses the Settings default rate (editable per quote); marking a quote tax-exempt zeroes the tax and ties into the registry. Switching order type <em>or</em> store re-prices every line against the new context (with a confirm), and leaves any item that isn't on the new menu at its typed price.</p>
+<h3>Two restaurants, in detail</h3>
+<ul>
+<li><strong>Tab names are operator-chosen.</strong> <code>Store 1/2 Tab Prefix</code> in Settings (default S1/S2) feed <code>&lt;prefix&gt; Menu</code> / <code>&lt;prefix&gt; Off-Menu</code>. <code>initializeSheet</code> renames the tabs <em>in place</em> when the prefix changes — it tracks the last-applied name in Script Properties — so a rename never loses data or leaves an orphaned empty tab.</li>
+<li><strong>Both menus preload.</strong> On load the app pulls both stores' menus into memory, so switching restaurants (and editing/reordering a past quote into its store) is instant, no round-trip.</li>
+<li><strong>Fast lookups.</strong> Menu items are indexed by name (a hash map, first-row-wins on duplicates), so repricing a whole quote or matching a reordered quote's items is one lookup per line instead of a scan of the whole menu.</li>
+<li><strong>The quote remembers its store</strong> via <code>Location Name</code>; edit/reorder reads that back to switch stores; the PDF resolves it to the store's address and phone.</li>
+</ul>
+<h3>The quarterly price check</h3>
+<p>On load, if it's been longer than <code>Price Check Interval (Days)</code> (default 90) since the active store's last verification, the app locks until the operator types the current POS prices for three menu items and they match. It's <strong>per store</strong> — separate <code>Last Price Verification</code> dates — and it <strong>skips a store whose menu is empty</strong>, so an unconfigured second store never wedges the lock. The three items are drawn from the categories listed in Settings (falling back to the whole menu if that's too narrow), always including a delivery-priced item; a typed price passes if it matches <em>any</em> menu row with that name, so a duplicate item name can't jam it.</p>
+<h3>Tax-exempt tracking</h3>
+<p>A tax-exempt quote can look the org up in the registry or send the guest an upload link. The guest page is public (<code>?view=taxform</code>), no login; their PDF or photo lands in a Drive folder and shows up as a <em>pending</em> row on the Tax Forms tab. A human confirms it into the registry under the canonical org name — the app never auto-matches names, on purpose, so a slightly different spelling can't create a silent duplicate. The Guest Upload Link on that tab is that same public page, copyable to hand out directly. The In-Store QR Code card below it is the same page again with <code>&amp;quote=IN-STORE</code> added. Print it for the manager stand so walk-in uploads are tagged <code>IN-STORE</code> for the monthly POS match. Access is <strong>Anyone</strong> so outside guests can reach it; the team tool is URL-gated (<code>?view=app</code>), not login-walled — so don't post the team link publicly.</p>
+<h3>The automations</h3>
+<p>Each is installed separately — <strong><code>initializeSheet</code> creates no triggers at all</strong> — each has its own on/off switch, and each is wrapped so a failure emails an alert instead of dying silently. Every installer deletes its own old trigger before creating a new one, so re-running never doubles up, and each has a matching <code>remove…Trigger()</code>.</p>
+<table>
+<thead>
+<tr>
+<th>When</th>
+<th>Handler</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Daily 3pm</td>
+<td><code>dailyCateringAutomation</code></td>
+<td>Day-before confirmations, missing-PO digest, and (once, at year-end) the tax-exempt review</td>
+</tr>
+<tr>
+<td>Daily 2pm + 6am</td>
+<td><code>poWarningDayBefore</code> / <code>poWarningDayOf</code></td>
+<td>Urgent "still no PO" nudges for tomorrow's and today's orders</td>
+</tr>
+<tr>
+<td>Daily 9am</td>
+<td><code>processReminders</code></td>
+<td>Follow-up on quotes that haven't been acted on</td>
+</tr>
+<tr>
+<td>Saturday 12pm</td>
+<td><code>disdWeeklyReminder</code></td>
+<td>Weekly DISD recap — guest + total only, no line items</td>
+</tr>
+<tr>
+<td>Nightly</td>
+<td><code>cleanOldQuotes</code></td>
+<td>Archives quotes past the age threshold (moved, never deleted)</td>
+</tr>
+</tbody>
+</table>
+<p>The urgent PO warnings are deliberately <strong>separate from</strong> the 7-day sweep and keep their own logs, so an order that already got the early heads-up still gets the day-before and day-of nudges.</p>
+<h3>The Supplies Calc, in detail</h3>
+<p><code>getSuppliesForDate(dateStr)</code> is the whole engine:
+1. Pull every quote on that date whose status isn't <code>Inactive</code>.
+2. Any quote with a non-blank <code>Handoff Store</code> is pulled out into a separate <code>handedOff</code> list — shown for visibility, <strong>never counted</strong>.
+3. The rest are bucketed by <code>Location Name</code>, so each restaurant gets its own totals. The bucketing is list-driven off whatever store names it actually finds — nothing hardcodes "two stores", so a third would just appear.
+4. Per bucket, each line item is matched against <code>Recipe_BOM</code> by lowercased full name and exploded into components × quantity. <strong>No match = no guess</strong> — it goes to that store's <code>noRecipe</code> list with its count intact.
+5. Components are joined to <code>Case_Conversions</code> for the "≈ cases" figure, and tagged for highlighting.</p>
+<p>The red/yellow highlighting is driven by a small <strong>component → tag</strong> map (<code>supplyTagMap_</code>), not by hardcoding rows in the UI: raw proteins get <code>protein</code> (red), mac bags get <code>thaw</code> (yellow). To flag something new, add it to that map — the client just reads the tag off each row.</p>
+<p><strong>The gotcha:</strong> because matching is exact, a menu rename silently moves an item into the ⚠️ no-recipe list rather than breaking anything. That list is the health check — if it's growing, <code>Recipe_BOM</code> has drifted from the menu.</p>
+<p><strong>The other gotcha:</strong> <code>initializeSheet</code> will <em>not</em> reseed a non-empty <code>Recipe_BOM</code> or <code>Case_Conversions</code>. New recipe data only lands via <code>resetRecipeBom()</code> / <code>resetCaseConversions()</code>, which overwrite the whole tab. That's a deliberate trade — it protects hand-edits from a routine setup re-run, at the cost of making recipe updates an explicit, destructive step.</p>
+<h3>Hand-off and driver</h3>
+<ul>
+<li><strong>Hand-off</strong> is just column 25 plus a contacts tab. Setting it removes the order from that store's supplies totals immediately — that's the entire mechanism, and it's why the totals can be trusted the morning of.</li>
+<li><strong>The hand-off email is a draft, never auto-sent.</strong> <code>buildHandoffEmailDraft</code> fills a Settings template and hands subject/body back to the same preview modal the quote email uses; a human edits and sends. Outbound mail to another operator is exactly the kind of thing that shouldn't fire on a checkbox. It sends plain (no quote PDF attached).</li>
+<li><strong>The distance nudge</strong> reuses the geocoding already built for delivery-route suggestions: <code>geocodeAddress_</code> (cached in <code>Geocode_Cache</code>) + <code>haversineMiles_</code>. It's straight-line distance, not driving distance — a hint, not a routing engine — and it never blocks a save.</li>
+<li><strong>The driver goes into the calendar title</strong>, and <em>how</em> matters. Titles are <code>&lt;prefix&gt; — &lt;customer&gt; — &lt;date&gt;</code>, and <code>updateCalendarEventPO</code> recovers the customer and date by splitting on that <code>—</code>. So the driver is embedded <strong>inside the customer segment</strong> as <code>Smith Elementary-"Marcus"</code>, not as a fourth segment — the split still yields three parts and the driver rides along untouched when the PO changes. If you ever extend the title again, do the same thing: enrich a segment, don't add a delimiter.</li>
+<li>A normal quote edit rebuilds the title from form data, which has no driver on it — so <code>updateCalendarEvent</code> re-reads the existing title and carries the driver forward. Without that, editing an order would silently drop the driver.</li>
+</ul>
+<h3>Gotchas and hard-won lessons</h3>
+<ul>
+<li><strong><code>google.script.run</code> nulls any return value that contains a Date object.</strong> It once nulled the whole settings payload and hung the app on "Loading…". Every server function that returns sheet values keeps dates as <code>yyyy-MM-dd</code> <strong>strings</strong> — if you add one, do the same.</li>
+<li><strong>Sheets auto-converts date-like strings into date cells.</strong> Writing a date-shaped setting uses <code>setNumberFormat('@')</code> (the <code>asText</code> flag on <code>updateSetting</code>) to stop that.</li>
+<li><strong>The <code>index.html</code> trap.</strong> The repo's <code>index.html</code> is the GitHub Pages landing page, NOT the app. <code>App.html</code> is what goes in the Apps Script <code>App</code> file — paste the landing page there and the web app "takes you to GitHub."</li>
+<li><strong>The link serves the last <em>published</em> version</strong>, not your latest paste — always publish a new version.</li>
+<li><strong>Config lives in the Sheet, on purpose</strong>, so a non-technical person can run this forever without touching code.</li>
+<li><strong>Adding a Quotes column is a four-touch change</strong>, and skipping one is the usual bug: widen the read cap in <code>getQuotes</code>, map the new index with a blank-safe default, add it to <em>both</em> the fresh-header list and the migration map in <code>initializeSheet</code>, and give it its own targeted writer. Don't widen <code>saveQuote</code>'s fixed 23-column write — that's what keeps old rows and new columns from fighting.</li>
+<li><strong>Anything appended to a calendar title has to survive <code>updateCalendarEventPO</code>'s <code>—</code> split.</strong> Enrich an existing segment; never add a delimiter.</li>
+<li><strong>SMS was considered and dropped.</strong> Apps Script has no native SMS, so it would mean a paid third party (Twilio) or unreliable carrier email gateways. Every notification here is email on purpose — if someone asks "can it text me", that's the answer and the reason.</li>
+</ul>
+<h3>Deploy model</h3>
+<p>No auto-sync. Three files: <code>Code.gs</code> → <code>Code.gs</code>; <code>App.html</code> → the Apps Script file named <strong><code>App</code></strong>; <code>TaxForm.html</code> → <strong><code>TaxForm</code></strong>. Run <code>initializeSheet()</code> once, then <strong>Deploy → Manage deployments → Edit → New version</strong>, access <strong>Anyone</strong>. The <code>?view=</code> tag routes the one URL: <code>app</code> = team, <code>taxform</code> = guest, bare = landing.</p>
+<p><strong>What <code>initializeSheet</code> does and doesn't do</strong> — worth being precise, because "just re-run setup" is the standard fix for a lot of things:</p>
+<p><em>It is genuinely idempotent.</em> It creates any missing tab, adds Settings keys that don't exist yet (never overwriting ones that do), adds missing <code>Quotes</code> column headers in place, and leaves every row of data alone. Re-run it as often as you like.</p>
+<p><em>It does not:</em>
+- <strong>install any triggers</strong> — every automation is its own <code>setup…Trigger()</code> call
+- <strong>reseed a non-empty <code>Recipe_BOM</code> / <code>Case_Conversions</code></strong> — that's <code>resetRecipeBom()</code> / <code>resetCaseConversions()</code>, which overwrite
+- <strong>fill <code>Drivers</code> or <code>Partner Store</code></strong> — it creates them empty for you to fill
+- <strong>redeploy anything</strong> — the <code>/exec</code> URL still serves the last published version</p>
+    </article>
+    <footer><a href="../index.html">Chick-fil-A Restaurant Tools</a></footer>
+  </div>
+</body>
+</html>

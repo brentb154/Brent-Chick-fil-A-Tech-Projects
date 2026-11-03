@@ -1,47 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chick-fil-A Restaurant Tools</title>
-  <style>
-    :root { --bg: #F9FAFB; --card: #FFFFFF; --text: #111827; --muted: #6B7280; --line: #E5E7EB; --red: #E51636; }
-    @media (prefers-color-scheme: dark) {
-      :root { --bg: #111318; --card: #1B1E25; --text: #F3F4F6; --muted: #9CA3AF; --line: #2D313A; --red: #F2475F; }
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', Arial, sans-serif; line-height: 1.55; }
-    main { max-width: 760px; margin: 0 auto; padding: 48px 16px 64px; }
-    h1 { font-size: 30px; margin: 0 0 8px; }
-    .lead { color: var(--muted); font-size: 17px; margin: 0 0 32px; }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; margin-bottom: 16px; }
-    .card h2 { font-size: 20px; margin: 0 0 6px; }
-    .card p { margin: 0 0 16px; color: var(--muted); }
-    .btns { display: flex; flex-wrap: wrap; gap: 10px; }
-    .btn { display: inline-block; padding: 10px 16px; border-radius: 9px; font-weight: 600; text-decoration: none; font-size: 15px; }
-    .primary { background: var(--red); color: #fff; }
-    .secondary { border: 1px solid var(--line); color: var(--text); }
-    ol { padding-left: 20px; color: var(--muted); }
-    footer { color: var(--muted); font-size: 13px; margin-top: 40px; }
-    a { color: var(--red); }
-  </style>
+  <link rel="stylesheet" href="assets/site.css">
 </head>
 <body>
-  <main>
-    <h1>Chick-fil-A Restaurant Tools</h1>
-    <p class="lead">Free tools built on Google Sheets. Each one starts as a blank copy in your own Google account, so your data stays yours, and there's no code to touch.</p>
+  <div class="container">
+    <header>
+      <h1 class="site-title">Chick-fil-A Restaurant Tools</h1>
+      <p class="subtitle">Free tools for Chick-fil-A operations, built on Google Sheets.<br>Each one starts as a blank copy in your own Google account. No code to touch.</p>
+    </header>
 
-    <div class="card">
-      <h2>🍽️ Catering Quote Tool</h2>
-      <p>Build, email and print catering quotes in a couple of minutes. Tracks POs, tax-exempt certificates, delivery days and follow-ups, for one store or two.</p>
-      <div class="btns">
-        <a class="btn primary" href="https://github.com/brentb154/Brent-Chick-fil-A-Tech-Projects/blob/main/catering-quote-tool/SETUP_GUIDE.md">Setup guide</a>
-        <a class="btn secondary" href="https://github.com/brentb154/Brent-Chick-fil-A-Tech-Projects/tree/main/catering-quote-tool">What it does</a>
+    <div class="projects-grid">
+      <!-- Catering Quote Tool -->
+      <div class="project-card catering">
+        <div class="project-icon">🍽️</div>
+        <h3 class="project-title">Catering Quote Tool</h3>
+        <p class="project-description">
+          Build, email and print catering quotes in a couple of minutes. Tracks POs, tax-exempt certificates, delivery days and follow-ups, for one store or two.
+        </p>
+        <div>
+          <span class="tag">Google Apps Script</span>
+          <span class="tag">Sheets Integration</span>
+          <span class="tag">Setup Wizard</span>
+        </div>
+        <div class="project-links">
+          <a href="catering-quote-tool/setup-guide.html" class="project-link primary">Setup Guide</a>
+          <a href="demos/catering-quote.html" class="project-link">Try the Demo</a>
+          <a href="catering-quote-tool/" class="project-link">What It Does</a>
+        </div>
       </div>
     </div>
 
-    <div class="card">
-      <h2>How every tool works</h2>
+    <div class="standalone-tools">
+      <h2 class="section-title">Try a live demo</h2>
+      <div class="tool-list">
+        <a href="demos/catering-quote.html" class="tool-item">
+          <div class="tool-icon">🍽️</div>
+          <div class="tool-info"><h4>Catering Quote Tool</h4><p>Build a sample quote, no sign-in</p></div>
+        </a>
+        <a href="demos/schedule-counter.html" class="tool-item">
+          <div class="tool-icon">📊</div>
+          <div class="tool-info"><h4>Schedule Counter</h4><p>Staffing by the hour vs. your sales curve</p></div>
+        </a>
+        <a href="demos/payroll-system.html" class="tool-item">
+          <div class="tool-icon">💰</div>
+          <div class="tool-info"><h4>Payroll Management</h4><p>PTO, overtime and uniforms, with sample data</p></div>
+        </a>
+      </div>
+    </div>
+
+    <div class="standalone-tools how-it-works">
+      <h2 class="section-title">How every tool works</h2>
       <ol>
         <li><b>Make a copy</b> from the link in the setup guide: a blank sheet with the tool attached.</li>
         <li><b>Run the setup</b> from the menu in the sheet. It asks for your store's details once.</li>
@@ -49,7 +61,13 @@
       </ol>
     </div>
 
-    <footer>More tools are added once their setup has been tested from scratch. Questions? <a href="https://github.com/brentb154/Brent-Chick-fil-A-Tech-Projects/issues">Open an issue</a>.</footer>
-  </main>
+    <footer>
+      <p>More tools are added once their setup has been tested from scratch.</p>
+      <p style="margin-top: 0.5rem;">
+        <a href="https://github.com/brentb154/Brent-Chick-fil-A-Tech-Projects">View on GitHub</a> ·
+        <a href="https://github.com/brentb154/Brent-Chick-fil-A-Tech-Projects/issues">Questions or problems</a>
+      </p>
+    </footer>
+  </div>
 </body>
 </html>
